@@ -8,22 +8,26 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import type { Address } from "viem";
 import { parseEther } from "viem";
-import type { ShieldedPublicClient } from "seismic-viem";
 
 import {
-  getAnvilAccounts,
   getDeployerAccount,
   getPlayerAccounts,
   createWallet,
   createPublicClientInstance,
+  createMMPublicClient,
+  createMMUserClient,
+  createMMOwnerClient,
   deployContractViaSforge,
   deployContractDirect,
   randomBracket,
   chalkyBracket,
   increaseTime,
-  getAbi,
+  MarchMadnessAbi,
   isSanvilRunning,
   ENTRY_FEE,
+  MarchMadnessPublicClient,
+  MarchMadnessUserClient,
+  MarchMadnessOwnerClient,
   type AnvilAccount,
   type DeployResult,
   type WalletClient,
@@ -34,11 +38,14 @@ import {
 let deployer: AnvilAccount;
 let players: AnvilAccount[];
 let deploy: DeployResult;
-let abi: any;
-let publicClient: ShieldedPublicClient;
-let ownerWallet: WalletClient;
-let playerWallets: WalletClient[];
+let mmPublic: MarchMadnessPublicClient;
+let ownerClient: MarchMadnessOwnerClient;
+let playerClients: MarchMadnessUserClient[];
 let contractAddress: Address;
+
+// Raw wallet clients kept for edge-case tests (wrong fee, raw treadContract, etc.)
+let playerWallets: WalletClient[];
+let publicClient: ReturnType<typeof createPublicClientInstance>;
 
 // ── Setup ─────────────────────────────────────────────────────────────
 
@@ -52,7 +59,6 @@ beforeAll(async () => {
 
   deployer = getDeployerAccount();
   players = getPlayerAccounts().slice(0, 5); // use 5 players
-  abi = getAbi();
   publicClient = createPublicClientInstance();
 
   // Deploy contract with 1 hour deadline offset
@@ -64,8 +70,14 @@ beforeAll(async () => {
   }
   contractAddress = deploy.contractAddress;
 
-  // Create wallet clients: owner + 5 players
-  ownerWallet = await createWallet(deployer.privateKey);
+  // Create typed client instances
+  mmPublic = createMMPublicClient(contractAddress);
+  ownerClient = await createMMOwnerClient(contractAddress, deployer.privateKey);
+  playerClients = await Promise.all(
+    players.map((p) => createMMUserClient(contractAddress, p.privateKey)),
+  );
+
+  // Raw wallet clients for edge-case tests that need low-level access
   playerWallets = await Promise.all(
     players.map((p) => createWallet(p.privateKey)),
   );
@@ -76,53 +88,28 @@ beforeAll(async () => {
 describe("MarchMadness Integration", () => {
   describe("Contract Deployment", () => {
     test("contract is deployed with correct parameters", async () => {
-      const entryFee = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "entryFee",
-      });
+      const entryFee = await mmPublic.getEntryFee();
       expect(entryFee).toBe(ENTRY_FEE);
 
-      const deadline = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "submissionDeadline",
-      });
+      const deadline = await mmPublic.getSubmissionDeadline();
       expect(deadline).toBe(deploy.deadline);
 
-      const owner = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "owner",
-      });
-      expect((owner as string).toLowerCase()).toBe(
-        deploy.ownerAddress.toLowerCase(),
-      );
+      const owner = await mmPublic.getOwner();
+      expect(owner.toLowerCase()).toBe(deploy.ownerAddress.toLowerCase());
     });
 
     test("entry count starts at 0", async () => {
-      const count = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getEntryCount",
-      });
+      const count = await mmPublic.getEntryCount();
       expect(count).toBe(0);
     });
   });
 
   describe("Bracket Submission", () => {
     test("multiple players submit brackets concurrently", async () => {
-      const submitPromises = playerWallets.slice(0, 3).map(
-        async (wallet, i) => {
-          const bracket =
-            i === 2 ? chalkyBracket() : randomBracket();
-          const hash = await wallet.writeContract({
-            address: contractAddress,
-            abi,
-            functionName: "submitBracket",
-            args: [bracket],
-            value: ENTRY_FEE,
-          });
+      const submitPromises = playerClients.slice(0, 3).map(
+        async (client, i) => {
+          const bracket = i === 2 ? chalkyBracket() : randomBracket();
+          const hash = await client.submitBracket(bracket);
           const receipt =
             await publicClient.waitForTransactionReceipt({ hash });
           return { index: i, bracket, receipt };
@@ -136,20 +123,17 @@ describe("MarchMadness Integration", () => {
     });
 
     test("entry count reflects submissions", async () => {
-      const count = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getEntryCount",
-      });
+      const count = await mmPublic.getEntryCount();
       expect(count).toBe(3);
     });
 
     test("rejects submission without correct entry fee", async () => {
+      // Use raw wallet client to send wrong fee (client library always sends correct fee)
       const bracket = randomBracket();
       await expect(
         playerWallets[3].writeContract({
           address: contractAddress,
-          abi,
+          abi: MarchMadnessAbi,
           functionName: "submitBracket",
           args: [bracket],
           value: parseEther("0.5"),
@@ -160,48 +144,24 @@ describe("MarchMadness Integration", () => {
     test("rejects double submission from same address", async () => {
       const bracket = randomBracket();
       await expect(
-        playerWallets[0].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "submitBracket",
-          args: [bracket],
-          value: ENTRY_FEE,
-        }),
+        playerClients[0].submitBracket(bracket),
       ).rejects.toThrow();
     });
   });
 
   describe("Tags", () => {
     test("player sets a tag", async () => {
-      const hash = await playerWallets[0].writeContract({
-        address: contractAddress,
-        abi,
-        functionName: "setTag",
-        args: ["Duke4Lyfe"],
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
+      const hash = await playerClients[0].setTag("Duke4Lyfe");
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
       expect(receipt.status).toBe("success");
 
-      const tag = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getTag",
-        args: [players[0].address],
-      });
+      const tag = await mmPublic.getTag(players[0].address);
       expect(tag).toBe("Duke4Lyfe");
     });
 
     test("player without bracket cannot set tag", async () => {
       await expect(
-        playerWallets[3].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "setTag",
-          args: ["NooBracket"],
-        }),
+        playerClients[3].setTag("NooBracket"),
       ).rejects.toThrow();
     });
   });
@@ -209,54 +169,36 @@ describe("MarchMadness Integration", () => {
   describe("Bracket Updates", () => {
     test("player updates their bracket", async () => {
       const newBracket = randomBracket();
-
-      const hash = await playerWallets[0].writeContract({
-        address: contractAddress,
-        abi,
-        functionName: "updateBracket",
-        args: [newBracket],
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
+      const hash = await playerClients[0].updateBracket(newBracket);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
       expect(receipt.status).toBe("success");
     });
 
     test("player without bracket cannot update", async () => {
       const bracket = randomBracket();
       await expect(
-        playerWallets[3].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "updateBracket",
-          args: [bracket],
-        }),
+        playerClients[3].updateBracket(bracket),
       ).rejects.toThrow();
     });
   });
 
   describe("Reading Brackets (Before Deadline)", () => {
     test("player can read own bracket via signed read", async () => {
-      const bracket = await playerWallets[0].readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getBracket",
-        args: [players[0].address],
-      });
+      // getMyBracket uses signed read before deadline
+      const bracket = await playerClients[0].getMyBracket();
 
       // Should return a non-zero bytes8 value with sentinel set
       expect(bracket).toBeTruthy();
-      const bracketHex = bracket as `0x${string}`;
-      const firstByte = parseInt(bracketHex.slice(2, 4), 16);
+      const firstByte = parseInt(bracket.slice(2, 4), 16);
       expect(firstByte & 0x80).toBe(0x80);
     });
 
     test("another player cannot read someone else's bracket before deadline", async () => {
+      // Use raw wallet client for cross-user signed read (client library's getMyBracket only reads own bracket)
       await expect(
         playerWallets[1].readContract({
           address: contractAddress,
-          abi,
+          abi: MarchMadnessAbi,
           functionName: "getBracket",
           args: [players[0].address],
         }),
@@ -276,40 +218,23 @@ describe("MarchMadness Integration", () => {
     test("cannot submit bracket after deadline", async () => {
       const bracket = randomBracket();
       await expect(
-        playerWallets[3].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "submitBracket",
-          args: [bracket],
-          value: ENTRY_FEE,
-        }),
+        playerClients[3].submitBracket(bracket),
       ).rejects.toThrow();
     });
 
     test("cannot update bracket after deadline", async () => {
       const bracket = randomBracket();
       await expect(
-        playerWallets[0].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "updateBracket",
-          args: [bracket],
-        }),
+        playerClients[0].updateBracket(bracket),
       ).rejects.toThrow();
     });
 
-    test("anyone can read brackets after deadline via treadContract", async () => {
-      // Player 4 (who never submitted) reads player 1's bracket
-      const bracket = await playerWallets[3].treadContract({
-        address: contractAddress,
-        abi,
-        functionName: "getBracket",
-        args: [players[0].address],
-      });
+    test("anyone can read brackets after deadline via transparent read", async () => {
+      // After deadline, public client can read any bracket
+      const bracket = await mmPublic.getBracket(players[0].address);
 
       expect(bracket).toBeTruthy();
-      const bracketHex = bracket as `0x${string}`;
-      const firstByte = parseInt(bracketHex.slice(2, 4), 16);
+      const firstByte = parseInt(bracket.slice(2, 4), 16);
       expect(firstByte & 0x80).toBe(0x80);
     });
   });
@@ -319,10 +244,11 @@ describe("MarchMadness Integration", () => {
     const resultsHex = chalkyBracket();
 
     test("non-owner cannot submit results", async () => {
+      // Use raw wallet client to test non-owner submitting results
       await expect(
         playerWallets[0].writeContract({
           address: contractAddress,
-          abi,
+          abi: MarchMadnessAbi,
           functionName: "submitResults",
           args: [resultsHex],
         }),
@@ -330,81 +256,44 @@ describe("MarchMadness Integration", () => {
     });
 
     test("owner submits results", async () => {
-      const hash = await ownerWallet.writeContract({
-        address: contractAddress,
-        abi,
-        functionName: "submitResults",
-        args: [resultsHex],
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
+      const hash = await ownerClient.submitResults(resultsHex);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
       expect(receipt.status).toBe("success");
 
-      const results = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "results",
-      });
+      const results = await mmPublic.getResults();
       expect(results).toBe(resultsHex);
     });
 
     test("cannot submit results twice", async () => {
       await expect(
-        ownerWallet.writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "submitResults",
-          args: [resultsHex],
-        }),
+        ownerClient.submitResults(resultsHex),
       ).rejects.toThrow();
     });
 
     test("score all submitted brackets", async () => {
-      // Score players 0, 1, 2
+      // Score players 0, 1, 2 using the owner client's scoreBracket
       for (let i = 0; i < 3; i++) {
-        const hash = await ownerWallet.twriteContract({
-          address: contractAddress,
-          abi,
-          functionName: "scoreBracket",
-          args: [players[i].address],
-        });
-
+        const hash = await ownerClient.scoreBracket(players[i].address);
         const receipt =
           await publicClient.waitForTransactionReceipt({ hash });
         expect(receipt.status).toBe("success");
 
-        const isScored = await publicClient.readContract({
-          address: contractAddress,
-          abi,
-          functionName: "getIsScored",
-          args: [players[i].address],
-        });
+        const isScored = await mmPublic.getIsScored(players[i].address);
         expect(isScored).toBe(true);
       }
 
+      // numScored is not exposed by the client classes, use raw ABI read
       const numScored = await publicClient.readContract({
         address: contractAddress,
-        abi,
+        abi: MarchMadnessAbi,
         functionName: "numScored",
       });
       expect(numScored).toBe(3n);
     });
 
     test("player 3 (chalky bracket) has the highest score of 192", async () => {
-      const score = (await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getScore",
-        args: [players[2].address],
-      })) as number;
-
-      const winningScore = (await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "winningScore",
-      })) as number;
+      const score = await mmPublic.getScore(players[2].address);
+      const winningScore = await mmPublic.getWinningScore();
 
       // Player 3 submitted chalkyBracket which matches results exactly -> 192
       expect(score).toBe(192);
@@ -413,12 +302,7 @@ describe("MarchMadness Integration", () => {
 
     test("cannot score same bracket twice", async () => {
       await expect(
-        ownerWallet.twriteContract({
-          address: contractAddress,
-          abi,
-          functionName: "scoreBracket",
-          args: [players[0].address],
-        }),
+        ownerClient.scoreBracket(players[0].address),
       ).rejects.toThrow();
     });
   });
@@ -426,11 +310,7 @@ describe("MarchMadness Integration", () => {
   describe("Payout", () => {
     test("cannot collect winnings during scoring window", async () => {
       await expect(
-        playerWallets[2].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "collectWinnings",
-        }),
+        playerClients[2].collectWinnings(),
       ).rejects.toThrow();
     });
 
@@ -443,15 +323,8 @@ describe("MarchMadness Integration", () => {
         address: players[2].address,
       });
 
-      const hash = await playerWallets[2].writeContract({
-        address: contractAddress,
-        abi,
-        functionName: "collectWinnings",
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
+      const hash = await playerClients[2].collectWinnings();
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
       expect(receipt.status).toBe("success");
 
       const balanceAfter = await publicClient.getBalance({
@@ -464,21 +337,13 @@ describe("MarchMadness Integration", () => {
 
     test("winner cannot collect twice", async () => {
       await expect(
-        playerWallets[2].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "collectWinnings",
-        }),
+        playerClients[2].collectWinnings(),
       ).rejects.toThrow();
     });
 
     test("non-winner cannot collect", async () => {
       await expect(
-        playerWallets[0].writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "collectWinnings",
-        }),
+        playerClients[0].collectWinnings(),
       ).rejects.toThrow();
     });
   });

@@ -10,7 +10,6 @@ import {
   type Address,
   type Hex,
   type Abi,
-  parseEther,
   http,
   createPublicClient,
 } from "viem";
@@ -21,7 +20,14 @@ import {
   sanvil,
 } from "seismic-viem";
 import type { ShieldedPublicClient } from "seismic-viem";
-import { encodeBracket } from "@march-madness/client";
+import {
+  encodeBracket,
+  MarchMadnessAbi,
+  MarchMadnessPublicClient,
+  MarchMadnessUserClient,
+  MarchMadnessOwnerClient,
+  ENTRY_FEE,
+} from "@march-madness/client";
 
 // We use `any` for wallet client type to avoid chain-narrowing issues with viem generics.
 // At runtime, the client is always created with `chain: sanvil`.
@@ -34,31 +40,23 @@ const PROJECT_ROOT = resolve(import.meta.dir, "../../..");
 const CONTRACTS_DIR = resolve(PROJECT_ROOT, "contracts");
 const DATA_DIR = resolve(PROJECT_ROOT, "data");
 
-// ── Contract ABI ──────────────────────────────────────────────────────
+// ── Contract ABI & Bytecode ───────────────────────────────────────────
+// ABI comes from the client library; bytecode from sforge build output (only needed for deploy).
 
-function loadContractArtifact(): { abi: Abi; bytecode: Hex } {
-  const artifactPath = resolve(
-    CONTRACTS_DIR,
-    "out/MarchMadness.sol/MarchMadness.json",
-  );
-  const artifact = JSON.parse(readFileSync(artifactPath, "utf-8"));
-  return {
-    abi: artifact.abi as Abi,
-    bytecode: artifact.bytecode.object as Hex,
-  };
-}
+export { MarchMadnessAbi };
 
-let _artifact: { abi: Abi; bytecode: Hex } | null = null;
+let _bytecode: Hex | null = null;
 
-export function getContractArtifact(): { abi: Abi; bytecode: Hex } {
-  if (!_artifact) {
-    _artifact = loadContractArtifact();
+export function getDeployBytecode(): Hex {
+  if (!_bytecode) {
+    const artifactPath = resolve(
+      CONTRACTS_DIR,
+      "out/MarchMadness.sol/MarchMadness.json",
+    );
+    const artifact = JSON.parse(readFileSync(artifactPath, "utf-8"));
+    _bytecode = artifact.bytecode.object as Hex;
   }
-  return _artifact;
-}
-
-export function getAbi(): Abi {
-  return getContractArtifact().abi;
+  return _bytecode;
 }
 
 // ── Anvil Accounts (from data/anvil-accounts.json) ────────────────────
@@ -213,15 +211,10 @@ export async function deployContractViaSforge(
 
   const contractAddress = addressMatch[1] as Address;
 
-  // Read the deadline from the contract
+  // Read the deadline from the contract using the client library
   const publicClient = createPublicClientInstance();
-  const abi = getAbi();
-
-  const deadline = (await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "submissionDeadline",
-  })) as bigint;
+  const mmPublic = new MarchMadnessPublicClient(publicClient, contractAddress);
+  const deadline = await mmPublic.getSubmissionDeadline();
 
   return {
     contractAddress,
@@ -244,13 +237,13 @@ export async function deployContractDirect(
   const block = await publicClient.getBlock();
   const deadline = block.timestamp + BigInt(deadlineOffset);
 
-  const { abi, bytecode } = getContractArtifact();
+  const bytecode = getDeployBytecode();
   const { encodeDeployData } = await import("viem");
 
   const deployData = encodeDeployData({
-    abi,
+    abi: MarchMadnessAbi,
     bytecode,
-    args: [parseEther("1"), deadline],
+    args: [ENTRY_FEE, deadline],
   });
 
   const hash = await walletClient.sendTransaction({
@@ -295,9 +288,9 @@ export async function increaseTime(seconds: number): Promise<void> {
   });
 }
 
-// ── Constants ─────────────────────────────────────────────────────────
+// ── Re-export client constants ────────────────────────────────────────
 
-export const ENTRY_FEE = parseEther("1");
+export { ENTRY_FEE };
 
 // ── Connection Check ──────────────────────────────────────────────────
 
@@ -312,6 +305,44 @@ export async function isSanvilRunning(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ── Client Class Factories ────────────────────────────────────────────
+
+export { MarchMadnessPublicClient, MarchMadnessUserClient, MarchMadnessOwnerClient };
+
+/**
+ * Create a MarchMadnessPublicClient (read-only, no wallet needed).
+ */
+export function createMMPublicClient(
+  contractAddress: Address,
+): MarchMadnessPublicClient {
+  const publicClient = createPublicClientInstance();
+  return new MarchMadnessPublicClient(publicClient, contractAddress);
+}
+
+/**
+ * Create a MarchMadnessUserClient (read + shielded writes).
+ */
+export async function createMMUserClient(
+  contractAddress: Address,
+  privateKey: Hex,
+): Promise<MarchMadnessUserClient> {
+  const publicClient = createPublicClientInstance();
+  const walletClient = await createWallet(privateKey);
+  return new MarchMadnessUserClient(publicClient, walletClient, contractAddress);
+}
+
+/**
+ * Create a MarchMadnessOwnerClient (read + shielded writes + owner functions).
+ */
+export async function createMMOwnerClient(
+  contractAddress: Address,
+  privateKey: Hex,
+): Promise<MarchMadnessOwnerClient> {
+  const publicClient = createPublicClientInstance();
+  const walletClient = await createWallet(privateKey);
+  return new MarchMadnessOwnerClient(publicClient, walletClient, contractAddress);
 }
 
 // ── Fun Tag Names ─────────────────────────────────────────────────────

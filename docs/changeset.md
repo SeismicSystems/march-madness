@@ -16,6 +16,7 @@ All notable changes to this project. Every PR must add an entry here.
 - Added `contracts/.env.example` — deployer key format for sforge script
 - Added `tsconfig.json` to tests package, added typecheck/lint/build scripts to `package.json`
 - Updated `packages/mise.toml` to include tests package in typecheck, lint, and build tasks
+- Refactored to use `@march-madness/client` library: ABI from `MarchMadnessAbi`, client classes (`MarchMadnessPublicClient`, `MarchMadnessUserClient`, `MarchMadnessOwnerClient`), and `ENTRY_FEE` constant instead of duplicating logic
 
 ### 2026-03-14 — PR #5 Review Fixes
 - provider.rs: Support both SeismicReth (prod) and SeismicFoundry (sanvil) via `IndexerProvider` enum and `--network` CLI flag

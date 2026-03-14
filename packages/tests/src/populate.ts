@@ -22,18 +22,22 @@ import {
   isSanvilRunning,
   getPlayerAccounts,
   getDeployerAccount,
-  createWallet,
   createPublicClientInstance,
+  createMMPublicClient,
+  createMMUserClient,
+  createMMOwnerClient,
   deployContractViaSforge,
   deployContractDirect,
   randomBracket,
   chalkyBracket,
-  getAbi,
   increaseTime,
+  MarchMadnessAbi,
   ENTRY_FEE,
   TAG_NAMES,
+  MarchMadnessPublicClient,
+  MarchMadnessUserClient,
+  MarchMadnessOwnerClient,
   type DeployResult,
-  type WalletClient,
 } from "./utils.js";
 
 // ── CLI Arg Parsing ───────────────────────────────────────────────────
@@ -105,32 +109,20 @@ function printStatus(label: string, value: string | number | bigint | boolean) {
   console.log(`  ${label.padEnd(24)} ${value}`);
 }
 
-async function printContractState(contractAddress: Address, abi: any) {
+async function printContractState(mmPublic: MarchMadnessPublicClient, contractAddress: Address) {
   const publicClient = createPublicClientInstance();
 
-  const entryCount = await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "getEntryCount",
-  });
-  const deadline = await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "submissionDeadline",
-  });
-  const results = await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "results",
-  });
+  const entryCount = await mmPublic.getEntryCount();
+  const deadline = await mmPublic.getSubmissionDeadline();
+  const results = await mmPublic.getResults();
+  // numScored not exposed by client classes, use raw ABI read
   const numScored = await publicClient.readContract({
     address: contractAddress,
-    abi,
+    abi: MarchMadnessAbi,
     functionName: "numScored",
   });
   const block = await publicClient.getBlock();
-  const deadlineBigInt = deadline as bigint;
-  const deadlinePassed = block.timestamp > deadlineBigInt;
+  const deadlinePassed = block.timestamp > deadline;
 
   console.log("\n--- Contract State ---");
   printStatus("Contract", contractAddress);
@@ -151,13 +143,8 @@ async function printContractState(contractAddress: Address, abi: any) {
 async function deploy(deadlineOffset: number): Promise<DeployResult> {
   if (EXISTING_CONTRACT) {
     const deployer = getDeployerAccount();
-    const publicClient = createPublicClientInstance();
-    const abi = getAbi();
-    const deadline = (await publicClient.readContract({
-      address: EXISTING_CONTRACT,
-      abi,
-      functionName: "submissionDeadline",
-    })) as bigint;
+    const mmPublic = createMMPublicClient(EXISTING_CONTRACT);
+    const deadline = await mmPublic.getSubmissionDeadline();
     console.log(`Using existing contract: ${EXISTING_CONTRACT}`);
     return {
       contractAddress: EXISTING_CONTRACT,
@@ -194,9 +181,9 @@ async function phasePreSubmission() {
 
   const deadlineOffset = parseInt(process.env.DEADLINE_OFFSET || "3600", 10);
   const { contractAddress } = await deploy(deadlineOffset);
-  const abi = getAbi();
+  const mmPublic = createMMPublicClient(contractAddress);
 
-  await printContractState(contractAddress, abi);
+  await printContractState(mmPublic, contractAddress);
   console.log("Ready for manual bracket submission via the frontend.");
 }
 
@@ -205,37 +192,31 @@ async function phasePostSubmission() {
   console.log("Deploying contract, submitting brackets, fast-forwarding past deadline, posting results.\n");
 
   // Deploy with a short deadline (60s) so we can fast-forward past it
-  const { contractAddress, ownerAddress } = await deploy(60);
-  const abi = getAbi();
+  const { contractAddress } = await deploy(60);
+  const mmPublic = createMMPublicClient(contractAddress);
   const publicClient = createPublicClientInstance();
   const players = getPlayerAccounts();
   const deployer = getDeployerAccount();
 
-  // Create wallet clients concurrently
-  console.log(`\nCreating wallet clients for ${players.length} players...`);
-  const walletClients = await Promise.all(
-    players.map((p) => createWallet(p.privateKey)),
-  );
-  const ownerWallet = await createWallet(deployer.privateKey);
+  // Create client instances concurrently
+  console.log(`\nCreating client instances for ${players.length} players...`);
+  const [ownerClient, ...playerClients] = await Promise.all([
+    createMMOwnerClient(contractAddress, deployer.privateKey),
+    ...players.map((p) => createMMUserClient(contractAddress, p.privateKey)),
+  ]);
 
   // Submit brackets concurrently -- player index 2 (player-3) gets the chalky bracket
   console.log("Submitting brackets concurrently...");
   const brackets: Map<Address, `0x${string}`> = new Map();
 
   const submitResults = await Promise.all(
-    walletClients.map(async (wallet: WalletClient, i: number) => {
+    playerClients.map(async (client: MarchMadnessUserClient, i: number) => {
       const player = players[i];
       const bracket = i === 2 ? chalkyBracket() : randomBracket();
       brackets.set(player.address, bracket);
 
       try {
-        const hash = await wallet.writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "submitBracket",
-          args: [bracket],
-          value: ENTRY_FEE,
-        });
+        const hash = await client.submitBracket(bracket);
         await publicClient.waitForTransactionReceipt({ hash });
         return { label: player.label, address: player.address, bracket, ok: true, error: "" };
       } catch (err: any) {
@@ -252,16 +233,11 @@ async function phasePostSubmission() {
   // Set tags on first 6 players
   console.log("\nSetting tags...");
   await Promise.all(
-    walletClients.slice(0, Math.min(6, walletClients.length)).map(
-      async (wallet: WalletClient, i: number) => {
+    playerClients.slice(0, Math.min(6, playerClients.length)).map(
+      async (client: MarchMadnessUserClient, i: number) => {
         const tag = TAG_NAMES[i] || `Player${i + 1}`;
         try {
-          const hash = await wallet.writeContract({
-            address: contractAddress,
-            abi,
-            functionName: "setTag",
-            args: [tag],
-          });
+          const hash = await client.setTag(tag);
           await publicClient.waitForTransactionReceipt({ hash });
           console.log(`  ${players[i].label.padEnd(12)} => "${tag}" [OK]`);
         } catch {
@@ -271,19 +247,14 @@ async function phasePostSubmission() {
     ),
   );
 
-  // Update brackets for players 0 and 2
+  // Update brackets for players 0 and 3
   console.log("\nUpdating some brackets...");
   for (const idx of [0, 3]) {
-    if (idx >= walletClients.length) continue;
+    if (idx >= playerClients.length) continue;
     const newBracket = randomBracket();
     brackets.set(players[idx].address, newBracket);
     try {
-      const hash = await walletClients[idx].writeContract({
-        address: contractAddress,
-        abi,
-        functionName: "updateBracket",
-        args: [newBracket],
-      });
+      const hash = await playerClients[idx].updateBracket(newBracket);
       await publicClient.waitForTransactionReceipt({ hash });
       console.log(`  ${players[idx].label.padEnd(12)} => ${newBracket} [OK]`);
     } catch {
@@ -298,12 +269,7 @@ async function phasePostSubmission() {
   // Submit tournament results (chalky bracket = all higher seeds win)
   console.log("Submitting tournament results (chalky bracket)...");
   const resultsHex = chalkyBracket();
-  const hash = await ownerWallet.writeContract({
-    address: contractAddress,
-    abi,
-    functionName: "submitResults",
-    args: [resultsHex],
-  });
+  const hash = await ownerClient.submitResults(resultsHex);
   await publicClient.waitForTransactionReceipt({ hash });
   console.log(`  Results: ${resultsHex} [OK]`);
 
@@ -311,26 +277,16 @@ async function phasePostSubmission() {
   console.log("\nScoring first 3 brackets (leaving rest for manual testing)...");
   for (let i = 0; i < Math.min(3, players.length); i++) {
     try {
-      const hash = await ownerWallet.twriteContract({
-        address: contractAddress,
-        abi,
-        functionName: "scoreBracket",
-        args: [players[i].address],
-      });
+      const hash = await ownerClient.scoreBracket(players[i].address);
       await publicClient.waitForTransactionReceipt({ hash });
-      const score = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getScore",
-        args: [players[i].address],
-      });
+      const score = await mmPublic.getScore(players[i].address);
       console.log(`  ${players[i].label.padEnd(12)} score: ${score}`);
     } catch (err: any) {
       console.log(`  ${players[i].label.padEnd(12)} scoring failed: ${err.message}`);
     }
   }
 
-  await printContractState(contractAddress, abi);
+  await printContractState(mmPublic, contractAddress);
   console.log("Remaining brackets are unscored -- test scoring via the UI or CLI.");
 }
 
@@ -340,31 +296,25 @@ async function phasePostGrading() {
 
   // Deploy with short deadline
   const { contractAddress } = await deploy(60);
-  const abi = getAbi();
+  const mmPublic = createMMPublicClient(contractAddress);
   const publicClient = createPublicClientInstance();
   const players = getPlayerAccounts();
   const deployer = getDeployerAccount();
 
-  // Create wallet clients concurrently
-  console.log(`\nCreating wallet clients for ${players.length} players...`);
-  const walletClients = await Promise.all(
-    players.map((p) => createWallet(p.privateKey)),
-  );
-  const ownerWallet = await createWallet(deployer.privateKey);
+  // Create client instances concurrently
+  console.log(`\nCreating client instances for ${players.length} players...`);
+  const [ownerClient, ...playerClients] = await Promise.all([
+    createMMOwnerClient(contractAddress, deployer.privateKey),
+    ...players.map((p) => createMMUserClient(contractAddress, p.privateKey)),
+  ]);
 
   // Submit brackets concurrently
   console.log("Submitting brackets concurrently...");
   await Promise.all(
-    walletClients.map(async (wallet: WalletClient, i: number) => {
+    playerClients.map(async (client: MarchMadnessUserClient, i: number) => {
       const bracket = i === 2 ? chalkyBracket() : randomBracket();
       try {
-        const hash = await wallet.writeContract({
-          address: contractAddress,
-          abi,
-          functionName: "submitBracket",
-          args: [bracket],
-          value: ENTRY_FEE,
-        });
+        const hash = await client.submitBracket(bracket);
         await publicClient.waitForTransactionReceipt({ hash });
         console.log(`  ${players[i].label.padEnd(12)} ${bracket} [OK]`);
       } catch (err: any) {
@@ -376,16 +326,11 @@ async function phasePostGrading() {
   // Set tags
   console.log("\nSetting tags...");
   await Promise.all(
-    walletClients.slice(0, Math.min(6, walletClients.length)).map(
-      async (wallet: WalletClient, i: number) => {
+    playerClients.slice(0, Math.min(6, playerClients.length)).map(
+      async (client: MarchMadnessUserClient, i: number) => {
         const tag = TAG_NAMES[i] || `Player${i + 1}`;
         try {
-          const hash = await wallet.writeContract({
-            address: contractAddress,
-            abi,
-            functionName: "setTag",
-            args: [tag],
-          });
+          const hash = await client.setTag(tag);
           await publicClient.waitForTransactionReceipt({ hash });
         } catch { /* ignore */ }
       },
@@ -399,12 +344,7 @@ async function phasePostGrading() {
   // Submit results
   console.log("Submitting tournament results...");
   const resultsHex = chalkyBracket();
-  let hash = await ownerWallet.writeContract({
-    address: contractAddress,
-    abi,
-    functionName: "submitResults",
-    args: [resultsHex],
-  });
+  let hash = await ownerClient.submitResults(resultsHex);
   await publicClient.waitForTransactionReceipt({ hash });
   console.log(`  Results: ${resultsHex}`);
 
@@ -412,19 +352,9 @@ async function phasePostGrading() {
   console.log("\nScoring all brackets...");
   for (let i = 0; i < players.length; i++) {
     try {
-      hash = await ownerWallet.twriteContract({
-        address: contractAddress,
-        abi,
-        functionName: "scoreBracket",
-        args: [players[i].address],
-      });
+      hash = await ownerClient.scoreBracket(players[i].address);
       await publicClient.waitForTransactionReceipt({ hash });
-      const score = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: "getScore",
-        args: [players[i].address],
-      });
+      const score = await mmPublic.getScore(players[i].address);
       console.log(`  ${players[i].label.padEnd(12)} score: ${score}`);
     } catch (err: any) {
       console.log(`  ${players[i].label.padEnd(12)} [FAIL: ${err.message}]`);
@@ -436,20 +366,12 @@ async function phasePostGrading() {
   await increaseTime(7 * 24 * 60 * 60 + 1);
 
   // Print winner info
-  const winningScore = await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "winningScore",
-  });
-  const numWinners = await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "numWinners",
-  });
+  const winningScore = await mmPublic.getWinningScore();
+  const numWinners = await mmPublic.getNumWinners();
   console.log(`\nWinning score: ${winningScore}`);
   console.log(`Number of winners: ${numWinners}`);
 
-  await printContractState(contractAddress, abi);
+  await printContractState(mmPublic, contractAddress);
   console.log("Winners can now call collectWinnings() via the UI or CLI.");
 }
 
