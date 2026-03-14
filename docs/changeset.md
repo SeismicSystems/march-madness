@@ -21,6 +21,10 @@ All notable changes to this project. Every PR must add an entry here.
 - Moved Cargo workspace from `crates/Cargo.toml` to repo root `Cargo.toml`
 - Updated CI scripts and GitHub workflow to use root workspace
 
+### 2026-03-14 — Max Privy Login Methods (`packages/web`)
+- Expanded loginMethods from [twitter, discord] to all 15 Privy-supported methods: wallet, email, sms, google, twitter, discord, github, linkedin, spotify, instagram, tiktok, apple, farcaster, telegram, passkey
+- Removed disableAllExternalWallets restriction to support MetaMask and other external wallets with wallet login method
+
 ### 2026-03-14 — Web Frontend Refactor: Use Client Library (`packages/web`)
 - Deleted hand-written `src/lib/abi.ts` — ABI now comes from `@march-madness/client`
 - Refactored `useContract` hook to use `MarchMadnessPublicClient` (transparent reads) and `MarchMadnessUserClient` (shielded writes, signed reads) from client library

@@ -18,17 +18,27 @@ export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
       config={{
         supportedChains: CHAINS,
         defaultChain: CHAINS[0],
-        loginMethods: ["twitter", "discord"],
+        loginMethods: [
+          "wallet",
+          "email",
+          "sms",
+          "google",
+          "twitter",
+          "discord",
+          "github",
+          "linkedin",
+          "spotify",
+          "instagram",
+          "tiktok",
+          "apple",
+          "farcaster",
+          "telegram",
+          "passkey",
+        ],
         embeddedWallets: {
           ethereum: {
             createOnLogin: "all-users",
           },
-        },
-        externalWallets: {
-          walletConnect: {
-            enabled: false,
-          },
-          disableAllExternalWallets: true,
         },
         appearance: {
           theme: "dark",
