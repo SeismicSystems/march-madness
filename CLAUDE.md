@@ -79,6 +79,33 @@ Events:
 - Use signed reads (`walletClient.readContract()`) to read own bracket before deadline
 - After deadline, client should use `.treadContract()` since brackets are publicly readable
 
+## Local Development
+
+### Populate Script (`packages/tests/src/populate.ts`)
+
+Deploys the MarchMadness contract to a local sanvil node and populates it with data for the requested phase. Requires sanvil running on port 8545.
+
+Three phases:
+- **`pre-submission`** (default) — deploys contract with future deadline (1 hour). No brackets submitted. Use for testing bracket picker UI and submission flow.
+- **`post-submission`** — deploys, submits brackets from anvil test accounts, fast-forwards past deadline, posts results, scores first 3 brackets. Use for testing bracket viewing, scoring UI, off-chain preview. Remaining brackets are left unscored for manual testing.
+- **`post-grading`** — full lifecycle: deploy, submit, score all, fast-forward past scoring window. Use for testing payout collection and final leaderboard.
+
+```bash
+bun run --filter @march-madness/tests populate                          # pre-submission
+bun run --filter @march-madness/tests populate -- --phase post-submission
+bun run --filter @march-madness/tests populate -- --phase post-grading
+```
+
+Key env vars: `CONTRACT_ADDRESS` (skip deploy), `USE_SFORGE=false` (deploy via viem), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
+
+### Integration Tests
+
+```bash
+bun run --filter @march-madness/tests test
+```
+
+Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
+
 ## Key Dates
 - **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1742313600 unix)
 - **No-contest deadline**: 28 days after results posted

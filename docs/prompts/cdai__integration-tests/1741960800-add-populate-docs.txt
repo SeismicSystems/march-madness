@@ -1,0 +1,52 @@
+PR #8 (branch `cdai__integration-tests`) is missing documentation for the local development populate script. This is a CLAUDE.md rule violation — rule #1 says "After every change, update README.md and this CLAUDE.md if the change affects documented behavior, architecture, or setup."
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## What to Add
+
+### 1. README.md — Local Development section
+Add a section explaining how to use the populate script for local development. Something like:
+
+```markdown
+## Local Development
+
+### Prerequisites
+- sanvil (seismic-anvil) running locally on port 8545
+- mise installed (for sforge)
+
+### Populating Local Data
+The populate script sets up different tournament phases for local development:
+
+```bash
+# Pre-submission (default) — deploy contract with future deadline, no brackets
+# Good for: testing bracket picker UI, submission flow
+bun run --filter @march-madness/tests populate
+
+# Post-submission — deploy, submit brackets, fast-forward past deadline, post results
+# Good for: testing bracket viewing, scoring UI, off-chain preview
+bun run --filter @march-madness/tests populate -- --phase post-submission
+
+# Post-grading — full cycle including scoring and payout
+# Good for: testing payout collection, final leaderboard
+bun run --filter @march-madness/tests populate -- --phase post-grading
+```
+
+### Running Integration Tests
+```bash
+# Requires sanvil running
+bun run --filter @march-madness/tests test
+```
+```
+
+### 2. CLAUDE.md — Update Architecture section
+Make sure the tests package is documented properly. Also add a note about the populate script phases under a "Local Development" section.
+
+### 3. docs/technical.md — if it exists, update it too
+Add a section about the populate script and integration test setup.
+
+## Rules
+- Work on the existing branch `cdai__integration-tests`
+- Read the actual populate.ts to see the exact CLI args and phase descriptions before writing docs
+- CRITICAL: Verify with `git diff --name-only origin/main..HEAD` before pushing
+- Push to the existing branch, do NOT open a new PR
