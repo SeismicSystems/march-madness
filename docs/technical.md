@@ -134,3 +134,21 @@ Three access levels:
 ```
 
 Ordered by achievement depth (Champion → Final Four → Elite 8 → Sweet 16 → Round of 32).
+
+## Tournament Data File (`data/tournament_2026.json`)
+
+This single JSON file is the source of truth for all tournament configuration. It extends jimpo's original format (`name`, `teams: [{name}]`, `regions`) with additional fields for clarity:
+
+```json
+{
+  "name": "NCAA Men's Basketball 2026",
+  "regions": ["East", "West", "South", "Midwest"],
+  "teams": [
+    {"name": "Duke", "seed": 1, "region": "East", "abbrev": "DUKE"},
+    ...
+  ]
+}
+```
+
+- **`seed`**, **`region`**, **`abbrev`** are convenience metadata for UI display and human readability.
+- **The only thing that matters for on-chain encoding is the array order.** Teams are listed in jimpo's canonical order: 4 regions × 16 teams each, seeded `[1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15]` within each region. The contract and ByteBracket scoring care only about the index position of each team (0–63), not the metadata fields.

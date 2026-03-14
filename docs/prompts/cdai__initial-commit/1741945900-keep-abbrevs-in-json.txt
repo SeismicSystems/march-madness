@@ -1,0 +1,5 @@
+oh i'd keep abbreviations in the json data as well as seed and region for clarity. i know jimpo doesnt have those... but i wwant to move all the configs like this to just one file so we shoud remove the abbreviations toml and use this data json as source of truth.
+
+just make sure we note that we added all this for clarity and the actual order that matters is how jimpo lays it out. i guess you should tuck that into the technical docs markdown, probably at the very bottom unless it fits in cleanly somewhere else...
+
+so yeah kill the abbreviations toml and seeding csv, all info reflected in the big jsob
