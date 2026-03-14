@@ -6,7 +6,7 @@ All notable changes to this project. Every PR must add an entry here.
 
 ### 2026-03-14 — Rust HTTP Server (`crates/server`)
 - Built `march-madness-server` HTTP server using axum + tokio
-- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total/revealed/scored counts), `GET /health`
+- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
 - TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
 - CORS enabled (Access-Control-Allow-Origin: *) for frontend access
 - CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)

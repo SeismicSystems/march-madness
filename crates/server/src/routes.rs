@@ -47,7 +47,6 @@ pub async fn get_entry(
 #[derive(Serialize)]
 pub struct Stats {
     pub total_entries: usize,
-    pub brackets_revealed: usize,
     pub scored: usize,
 }
 
@@ -56,13 +55,11 @@ pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_index().await {
         Ok(index) => {
             let total_entries = index.len();
-            let brackets_revealed = index.values().filter(|e| e.bracket.is_some()).count();
             // Currently EntryRecord doesn't have a score field, so scored = 0.
             // This will be updated when the indexer tracks scoring events.
             let scored = 0;
             Json(Stats {
                 total_entries,
-                brackets_revealed,
                 scored,
             })
             .into_response()
