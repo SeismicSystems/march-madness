@@ -36,10 +36,15 @@ describe("MarchMadnessAbi", () => {
     expect(eventNames).toContain("WinningsCollected");
   });
 
-  test("uses bytes8 for shielded types (not sbytes8)", () => {
+  test("uses sbytes8 for shielded bracket inputs", () => {
     const submitFn = MarchMadnessAbi.find(
       (item) => item.type === "function" && item.name === "submitBracket",
     );
-    expect(submitFn!.inputs[0].type).toBe("bytes8");
+    expect(submitFn!.inputs[0].type).toBe("sbytes8");
+
+    const updateFn = MarchMadnessAbi.find(
+      (item) => item.type === "function" && item.name === "updateBracket",
+    );
+    expect(updateFn!.inputs[0].type).toBe("sbytes8");
   });
 });

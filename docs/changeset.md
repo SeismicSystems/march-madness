@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Client Library Review Fixes (`packages/client`)
+- Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)
+- Refactored `MarchMadnessPublicClient` to use `getContract()` + `.read.functionName()` pattern (consistent with `UserClient`'s `getShieldedContract` pattern)
+- Updated ABI test to verify `sbytes8` type on `submitBracket` and `updateBracket` inputs
+
 ### 2026-03-14 — Client Library (`packages/client`)
 - Added `src/abi.ts` — MarchMadness contract ABI as const array (uses bytes8 for shielded types, seismic-viem handles shielding)
 - Added `src/client.ts` — three-level client hierarchy:
@@ -16,15 +21,6 @@ All notable changes to this project. Every PR must add an entry here.
 - Updated `src/index.ts` barrel exports for all new modules
 - Added tests: `abi.test.ts` (5 tests), `format.test.ts` (7 tests), expanded `bracket.test.ts` (8 new tests for validateBracket + runner-up)
 - 25 total tests passing, typecheck clean
-
-### 2026-03-14 — Rust HTTP Server (`crates/server`)
-- Built `march-madness-server` HTTP server using axum + tokio
-- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
-- TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
-- CORS enabled (Access-Control-Allow-Origin: *) for frontend access
-- CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)
-- Graceful shutdown on SIGINT/SIGTERM
-- Structured logging via tracing
 
 ### 2026-03-14 — CI Workflows + Local CI Script (mise-based)
 - Added `mise.toml` (root) — pins sfoundry (nightly), ssolc (2ebb36d), bun (1.3.9) via mise, mirroring samlaf's setup in the seismic repo

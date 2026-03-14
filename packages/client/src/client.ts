@@ -20,6 +20,8 @@ import {
   type Account,
   type Chain,
   type Transport,
+  type GetContractReturnType,
+  getContract,
   parseEther,
 } from "viem";
 
@@ -61,65 +63,44 @@ export type WriteOptions = {
 export class MarchMadnessPublicClient {
   protected readonly contractAddress: Address;
   protected readonly publicClient: ViemPublicClient;
+  protected readonly contract: GetContractReturnType<
+    typeof MarchMadnessAbi,
+    ViemPublicClient
+  >;
 
   constructor(publicClient: ViemPublicClient, contractAddress: Address) {
     this.publicClient = publicClient;
     this.contractAddress = contractAddress;
+    this.contract = getContract({
+      address: contractAddress,
+      abi: MarchMadnessAbi,
+      client: publicClient,
+    });
   }
 
   /** Number of brackets submitted. */
   async getEntryCount(opts: ReadOptions = {}): Promise<number> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "getEntryCount",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.getEntryCount(opts);
   }
 
   /** Tournament results (bytes8). Returns 0x0000000000000000 if not yet posted. */
   async getResults(opts: ReadOptions = {}): Promise<`0x${string}`> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "results",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.results(opts);
   }
 
   /** Submission deadline as unix timestamp (bigint). */
   async getSubmissionDeadline(opts: ReadOptions = {}): Promise<bigint> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "submissionDeadline",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.submissionDeadline(opts);
   }
 
   /** Contract owner address. */
   async getOwner(opts: ReadOptions = {}): Promise<Address> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "owner",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.owner(opts);
   }
 
   /** Entry fee in wei (bigint). */
   async getEntryFee(opts: ReadOptions = {}): Promise<bigint> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "entryFee",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.entryFee(opts);
   }
 
   /** Read a bracket (after deadline — transparent read). */
@@ -127,26 +108,12 @@ export class MarchMadnessPublicClient {
     account: Address,
     opts: ReadOptions = {},
   ): Promise<`0x${string}`> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "getBracket",
-      args: [account],
-      ...opts,
-    });
-    return result;
+    return this.contract.read.getBracket([account], opts);
   }
 
   /** Get score for an account. */
   async getScore(account: Address, opts: ReadOptions = {}): Promise<number> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "getScore",
-      args: [account],
-      ...opts,
-    });
-    return result;
+    return this.contract.read.getScore([account], opts);
   }
 
   /** Check if a bracket has been scored. */
@@ -154,59 +121,27 @@ export class MarchMadnessPublicClient {
     account: Address,
     opts: ReadOptions = {},
   ): Promise<boolean> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "getIsScored",
-      args: [account],
-      ...opts,
-    });
-    return result;
+    return this.contract.read.getIsScored([account], opts);
   }
 
   /** Get display tag for an account. */
   async getTag(account: Address, opts: ReadOptions = {}): Promise<string> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "getTag",
-      args: [account],
-      ...opts,
-    });
-    return result;
+    return this.contract.read.getTag([account], opts);
   }
 
   /** Winning score (highest score among scored brackets). */
   async getWinningScore(opts: ReadOptions = {}): Promise<number> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "winningScore",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.winningScore(opts);
   }
 
   /** Number of winners (brackets with the winning score). */
   async getNumWinners(opts: ReadOptions = {}): Promise<bigint> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "numWinners",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.numWinners(opts);
   }
 
   /** Timestamp when results were posted (0 if not posted). */
   async getResultsPostedAt(opts: ReadOptions = {}): Promise<bigint> {
-    const result = await this.publicClient.readContract({
-      address: this.contractAddress,
-      abi: MarchMadnessAbi,
-      functionName: "resultsPostedAt",
-      ...opts,
-    });
-    return result;
+    return this.contract.read.resultsPostedAt(opts);
   }
 }
 

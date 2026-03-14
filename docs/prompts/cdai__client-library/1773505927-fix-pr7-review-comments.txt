@@ -1,0 +1,44 @@
+Fix two review comments on PR #7 (branch: cdai__client-library) for the packages/client library.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Review Comment 1: Use sforge-generated ABI, not hand-written
+File: `packages/client/src/abi.ts` line 3
+> "you shouldnt be making this up yourself. use the ABI that sforge makes for you -- its stored to one of the folders in contracts after you build. i don't think your made up abi will work here"
+
+The sforge build output is at `contracts/out/MarchMadness.sol/MarchMadness.json`. It has an `abi` field with the real ABI.
+
+Fix: Replace the hand-written ABI with the one from sforge output. You can either:
+- Import/read the JSON at build time
+- Copy the exact ABI array from the sforge output into abi.ts (as a const assertion)
+
+The second approach is probably cleaner — just copy the exact `abi` array from `contracts/out/MarchMadness.sol/MarchMadness.json` into the TypeScript file as `export const marchMadnessAbi = [...] as const`. Make sure it's the EXACT sforge output, not hand-written.
+
+## Review Comment 2: PublicClient should use getContract + .read pattern
+File: `packages/client/src/client.ts` line 67
+> "i feel like you should use the getContract (from vanilla viem) and .read.<function-name> methods... it'd be consistent with the user client that way"
+
+The PublicClient currently uses `publicClient.readContract()` directly. Instead, it should use `getContract()` from viem to create a contract instance, then use `.read.functionName()` — same pattern as the UserClient uses with getShieldedContract.
+
+Reference pattern from poker app (`/home/c/code/seismic-workspace/apps/poker/packages/poker-viem/src/client/chain/lobby.ts`):
+```ts
+import { getContract } from 'viem'
+
+const contract = getContract({
+  address: contractAddress,
+  abi: marchMadnessAbi,
+  client: publicClient,
+})
+
+// Then use:
+const count = await contract.read.getEntryCount()
+const deadline = await contract.read.submissionDeadline()
+```
+
+## Rules
+- Work on the existing branch `cdai__client-library`
+- CRITICAL: First create a CLEAN branch from main, cherry-pick only the client library commits, then apply fixes. Verify with `git diff --name-only main..cdai__client-library` that ONLY client library files are included before pushing.
+- Run typecheck and tests: `cd packages && bun install && bun run --filter client typecheck` or similar
+- Push the fix commit to cdai__client-library
+- Do NOT open a new PR
