@@ -2,27 +2,24 @@
 
 ## Bracket Encoding (ByteBracket)
 
-A complete NCAA tournament bracket is encoded as a single `bytes32` value:
-- **63 bits** encode 63 game outcomes (0 = higher seed / team1 wins, 1 = lower seed / team2 wins)
-- **1 sentinel byte**: the last byte (byte index 31) MUST equal `0x01` to distinguish submitted brackets from uninitialized storage
+A complete NCAA tournament bracket is encoded as a single `bytes8` value (64 bits) — identical to jimpo's original encoding:
+- **Bit 63** (MSB): sentinel — MUST be 1 to distinguish submitted brackets from uninitialized storage
+- **Bits 62-0**: 63 game outcomes (0 = higher seed / team1 wins, 1 = lower seed / team2 wins)
 
 ### Bit Layout
 
 ```
-Byte 0-7 (bits 63-0):   Game outcomes
+bytes8 (64 bits):
+  Bit 63:     MSB sentinel — must be 1
   Bits 62-31: Round of 64 (32 games)
   Bits 30-15: Round of 32 (16 games)
   Bits 14-7:  Sweet 16 (8 games)
   Bits 6-3:   Elite 8 (4 games)
   Bits 2-1:   Final Four (2 games)
   Bit 0:      Championship (1 game)
-  Bit 63:     MSB — set to 1 (non-zero guarantee in jimpo's scheme)
-
-Bytes 8-30:  Unused (zero)
-Byte 31:     Sentinel = 0x01
 ```
 
-**Note**: We use `bytes32` instead of jimpo's `bytes8` because Seismic's `sbytes32` is the natural shielded type. The game bits occupy the first 8 bytes; bytes 8-30 are zero; byte 31 is the sentinel.
+This is jimpo's original `bytes8` encoding unchanged. On Seismic, brackets are stored as `sbytes8` (shielded) to hide picks until the deadline.
 
 ### Team Ordering
 
@@ -64,7 +61,7 @@ A pick in round N only scores if the feeder picks in round N-1 were also correct
    - Set submission deadline, entry fee (1 ETH), tournament data hash
 
 2. SUBMISSION PHASE (before deadline)
-   - Users submit shielded brackets (sbytes32) with 1 ETH
+   - Users submit shielded brackets (sbytes8) with 1 ETH
    - Users can update brackets (no additional fee)
    - Brackets are hidden (shielded type)
    - Events emitted: BracketSubmitted(address)
@@ -74,7 +71,7 @@ A pick in round N only scores if the feeder picks in round N-1 were also correct
    - All brackets now readable by anyone (getBracket access control relaxes)
 
 4. SCORING PHASE (after owner posts results)
-   - Owner calls submitResults(bytes32)
+   - Owner calls submitResults(bytes8)
    - Anyone can call scoreBracket(address) to score individual brackets
 
 5. PAYOUT (after all brackets scored)
@@ -88,11 +85,11 @@ A pick in round N only scores if the feeder picks in round N-1 were also correct
 
 ## Shielded Type Usage
 
-- `sbytes32` for bracket storage: hidden until deadline
+- `sbytes8` for bracket storage: hidden until deadline
 - `getBracket()` access control:
-  - Before deadline: `msg.sender == account` (requires signed read)
-  - After deadline: anyone can read (returns `uint256(bracket)` for public access)
-- Submissions use shielded writes (seismic transaction, NOT transparent)
+  - Before deadline: `msg.sender == account` (requires signed read via `walletClient.readContract()`)
+  - After deadline: anyone can read (client should use `.treadContract()` since data is public)
+- Submissions use shielded writes (`walletClient.writeContract()`), NOT transparent writes
 
 ## Client Architecture
 
@@ -101,16 +98,37 @@ Three access levels:
 2. **User** — wallet connected: submit/update bracket, view own bracket (signed read), score brackets
 3. **Owner** — special wallet: post results, all user capabilities
 
-## Human-Readable Bracket Format
+## Bracket Decode Formats
+
+### JSON (default decode format)
 
 ```json
+{
+  "champion": {"name": "Duke", "seed": 1, "region": "East"},
+  "runnerUp": {"name": "Houston", "seed": 2, "region": "Midwest"},
+  "finalFour": [
+    {"name": "Michigan", "seed": 1, "region": "West"},
+    {"name": "Alabama", "seed": 4, "region": "South"}
+  ],
+  "eliteEight": [...],
+  "sweetSixteen": [...],
+  "roundOf32": [...],
+  "games": [
+    {"round": 0, "game": 0, "winner": "Duke", "loser": "Washington"},
+    ...
+  ]
+}
+```
+
+### Human-Readable (helper function)
+
+```
 [
   "(1) Duke - Champion",
   "(2) Houston - plays in Championship",
   "(1) Michigan - Final Four",
   "(4) Alabama - Final Four",
   "(3) Purdue - Elite 8",
-  "(2) Illinois - Elite 8",
   ...
 ]
 ```

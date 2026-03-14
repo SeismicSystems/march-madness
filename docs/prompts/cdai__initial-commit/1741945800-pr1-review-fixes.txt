@@ -1,0 +1,1 @@
+i just submitted a pretty rough review on PR #1. read all the  comments with the gh api and fix it all. most glaring thing by far is... you should use bytes8 for this not sbytes32 (we only need 63 bits + 1 sentinel bit)

@@ -4,9 +4,9 @@ A private, on-chain NCAA March Madness bracket contest built on the [Seismic Net
 
 ## Credits
 
-This project is heavily inspired by [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). Jim is an outrageously brilliant programmer — his ByteBracket scoring algorithm and bracket encoding scheme are used directly in our contracts. His original project was built on Ethereum with Truffle in 2018; we've ported it to Seismic's privacy-preserving network with modern tooling.
+Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
 
-As jimpo noted in his original README, the bracket pool smart contract was also inspired by the work of the [Ethereum March Madness](https://github.com/EthereumMarchMadness) team.
+The bracket pool smart contract was also inspired by the work of the [Ethereum March Madness](https://github.com/EthereumMarchMadness) team.
 
 ## How It Works
 
@@ -18,7 +18,7 @@ As jimpo noted in his original README, the bracket pool smart contract was also 
 
 ### Privacy
 
-On regular blockchains, bracket picks would be visible to everyone — giving late submitters an unfair advantage. Seismic solves this with **shielded types** (`sbytes32`): your bracket is encrypted on-chain and only revealed after the submission deadline. No commit-reveal scheme needed.
+On regular blockchains, bracket picks would be visible to everyone — giving late submitters an unfair advantage. Seismic solves this with **shielded types** (`sbytes8`): your bracket is encrypted on-chain and only revealed after the submission deadline. No commit-reveal scheme needed.
 
 ### Scoring
 
