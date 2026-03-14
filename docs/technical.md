@@ -198,8 +198,7 @@ All env vars live in a single `.env` file at the repo root (see `.env.example`).
 | `VITE_PRIVY_APP_ID` | Privy app ID | `"placeholder-app-id"` |
 | `VITE_CONTRACT_ADDRESS` | CLI override (populate injects for local dev, or pass manually) | `data/deployments.json` by year + chain ID |
 | `VITE_CHAIN_ID` | Chain ID for wallet config | sanvil chain ID |
-| `VITE_RPC_URL` | RPC URL — used by both frontend and `bun deploy:testnet` | — |
-| `VITE_PUBLIC_RPC_URL` | Public RPC for transparent reads | — |
+| `VITE_RPC_URL` | RPC URL — used by frontend and `bun deploy:testnet` | — |
 
 ### Test Accounts
 

@@ -16,6 +16,8 @@ All notable changes to this project. Every PR must add an entry here.
 - Added `data/deployments.json` — source of truth for deployed contract addresses, grouped by year (`{"2026": {"5124": "0x..."}}`). Written automatically by deploy script, easy to extend for 2027+.
 - `bun deploy:testnet` runs `scripts/deploy-testnet.sh` — deploys via sforge, parses address, writes to `deployments.json`. Also supports `--contract-address 0x...` to skip deploy and just write the address.
 - Populate script starts Vite dev server automatically after deploying, with `VITE_CONTRACT_ADDRESS` and `VITE_CHAIN_ID` injected. Use `--no-vite` to skip.
+- Removed `VITE_PUBLIC_RPC_URL` — single `VITE_RPC_URL` used everywhere (wagmi transport + ShieldedWalletProvider public transport)
+- Added `target/` to root `.gitignore`
 - Updated CLAUDE.md, README.md, docs/technical.md with environment documentation
 
 ### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
@@ -85,7 +87,7 @@ All notable changes to this project. Every PR must add an entry here.
 - Deadline countdown timer with lock detection (March 18, 2026 noon EST)
 - Scoreboard placeholder for post-tournament scoring
 - Dark theme with Tailwind CSS v4 (@tailwindcss/vite plugin)
-- Env vars: VITE_PRIVY_APP_ID, VITE_CONTRACT_ADDRESS, VITE_CHAIN_ID, VITE_RPC_URL, VITE_PUBLIC_RPC_URL
+- Env vars: VITE_PRIVY_APP_ID, VITE_CHAIN_ID, VITE_RPC_URL
 
 ### 2026-03-14 — Client Library Review Fixes (`packages/client`)
 - Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)

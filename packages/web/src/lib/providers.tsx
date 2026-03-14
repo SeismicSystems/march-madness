@@ -10,7 +10,7 @@ import { CHAINS, config, queryClient } from "./config";
 
 export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
   const publicChain = CHAINS[0];
-  const publicTransport = http(import.meta.env.VITE_PUBLIC_RPC_URL);
+  const publicTransport = http(import.meta.env.VITE_RPC_URL);
 
   return (
     <PrivyProvider
