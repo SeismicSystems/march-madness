@@ -118,9 +118,12 @@ bun run --filter @march-madness/localdev test
 Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
 
 ## Key Dates
-- **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1742313600 unix)
+- **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1773853200 unix)
 - **No-contest deadline**: 28 days after results posted
 - **Entry fee**: 1 ETH (testnet)
+
+## Seismic RPC Quirks
+- **Block timestamps**: Seismic RPC returns **millisecond** timestamps (e.g. via `eth_getBlockByNumber`), but Solidity's `block.timestamp` is still in **seconds**. If you read block timestamps from JS via the RPC, divide by 1000.
 
 ## Reference
 - Original contract logic: [jimpo/march-madness-dapp](https://github.com/jimpo/march-madness-dapp) — treat his logic as source of truth

@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Fix deadline timestamp + redeploy contract
+- **Bug**: `SUBMISSION_DEADLINE` was `1742313600` (March 18, **2025**) instead of `1773853200` (March 18, **2026**). This caused the app to show "Brackets are locked" a year early.
+- Fixed timestamp in `constants.ts` and `MarchMadness.s.sol`
+- Redeployed contract to testnet: `0x9cf71ec28D89330fD537b9131752ADA8157622b5`
+- Updated `CLAUDE.md` with correct timestamp and documented Seismic RPC millisecond-timestamp quirk
+- **Privy connect**: requires adding `brackets.seismictest.net` to allowed domains in Privy dashboard (not a code fix)
+
 ### 2026-03-14 — Mobile-friendly web app (closes #10)
 - Added `useIsMobile` hook (viewport < 768px detection via matchMedia)
 - BracketView: mobile renders tabbed region selector (East/West/South/Midwest/Final Four) instead of 1400px-wide horizontal layout
