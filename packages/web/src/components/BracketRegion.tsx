@@ -10,6 +10,8 @@ interface BracketRegionProps {
   disabled?: boolean;
   /** Whether this region reads left-to-right or right-to-left */
   reversed?: boolean;
+  /** Compact mode for mobile — smaller sizing and spacing */
+  compact?: boolean;
 }
 
 export function BracketRegion({
@@ -18,6 +20,7 @@ export function BracketRegion({
   onPick,
   disabled = false,
   reversed = false,
+  compact = false,
 }: BracketRegionProps) {
   const orderedRounds = reversed ? [...rounds].reverse() : rounds;
 
@@ -31,7 +34,7 @@ export function BracketRegion({
           const actualRoundIdx = reversed
             ? rounds.length - 1 - displayIdx
             : displayIdx;
-          const roundSpacing = getVerticalSpacing(actualRoundIdx);
+          const roundSpacing = getVerticalSpacing(actualRoundIdx, compact);
 
           return (
             <div
@@ -51,6 +54,7 @@ export function BracketRegion({
                   onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
                   disabled={disabled}
                   compact={actualRoundIdx === 0}
+                  mobile={compact}
                 />
               ))}
             </div>
@@ -61,18 +65,22 @@ export function BracketRegion({
   );
 }
 
-function getVerticalSpacing(round: number): number {
-  // Increase spacing as rounds progress so games align with their feeder games
+function getVerticalSpacing(round: number, compact: boolean): number {
+  if (compact) {
+    // Scaled-down spacing for mobile
+    switch (round) {
+      case 0: return 2;
+      case 1: return 18;
+      case 2: return 52;
+      case 3: return 120;
+      default: return 4;
+    }
+  }
   switch (round) {
-    case 0:
-      return 2;
-    case 1:
-      return 28;
-    case 2:
-      return 82;
-    case 3:
-      return 190;
-    default:
-      return 4;
+    case 0: return 2;
+    case 1: return 28;
+    case 2: return 82;
+    case 3: return 190;
+    default: return 4;
   }
 }

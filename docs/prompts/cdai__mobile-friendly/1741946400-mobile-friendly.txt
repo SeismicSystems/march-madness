@@ -1,0 +1,1 @@
+merged. now git pull. you should now try to solve ticket 10 -- making this webapp mobile friendly. it should work on all normal smartphones -- including smaller ones like iphone XE or XR -- whatever the little bois have

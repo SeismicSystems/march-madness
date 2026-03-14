@@ -7,6 +7,8 @@ interface BracketGameProps {
   onPick: (pickTeam1: boolean) => void;
   disabled?: boolean;
   compact?: boolean;
+  /** Mobile mode — tighter sizing */
+  mobile?: boolean;
 }
 
 export function BracketGame({
@@ -16,11 +18,21 @@ export function BracketGame({
   onPick,
   disabled = false,
   compact = false,
+  mobile = false,
 }: BracketGameProps) {
-  const py = compact ? "py-0.5" : "py-1";
-  const px = compact ? "px-2" : "px-3";
-  const textSize = compact ? "text-xs" : "text-sm";
-  const minW = compact ? "min-w-[120px]" : "min-w-[160px]";
+  let py: string, px: string, textSize: string, minW: string;
+
+  if (mobile) {
+    py = "py-0.5";
+    px = "px-1.5";
+    textSize = "text-[11px]";
+    minW = compact ? "min-w-[72px]" : "min-w-[80px]";
+  } else {
+    py = compact ? "py-0.5" : "py-1";
+    px = compact ? "px-2" : "px-3";
+    textSize = compact ? "text-xs" : "text-sm";
+    minW = compact ? "min-w-[120px]" : "min-w-[160px]";
+  }
 
   return (
     <div className={`flex flex-col ${minW} gap-0.5`}>
@@ -33,6 +45,7 @@ export function BracketGame({
         py={py}
         px={px}
         textSize={textSize}
+        mobile={mobile}
       />
       <TeamSlot
         team={team2}
@@ -43,6 +56,7 @@ export function BracketGame({
         py={py}
         px={px}
         textSize={textSize}
+        mobile={mobile}
       />
     </div>
   );
@@ -57,6 +71,7 @@ interface TeamSlotProps {
   py: string;
   px: string;
   textSize: string;
+  mobile?: boolean;
 }
 
 function TeamSlot({
@@ -68,6 +83,7 @@ function TeamSlot({
   py,
   px,
   textSize,
+  mobile = false,
 }: TeamSlotProps) {
   if (!team) {
     return (
@@ -102,7 +118,9 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className="text-text-muted mr-1.5 font-normal">{team.seed}</span>
+      <span className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}>
+        {team.seed}
+      </span>
       <span>{team.abbrev}</span>
     </button>
   );
