@@ -15,10 +15,10 @@ const parseChainId = (): number => {
   return parseInt(chainId);
 };
 
-const seismicDevnet = seismicTestnetGcp2;
+const seismicTestnet = seismicTestnetGcp2;
 
 const CHAIN_ID = parseChainId();
-const ENABLED_CHAINS = [sanvil, seismicDevnet];
+const ENABLED_CHAINS = [sanvil, seismicTestnet];
 export const CHAINS = ENABLED_CHAINS.filter(({ id }) => id === CHAIN_ID);
 
 // Fallback to sanvil if no chain matched
@@ -29,7 +29,7 @@ export const config = createConfig({
   chains: resolvedChains,
   transports: {
     [sanvil.id]: http(),
-    [seismicDevnet.id]: http(import.meta.env.VITE_RPC_URL),
+    [seismicTestnet.id]: http(import.meta.env.VITE_RPC_URL),
   },
   ssr: false,
 });
