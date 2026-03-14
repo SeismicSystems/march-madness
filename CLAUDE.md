@@ -79,6 +79,14 @@ Events:
 - Use signed reads (`walletClient.readContract()`) to read own bracket before deadline
 - After deadline, client should use `.treadContract()` since brackets are publicly readable
 
+## Environment
+
+Single `.env` file at repo root — see `.env.example` for all variables. Never create `.env` files in subdirectories.
+
+- **Vite** loads from root via `envDir: "../../"` in `packages/web/vite.config.ts`
+- **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL` (shared with frontend — no duplicate RPC var)
+- **Local dev** (populate script) uses hardcoded anvil accounts from `data/anvil-accounts.json` — does not need `DEPLOYER_PRIVATE_KEY`
+
 ## Local Development
 
 ### Populate Script (`packages/localdev/src/populate.ts`)

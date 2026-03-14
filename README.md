@@ -76,6 +76,9 @@ docs/               — Technical docs, changeset log, prompt archive
 ### Quick Start
 
 ```bash
+# Copy env template and fill in values
+cp .env.example .env
+
 # Build & test contracts
 cd contracts && sforge test -vv
 
@@ -89,7 +92,14 @@ cd packages/web && bun dev
 bun p:pre                     # pre-submission (default): deploy with future deadline, no brackets
 bun p:post                    # post-submission: brackets + results + partial scoring
 bun p:grading                 # post-grading: full lifecycle including payouts
+
+# Deploy to testnet (uses DEPLOYER_PRIVATE_KEY and VITE_RPC_URL from .env)
+bun deploy:testnet
 ```
+
+### Environment
+
+All environment variables live in a single `.env` file at the repo root. See `.env.example` for the full list. Vite loads from there via `envDir`, and the testnet deploy script sources it directly. The local populate script uses hardcoded anvil accounts — it does not need `DEPLOYER_PRIVATE_KEY`.
 
 ## License
 

@@ -4,6 +4,16 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Single .env at repo root + testnet deploy script
+- Consolidated all env vars into a single `.env` file at repo root (was also in `contracts/.env.example`)
+- Added `.env` to root `.gitignore` — the file contains a real testnet deployer private key
+- Created `.env.example` with documented placeholders for all env vars (deployment, frontend, local dev)
+- Removed `contracts/.env.example` (no longer needed)
+- Removed `.env` from `contracts/.gitignore` (root `.gitignore` handles it)
+- Added `bun deploy:testnet` script — sources root `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL` (shared with frontend, no duplicate RPC var), runs sforge with the production deploy script
+- Local populate script unchanged — still uses hardcoded anvil accounts, no `DEPLOYER_PRIVATE_KEY` needed
+- Updated CLAUDE.md, README.md, docs/technical.md with environment documentation
+
 ### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
 - Renamed `packages/tests` to `packages/localdev` (`@march-madness/localdev`) — this is primarily a local dev tool, not just tests
 - Moved `integration.test.ts` from `src/` to `test/` directory (at same level as `src/`)

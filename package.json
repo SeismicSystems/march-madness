@@ -5,6 +5,7 @@
   "scripts": {
     "p:pre": "bun run --filter @march-madness/localdev populate",
     "p:post": "bun run --filter @march-madness/localdev populate -- --phase post-submission",
-    "p:grading": "bun run --filter @march-madness/localdev populate -- --phase post-grading"
+    "p:grading": "bun run --filter @march-madness/localdev populate -- --phase post-grading",
+    "deploy:testnet": "bash -c 'set -a && source ./.env && set +a && cd contracts && mise run sforge -- script script/MarchMadness.s.sol --rpc-url $VITE_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY'"
   }
 }
