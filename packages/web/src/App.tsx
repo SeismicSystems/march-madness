@@ -27,10 +27,10 @@ export default function App() {
     <div className="min-h-screen bg-bg-primary">
       <Header entryCount={contract.entryCount} />
 
-      <main className="max-w-[1800px] mx-auto px-4 py-6">
+      <main className="max-w-[1800px] mx-auto px-2 sm:px-4 py-4 sm:py-6">
         {/* Top bar: countdown + submit panel */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1 flex items-start gap-4">
+        <div className="flex flex-col lg:flex-row gap-4 mb-6 sm:mb-8">
+          <div className="flex-1 flex items-start gap-2 sm:gap-4">
             <DeadlineCountdown />
             <div className="flex items-center gap-2">
               <button
@@ -66,7 +66,7 @@ export default function App() {
         />
 
         {/* Scoreboard placeholder */}
-        <div className="mt-12">
+        <div className="mt-8 sm:mt-12">
           <Scoreboard entryCount={contract.entryCount} />
         </div>
       </main>

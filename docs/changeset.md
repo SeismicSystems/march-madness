@@ -4,6 +4,16 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Mobile-friendly web app (closes #10)
+- Added `useIsMobile` hook (viewport < 768px detection via matchMedia)
+- BracketView: mobile renders tabbed region selector (East/West/South/Midwest/Final Four) instead of 1400px-wide horizontal layout
+- BracketGame: added `mobile` prop — tighter padding (px-1.5, py-0.5), smaller text (11px), smaller min-widths (72-80px) so a full region fits on small screens
+- BracketRegion: added `compact` prop — scaled-down vertical spacing between rounds for mobile
+- Header: responsive text sizing, hidden entry count badge and address on small screens, shorter "Connect" label
+- Scoreboard: responsive padding and font sizes
+- App/SubmitPanel: tighter padding on mobile (px-2, p-4)
+- Tested down to 320px width (iPhone SE) — each region tab fits without horizontal scroll
+
 ### 2026-03-14 — Deploy MarchMadness to Seismic testnet (gcp-2)
 - Deployed MarchMadness contract to Seismic testnet (chain 5124): `0xEbc32b5436D7DaA0e5b79431074242a29890364b`
 - Entry fee: 1 ETH, submission deadline: March 18, 2026 12:00 PM EST

@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import type { GameSlot } from "../hooks/useBracket";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { tournament } from "../lib/tournament";
 import { BracketRegion } from "./BracketRegion";
 import { FinalFour } from "./FinalFour";
@@ -13,11 +16,11 @@ interface BracketViewProps {
 /**
  * Full bracket layout: 4 regions flowing into Final Four.
  *
- * Layout (desktop):
+ * Desktop:
  *   [East R64→E8]  [Final Four / Championship]  [E8←R64 West]
- *   [South R64→E8] [Final Four / Championship]  [E8←R64 Midwest]
+ *   [South R64→E8] [spacer]                      [E8←R64 Midwest]
  *
- * The left regions read left-to-right, the right regions read right-to-left.
+ * Mobile: Tabbed view — one region at a time + Final Four tab.
  */
 export function BracketView({
   games,
@@ -25,34 +28,37 @@ export function BracketView({
   onPick,
   disabled = false,
 }: BracketViewProps) {
+  const isMobile = useIsMobile();
   const regions = tournament.regions; // [East, West, South, Midwest]
-
-  // Each region has 8 R64 games, 4 R32, 2 S16, 1 E8
-  // Region 0 (East): R64 games 0-7, R32 games 32-35, S16 games 48-49, E8 game 56
-  // Region 1 (West): R64 games 8-15, R32 games 36-39, S16 games 50-51, E8 game 57
-  // Region 2 (South): R64 games 16-23, R32 games 40-43, S16 games 52-53, E8 game 58
-  // Region 3 (Midwest): R64 games 24-31, R32 games 44-47, S16 games 54-55, E8 game 59
 
   function getRegionGames(regionIndex: number): GameSlot[][] {
     const rounds: GameSlot[][] = [];
-    // R64: 8 games per region
     const r64 = getGamesForRound(0);
     rounds.push(r64.slice(regionIndex * 8, regionIndex * 8 + 8));
-    // R32: 4 games per region
     const r32 = getGamesForRound(1);
     rounds.push(r32.slice(regionIndex * 4, regionIndex * 4 + 4));
-    // S16: 2 games per region
     const s16 = getGamesForRound(2);
     rounds.push(s16.slice(regionIndex * 2, regionIndex * 2 + 2));
-    // E8: 1 game per region
     const e8 = getGamesForRound(3);
     rounds.push(e8.slice(regionIndex, regionIndex + 1));
     return rounds;
   }
 
-  // Final Four and Championship
   const f4Games = getGamesForRound(4);
   const champGame = getGamesForRound(5);
+
+  if (isMobile) {
+    return (
+      <MobileBracket
+        regions={regions}
+        getRegionGames={getRegionGames}
+        f4Games={f4Games}
+        champGame={champGame}
+        onPick={onPick}
+        disabled={disabled}
+      />
+    );
+  }
 
   return (
     <div className="overflow-x-auto pb-4">
@@ -99,6 +105,71 @@ export function BracketView({
             reversed
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Mobile tabbed bracket ─────────────────────────────── */
+
+const TABS = ["East", "West", "South", "Midwest", "Final Four"] as const;
+
+function MobileBracket({
+  regions,
+  getRegionGames,
+  f4Games,
+  champGame,
+  onPick,
+  disabled,
+}: {
+  regions: string[];
+  getRegionGames: (i: number) => GameSlot[][];
+  f4Games: GameSlot[];
+  champGame: GameSlot[];
+  onPick: (gameIndex: number, pickTeam1: boolean) => void;
+  disabled: boolean;
+}) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  return (
+    <div>
+      {/* Tab bar */}
+      <div className="flex overflow-x-auto gap-1 mb-4 pb-1 -mx-1 px-1">
+        {TABS.map((tab, i) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(i)}
+            className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              activeTab === i
+                ? "bg-accent text-white border-accent"
+                : "bg-bg-tertiary text-text-secondary border-border hover:bg-bg-hover"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="overflow-x-auto pb-2">
+        {activeTab < 4 ? (
+          <BracketRegion
+            regionName={regions[activeTab]}
+            rounds={getRegionGames(activeTab)}
+            onPick={onPick}
+            disabled={disabled}
+            compact
+          />
+        ) : (
+          <FinalFour
+            semifinal1={f4Games[0] ?? null}
+            semifinal2={f4Games[1] ?? null}
+            championship={champGame[0] ?? null}
+            onPick={onPick}
+            disabled={disabled}
+          />
+        )}
       </div>
     </div>
   );

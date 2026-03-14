@@ -60,7 +60,7 @@ export function SubmitPanel({
   };
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-xl p-6 space-y-4">
+    <div className="bg-bg-secondary border border-border rounded-xl p-4 sm:p-6 space-y-4">
       {/* Progress */}
       <div>
         <div className="flex justify-between text-sm mb-2">
