@@ -1,0 +1,108 @@
+You are building the `packages/tests` integration test suite and bracket population script for a March Madness bracket contest on the Seismic network.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Branch
+Create branch `cdai__integration-tests` off of `main`.
+
+## What Already Exists
+- `packages/tests/package.json` — basic config stub
+- `packages/client/src/bracket.ts` — has `encodeBracket(picks: boolean[])` and `decodeBracket(hex, teams)`
+- `contracts/src/MarchMadness.sol` — the full contract
+- `contracts/script/MarchMadnessLocal.s.sol` — deploy script using `vm.envOr("DEADLINE_OFFSET", uint256(3600))`
+- `data/mens-2026.json` — tournament data with 64 teams
+- `mise.toml` (root) — pins bun 1.3.9, sfoundry, ssolc
+- `contracts/mise.toml` — sforge wrapper task
+
+## What You Need to Build
+
+### 1. Bracket Population Script (`src/populate.ts`)
+A script that:
+- Deploys the MarchMadness contract to a local sanvil node (or uses an already-deployed address from env)
+- Creates multiple wallets using different anvil private keys (anvil provides 10 default accounts)
+- Each wallet submits a random bracket with the 1 ETH entry fee
+- Some wallets also set tags/names
+- Some wallets update their brackets
+- Configurable deadline offset so brackets can be submitted in local dev (use DEADLINE_OFFSET env var, default 3600 seconds from now)
+- Prints a summary of all submitted brackets
+
+This is for local development — lets you populate data so the frontend has something to show.
+
+### 2. Integration Tests (`src/integration.test.ts`)
+End-to-end tests that run against a local sanvil node. Test the full flow:
+- Deploy contract with appropriate deadline
+- Submit brackets from multiple accounts
+- Set tags
+- Update brackets
+- Read brackets (own bracket before deadline via signed read)
+- Fast-forward past deadline (if sanvil supports `evm_increaseTime` / `evm_mine`)
+- Read anyone's bracket after deadline
+- Submit results (from owner)
+- Score brackets
+- Collect winnings
+- Verify payouts
+
+### 3. Test Utilities (`src/utils.ts`)
+Helper functions:
+- `randomBracket()` — generate a random valid bracket (63 random booleans, encode to hex with sentinel)
+- `deployContract(client, deadline)` — deploy helper
+- `getAnvilAccounts()` — return the standard anvil accounts with their private keys
+- Contract ABI (copy from the contract or define inline)
+
+## Key Technical Details
+
+### seismic-viem Usage
+Look at `/home/c/code/seismic-workspace/apps/poker/packages/poker-viem/` for reference. Key patterns:
+- `createShieldedPublicClient` for transparent reads
+- `createShieldedWalletClient` for shielded writes and signed reads
+- `walletClient.writeContract()` for shielded transactions (bracket submission)
+- `walletClient.readContract()` for signed reads (reading own bracket before deadline)
+- Transport: `http('http://localhost:8545')` for local sanvil
+
+### Anvil Default Accounts
+Standard anvil/sanvil provides 10 accounts with 10000 ETH each. The private keys are deterministic — you can find them in the anvil docs or hardcode the well-known ones.
+
+### Bracket Encoding
+Import from sibling package or reimplement: `encodeBracket(picks: boolean[])` returns `0x${string}` hex with MSB sentinel bit set.
+
+### Contract Deploy
+The deploy script is at `contracts/script/MarchMadnessLocal.s.sol`. You can either:
+1. Use sforge to deploy via the script, OR
+2. Deploy directly via seismic-viem using the contract bytecode
+
+Option 2 is probably easier for test integration. You'll need the contract ABI and bytecode. You can get bytecode from the forge build output.
+
+## Package Dependencies
+- seismic-viem + viem
+- bun (for test runner and script execution)
+
+## Rules
+1. Update `docs/changeset.md` with what you added
+2. Run the tests if you can (note: requires a running sanvil instance, so tests may not pass in CI without it — that's OK, just make sure they compile and typecheck)
+3. Push branch and open a PR to main using `gh pr create`
+4. Save this prompt to `docs/prompts/cdai__integration-tests/` as a .txt file
+
+## Important Notes
+- The population script should be runnable with `bun run src/populate.ts`
+- Tests use bun test: `bun test`
+- Entry fee is 1 ETH (use `parseEther('1')` from viem)
+- For local dev, set deadline in the future so brackets can be submitted
+- The contract constructor takes `(uint256 _entryFee, uint256 _submissionDeadline)`
+- Make sure scripts handle the case where sanvil isn't running with a clear error message
+
+## Additional Requirements (Critical Updates)
+
+### Infrastructure
+- Deploy via `sforge script` using `contracts/script/MarchMadnessLocal.s.sol` (with direct deploy fallback)
+- Commit `data/anvil-accounts.json` with all 10 standard anvil accounts
+- Add `contracts/.env.example` for deployer key format (`.env` already gitignored)
+
+### Concurrent Bracket Submission
+- Submit brackets from ALL test wallets concurrently (Promise.all / parallel async)
+
+### Tournament Phase CLI
+The populate script supports phase-based local development:
+- `--phase pre-submission` (default): Deploy with future deadline, no brackets submitted
+- `--phase post-submission`: Deploy, submit brackets concurrently, fast-forward, post results, score a few
+- `--phase post-grading`: Everything above + score ALL + fast-forward past scoring window
