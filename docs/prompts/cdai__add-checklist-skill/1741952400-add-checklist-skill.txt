@@ -1,0 +1,5 @@
+check out to a new branch off of main. i want you to add a skill to the repo at <repo-root>/.claude/skills/checklist/SKILL.md
+
+it should essentially say, "if the user is invoking this skill, it means you have likely been sloppy about respecting the instructions in claude.md. so you should refresh your memory on that checklist." to save steps, you should duplicate the actual checklist content in claude.md to this skill; and then insert right UNDER claude.md a statement that says: "whenever you add anythihng to this chcekclist, you should also updat the skill at .claude/skills/checklist/SKILL.md
+
+after you add the skill, you should obviously work through the checklist itself

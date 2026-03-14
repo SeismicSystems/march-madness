@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Add `/checklist` skill
+- Added `.claude/skills/checklist/SKILL.md` — user-invocable skill that mirrors the CLAUDE.md rules checklist, for quick verification before pushing or opening PRs
+- Added sync note to CLAUDE.md: any changes to the rules checklist must also be reflected in the skill
+
 ### 2026-03-14 — Bracket spacing + sbytes8 fix (seismic-viem PR)
 - **Bracket spacing**: Increased R64 vertical gap from 2px to 8px (desktop) / 6px (mobile), and bumped later rounds proportionally. Games no longer appear jammed together.
 - **sbytes8 bug**: Root-caused to seismic-viem v1.1.1 missing `sbytes*` in `remapSeismicAbiInputs`. Fix submitted upstream: SeismicSystems/seismic#117 (v1.1.2). Will update dep when published.
