@@ -1,0 +1,61 @@
+Refactor PR #6 (branch `cdai__web-frontend`) to use the `@march-madness/client` library heavily instead of duplicating logic.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Context
+PR #7 (client library) has been merged to main. The web frontend currently duplicates:
+1. A hand-written ABI in `packages/web/src/lib/abi.ts` — should import `MarchMadnessAbi` from `@march-madness/client`
+2. Manual contract call logic in `packages/web/src/hooks/useContract.ts` — should use `MarchMadnessPublicClient`, `MarchMadnessUserClient`, `ENTRY_FEE` from client
+3. Bracket encoding — should use `encodeBracket`, `validateBracket` from client
+4. Entry fee constant (`parseEther('1')`) — should use `ENTRY_FEE` from client
+
+## What to Do
+
+### Step 0: Rebase onto main
+```
+git fetch origin main
+git checkout -B cdai__web-frontend origin/cdai__web-frontend
+git rebase origin/main
+```
+Resolve any conflicts. Then verify with `git diff --name-only origin/main..HEAD`.
+
+### Step 1: Replace duplicated ABI
+- Delete `packages/web/src/lib/abi.ts` (the hand-written one)
+- Import `MarchMadnessAbi` from `@march-madness/client` everywhere the ABI is used
+
+### Step 2: Refactor useContract hook
+The client library provides three client classes:
+- `MarchMadnessPublicClient` — transparent reads (getEntryCount, getResults, etc.)
+- `MarchMadnessUserClient` — shielded writes (submitBracket, updateBracket), signed reads (getMyBracket)
+- `MarchMadnessOwnerClient` — owner functions (submitResults)
+
+Refactor `useContract.ts` to use these classes instead of raw `walletClient.writeContract()` calls. The client library already handles the distinction between shielded writes, signed reads, and transparent reads.
+
+However, note the web uses seismic-react hooks (useShieldedWallet) which give you the walletClient/publicClient. You'll need to construct the client library classes from these. Something like:
+```ts
+import { MarchMadnessPublicClient, MarchMadnessUserClient, MarchMadnessAbi, ENTRY_FEE } from '@march-madness/client';
+
+// In the hook:
+const publicMM = new MarchMadnessPublicClient(publicClient, CONTRACT_ADDRESS);
+const userMM = new MarchMadnessUserClient(walletClient, CONTRACT_ADDRESS);
+```
+
+Check the client.ts source to see the exact constructor signatures.
+
+### Step 3: Use bracket encoding from client
+Replace any inline bracket encoding with `encodeBracket` and `validateBracket` from `@march-madness/client`.
+
+### Step 4: Workspace dependency
+The `package.json` already has `"@march-madness/client": "workspace:*"`. The root `package.json` has `"workspaces": ["packages/*"]`. Just make sure `bun install` works.
+
+## Rules
+- Work on the existing branch `cdai__web-frontend`
+- Verify with `git diff --name-only origin/main..HEAD` that only web files are in the diff
+- Run `cd packages/web && bun install && bun run typecheck && bun run build` to verify
+- Push to the existing branch, do NOT open a new PR
+- Read the client library source files on main to understand the exact API before refactoring
+
+## Reference
+- Client library source: `packages/client/src/` (on main branch)
+- Key exports: see `packages/client/src/index.ts`

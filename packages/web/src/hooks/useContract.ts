@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShieldedWallet } from "seismic-react";
-import { parseEther } from "viem";
 
-import { marchMadnessAbi } from "../lib/abi";
+import {
+  MarchMadnessPublicClient,
+  MarchMadnessUserClient,
+} from "@march-madness/client";
+
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 
 /**
  * Hook for interacting with the MarchMadness contract.
+ * Uses MarchMadnessPublicClient for transparent reads and
+ * MarchMadnessUserClient for shielded writes and signed reads.
  */
 export function useContract() {
   const { walletClient, publicClient } = useShieldedWallet();
@@ -20,45 +25,38 @@ export function useContract() {
 
   const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
 
+  // Construct client library instances from seismic-react wallet/public clients
+  const mmPublic = useMemo(() => {
+    if (!publicClient) return null;
+    return new MarchMadnessPublicClient(publicClient, CONTRACT_ADDRESS);
+  }, [publicClient]);
+
+  const mmUser = useMemo(() => {
+    if (!publicClient || !walletClient) return null;
+    return new MarchMadnessUserClient(
+      publicClient,
+      walletClient,
+      CONTRACT_ADDRESS,
+    );
+  }, [publicClient, walletClient]);
+
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {
-    if (!publicClient) return;
+    if (!mmPublic) return;
     try {
-      const count = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: marchMadnessAbi,
-        functionName: "getEntryCount",
-      });
+      const count = await mmPublic.getEntryCount();
       setEntryCount(Number(count));
     } catch {
       // Contract might not be deployed yet
     }
-  }, [publicClient]);
+  }, [mmPublic]);
 
-  // Fetch user's existing bracket (signed read before deadline)
+  // Fetch user's existing bracket (signed read before deadline, transparent after)
   const fetchMyBracket = useCallback(async () => {
-    if (!walletClient) return;
-    const address = walletClient.account?.address;
-    if (!address) return;
+    if (!mmUser) return;
 
     try {
-      // Before deadline: use signed read (walletClient.readContract)
-      // After deadline: use transparent read
-      const bracket = isBeforeDeadline
-        ? await walletClient.readContract({
-            address: CONTRACT_ADDRESS,
-            abi: marchMadnessAbi,
-            functionName: "getBracket",
-            args: [address],
-          })
-        : await publicClient?.readContract({
-            address: CONTRACT_ADDRESS,
-            abi: marchMadnessAbi,
-            functionName: "getBracket",
-            args: [address],
-          });
-
-      const bracketHex = bracket as `0x${string}`;
+      const bracketHex = await mmUser.getMyBracket();
       // Check if bracket has sentinel bit set (meaning it exists)
       if (
         bracketHex &&
@@ -71,28 +69,22 @@ export function useContract() {
     } catch {
       // No bracket submitted yet or contract not deployed
     }
-  }, [walletClient, publicClient, isBeforeDeadline]);
+  }, [mmUser]);
 
   useEffect(() => {
     fetchEntryCount();
     fetchMyBracket();
   }, [fetchEntryCount, fetchMyBracket]);
 
-  // Submit bracket (shielded write)
+  // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
-      if (!walletClient) throw new Error("Wallet not connected");
+      if (!mmUser) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
 
       try {
-        const hash = await walletClient.writeContract({
-          address: CONTRACT_ADDRESS,
-          abi: marchMadnessAbi,
-          functionName: "submitBracket",
-          args: [bracketHex],
-          value: parseEther("1"),
-        });
+        const hash = await mmUser.submitBracket(bracketHex);
         setHasSubmitted(true);
         setExistingBracket(bracketHex);
         await fetchEntryCount();
@@ -106,23 +98,18 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [walletClient, fetchEntryCount],
+    [mmUser, fetchEntryCount],
   );
 
   // Update bracket (shielded write, no additional fee)
   const updateBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
-      if (!walletClient) throw new Error("Wallet not connected");
+      if (!mmUser) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
 
       try {
-        const hash = await walletClient.writeContract({
-          address: CONTRACT_ADDRESS,
-          abi: marchMadnessAbi,
-          functionName: "updateBracket",
-          args: [bracketHex],
-        });
+        const hash = await mmUser.updateBracket(bracketHex);
         setExistingBracket(bracketHex);
         return hash;
       } catch (err) {
@@ -134,23 +121,18 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [walletClient],
+    [mmUser],
   );
 
-  // Set tag (regular write, not shielded)
+  // Set tag (transparent write via client library)
   const setTag = useCallback(
     async (tag: string) => {
-      if (!walletClient) throw new Error("Wallet not connected");
+      if (!mmUser) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
 
       try {
-        const hash = await walletClient.writeContract({
-          address: CONTRACT_ADDRESS,
-          abi: marchMadnessAbi,
-          functionName: "setTag",
-          args: [tag],
-        });
+        const hash = await mmUser.setTag(tag);
         return hash;
       } catch (err) {
         const msg =
@@ -161,7 +143,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [walletClient],
+    [mmUser],
   );
 
   return {

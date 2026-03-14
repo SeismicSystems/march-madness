@@ -21,6 +21,13 @@ All notable changes to this project. Every PR must add an entry here.
 - Moved Cargo workspace from `crates/Cargo.toml` to repo root `Cargo.toml`
 - Updated CI scripts and GitHub workflow to use root workspace
 
+### 2026-03-14 — Web Frontend Refactor: Use Client Library (`packages/web`)
+- Deleted hand-written `src/lib/abi.ts` — ABI now comes from `@march-madness/client`
+- Refactored `useContract` hook to use `MarchMadnessPublicClient` (transparent reads) and `MarchMadnessUserClient` (shielded writes, signed reads) from client library
+- Replaced manual `walletClient.writeContract()` / `walletClient.readContract()` calls with client library methods (`mmUser.submitBracket()`, `mmUser.getMyBracket()`, etc.)
+- Replaced duplicated `ENTRY_FEE` constant with import from `@march-madness/client`; `ENTRY_FEE_DISPLAY` now derived via `formatEther(ENTRY_FEE)`
+- Bracket encoding already used `encodeBracket` from client library (no change needed)
+
 ### 2026-03-14 — Web Frontend (`packages/web`)
 - Built React frontend with full 64-team bracket selection UI
 - Added Privy authentication (Twitter, Discord, social logins) with embedded wallet via seismic-react ShieldedWalletProvider
