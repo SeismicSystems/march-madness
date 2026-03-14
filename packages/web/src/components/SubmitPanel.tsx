@@ -7,11 +7,14 @@ interface SubmitPanelProps {
   pickCount: number;
   hasSubmitted: boolean;
   isLoading: boolean;
+  isBracketLoading: boolean;
   error: string | null;
   encodedBracket: `0x${string}` | null;
+  existingBracket: `0x${string}` | null;
   onSubmit: (bracket: `0x${string}`) => Promise<unknown>;
   onUpdate: (bracket: `0x${string}`) => Promise<unknown>;
   onSetTag: (tag: string) => Promise<unknown>;
+  onLoadBracket: () => Promise<void>;
   walletConnected: boolean;
 }
 
@@ -20,11 +23,14 @@ export function SubmitPanel({
   pickCount,
   hasSubmitted,
   isLoading,
+  isBracketLoading,
   error,
   encodedBracket,
+  existingBracket,
   onSubmit,
   onUpdate,
   onSetTag,
+  onLoadBracket,
   walletConnected,
 }: SubmitPanelProps) {
   const [tag, setTag] = useState("");
@@ -94,6 +100,21 @@ export function SubmitPanel({
           </span>
         )}
       </div>
+
+      {/* Load existing bracket button (only if submitted but not yet loaded) */}
+      {hasSubmitted && !existingBracket && (
+        <button
+          onClick={onLoadBracket}
+          disabled={isBracketLoading}
+          className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all border ${
+            isBracketLoading
+              ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
+              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+          }`}
+        >
+          {isBracketLoading ? "Loading..." : "Load my bracket"}
+        </button>
+      )}
 
       {/* Entry fee notice */}
       {!hasSubmitted && !isLocked && (

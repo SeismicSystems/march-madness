@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Lazy signed read + hasEntry contract function
+- **Contract**: Added `mapping(address => bool) public hasEntry` — set to `true` on `submitBracket()`. Allows anyone to check if an address has submitted without a signed read.
+- **ABI + Client**: Added `getHasEntry(address)` to `MarchMadnessPublicClient`
+- **Frontend**: On login, calls `hasEntry(address)` (public, no signing) to check submission status. The signed read (`getMyBracket`) is now only triggered when user clicks "Load my bracket" button.
+- **SubmitPanel**: Shows "Load my bracket" button when `hasSubmitted` is true but bracket data hasn't been loaded yet
+- **Integration test**: Added test for `hasEntry` (true for submitters, false for non-submitters)
+- **Redeployed** contract to testnet: `0xD1cA8aDfdaE872D44Af5aACf8a9EfE7493c606cf`
+
 ### 2026-03-14 — UX improvements: faucet, localStorage picks, multi-round advancing
 - **Faucet link**: added "Faucet" link in header (opens in new tab), plus a prominent `FaucetBanner` when connected with 0 ETH balance — shows address with copy button and "Get Testnet ETH" link
 - **Copyable address**: connected wallet address is shown in header and clickable to copy on both mobile and desktop

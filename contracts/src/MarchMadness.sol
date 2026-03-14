@@ -17,6 +17,7 @@ contract MarchMadness {
 
     // ── State ──────────────────────────────────────────────────────────────
     mapping(address => sbytes8) private brackets; // SHIELDED bracket storage
+    mapping(address => bool) public hasEntry; // unshielded — publicly readable
     mapping(address => string) public tags; // optional display name
     mapping(address => uint8) public scores;
     mapping(address => bool) public isScored;
@@ -67,6 +68,7 @@ contract MarchMadness {
         require(existing[0] & 0x80 == 0, "Already submitted");
 
         brackets[msg.sender] = bracket;
+        hasEntry[msg.sender] = true;
         require(numEntries < type(uint32).max, "Entry count overflow");
         numEntries++;
 

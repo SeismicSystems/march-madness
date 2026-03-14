@@ -134,6 +134,13 @@ describe("MarchMadness Integration", () => {
       expect(count).toBe(3);
     });
 
+    test("hasEntry returns true for submitters, false for non-submitters", async () => {
+      const has0 = await mmPublic.getHasEntry(players[0].address);
+      const has3 = await mmPublic.getHasEntry(players[3].address);
+      expect(has0).toBe(true);
+      expect(has3).toBe(false);
+    });
+
     test("rejects submission without correct entry fee", async () => {
       // Raw wallet call needed: client library hardcodes ENTRY_FEE,
       // so we must use raw writeContract to test wrong fee.

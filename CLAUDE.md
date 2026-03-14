@@ -54,6 +54,7 @@ Key functions:
 - `submitBracket(sbytes8 bracket)` — submit shielded bracket, 1 ETH buy-in
 - `updateBracket(sbytes8 bracket)` — update bracket before deadline
 - `setTag(string tag)` — set/update optional display name (separate from bracket submission)
+- `hasEntry(address)` → `bool` — public mapping, true if address has submitted. No signed read needed.
 - `getBracket(address account)` → `bytes8` — before deadline: requires msg.sender == account (signed read); after deadline: anyone can read
 - `submitResults(bytes8 results)` — owner only, posts tournament results
 - `scoreBracket(address account)` — score a bracket against results (after results posted)
