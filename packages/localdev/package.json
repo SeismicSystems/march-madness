@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@march-madness/client": "workspace:*",
-    "seismic-viem": "^1.1.1",
+    "seismic-viem": "^1.1.2",
     "viem": "^2.0.0"
   },
   "devDependencies": {

@@ -1,0 +1,1 @@
+the internal type is ACTUALLY sbytes8 -- its a real type. and signing contracts shows an error that we shouldnt be seeing -- NOOOO

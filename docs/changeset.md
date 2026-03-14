@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Bracket spacing + sbytes8 fix (seismic-viem PR)
+- **Bracket spacing**: Increased R64 vertical gap from 2px to 8px (desktop) / 6px (mobile), and bumped later rounds proportionally. Games no longer appear jammed together.
+- **sbytes8 bug**: Root-caused to seismic-viem v1.1.1 missing `sbytes*` in `remapSeismicAbiInputs`. Fix submitted upstream: SeismicSystems/seismic#117 (v1.1.2). Will update dep when published.
+
 ### 2026-03-14 — Lazy signed read + hasEntry contract function
 - **Contract**: Added `mapping(address => bool) public hasEntry` — set to `true` on `submitBracket()`. Allows anyone to check if an address has submitted without a signed read.
 - **ABI + Client**: Added `getHasEntry(address)` to `MarchMadnessPublicClient`

@@ -1,0 +1,1 @@
+how come i still see this in the code: // ── Workaround: seismic-viem v1.1.1 sbytes* bug ──────────────────

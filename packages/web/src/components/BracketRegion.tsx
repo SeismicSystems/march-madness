@@ -69,18 +69,18 @@ function getVerticalSpacing(round: number, compact: boolean): number {
   if (compact) {
     // Scaled-down spacing for mobile
     switch (round) {
-      case 0: return 2;
-      case 1: return 18;
-      case 2: return 52;
-      case 3: return 120;
-      default: return 4;
+      case 0: return 6;
+      case 1: return 22;
+      case 2: return 56;
+      case 3: return 124;
+      default: return 6;
     }
   }
   switch (round) {
-    case 0: return 2;
-    case 1: return 28;
-    case 2: return 82;
-    case 3: return 190;
-    default: return 4;
+    case 0: return 8;
+    case 1: return 32;
+    case 2: return 86;
+    case 3: return 194;
+    default: return 8;
   }
 }
