@@ -13,7 +13,7 @@ contract SentinelTest is Test {
 
     function setUp() public {
         vm.warp(100);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE, "IPFS");
+        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
     }
 

@@ -18,7 +18,7 @@ contract ScoringTest is Test {
     function setUp() public {
         vm.warp(100);
         owner = address(this);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE, "IPFS");
+        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(charlie, 10 ether);

@@ -22,7 +22,7 @@ contract MarchMadnessJimpoTest is Test {
 
     function setUp() public {
         vm.warp(100); // well before deadline
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE, "IPFS_HASH");
+        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(charlie, 10 ether);
@@ -125,16 +125,17 @@ contract MarchMadnessJimpoTest is Test {
 
     // ── collectWinnings tests (ported from jimpo's #collectWinnings) ───────
 
-    function test_collectWinnings_rejectsBeforeAllScored() public {
+    function test_collectWinnings_rejectsBeforeScoringWindowClosed() public {
         _submitEntry(alice, 0xC000000000000000);
         _submitEntry(bob, 0xF000000000000000);
 
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
         mm.scoreBracket(alice);
+        mm.scoreBracket(bob);
 
         vm.prank(alice);
-        vm.expectRevert("Not all brackets scored");
+        vm.expectRevert("Scoring window still open");
         mm.collectWinnings();
     }
 
@@ -149,6 +150,9 @@ contract MarchMadnessJimpoTest is Test {
         mm.scoreBracket(alice);
         mm.scoreBracket(bob);
         mm.scoreBracket(charlie);
+
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         uint256 expectedWinnings = (3 * ENTRY_FEE) / 2; // 3 entries, 2 winners
 
@@ -166,57 +170,6 @@ contract MarchMadnessJimpoTest is Test {
         vm.prank(bob);
         vm.expectRevert("Not a winner");
         mm.collectWinnings();
-    }
-
-    // ── collectEntryFee tests (ported from jimpo's #collectEntryFee) ───────
-
-    function test_collectEntryFee_refundsAfterNoContestPeriod() public {
-        _submitEntry(alice, 0xC000000000000000);
-        _submitEntry(bob, 0xF000000000000000);
-
-        vm.warp(DEADLINE + 1);
-        mm.submitResults(RESULTS);
-
-        // Only score alice (not bob) — contest is incomplete
-        mm.scoreBracket(alice);
-
-        // Warp past no-contest period
-        vm.warp(mm.resultsPostedAt() + mm.NO_CONTEST_PERIOD());
-
-        uint256 aliceBefore = alice.balance;
-        vm.prank(alice);
-        mm.collectEntryFee();
-        assertEq(alice.balance - aliceBefore, ENTRY_FEE);
-
-        // Cannot collect twice
-        vm.prank(alice);
-        vm.expectRevert("Already collected");
-        mm.collectEntryFee();
-    }
-
-    function test_collectEntryFee_rejectsBeforeNoContestPeriod() public {
-        _submitEntry(alice, 0xC000000000000000);
-
-        vm.warp(DEADLINE + 1);
-        mm.submitResults(RESULTS);
-
-        vm.prank(alice);
-        vm.expectRevert("No-contest period not reached");
-        mm.collectEntryFee();
-    }
-
-    function test_collectEntryFee_rejectsWhenAllScored() public {
-        _submitEntry(alice, 0xC000000000000000);
-
-        vm.warp(DEADLINE + 1);
-        mm.submitResults(RESULTS);
-        mm.scoreBracket(alice);
-
-        vm.warp(mm.resultsPostedAt() + mm.NO_CONTEST_PERIOD());
-
-        vm.prank(alice);
-        vm.expectRevert("All brackets scored, contest is valid");
-        mm.collectEntryFee();
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

@@ -14,7 +14,6 @@ contract MarchMadness {
     // ── Tournament parameters (set in constructor) ─────────────────────────
     uint256 public entryFee;
     uint256 public submissionDeadline; // unix timestamp
-    string public tournamentDataIPFSHash;
 
     // ── State ──────────────────────────────────────────────────────────────
     mapping(address => sbytes8) private brackets; // SHIELDED bracket storage
@@ -32,35 +31,31 @@ contract MarchMadness {
     // ── Payout ─────────────────────────────────────────────────────────────
     uint8 public winningScore;
     uint256 public numWinners;
-    uint256 public winnings; // set once when last bracket is scored
     mapping(address => bool) public hasCollectedWinnings;
-    mapping(address => bool) public hasCollectedEntryFee;
 
     // ── Constants ──────────────────────────────────────────────────────────
-    uint256 public constant NO_CONTEST_PERIOD = 28 days;
+    uint256 public constant SCORING_DURATION = 7 days;
 
     // ── Events ─────────────────────────────────────────────────────────────
     event BracketSubmitted(address indexed account);
+    event TagSet(address indexed account, string tag);
     event BracketScored(address indexed account, uint8 score);
     event ResultsPosted(bytes8 results);
     event WinningsCollected(address indexed account, uint256 amount);
-    event EntryFeeCollected(address indexed account);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(
         uint256 _entryFee,
-        uint256 _submissionDeadline,
-        string memory _tournamentDataIPFSHash
+        uint256 _submissionDeadline
     ) {
         owner = msg.sender;
         entryFee = _entryFee;
         submissionDeadline = _submissionDeadline;
-        tournamentDataIPFSHash = _tournamentDataIPFSHash;
     }
 
     // ── Bracket Submission ─────────────────────────────────────────────────
 
-    /// @notice Submit a shielded bracket with 1 ETH entry fee.
+    /// @notice Submit a shielded bracket with entry fee.
     /// @param bracket  The shielded bracket (MSB must be set as sentinel).
     function submitBracket(sbytes8 bracket) external payable {
         require(msg.value == entryFee, "Incorrect entry fee");
@@ -87,6 +82,8 @@ contract MarchMadness {
         bytes8 existing = bytes8(brackets[msg.sender]);
         require(existing[0] & 0x80 != 0, "No bracket submitted");
         tags[msg.sender] = tag;
+
+        emit TagSet(msg.sender, tag);
     }
 
     /// @notice Update an already-submitted bracket (no additional fee required).
@@ -140,11 +137,12 @@ contract MarchMadness {
 
     // ── Scoring ────────────────────────────────────────────────────────────
 
-    /// @notice Score a bracket against the posted results.
+    /// @notice Score a bracket against the posted results. Anyone can call this.
     /// @param account  The address whose bracket to score.
     function scoreBracket(address account) external {
         require(results != bytes8(0), "Results not posted");
         require(!isScored[account], "Already scored");
+        require(block.timestamp < resultsPostedAt + SCORING_DURATION, "Scoring window closed");
 
         bytes8 b = bytes8(brackets[account]);
         require(b[0] & 0x80 != 0, "No bracket submitted");
@@ -162,48 +160,27 @@ contract MarchMadness {
             numWinners++;
         }
 
-        // When all brackets have been scored, calculate the per-winner payout
-        if (numScored == numEntries) {
-            winnings = (numEntries * entryFee) / numWinners;
-        }
-
         emit BracketScored(account, score);
     }
 
     // ── Payout ─────────────────────────────────────────────────────────────
 
-    /// @notice Collect winnings. Available once all brackets have been scored.
+    /// @notice Collect winnings. Available once the scoring window has closed.
+    ///         Winners are the entrants with the highest scored bracket.
     function collectWinnings() external {
-        require(numScored == numEntries, "Not all brackets scored");
-        require(numEntries > 0, "No entries");
+        require(resultsPostedAt > 0, "Results not posted");
+        require(block.timestamp >= resultsPostedAt + SCORING_DURATION, "Scoring window still open");
+        require(numWinners > 0, "No brackets scored");
         require(scores[msg.sender] == winningScore, "Not a winner");
         require(isScored[msg.sender], "Not scored");
         require(!hasCollectedWinnings[msg.sender], "Already collected");
 
         hasCollectedWinnings[msg.sender] = true;
+        uint256 payout = (uint256(numEntries) * entryFee) / numWinners;
 
-        emit WinningsCollected(msg.sender, winnings);
+        emit WinningsCollected(msg.sender, payout);
 
-        (bool success,) = msg.sender.call{value: winnings}("");
-        require(success, "Transfer failed");
-    }
-
-    /// @notice Collect entry fee refund if the contest is invalid.
-    /// @dev Available if results were posted but not all brackets were scored within 28 days.
-    function collectEntryFee() external {
-        require(resultsPostedAt > 0, "Results not posted");
-        require(block.timestamp >= resultsPostedAt + NO_CONTEST_PERIOD, "No-contest period not reached");
-        require(numScored < numEntries, "All brackets scored, contest is valid");
-
-        bytes8 b = bytes8(brackets[msg.sender]);
-        require(b[0] & 0x80 != 0, "No bracket submitted");
-        require(!hasCollectedEntryFee[msg.sender], "Already collected");
-
-        hasCollectedEntryFee[msg.sender] = true;
-
-        emit EntryFeeCollected(msg.sender);
-
-        (bool success,) = msg.sender.call{value: entryFee}("");
+        (bool success,) = msg.sender.call{value: payout}("");
         require(success, "Transfer failed");
     }
 

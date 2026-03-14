@@ -19,7 +19,7 @@ contract EdgeCasesTest is Test {
     function setUp() public {
         vm.warp(100);
         owner = address(this);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE, "IPFS");
+        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
     }
@@ -74,9 +74,9 @@ contract EdgeCasesTest is Test {
         mm.scoreBracket(alice);
     }
 
-    // ── Collect before all scored ──────────────────────────────────────────
+    // ── Collect before scoring window closed ───────────────────────────────
 
-    function test_cannotCollectWinningsBeforeAllScored() public {
+    function test_cannotCollectWinningsBeforeScoringWindowClosed() public {
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
         vm.prank(bob);
@@ -85,10 +85,10 @@ contract EdgeCasesTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
         mm.scoreBracket(alice);
-        // bob not scored yet
+        mm.scoreBracket(bob);
 
         vm.prank(alice);
-        vm.expectRevert("Not all brackets scored");
+        vm.expectRevert("Scoring window still open");
         mm.collectWinnings();
     }
 

@@ -17,7 +17,7 @@ contract PayoutTest is Test {
 
     function setUp() public {
         vm.warp(100);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE, "IPFS");
+        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(charlie, 10 ether);
@@ -32,6 +32,9 @@ contract PayoutTest is Test {
 
         mm.scoreBracket(alice);
         mm.scoreBracket(bob);
+
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         uint256 aliceBefore = alice.balance;
         vm.prank(alice);
@@ -50,6 +53,9 @@ contract PayoutTest is Test {
         mm.scoreBracket(alice);
         mm.scoreBracket(bob);
         mm.scoreBracket(charlie);
+
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         uint256 expectedWinnings = (3 * ENTRY_FEE) / 2;
 
@@ -77,6 +83,9 @@ contract PayoutTest is Test {
         mm.scoreBracket(bob);
         mm.scoreBracket(charlie);
 
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
+
         assertEq(mm.numWinners(), 3);
         uint256 expectedWinnings = ENTRY_FEE; // 3 ETH / 3 winners
 
@@ -92,6 +101,9 @@ contract PayoutTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
         mm.scoreBracket(alice);
+
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         vm.prank(alice);
         mm.collectWinnings();
@@ -109,6 +121,9 @@ contract PayoutTest is Test {
         mm.submitResults(RESULTS);
         mm.scoreBracket(alice);
         mm.scoreBracket(bob);
+
+        // Warp past scoring window
+        vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         vm.prank(bob);
         vm.expectRevert("Not a winner");

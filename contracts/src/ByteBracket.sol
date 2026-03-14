@@ -8,7 +8,6 @@ pragma solidity ^0.8.13;
 ///      All bit manipulation functions use `unchecked` because jimpo's original code was written
 ///      for Solidity 0.5 (no overflow checks) and relies on intentional bit-level wrapping.
 ///
-/// Algorithm description: https://drive.google.com/file/d/0BxHbbgrucCx2N1MxcnA1ZE1WQW8/view
 /// Reference implementation: https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48
 library ByteBracket {
     /// @notice Score a bracket against the results using the precomputed scoring mask.

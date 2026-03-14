@@ -12,8 +12,7 @@ contract MarchMadnessLocalScript is Script {
 
         MarchMadness mm = new MarchMadness(
             1 ether,                    // entryFee
-            block.timestamp + 1 hours,  // submissionDeadline: 1 hour from now
-            "QmLOCAL"                   // IPFS hash placeholder
+            block.timestamp + 1 hours   // submissionDeadline: 1 hour from now
         );
 
         console.log("MarchMadness (local) deployed at:", address(mm));
