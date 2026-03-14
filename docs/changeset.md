@@ -4,6 +4,31 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
+- Renamed `packages/tests` to `packages/localdev` (`@march-madness/localdev`) — this is primarily a local dev tool, not just tests
+- Moved `integration.test.ts` from `src/` to `test/` directory (at same level as `src/`)
+- Added shorthand bun scripts to root `package.json`: `bun p:pre`, `bun p:post`, `bun p:grading`
+- Updated all references across CLAUDE.md, README.md, docs/technical.md, packages/mise.toml
+
+### 2026-03-14 — PR #8 Review: Refactor tests to use client library (`packages/tests`)
+- Refactored `populate.ts` and `integration.test.ts` to use `MarchMadnessPublicClient`, `MarchMadnessUserClient`, and `MarchMadnessOwnerClient` from `@march-madness/client` instead of raw `wallet.writeContract()` / `publicClient.readContract()` calls
+- Added factory functions to `utils.ts`: `createMMPublicClient()`, `createMMUserClient()`, `createMMOwnerClient()`
+- Removed local `ENTRY_FEE` constant from `utils.ts` — now re-exported from `@march-madness/client`
+- Raw wallet calls kept only where client library cannot express the test (wrong entry fee, cross-user bracket read before deadline, non-owner submitResults)
+
+### 2026-03-14 — Integration Tests & Local Dev Population (`packages/tests`)
+- Added `src/utils.ts` — test utilities: random/chalky bracket generation, sforge deploy, sanvil process spawning, anvil account loader, seismic-viem client helpers, time manipulation (evm_increaseTime + evm_mine)
+- Added `src/integration.test.ts` — full end-to-end test suite (expects sanvil already running): deploy via sforge, concurrent bracket submission, tags, updates, signed read (own bracket before deadline), fast-forward past deadline, transparent read, results posting, scoring, payout collection with balance verification
+- Added `src/populate.ts` — local dev population script that spawns sanvil itself, deploys via sforge, and populates state:
+  - `--phase pre-submission` (default): deploy with future deadline, no brackets (for testing submission UI)
+  - `--phase post-submission`: deploy, submit all brackets concurrently, fast-forward, post results, score a few (for testing reveal/scoring UI)
+  - `--phase post-grading`: everything above + score all + fast-forward past 7-day scoring window (for testing payout UI)
+  - Sanvil is left running after the script completes so the frontend can use it
+- Added `data/anvil-accounts.json` — all 10 standard anvil accounts with addresses, private keys, and labels
+- Added `contracts/.env.example` — deployer key format for sforge script
+- Added `tsconfig.json` to tests package, added typecheck/lint/build scripts to `package.json`
+- Updated `packages/mise.toml` to include tests package in typecheck, lint, and build tasks
+
 ### 2026-03-14 — PR #5 Review Fixes
 - provider.rs: Support both SeismicReth (prod) and SeismicFoundry (sanvil) via `IndexerProvider` enum and `--network` CLI flag
 - ci.sh: Missing `Cargo.toml` or `cargo` now fails CI instead of silently skipping
@@ -48,15 +73,6 @@ All notable changes to this project. Every PR must add an entry here.
 - Dark theme with Tailwind CSS v4 (@tailwindcss/vite plugin)
 - Env vars: VITE_PRIVY_APP_ID, VITE_CONTRACT_ADDRESS, VITE_CHAIN_ID, VITE_RPC_URL, VITE_PUBLIC_RPC_URL
 
-### 2026-03-14 — Rust HTTP Server (`crates/server`)
-- Built `march-madness-server` HTTP server using axum + tokio
-- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
-- TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
-- CORS enabled (Access-Control-Allow-Origin: *) for frontend access
-- CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)
-- Graceful shutdown on SIGINT/SIGTERM
-- Structured logging via tracing
-
 ### 2026-03-14 — Client Library Review Fixes (`packages/client`)
 - Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)
 - Refactored `MarchMadnessPublicClient` to use `getContract()` + `.read.functionName()` pattern (consistent with `UserClient`'s `getShieldedContract` pattern)
@@ -74,6 +90,15 @@ All notable changes to this project. Every PR must add an entry here.
 - Updated `src/index.ts` barrel exports for all new modules
 - Added tests: `abi.test.ts` (5 tests), `format.test.ts` (7 tests), expanded `bracket.test.ts` (8 new tests for validateBracket + runner-up)
 - 25 total tests passing, typecheck clean
+
+### 2026-03-14 — Rust HTTP Server (`crates/server`)
+- Built `march-madness-server` HTTP server using axum + tokio
+- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
+- TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
+- CORS enabled (Access-Control-Allow-Origin: *) for frontend access
+- CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)
+- Graceful shutdown on SIGINT/SIGTERM
+- Structured logging via tracing
 
 ### 2026-03-14 — CI Workflows + Local CI Script (mise-based)
 - Added `mise.toml` (root) — pins sfoundry (nightly), ssolc (2ebb36d), bun (1.3.9) via mise, mirroring samlaf's setup in the seismic repo

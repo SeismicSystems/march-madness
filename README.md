@@ -57,7 +57,7 @@ contracts/          — Seismic Solidity smart contracts
 packages/
   client/           — TypeScript client library (bracket encoding, contract interaction)
   web/              — React web app (bracket UI, auth, live scoring)
-  tests/            — Integration tests + local dev tools
+  localdev/         — Local dev tools + integration tests
 crates/
   indexer/          — Rust event listener (tracks bracket submissions)
   server/           — HTTP API server
@@ -76,9 +76,6 @@ docs/               — Technical docs, changeset log, prompt archive
 ### Quick Start
 
 ```bash
-# Start local Seismic node
-sanvil
-
 # Build & test contracts
 cd contracts && sforge test -vv
 
@@ -88,8 +85,10 @@ bun install
 # Run frontend dev server
 cd packages/web && bun dev
 
-# Populate local brackets (for development)
-cd packages/tests && bun run populate
+# Populate local state for development (spawns sanvil, deploys via sforge, populates brackets)
+bun p:pre                     # pre-submission (default): deploy with future deadline, no brackets
+bun p:post                    # post-submission: brackets + results + partial scoring
+bun p:grading                 # post-grading: full lifecycle including payouts
 ```
 
 ## License

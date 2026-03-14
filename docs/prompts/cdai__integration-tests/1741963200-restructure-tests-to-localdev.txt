@@ -1,0 +1,7 @@
+Review comments on PR #8:
+
+Comment 1 (README.md line 89):
+"this shouldn't really be called @march-madness/tests ... its not a test.. its local dev script. move any common code to common, and then split this out into two packages... in fact i think it's fine if the tests live in a folder at the same level as src/? unless bun does not like that"
+
+Comment 2 (CLAUDE.md line 94):
+"yeah this is just not the right syntax for calling this. should add a bun script section for these. `bun p:{phase-shorthand}` and see below comment about moving these dirs"

@@ -39,7 +39,7 @@ contracts/          — Seismic Solidity smart contracts (sforge project)
 packages/
   client/           — TypeScript client library (bracket encoding, contract calls)
   web/              — React frontend (bracket UI, Privy auth)
-  tests/            — Integration tests + local dev bracket population
+  localdev/         — Local dev tools (populate script) + integration tests
 crates/
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data
@@ -78,6 +78,35 @@ Events:
 - Use `walletClient.writeContract()` (shielded write) for submissions, NOT `.twriteContract()`
 - Use signed reads (`walletClient.readContract()`) to read own bracket before deadline
 - After deadline, client should use `.treadContract()` since brackets are publicly readable
+
+## Local Development
+
+### Populate Script (`packages/localdev/src/populate.ts`)
+
+Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, and populates it with data for the requested phase. Sanvil is left running after the script completes so the frontend can use it.
+
+Three phases:
+- **`pre-submission`** (default) — deploys contract with future deadline (1 hour). No brackets submitted. Use for testing bracket picker UI and submission flow.
+- **`post-submission`** — deploys, submits brackets from anvil test accounts, fast-forwards past deadline, posts results, scores first 3 brackets. Use for testing bracket viewing, scoring UI, off-chain preview. Remaining brackets are left unscored for manual testing.
+- **`post-grading`** — full lifecycle: deploy, submit, score all, fast-forward past scoring window. Use for testing payout collection and final leaderboard.
+
+```bash
+bun p:pre                     # pre-submission (default)
+bun p:post                    # post-submission: brackets + results + partial scoring
+bun p:grading                 # post-grading: full lifecycle including payouts
+```
+
+Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
+
+### Integration Tests (`packages/localdev/test/integration.test.ts`)
+
+Runs against an already-running sanvil node (started externally, e.g. by CI or the populate script). Deploys via sforge, then tests the full contract lifecycle.
+
+```bash
+bun run --filter @march-madness/localdev test
+```
+
+Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
 
 ## Key Dates
 - **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1742313600 unix)

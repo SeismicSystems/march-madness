@@ -1,5 +1,10 @@
 {
   "name": "march-madness",
   "private": true,
-  "workspaces": ["packages/*"]
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "p:pre": "bun run --filter @march-madness/localdev populate",
+    "p:post": "bun run --filter @march-madness/localdev populate -- --phase post-submission",
+    "p:grading": "bun run --filter @march-madness/localdev populate -- --phase post-grading"
+  }
 }

@@ -1,0 +1,54 @@
+Refactor PR #8 (branch `cdai__integration-tests`) to use the `@march-madness/client` library more heavily instead of duplicating logic.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Context
+PR #7 (client library) has been merged to main. The tests package currently:
+- Already imports `encodeBracket` from `@march-madness/client` (good!)
+- But loads ABI and bytecode directly from sforge build output files (`contracts/out/`)
+- Has its own inline contract interaction logic instead of using the client classes
+
+## What to Do
+
+### Step 0: Rebase onto main
+```
+git fetch origin main
+git checkout -B cdai__integration-tests origin/cdai__integration-tests
+git rebase origin/main
+```
+Resolve any conflicts. Then verify with `git diff --name-only origin/main..HEAD`.
+
+### Step 1: Use client library's ABI
+Instead of loading ABI from `contracts/out/MarchMadness.sol/MarchMadness.json`, import `MarchMadnessAbi` from `@march-madness/client`. The bytecode still needs to come from sforge output (only needed for deployment), but the ABI should come from the client.
+
+### Step 2: Use client classes where possible
+The client library provides:
+- `MarchMadnessPublicClient` — transparent reads (getEntryCount, getResults, etc.)
+- `MarchMadnessUserClient` — shielded writes (submitBracket, updateBracket, setTag, scoreBracket)
+- `MarchMadnessOwnerClient` — owner functions (submitResults)
+- `ENTRY_FEE` — the 1 ETH entry fee constant
+- `encodeBracket`, `validateBracket` — bracket encoding/validation
+
+Where the tests currently do raw `walletClient.writeContract()` calls, refactor to use the client classes. This is especially valuable in `populate.ts` and `integration.test.ts`.
+
+For deployment, you'll still need raw viem since the client library doesn't handle deployment. That's fine.
+
+### Step 3: Use ENTRY_FEE constant
+Replace `parseEther('1')` with `ENTRY_FEE` from the client.
+
+### Step 4: Workspace dependency
+`package.json` already has `"@march-madness/client": "workspace:*"`. Just make sure `bun install` works in the workspace.
+
+## Rules
+- Work on the existing branch `cdai__integration-tests`
+- Verify with `git diff --name-only origin/main..HEAD` that only tests-related files are in the diff (packages/tests/**, data/anvil-accounts.json, contracts/.env.example, packages/mise.toml, docs/**)
+- Run `cd packages && bun install` to verify workspace linking works
+- Run typecheck: make sure it compiles
+- Push to the existing branch, do NOT open a new PR
+- Read the client library source files on main to understand the exact API before refactoring
+
+## Reference
+- Client library source: `packages/client/src/` (on main branch)
+- Key exports: see `packages/client/src/index.ts`
+- Client classes: see `packages/client/src/client.ts` for constructor signatures

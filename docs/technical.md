@@ -156,3 +156,53 @@ This single JSON file is the source of truth for all tournament configuration. I
 
 - **`seed`**, **`region`**, **`abbrev`** are convenience metadata for UI display and human readability.
 - **The only thing that matters for on-chain encoding is the array order.** Teams are listed in jimpo's canonical order: 4 regions × 16 teams each, seeded `[1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15]` within each region. The contract and ByteBracket scoring care only about the index position of each team (0–63), not the metadata fields.
+
+## Local Development: Populate Script
+
+The populate script (`packages/localdev/src/populate.ts`) automates local development setup by deploying the MarchMadness contract to a sanvil node and optionally populating it with brackets, results, and scores.
+
+### Phases
+
+| Phase | What it does | Good for |
+|-------|-------------|----------|
+| `pre-submission` (default) | Deploy with future deadline (1h). No brackets. | Testing bracket picker UI, submission flow |
+| `post-submission` | Deploy, submit brackets from 10 anvil accounts, fast-forward past deadline, post results (chalky bracket), score first 3 brackets | Testing bracket viewing, scoring UI, leaderboard. Remaining brackets left unscored for manual testing |
+| `post-grading` | Full lifecycle: deploy, submit, score ALL brackets, fast-forward past 7-day scoring window | Testing payout collection, final leaderboard, `collectWinnings()` |
+
+### Usage
+
+```bash
+bun run --filter @march-madness/localdev populate                              # pre-submission (default)
+bun run --filter @march-madness/localdev populate -- --phase post-submission    # brackets + results
+bun run --filter @march-madness/localdev populate -- --phase post-grading      # full lifecycle
+bun run --filter @march-madness/localdev populate -- --rpc-url http://host:port
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|------------|---------|
+| `CONTRACT_ADDRESS` | Use existing contract (skip deploy) | — |
+| `RPC_URL` | RPC endpoint (overridden by `--rpc-url`) | `http://localhost:8545` |
+| `DEADLINE_OFFSET` | Deadline offset in seconds | `3600` (pre-submission) |
+| `USE_SFORGE` | Set to `"false"` to deploy via viem instead of sforge | `true` |
+
+### Test Accounts
+
+The script uses sanvil's pre-funded accounts from `data/anvil-accounts.json`. Account 0 is the deployer/owner; accounts 1-10 are players. In `post-submission` phase, player 3 (index 2) always gets the "chalky" bracket (all higher seeds win) which matches the results — guaranteeing a perfect score of 192.
+
+## Integration Tests
+
+The integration test suite (`packages/localdev/test/integration.test.ts`) validates the full contract lifecycle against a live sanvil node using the `@march-madness/client` library:
+
+1. Contract deployment (via sforge or direct)
+2. Bracket submission and update
+3. Deadline enforcement (fast-forward via `evm_increaseTime`)
+4. Results posting and bracket scoring
+5. Winner determination and payout collection
+
+```bash
+bun run --filter @march-madness/localdev test
+```
+
+Tests require sanvil running on `localhost:8545`.

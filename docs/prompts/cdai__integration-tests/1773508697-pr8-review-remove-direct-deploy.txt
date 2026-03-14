@@ -1,0 +1,9 @@
+Review comments on PR #8 (integration tests + populate script):
+
+1. "why would we want this? i feel like we should always be deploying with sforge... even if it means spawning anvil at the beginning of integration tests, then calling local dev forge script, then running all our ts code" — Remove the `USE_SFORGE=false` / `deployContractDirect` fallback entirely. Always use sforge for deployment.
+
+2. "i think you misinterpreted this prompt entirely. we want 2 different things that share a lot of common code: integration tests that run vs anvil, using forge as deploy tool; a script to populate state for local development. it's unclear to me exactly what subset of this you have here..." — Make it clear that there are TWO distinct entry points:
+   - `integration.test.ts` — test suite that runs against an already-running sanvil (spawned externally, e.g. by CI)
+   - `populate.ts` — local dev script that should spawn sanvil ITSELF, deploy, populate, then leave sanvil running
+
+3. "seismic-viem-tests has a pattern like this, it's worked fine for us. only thing seismic-viem-tests doesnt do is deploy with forge (but they do spawn anvil locally). note that on ci, i think we spin up anvil OUTSIDE the integration tests. but for our single local dev script, i think it's nice to have it all in one"

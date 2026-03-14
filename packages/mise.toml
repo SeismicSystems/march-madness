@@ -5,27 +5,30 @@ dir = "{{config_root}}/.."
 run = "bun install"
 
 [tasks.typecheck]
-description = "Typecheck client and web packages"
+description = "Typecheck client, web, and localdev packages"
 depends = ["install"]
 run = [
   "cd ../packages/client && bun run typecheck",
   "cd ../packages/web && bun run typecheck",
+  "cd ../packages/localdev && bun run typecheck",
 ]
 
 [tasks."lint::check"]
-description = "Lint check client and web packages"
+description = "Lint check client, web, and localdev packages"
 depends = ["install"]
 run = [
   "cd ../packages/client && bun run lint:check",
   "cd ../packages/web && bun run lint:check",
+  "cd ../packages/localdev && bun run lint:check",
 ]
 
 [tasks.build]
-description = "Build client and web packages"
+description = "Build client, web, and localdev packages"
 depends = ["install"]
 run = [
   "cd ../packages/client && bun run build",
   "cd ../packages/web && bun run build",
+  "cd ../packages/localdev && bun run build",
 ]
 
 [tasks.test]

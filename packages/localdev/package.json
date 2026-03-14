@@ -1,11 +1,14 @@
 {
-  "name": "@march-madness/tests",
+  "name": "@march-madness/localdev",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "populate": "bun run src/populate.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint:check": "echo 'lint:check not yet configured'",
+    "build": "echo 'build not yet configured'"
   },
   "dependencies": {
     "@march-madness/client": "workspace:*",
@@ -13,6 +16,8 @@
     "viem": "^2.0.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.0.0",
+    "bun-types": "^1.3.10",
     "typescript": "^5.0.0"
   }
 }
