@@ -21,6 +21,27 @@ All notable changes to this project. Every PR must add an entry here.
 - Moved Cargo workspace from `crates/Cargo.toml` to repo root `Cargo.toml`
 - Updated CI scripts and GitHub workflow to use root workspace
 
+### 2026-03-14 — Web Frontend (`packages/web`)
+- Built React frontend with full 64-team bracket selection UI
+- Added Privy authentication (Twitter, Discord, social logins) with embedded wallet via seismic-react ShieldedWalletProvider
+- Bracket UI: 4 regions (East/West/South/Midwest) with visual progression through R64 → R32 → Sweet 16 → Elite 8 → Final Four → Championship
+- Click-to-pick interface with automatic downstream clearing when changing picks
+- Contract integration via `useContract` hook using `@march-madness/client` library (MarchMadnessPublicClient, MarchMadnessUserClient)
+- Submission panel with progress bar (picks/63), entry fee display, tag/name input, encoded bracket preview
+- Deadline countdown timer with lock detection (March 18, 2026 noon EST)
+- Scoreboard placeholder for post-tournament scoring
+- Dark theme with Tailwind CSS v4 (@tailwindcss/vite plugin)
+- Env vars: VITE_PRIVY_APP_ID, VITE_CONTRACT_ADDRESS, VITE_CHAIN_ID, VITE_RPC_URL, VITE_PUBLIC_RPC_URL
+
+### 2026-03-14 — Rust HTTP Server (`crates/server`)
+- Built `march-madness-server` HTTP server using axum + tokio
+- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
+- TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
+- CORS enabled (Access-Control-Allow-Origin: *) for frontend access
+- CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)
+- Graceful shutdown on SIGINT/SIGTERM
+- Structured logging via tracing
+
 ### 2026-03-14 — Client Library Review Fixes (`packages/client`)
 - Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)
 - Refactored `MarchMadnessPublicClient` to use `getContract()` + `.read.functionName()` pattern (consistent with `UserClient`'s `getShieldedContract` pattern)

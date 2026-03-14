@@ -1,0 +1,35 @@
+import { sanvil, seismicTestnetGcp2 } from "seismic-viem";
+import { http } from "viem";
+
+import { createConfig } from "@privy-io/wagmi";
+import { QueryClient } from "@tanstack/react-query";
+
+export const queryClient = new QueryClient();
+
+const parseChainId = (): number => {
+  const chainId = import.meta.env.VITE_CHAIN_ID;
+  if (!chainId) {
+    // Default to sanvil for local dev
+    return sanvil.id;
+  }
+  return parseInt(chainId);
+};
+
+const seismicDevnet = seismicTestnetGcp2;
+
+const CHAIN_ID = parseChainId();
+const ENABLED_CHAINS = [sanvil, seismicDevnet];
+export const CHAINS = ENABLED_CHAINS.filter(({ id }) => id === CHAIN_ID);
+
+// Fallback to sanvil if no chain matched
+const resolvedChains = CHAINS.length > 0 ? CHAINS : [sanvil];
+
+export const config = createConfig({
+  // @ts-expect-error: privy wagmi typing mismatch
+  chains: resolvedChains,
+  transports: {
+    [sanvil.id]: http(),
+    [seismicDevnet.id]: http(import.meta.env.VITE_RPC_URL),
+  },
+  ssr: false,
+});

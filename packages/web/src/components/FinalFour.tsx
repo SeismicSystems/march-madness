@@ -1,0 +1,78 @@
+import type { GameSlot } from "../hooks/useBracket";
+import { BracketGame } from "./BracketGame";
+
+interface FinalFourProps {
+  semifinal1: GameSlot | null;
+  semifinal2: GameSlot | null;
+  championship: GameSlot | null;
+  onPick: (gameIndex: number, pickTeam1: boolean) => void;
+  disabled?: boolean;
+}
+
+export function FinalFour({
+  semifinal1,
+  semifinal2,
+  championship,
+  onPick,
+  disabled = false,
+}: FinalFourProps) {
+  return (
+    <div className="flex flex-col items-center gap-6 min-w-[200px]">
+      <h3 className="text-sm font-semibold text-gold uppercase tracking-wider">
+        Final Four
+      </h3>
+
+      <div className="flex flex-col items-center gap-8">
+        {/* Semifinal 1 */}
+        {semifinal1 && (
+          <BracketGame
+            team1={semifinal1.team1}
+            team2={semifinal1.team2}
+            winner={semifinal1.winner}
+            onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
+            disabled={disabled}
+          />
+        )}
+
+        {/* Championship */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-[10px] text-text-muted uppercase tracking-wider">
+            Championship
+          </div>
+          {championship && (
+            <BracketGame
+              team1={championship.team1}
+              team2={championship.team2}
+              winner={championship.winner}
+              onPick={(pickTeam1) =>
+                onPick(championship.gameIndex, pickTeam1)
+              }
+              disabled={disabled}
+            />
+          )}
+          {championship?.winner && (
+            <div className="mt-2 px-4 py-2 bg-gold/20 border border-gold/50 rounded-lg text-center">
+              <div className="text-[10px] text-gold/80 uppercase">
+                Champion
+              </div>
+              <div className="text-lg font-bold text-gold">
+                {championship.winner.seed} {championship.winner.name}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Semifinal 2 */}
+        {semifinal2 && (
+          <BracketGame
+            team1={semifinal2.team1}
+            team2={semifinal2.team2}
+            winner={semifinal2.winner}
+            onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
+            disabled={disabled}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
