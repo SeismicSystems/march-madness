@@ -19,7 +19,7 @@ bytes8 (64 bits):
   Bit 0:      Championship (1 game)
 ```
 
-This is jimpo's original `bytes8` encoding unchanged. On Seismic, brackets are stored as `sbytes8` (shielded) to hide picks until the deadline.
+This is jimpo's original `bytes8` encoding with one addition: we repurpose the MSB (bit 63) as a sentinel. In jimpo's version the MSB was always set to 1 as a non-zero guarantee, but wasn't explicitly validated. We require it to equal 1 on submission so we can distinguish real brackets from uninitialized mapping entries (which return all zeros). On Seismic, brackets are stored as `sbytes8` (shielded) to hide picks until the deadline.
 
 ### Team Ordering
 
@@ -30,12 +30,16 @@ Seed order within each region: [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 
 
 Region order: East (0-15), West (16-31), South (32-47), Midwest (48-63)
 
+Note: region order and seed ordering within regions may vary year to year — the array order in the tournament data file is what matters.
+
 First-round matchups are adjacent pairs: team 0 vs team 1 (1-seed vs 16-seed), team 2 vs team 3 (8-seed vs 9-seed), etc.
 
 ### Final Four Pairings (2026)
 
 - Semifinal 1: East winner vs West winner
 - Semifinal 2: South winner vs Midwest winner
+
+Note: these pairings are placeholder seed data for 2026 — the NCAA hasn't officially announced them yet. They change year to year.
 
 ## Scoring (from jimpo's ByteBracket)
 
@@ -88,15 +92,15 @@ A pick in round N only scores if the feeder picks in round N-1 were also correct
 - `sbytes8` for bracket storage: hidden until deadline
 - `getBracket()` access control:
   - Before deadline: `msg.sender == account` (requires signed read via `walletClient.readContract()`)
-  - After deadline: anyone can read (client should use `.treadContract()` since data is public)
+  - After deadline: anyone can read — user client should use `.treadContract()` since data is public
 - Submissions use shielded writes (`walletClient.writeContract()`), NOT transparent writes
 
 ## Client Architecture
 
 Three access levels:
-1. **Public** — no wallet needed: read entry count, view results after deadline
-2. **User** — wallet connected: submit/update bracket, view own bracket (signed read), score brackets
-3. **Owner** — special wallet: post results, all user capabilities
+1. **Public** — no wallet, no signed reads, no writes. Always uses `.treadContract()`. Can read entry count and view brackets/results after deadline.
+2. **User** — wallet connected. Can submit/update bracket (shielded write), view own bracket before deadline (signed read), view anyone's bracket after deadline (transparent read), score brackets after results posted.
+3. **Owner** — same as user, plus can post results.
 
 ## Bracket Decode Formats
 
