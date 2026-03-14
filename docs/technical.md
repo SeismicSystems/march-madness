@@ -135,7 +135,7 @@ Three access levels:
 
 Ordered by achievement depth (Champion → Final Four → Elite 8 → Sweet 16 → Round of 32).
 
-## Tournament Data File (`data/tournament_2026.json`)
+## Tournament Data File (`data/mens-2026.json`)
 
 This single JSON file is the source of truth for all tournament configuration. It extends jimpo's original format (`name`, `teams: [{name}]`, `regions`) with additional fields for clarity:
 
