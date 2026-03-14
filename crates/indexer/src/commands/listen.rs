@@ -1,9 +1,8 @@
 //! Live event listener: polls for new BracketSubmitted and TagSet events.
 
 use crate::indexer::{load_index, save_index, update_tag, upsert_bracket_submitted};
-use crate::rpc::{
-    RpcClient, address_from_topic, decode_abi_string, decode_hex_data, event_topic, parse_hex_u64,
-};
+use crate::provider;
+use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
 use std::path::Path;
 use tokio::signal;
@@ -12,13 +11,11 @@ use tokio::signal;
 const POLL_INTERVAL_SECS: u64 = 5;
 
 pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()> {
-    let client = RpcClient::new(rpc_url);
-
-    let topic_bracket = event_topic("BracketSubmitted(address)");
-    let topic_tag = event_topic("TagSet(address,string)");
+    let p = provider::create_provider(rpc_url)?;
+    let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
 
     // Start from the latest block
-    let mut last_block = client.block_number().await?;
+    let mut last_block = provider::block_number(&p).await?;
     println!("Listening for events from block {}...", last_block);
     println!("Press Ctrl+C to stop.");
 
@@ -34,36 +31,36 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
                 return Ok(());
             }
             _ = tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)) => {
-                let current_block = client.block_number().await?;
+                let current_block = provider::block_number(&p).await?;
                 if current_block <= last_block {
                     continue;
                 }
 
                 let from = last_block + 1;
-                let to_hex = format!("0x{:x}", current_block);
 
                 // Fetch BracketSubmitted logs
-                let bracket_logs = client
-                    .get_logs(contract, std::slice::from_ref(&topic_bracket), from, &to_hex)
-                    .await
-                    .wrap_err("failed to fetch BracketSubmitted logs")?;
+                let bracket_logs = provider::get_bracket_submitted_logs(
+                    &p, contract_addr, from, current_block,
+                )
+                .await
+                .wrap_err("failed to fetch BracketSubmitted logs")?;
 
                 // Fetch TagSet logs
-                let tag_logs = client
-                    .get_logs(contract, std::slice::from_ref(&topic_tag), from, &to_hex)
-                    .await
-                    .wrap_err("failed to fetch TagSet logs")?;
+                let tag_logs = provider::get_tag_set_logs(
+                    &p, contract_addr, from, current_block,
+                )
+                .await
+                .wrap_err("failed to fetch TagSet logs")?;
 
                 let mut updated = false;
 
                 for log in &bracket_logs {
-                    if log.topics.len() < 2 {
-                        continue;
-                    }
-                    let address = address_from_topic(&log.topics[1])?;
-                    let block_num = parse_hex_u64(&log.block_number)?;
-                    let ts = client.get_block_timestamp(block_num).await?;
-                    let addr_str = format!("0x{}", hex::encode(address.as_slice()));
+                    let address = provider::parse_bracket_submitted(log)?;
+                    let block_num = log
+                        .block_number
+                        .ok_or_else(|| eyre::eyre!("log missing block number"))?;
+                    let ts = provider::get_block_timestamp(&p, block_num).await?;
+                    let addr_str = format!("{address:#x}");
                     println!(
                         "  BracketSubmitted: {} (block {})",
                         addr_str, block_num
@@ -73,13 +70,8 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
                 }
 
                 for log in &tag_logs {
-                    if log.topics.len() < 2 {
-                        continue;
-                    }
-                    let address = address_from_topic(&log.topics[1])?;
-                    let data_bytes = decode_hex_data(&log.data)?;
-                    let tag = decode_abi_string(&data_bytes)?;
-                    let addr_str = format!("0x{}", hex::encode(address.as_slice()));
+                    let (address, tag) = provider::parse_tag_set(log)?;
+                    let addr_str = format!("{address:#x}");
                     println!("  TagSet: {} => \"{}\"", addr_str, tag);
                     update_tag(&mut index, &addr_str, tag);
                     updated = true;

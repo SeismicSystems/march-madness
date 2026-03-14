@@ -1,6 +1,7 @@
 mod commands;
+mod contract;
 mod indexer;
-mod rpc;
+mod provider;
 
 use clap::{Parser, Subcommand};
 use eyre::Result;

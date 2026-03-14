@@ -1,15 +1,17 @@
 //! Sanity check: compare local index entry count with on-chain getEntryCount().
 
 use crate::indexer::load_index;
-use crate::rpc::RpcClient;
-use eyre::Result;
+use crate::provider;
+use alloy_primitives::Address;
+use eyre::{Result, WrapErr};
 use std::path::Path;
 
 pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()> {
-    let client = RpcClient::new(rpc_url);
+    let p = provider::create_provider(rpc_url)?;
+    let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
     let index = load_index(index_path)?;
 
-    let on_chain = client.get_entry_count(contract).await?;
+    let on_chain = provider::get_entry_count(&p, contract_addr).await?;
     let local = index.len() as u32;
 
     println!("Local index entries:   {}", local);

@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = ["crates/common", "crates/indexer", "crates/server"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+eyre = "0.6"
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+fs2 = "0.4"
+url = "2.5"
+reqwest = { version = "0.12", default-features = false }
+march-madness-common = { path = "crates/common" }
+
+# Alloy
+alloy-consensus = { version = "=1.1.0", default-features = false }
+alloy-provider = { version = "=1.1.0", features = ["reqwest"] }
+alloy-primitives = { version = "1.3.1", default-features = false, features = ["seismic"] }
+alloy-sol-types = { version = "1.3.1", default-features = false, features = ["seismic"] }
+alloy-rpc-types-eth = { version = "=1.1.0", default-features = false }
+alloy-network = { version = "=1.1.0", default-features = false }
+alloy-transport = { version = "=1.1.0", default-features = false }
+alloy-transport-http = { version = "=1.1.0", default-features = false }
+
+# seismic-alloy
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "h/better-rust-client" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "h/better-rust-client" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "h/better-rust-client" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "h/better-rust-client" }
+
+[patch.crates-io]
+# seismic-alloy-core
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-sol-macro = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+
+# alloy from upstream v1.1.0 tag (needed for compatibility with seismic-alloy-core patches)
+alloy-consensus = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.0" }
+alloy-eips = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.0" }
+alloy-serde = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.0" }
+alloy-network-primitives = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.0" }
+
+# seismic enclave
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "ac5e28dac1ee8ec0e3922b010e6da072d6e784aa" }

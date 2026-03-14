@@ -7,11 +7,14 @@ All notable changes to this project. Every PR must add an entry here.
 ### 2026-03-14 — Rust Indexer Binary (`crates/indexer`)
 - Built `march-madness-indexer` — event indexer for MarchMadness contract on Seismic
 - Four subcommands via clap: `listen` (live polling), `backfill` (historical scan), `reveal` (post-deadline bracket reading), `check` (sanity check vs on-chain count)
-- Uses seismic-alloy provider (SeismicUnsignedProvider) for all RPC calls
-- sol! macro for type-safe ABI encoding/decoding of events and contract calls
+- Uses seismic-alloy provider (`SeismicUnsignedProvider` via `SeismicProviderBuilder`) for all RPC calls
+- `sol!` macro for type-safe ABI encoding/decoding of events (`BracketSubmitted`, `TagSet`) and contract calls (`getEntryCount`, `getBracket`)
+- Replaced hand-rolled `rpc.rs` (raw reqwest JSON-RPC) with seismic-alloy provider in `provider.rs`
 - File-based locking (fs2) for concurrent read/write safety with the server
 - Index stored as BTreeMap keyed by lowercase hex address, written as pretty JSON to `data/entries.json`
 - Graceful SIGINT shutdown for the listener
+- Moved Cargo workspace from `crates/Cargo.toml` to repo root `Cargo.toml`
+- Updated CI scripts and GitHub workflow to use root workspace
 
 ### 2026-03-14 — Client Library Review Fixes (`packages/client`)
 - Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)

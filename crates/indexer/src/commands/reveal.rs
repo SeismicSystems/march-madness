@@ -1,13 +1,14 @@
 //! Post-deadline bracket reveal: read brackets for all indexed addresses.
 
 use crate::indexer::{load_index, save_index, set_bracket};
-use crate::rpc::RpcClient;
+use crate::provider;
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
 use std::path::Path;
 
 pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()> {
-    let client = RpcClient::new(rpc_url);
+    let p = provider::create_provider(rpc_url)?;
+    let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
     let mut index = load_index(index_path)?;
 
     if index.is_empty() {
@@ -30,22 +31,13 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
             continue;
         }
 
-        let addr_bytes = hex::decode(addr_str.strip_prefix("0x").unwrap_or(addr_str))
-            .wrap_err_with(|| format!("bad address hex: {addr_str}"))?;
-        if addr_bytes.len() != 20 {
-            println!("  Skipping invalid address: {}", addr_str);
-            continue;
-        }
-        let address = Address::from_slice(&addr_bytes);
+        let address: Address = addr_str
+            .parse()
+            .wrap_err_with(|| format!("bad address: {addr_str}"))?;
 
-        match client.get_bracket(contract, &address).await {
+        match provider::get_bracket(&p, contract_addr, address).await {
             Ok(bracket) => {
                 let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
-                // Skip zero brackets (should not happen, but just in case)
-                if bracket_hex == "0x0000000000000000" {
-                    println!("  {} — zero bracket, skipping", addr_str);
-                    continue;
-                }
                 set_bracket(&mut index, addr_str, bracket_hex.clone());
                 println!("  {} => {}", addr_str, bracket_hex);
                 revealed += 1;
