@@ -1,0 +1,1 @@
+can also look at ~/code/seismic-workspace/apps/poker for starter code example. but that's a very complicated project. it also has a lot of EIP7702 stuff we don't really need here. but it has privy signin and the general structure we want. so thats probably the best to look at

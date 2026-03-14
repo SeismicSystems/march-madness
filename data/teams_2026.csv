@@ -1,0 +1,65 @@
+team,seed,region
+Duke,1,East
+Michigan,1,West
+Arizona,1,South
+Florida,1,Midwest
+Houston,2,Midwest
+Illinois,2,South
+Iowa St.,2,West
+Michigan St.,2,East
+Purdue,3,East
+Arkansas,3,West
+St. John's,3,South
+Gonzaga,3,Midwest
+Kansas,4,Midwest
+Alabama,4,South
+North Carolina,4,West
+Texas Tech,4,East
+Nebraska,5,East
+Vanderbilt,5,West
+Wisconsin,5,South
+Virginia,5,Midwest
+Tennessee,6,Midwest
+UCLA,6,South
+BYU,6,West
+Saint Louis,6,East
+Texas,7,East
+Santa Clara,7,West
+Louisville,7,South
+Texas A&M,7,Midwest
+Kentucky,8,Midwest
+Clemson,8,South
+Iowa,8,West
+Villanova,8,East
+TCU,9,East
+Cincinnati,9,West
+Utah St.,9,South
+South Florida,9,Midwest
+Missouri,10,Midwest
+VCU,10,South
+Auburn,10,West
+Baylor,10,East
+Boise St.,11,East
+Florida St.,11,West
+Indiana,11,South
+Ohio St.,11,Midwest
+Oklahoma,12,Midwest
+SMU,12,South
+Saint Mary's,12,West
+Seton Hall,12,East
+Stanford,13,East
+Virginia Tech,13,West
+West Virginia,13,South
+San Diego St.,13,Midwest
+Grand Canyon,14,Midwest
+Akron,14,South
+New Mexico,14,West
+Tulsa,14,East
+UCF,15,East
+Connecticut,15,West
+Georgia,15,South
+LSU,15,Midwest
+Miami FL,16,Midwest
+N.C. State,16,South
+Northwestern,16,West
+Washington,16,East

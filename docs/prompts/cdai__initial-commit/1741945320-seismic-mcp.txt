@@ -1,0 +1,5 @@
+NOTE, i just added seismic mcp to your local settings:
+
+❯ claude mcp add --transport http seismic https://docs.seismic.systems/~gitbook/mcp
+
+you should be able to query these docs now.
