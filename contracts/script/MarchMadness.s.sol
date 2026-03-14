@@ -5,6 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {MarchMadness} from "../src/MarchMadness.sol";
 
 /// @title MarchMadness deploy script (production)
+/// @dev ByteBracket is an internal library — it gets inlined by the compiler
+///      into MarchMadness, so no separate deployment is needed.
 contract MarchMadnessScript is Script {
     function run() public {
         vm.startBroadcast();
