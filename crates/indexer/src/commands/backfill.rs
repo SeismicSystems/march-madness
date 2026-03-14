@@ -1,7 +1,7 @@
 //! Historical backfill: scan all blocks for BracketSubmitted and TagSet events.
 
 use crate::indexer::{load_index, save_index, update_tag, upsert_bracket_submitted};
-use crate::provider;
+use crate::provider::{self, IndexerProvider};
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
 use std::path::Path;
@@ -9,11 +9,15 @@ use std::path::Path;
 /// Maximum block range per eth_getLogs request.
 const BATCH_SIZE: u64 = 10_000;
 
-pub async fn run(rpc_url: &str, contract: &str, index_path: &Path, from_block: u64) -> Result<()> {
-    let p = provider::create_provider(rpc_url)?;
+pub async fn run(
+    p: &IndexerProvider,
+    contract: &str,
+    index_path: &Path,
+    from_block: u64,
+) -> Result<()> {
     let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
 
-    let latest_block = provider::block_number(&p).await?;
+    let latest_block = p.block_number().await?;
     println!(
         "Backfilling from block {} to {} (latest)",
         from_block, latest_block
@@ -27,7 +31,8 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path, from_block: u
     let mut from = from_block;
     while from <= latest_block {
         let to = std::cmp::min(from + BATCH_SIZE - 1, latest_block);
-        let logs = provider::get_bracket_submitted_logs(&p, contract_addr, from, to)
+        let logs = p
+            .get_bracket_submitted_logs(contract_addr, from, to)
             .await
             .wrap_err_with(|| format!("get_logs failed for blocks {from}..{to}"))?;
 
@@ -36,7 +41,7 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path, from_block: u
             let block_num = log
                 .block_number
                 .ok_or_else(|| eyre::eyre!("log missing block number"))?;
-            let ts = provider::get_block_timestamp(&p, block_num).await?;
+            let ts = p.get_block_timestamp(block_num).await?;
             let addr_str = format!("{address:#x}");
             upsert_bracket_submitted(&mut index, &addr_str, block_num, ts);
         }
@@ -55,7 +60,8 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path, from_block: u
     from = from_block;
     while from <= latest_block {
         let to = std::cmp::min(from + BATCH_SIZE - 1, latest_block);
-        let logs = provider::get_tag_set_logs(&p, contract_addr, from, to)
+        let logs = p
+            .get_tag_set_logs(contract_addr, from, to)
             .await
             .wrap_err_with(|| format!("get_logs failed for blocks {from}..{to}"))?;
 
@@ -80,7 +86,7 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path, from_block: u
 
     // Sanity check
     println!("Running sanity check...");
-    let on_chain_count = provider::get_entry_count(&p, contract_addr).await?;
+    let on_chain_count = p.get_entry_count(contract_addr).await?;
     let local_count = index.len() as u32;
     if on_chain_count == local_count {
         println!(

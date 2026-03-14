@@ -1,13 +1,12 @@
 //! Post-deadline bracket reveal: read brackets for all indexed addresses.
 
 use crate::indexer::{load_index, save_index, set_bracket};
-use crate::provider;
+use crate::provider::IndexerProvider;
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
 use std::path::Path;
 
-pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()> {
-    let p = provider::create_provider(rpc_url)?;
+pub async fn run(p: &IndexerProvider, contract: &str, index_path: &Path) -> Result<()> {
     let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
     let mut index = load_index(index_path)?;
 
@@ -35,7 +34,7 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
             .parse()
             .wrap_err_with(|| format!("bad address: {addr_str}"))?;
 
-        match provider::get_bracket(&p, contract_addr, address).await {
+        match p.get_bracket(contract_addr, address).await {
             Ok(bracket) => {
                 let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
                 set_bracket(&mut index, addr_str, bracket_hex.clone());

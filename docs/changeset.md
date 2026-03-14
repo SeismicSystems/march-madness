@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — PR #5 Review Fixes
+- provider.rs: Support both SeismicReth (prod) and SeismicFoundry (sanvil) via `IndexerProvider` enum and `--network` CLI flag
+- ci.sh: Missing `Cargo.toml` or `cargo` now fails CI instead of silently skipping
+- main.rs: Renamed `Check` enum variant to `SanityCheck` (CLI subcommand remains `check` via `#[command(name = "check")]`)
+
 ### 2026-03-14 — Rust Indexer Binary (`crates/indexer`)
 - Built `march-madness-indexer` — event indexer for MarchMadness contract on Seismic
 - Four subcommands via clap: `listen` (live polling), `backfill` (historical scan), `reveal` (post-deadline bracket reading), `check` (sanity check vs on-chain count)

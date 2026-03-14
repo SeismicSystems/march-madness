@@ -103,11 +103,11 @@ run_crates() {
   echo ""
   echo "━━━ Crates ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   if [ ! -f Cargo.toml ]; then
-    skip_step "crates" "Cargo.toml not found"
+    run_step "crates" bash -c "echo 'Cargo.toml not found' && exit 1"
     return
   fi
   if ! command -v cargo &>/dev/null; then
-    skip_step "crates" "cargo not installed"
+    run_step "crates" bash -c "echo 'cargo not installed' && exit 1"
     return
   fi
   run_step "crates build" cargo build

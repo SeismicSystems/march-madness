@@ -1,7 +1,7 @@
 //! Live event listener: polls for new BracketSubmitted and TagSet events.
 
 use crate::indexer::{load_index, save_index, update_tag, upsert_bracket_submitted};
-use crate::provider;
+use crate::provider::{self, IndexerProvider};
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
 use std::path::Path;
@@ -10,12 +10,11 @@ use tokio::signal;
 /// Poll interval in seconds.
 const POLL_INTERVAL_SECS: u64 = 5;
 
-pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()> {
-    let p = provider::create_provider(rpc_url)?;
+pub async fn run(p: &IndexerProvider, contract: &str, index_path: &Path) -> Result<()> {
     let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
 
     // Start from the latest block
-    let mut last_block = provider::block_number(&p).await?;
+    let mut last_block = p.block_number().await?;
     println!("Listening for events from block {}...", last_block);
     println!("Press Ctrl+C to stop.");
 
@@ -31,7 +30,7 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
                 return Ok(());
             }
             _ = tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)) => {
-                let current_block = provider::block_number(&p).await?;
+                let current_block = p.block_number().await?;
                 if current_block <= last_block {
                     continue;
                 }
@@ -39,15 +38,15 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
                 let from = last_block + 1;
 
                 // Fetch BracketSubmitted logs
-                let bracket_logs = provider::get_bracket_submitted_logs(
-                    &p, contract_addr, from, current_block,
+                let bracket_logs = p.get_bracket_submitted_logs(
+                    contract_addr, from, current_block,
                 )
                 .await
                 .wrap_err("failed to fetch BracketSubmitted logs")?;
 
                 // Fetch TagSet logs
-                let tag_logs = provider::get_tag_set_logs(
-                    &p, contract_addr, from, current_block,
+                let tag_logs = p.get_tag_set_logs(
+                    contract_addr, from, current_block,
                 )
                 .await
                 .wrap_err("failed to fetch TagSet logs")?;
@@ -59,7 +58,7 @@ pub async fn run(rpc_url: &str, contract: &str, index_path: &Path) -> Result<()>
                     let block_num = log
                         .block_number
                         .ok_or_else(|| eyre::eyre!("log missing block number"))?;
-                    let ts = provider::get_block_timestamp(&p, block_num).await?;
+                    let ts = p.get_block_timestamp(block_num).await?;
                     let addr_str = format!("{address:#x}");
                     println!(
                         "  BracketSubmitted: {} (block {})",
