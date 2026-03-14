@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Smart Contracts
+- Added ByteBracket.sol library: ported jimpo's bit-manipulation scoring algorithm to Solidity 0.8 with bytes32 (unchecked blocks for bit ops)
+- Added MarchMadness.sol main contract: shielded bracket storage (sbytes32), submit/update/score/payout lifecycle
+- Added deploy scripts: MarchMadness.s.sol (production, March 18 2026 deadline) and MarchMadnessLocal.s.sol (local dev, 1 hour deadline)
+- Added test/jimpo/: ported ByteBracket.js and MarchMadness.js tests to sforge format (8 + 13 tests)
+- Added test/slop/: additional tests for Sentinel, AccessControl, Scoring, Payout, NoContest, EdgeCases (44 tests)
+- All 65 tests pass with sforge
+
 ### 2026-03-14 — Initial Project Setup
 - Created repo structure: contracts/, packages/, crates/, data/, docs/
 - Added CLAUDE.md with project rules and architecture

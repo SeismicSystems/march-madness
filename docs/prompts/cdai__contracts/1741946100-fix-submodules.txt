@@ -1,0 +1,1 @@
+woah on the solidity repo -- what the fuck man. a lot of this stuff is supposed to be tucked into a submodule (for sforge or forge-std-lib)... did you not run sforge init? i suspect you just copied a lot of code over from poker. that's not correct -- sforge init will set up seismic-forge project with correct submodule nonsense
