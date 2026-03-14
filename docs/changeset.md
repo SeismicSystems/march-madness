@@ -12,6 +12,7 @@ All notable changes to this project. Every PR must add an entry here.
 - Removed `.env` from `contracts/.gitignore` (root `.gitignore` handles it)
 - Added `bun deploy:testnet` script — sources root `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL` (shared with frontend, no duplicate RPC var), runs sforge with the production deploy script
 - Local populate script unchanged — still uses hardcoded anvil accounts, no `DEPLOYER_PRIVATE_KEY` needed
+- Moved contract address out of `.env` — `TESTNET_CONTRACT_ADDRESS` is now a checked-in constant in `packages/web/src/lib/constants.ts` (updated after deploy). `VITE_CONTRACT_ADDRESS` env var remains as local-dev-only override.
 - Updated CLAUDE.md, README.md, docs/technical.md with environment documentation
 
 ### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
