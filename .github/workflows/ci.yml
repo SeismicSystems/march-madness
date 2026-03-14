@@ -1,0 +1,233 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  FOUNDRY_PROFILE: default
+
+jobs:
+  # ─── Changeset check ───────────────────────────────────────────────
+  changeset:
+    name: Changeset Required
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check docs/changeset.md was modified
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^docs/changeset.md$' \
+            || (echo "::error::docs/changeset.md must be updated in every PR" && exit 1)
+
+  # ─── Contracts ──────────────────────────────────────────────────────
+  contracts-build:
+    name: Contracts — Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install sfoundry
+        run: |
+          curl -L \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/SeismicSystems/seismic-foundry/contents/sfoundryup/install?ref=seismic" | bash
+          source ~/.bashrc
+          sfoundryup
+
+      - name: Build contracts
+        working-directory: contracts
+        run: sforge build
+
+  contracts-test:
+    name: Contracts — Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install sfoundry
+        run: |
+          curl -L \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/SeismicSystems/seismic-foundry/contents/sfoundryup/install?ref=seismic" | bash
+          source ~/.bashrc
+          sfoundryup
+
+      - name: Run contract tests
+        working-directory: contracts
+        run: sforge test -vv
+
+  contracts-fmt:
+    name: Contracts — Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install sfoundry
+        run: |
+          curl -L \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/SeismicSystems/seismic-foundry/contents/sfoundryup/install?ref=seismic" | bash
+          source ~/.bashrc
+          sfoundryup
+
+      - name: Check formatting
+        working-directory: contracts
+        run: sforge fmt --check
+
+  # ─── Packages (TypeScript) ─────────────────────────────────────────
+  packages-typecheck:
+    name: Packages — Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck client
+        working-directory: packages/client
+        run: bun run typecheck
+
+      - name: Typecheck web
+        working-directory: packages/web
+        run: bun run typecheck
+
+  packages-lint:
+    name: Packages — Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint client
+        working-directory: packages/client
+        run: bun run lint:check
+
+      - name: Lint web
+        working-directory: packages/web
+        run: bun run lint:check
+
+  packages-build:
+    name: Packages — Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build client
+        working-directory: packages/client
+        run: bun run build
+
+      - name: Build web
+        working-directory: packages/web
+        run: bun run build
+
+  packages-test:
+    name: Packages — Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Test client
+        working-directory: packages/client
+        run: bun test
+
+  # ─── Crates (Rust) ─────────────────────────────────────────────────
+  crates-build:
+    name: Crates — Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Build crates
+        working-directory: crates
+        run: cargo build
+
+  crates-test:
+    name: Crates — Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Test crates
+        working-directory: crates
+        run: cargo test
+
+  crates-fmt:
+    name: Crates — Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        working-directory: crates
+        run: cargo fmt --all -- --check
+
+  crates-clippy:
+    name: Crates — Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Clippy
+        working-directory: crates
+        run: cargo clippy --all-targets -- -D warnings

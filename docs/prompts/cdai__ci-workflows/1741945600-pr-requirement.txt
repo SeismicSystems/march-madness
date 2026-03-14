@@ -1,0 +1,1 @@
+VERY IMPORTANT: when you finish your work make sure you open a PR... that's very important we use github as source of truth, and that i review all the code before it actually goes in.
