@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
 
-/// @title Sentinel byte validation tests
+/// @title Sentinel bit validation tests
 contract SentinelTest is Test {
     MarchMadness mm;
     address alice = address(0xA11CE);
@@ -18,56 +18,64 @@ contract SentinelTest is Test {
     }
 
     function test_rejectsBracketWithoutSentinel() public {
-        // No sentinel byte (last byte is 0x00)
-        bytes32 bad = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192);
+        // No sentinel bit (MSB is 0)
+        bytes8 bad = bytes8(0x0000000000000001);
         vm.prank(alice);
         vm.expectRevert("Invalid sentinel byte");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bad), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bad));
     }
 
-    function test_rejectsBracketWithWrongSentinel() public {
-        // Wrong sentinel byte (0x02 instead of 0x01)
-        bytes32 bad = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x02);
+    function test_rejectsBracketWithMSBClear() public {
+        // MSB clear, other bits set
+        bytes8 bad = bytes8(0x7FFFFFFFFFFFFFFF);
         vm.prank(alice);
         vm.expectRevert("Invalid sentinel byte");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bad), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bad));
     }
 
-    function test_acceptsBracketWithCorrectSentinel() public {
-        bytes32 good = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
+    function test_acceptsBracketWithMSBSet() public {
+        bytes8 good = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(good), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(good));
+        assertEq(mm.numEntries(), 1);
+    }
+
+    function test_acceptsMinimalBracketWithMSBSet() public {
+        // Only MSB set, all game bits 0
+        bytes8 good = bytes8(0x8000000000000000);
+        vm.prank(alice);
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(good));
         assertEq(mm.numEntries(), 1);
     }
 
     function test_rejectsResultsWithoutSentinel() public {
         // Submit a bracket first
-        bytes32 bracket = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
+        bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
 
         vm.warp(DEADLINE + 1);
-        bytes32 badResults = bytes32(uint256(0x8000000000000000) << 192); // no sentinel
+        bytes8 badResults = bytes8(0x0000000000000001); // MSB not set
         vm.expectRevert("Invalid sentinel byte");
         mm.submitResults(badResults);
     }
 
     function test_updateBracketRejectsBadSentinel() public {
-        bytes32 good = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
+        bytes8 good = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(good), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(good));
 
-        bytes32 bad = bytes32(uint256(0xAAAAAAAAAAAAAAAA) << 192); // no sentinel
+        bytes8 bad = bytes8(0x0AAAAAAAAAAAAAAA); // MSB not set
         vm.prank(alice);
         vm.expectRevert("Invalid sentinel byte");
-        mm.updateBracket(sbytes32(bad));
+        mm.updateBracket(sbytes8(bad));
     }
 
     function test_sentinelDistinguishesUninitialized() public {
-        // Uninitialized mapping entry should return bytes32(0), which has no sentinel
+        // Uninitialized mapping entry should return bytes8(0), which has MSB clear
         vm.warp(DEADLINE + 1); // after deadline so we can read
-        bytes32 b = mm.getBracket(alice);
-        assertEq(b, bytes32(0));
-        assertFalse(b[31] == bytes1(0x01));
+        bytes8 b = mm.getBracket(alice);
+        assertEq(b, bytes8(0));
+        assertFalse(b[0] & 0x80 != 0);
     }
 }

@@ -3,10 +3,8 @@ pragma solidity ^0.8.13;
 
 /// @title ByteBracket — bracket scoring library
 /// @notice Ported from jimpo's march-madness-dapp ByteBracket.sol
-/// @dev Uses bytes32 instead of bytes8. Game bits occupy the first 8 bytes (same bit positions),
-///      bytes 8-30 are zero, byte 31 is sentinel 0x01. Scoring operates on the uint64 extracted
-///      from the first 8 bytes.
-///
+/// @dev Uses bytes8 directly, identical to jimpo's original encoding.
+///      64 bits: bit 63 (MSB) = sentinel (must be 1), bits 62-0 = 63 game outcomes.
 ///      All bit manipulation functions use `unchecked` because jimpo's original code was written
 ///      for Solidity 0.5 (no overflow checks) and relies on intentional bit-level wrapping.
 ///
@@ -14,19 +12,18 @@ pragma solidity ^0.8.13;
 /// Reference implementation: https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48
 library ByteBracket {
     /// @notice Score a bracket against the results using the precomputed scoring mask.
-    /// @param bracket  A bytes32 bracket (game bits in first 8 bytes, sentinel in last byte).
-    /// @param results  A bytes32 results (same layout).
+    /// @param bracket  A bytes8 bracket (bit 63 = sentinel, bits 62-0 = game outcomes).
+    /// @param results  A bytes8 results (same layout).
     /// @param filter   The 64-bit scoring mask derived from `results` via `getScoringMask`.
     /// @return points  Total points scored (max 192).
-    function getBracketScore(bytes32 bracket, bytes32 results, uint64 filter)
+    function getBracketScore(bytes8 bracket, bytes8 results, uint64 filter)
         internal
         pure
         returns (uint8 points)
     {
         unchecked {
-            // Extract the first 8 bytes as uint64 for both bracket and results.
-            uint64 bracketBits = uint64(uint256(bracket) >> 192);
-            uint64 resultsBits = uint64(uint256(results) >> 192);
+            uint64 bracketBits = uint64(bracket);
+            uint64 resultsBits = uint64(results);
 
             uint8 roundNum = 0;
             uint8 numGames = 32;
@@ -46,12 +43,10 @@ library ByteBracket {
     }
 
     /// @notice Compute the 64-bit scoring mask from a results bracket.
-    /// @dev Extracts the first 8 bytes of the bytes32 as a bytes8, then mirrors jimpo's logic exactly.
-    /// @param results  A bytes32 results bracket.
+    /// @param results  A bytes8 results bracket.
     /// @return mask    The 64-bit scoring mask.
-    function getScoringMask(bytes32 results) internal pure returns (uint64 mask) {
-        // Extract first 8 bytes as bytes8
-        bytes8 r = bytes8(results);
+    function getScoringMask(bytes8 results) internal pure returns (uint64 mask) {
+        bytes8 r = results;
 
         // Filter for the second most significant bit since MSB is ignored.
         bytes8 bitSelector = 0x4000000000000000;

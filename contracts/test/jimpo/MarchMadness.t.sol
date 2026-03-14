@@ -17,8 +17,8 @@ contract MarchMadnessJimpoTest is Test {
     uint256 constant ENTRY_FEE = 1 ether;
     uint256 constant DEADLINE = 1000;
 
-    // Results: 0x8000000000000000 in first 8 bytes, sentinel 0x01 in last byte
-    bytes32 constant RESULTS = bytes32(uint256(0x8000000000000000) << 192 | 0x01);
+    // Results: 0x8000000000000000 — only MSB set
+    bytes8 constant RESULTS = bytes8(0x8000000000000000);
 
     function setUp() public {
         vm.warp(100); // well before deadline
@@ -39,35 +39,35 @@ contract MarchMadnessJimpoTest is Test {
     // ── submitBracket tests (ported from jimpo's #submitBracket) ───────────
 
     function test_submitBracket_acceptsWithEntryFee() public {
-        bytes32 bracket = _makeBracket(0xFFFFFFFFFFFFFFFF);
+        bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "alice");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
         assertEq(mm.numEntries(), 1);
     }
 
     function test_submitBracket_rejectsWithoutEntryFee() public {
-        bytes32 bracket = _makeBracket(0xFFFFFFFFFFFFFFFF);
+        bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
         vm.expectRevert("Incorrect entry fee");
-        mm.submitBracket{value: 0}(sbytes32(bracket), "alice");
+        mm.submitBracket{value: 0}(sbytes8(bracket));
     }
 
     function test_submitBracket_rejectsAfterDeadline() public {
         vm.warp(DEADLINE + 1);
-        bytes32 bracket = _makeBracket(0xFFFFFFFFFFFFFFFF);
+        bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
         vm.expectRevert("Submission deadline passed");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "alice");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
     function test_submitBracket_rejectsResubmission() public {
-        bytes32 bracket = _makeBracket(0xFFFFFFFFFFFFFFFF);
+        bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "alice");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
 
         vm.prank(alice);
         vm.expectRevert("Already submitted");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "alice");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
     // ── scoreBracket tests (ported from jimpo's #scoreBracket) ─────────────
@@ -221,13 +221,13 @@ contract MarchMadnessJimpoTest is Test {
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    function _makeBracket(uint64 gameBits) internal pure returns (bytes32) {
-        return bytes32(uint256(gameBits) << 192 | 0x01);
+    function _makeBracket(uint64 gameBits) internal pure returns (bytes8) {
+        return bytes8(gameBits);
     }
 
     function _submitEntry(address account, uint64 gameBits) internal {
-        bytes32 bracket = _makeBracket(gameBits);
+        bytes8 bracket = _makeBracket(gameBits);
         vm.prank(account);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 }

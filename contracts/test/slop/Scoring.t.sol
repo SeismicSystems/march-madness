@@ -29,7 +29,7 @@ contract ScoringTest is Test {
         uint64 gameBits = 0xFFFFFFFFFFFFFFFF;
         _submitEntry(alice, gameBits);
         vm.warp(DEADLINE + 1);
-        mm.submitResults(bytes32(uint256(gameBits) << 192 | 0x01));
+        mm.submitResults(bytes8(gameBits));
         mm.scoreBracket(alice);
         assertEq(mm.scores(alice), 192);
     }
@@ -39,7 +39,7 @@ contract ScoringTest is Test {
         // Results: all 1s
         _submitEntry(alice, 0x8000000000000000);
         vm.warp(DEADLINE + 1);
-        mm.submitResults(bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01));
+        mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
         mm.scoreBracket(alice);
         // Only first-round games where bracket bit == result bit would match
         // MSB matches, but first round is bits 62-31; bit 63 is not a game bit per jimpo
@@ -55,7 +55,7 @@ contract ScoringTest is Test {
         _submitEntry(dave, 0xFFFFaaaaFFFFFFFF);      // inverted mixed
 
         vm.warp(DEADLINE + 1);
-        mm.submitResults(bytes32(uint256(resultBits) << 192 | 0x01));
+        mm.submitResults(bytes8(resultBits));
 
         mm.scoreBracket(alice);
         mm.scoreBracket(bob);
@@ -73,7 +73,7 @@ contract ScoringTest is Test {
     function test_cannotScoreTwice() public {
         _submitEntry(alice, 0xFFFFFFFFFFFFFFFF);
         vm.warp(DEADLINE + 1);
-        mm.submitResults(bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01));
+        mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
         mm.scoreBracket(alice);
 
         vm.expectRevert("Already scored");
@@ -82,15 +82,15 @@ contract ScoringTest is Test {
 
     function test_cannotScoreNonexistentBracket() public {
         vm.warp(DEADLINE + 1);
-        mm.submitResults(bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01));
+        mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
 
         vm.expectRevert("No bracket submitted");
         mm.scoreBracket(alice);
     }
 
     function _submitEntry(address account, uint64 gameBits) internal {
-        bytes32 bracket = bytes32(uint256(gameBits) << 192 | 0x01);
+        bytes8 bracket = bytes8(gameBits);
         vm.prank(account);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 }

@@ -13,8 +13,8 @@ contract EdgeCasesTest is Test {
     uint256 constant ENTRY_FEE = 1 ether;
     uint256 constant DEADLINE = 1000;
 
-    bytes32 constant BRACKET = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
-    bytes32 constant RESULTS = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
+    bytes8 constant BRACKET = bytes8(0xFFFFFFFFFFFFFFFF);
+    bytes8 constant RESULTS = bytes8(0xFFFFFFFFFFFFFFFF);
 
     function setUp() public {
         vm.warp(100);
@@ -28,11 +28,11 @@ contract EdgeCasesTest is Test {
 
     function test_cannotSubmitTwice() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         vm.prank(alice);
         vm.expectRevert("Already submitted");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
     }
 
     // ── Update without submission ──────────────────────────────────────────
@@ -40,19 +40,19 @@ contract EdgeCasesTest is Test {
     function test_cannotUpdateWithoutSubmission() public {
         vm.prank(alice);
         vm.expectRevert("No bracket submitted");
-        mm.updateBracket(sbytes32(BRACKET));
+        mm.updateBracket(sbytes8(BRACKET));
     }
 
     // ── Update after deadline ──────────────────────────────────────────────
 
     function test_cannotUpdateAfterDeadline() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         vm.warp(DEADLINE + 1);
         vm.prank(alice);
         vm.expectRevert("Submission deadline passed");
-        mm.updateBracket(sbytes32(BRACKET));
+        mm.updateBracket(sbytes8(BRACKET));
     }
 
     // ── Submit after deadline ──────────────────────────────────────────────
@@ -61,14 +61,14 @@ contract EdgeCasesTest is Test {
         vm.warp(DEADLINE + 1);
         vm.prank(alice);
         vm.expectRevert("Submission deadline passed");
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
     }
 
     // ── Score before results ───────────────────────────────────────────────
 
     function test_cannotScoreBeforeResults() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         vm.expectRevert("Results not posted");
         mm.scoreBracket(alice);
@@ -78,9 +78,9 @@ contract EdgeCasesTest is Test {
 
     function test_cannotCollectWinningsBeforeAllScored() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
         vm.prank(bob);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
@@ -118,14 +118,14 @@ contract EdgeCasesTest is Test {
 
     function test_updateBracketChangesStoredBracket() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
-        bytes32 newBracket = bytes32(uint256(0x8000000000000000) << 192 | 0x01);
+        bytes8 newBracket = bytes8(0x8000000000000000);
         vm.prank(alice);
-        mm.updateBracket(sbytes32(newBracket));
+        mm.updateBracket(sbytes8(newBracket));
 
         vm.prank(alice);
-        bytes32 stored = mm.getBracket(alice);
+        bytes8 stored = mm.getBracket(alice);
         assertEq(stored, newBracket);
     }
 
@@ -133,26 +133,28 @@ contract EdgeCasesTest is Test {
 
     function test_updateDoesNotIncrementEntryCount() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
         assertEq(mm.numEntries(), 1);
 
-        bytes32 newBracket = bytes32(uint256(0x8000000000000000) << 192 | 0x01);
+        bytes8 newBracket = bytes8(0x8000000000000000);
         vm.prank(alice);
-        mm.updateBracket(sbytes32(newBracket));
+        mm.updateBracket(sbytes8(newBracket));
         assertEq(mm.numEntries(), 1); // still 1
     }
 
     // ── Tag storage ────────────────────────────────────────────────────────
 
-    function test_tagIsStoredOnSubmit() public {
+    function test_tagIsStoredViaSetTag() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "alice-tag");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
+        vm.prank(alice);
+        mm.setTag("alice-tag");
         assertEq(mm.getTag(alice), "alice-tag");
     }
 
-    function test_emptyTagIsNotStored() public {
+    function test_noTagByDefault() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
         assertEq(bytes(mm.getTag(alice)).length, 0);
     }
 
@@ -161,13 +163,13 @@ contract EdgeCasesTest is Test {
     function test_getEntryCount() public {
         assertEq(mm.getEntryCount(), 0);
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
         assertEq(mm.getEntryCount(), 1);
     }
 
     function test_getScoreAndIsScored() public {
         vm.prank(alice);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         assertEq(mm.getScore(alice), 0);
         assertFalse(mm.getIsScored(alice));
@@ -185,12 +187,12 @@ contract EdgeCasesTest is Test {
     function test_rejectsTooLittleFee() public {
         vm.prank(alice);
         vm.expectRevert("Incorrect entry fee");
-        mm.submitBracket{value: 0.5 ether}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: 0.5 ether}(sbytes8(BRACKET));
     }
 
     function test_rejectsTooMuchFee() public {
         vm.prank(alice);
         vm.expectRevert("Incorrect entry fee");
-        mm.submitBracket{value: 2 ether}(sbytes32(BRACKET), "");
+        mm.submitBracket{value: 2 ether}(sbytes8(BRACKET));
     }
 }

@@ -13,7 +13,7 @@ contract PayoutTest is Test {
     uint256 constant ENTRY_FEE = 1 ether;
     uint256 constant DEADLINE = 1000;
 
-    bytes32 constant RESULTS = bytes32(uint256(0xFFFFFFFFFFFFFFFF) << 192 | 0x01);
+    bytes8 constant RESULTS = bytes8(0xFFFFFFFFFFFFFFFF);
 
     function setUp() public {
         vm.warp(100);
@@ -116,8 +116,8 @@ contract PayoutTest is Test {
     }
 
     function _submitEntry(address account, uint64 gameBits) internal {
-        bytes32 bracket = bytes32(uint256(gameBits) << 192 | 0x01);
+        bytes8 bracket = bytes8(gameBits);
         vm.prank(account);
-        mm.submitBracket{value: ENTRY_FEE}(sbytes32(bracket), "");
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 }
