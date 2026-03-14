@@ -1,0 +1,1 @@
+let's rename the data file to mens-2026.json like jimpo did. i think we'll run a womens pool too for kicks (but not now, we'll add it later)

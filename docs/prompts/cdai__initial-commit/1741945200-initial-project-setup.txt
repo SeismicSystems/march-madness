@@ -1,0 +1,60 @@
+this is a fresh empty repo. we are going to make a march madness contest on the seismic test network. it will be heavily inspired by https://github.com/jimpo/march-madness-dapp. i've cloned that repo to ~/code/seismic-workspace/apps/march-madness-dapp for reference
+
+You are going to manage a team of agents to one shot the fairly complex v1 of this app. very important. TEAM OF SPECIALIST AGENTS. They must be geniuses. bring your best people.
+
+there are going to be a few substantial changes:
+
+dev tooling: jimpo made this in like 2018 or some shit. he's an outrageously brilliant programmer (make note of that - can treat his logic as source of truth). but the tooling that was available in 2018 stinks compared to 2026 tooling. plus we need to use seismic-specific tooling. so our tech stack is going to be:
+- ssolc instead of solidity for contract development. sforge for testing/deploying contracts
+- seismic-viem & seismic-react to talk to the blockchain. requires viem & wagmi as peer deps
+- bun for typescript stuff; react as our web framework
+- privy wallet for authentication. allow users to authenticate with a few options: X (twitter), discord, ... honestly any social account is good imo. but fine to only support privy
+
+contract itself: in jimpo's contract, he used a commit-reveal scheme because ethereum does not have native privacy. seismic solidity introduces "s-types", which are values shielded on chain. the nodes won't tell you what the actual underlying value is unless you program the contract to explicitly reveal it. specifically we will want a few functions:
+- submit bracket should instead accept an stype. when you develop the frontend, make sure you are using a shieldedWallet client and then .writeContract on that (so it uses a seismic transaction. NOT .twrite)
+- a function to read any particular user's bracket. if we are before the deadline, we must validate that msg.sender = the user who's bracket you want to read (e.g. validate that we're using a signed read). hwoever, AFTER the deadline we should be able to view anyone's bracket. this will be the most critical security sensitive function in the whole repo.
+- there's gotta be some way we can see everyone who's made a bracket. maybe we emit an event? that way we dont have to store a monstrous list. obviously only emit event with the address. probably want to admit after an update as well. we'll be building a server that indexes data for the frontend to use once the tournament is live...
+- we want to use his bytebracket code exactly for scoring. it's beautiful.
+- also use whatever representation he used to define "who plays who". i'm guessing this is in the constructor? but i havent erad the code in a while
+- use sforge scripts and not truffle deploy scripts
+- add extensive testing to the contracts. i'm sure he has tests too. port them to sforge and then add some of your own slop tests. isolate the jimpo original tests in their own folder, and put our slop tests in a slop/ folder within the test dir
+- only allow the owner of the contract to post the results.
+- since we're not using commit-reveal, anyone in theory can call the function to score anyone's bracket after the results are posted. in practice this will be the owner.
+- in the contract, you should validate that everyone who has submitted a bracket has been scored BEFORE the contract selects a winner or winner(s)
+- this is testnet money; make the buyin = 1 testnet eth.
+- we don't have actual teams yet; however you can look in the ~/code/sports/brackets repo & find some fake data. copy it over from there into a format here that we like. i'll update it once selection sunday happens with the real values (it's saturday now)
+- if we have not scored ALL entries by say, 28 days after the results were posted, then we consider the contest invalid, and each player should be able to claim back their 1 eth
+- also make sure we don't let people withdraw entries
+- note an important consideration -- there's a free byte at the end of all the bracket representations (64 bytes, but we only need 63). let's force that byte is equal to 1. that way when we look up the mapping for some address, we can validate that they have actually paid their entry fee, because solidity will return all zeros if you look up a maping that hasnt been populated. so on both submit functions and score-one-bracket functions, validate that the bracket submitted has that last free byte = 1, which will guard against this potential security vulnerability.
+- optionally allow each user to submit a tag/slug/username to the chain to represent their bracket. if this is empty, then across the UI we should just display the first or last 8 digits of their address in the UI.
+
+packages repo:
+- client should be a library that abstracts over seismic-viem and our particular contract ABI. it allows us to make calls to our contract and do all the thngs we would need to do. there should be three levels of client access: public (can't even do signed reads; can only view results after tournament starts. i guess they can see num entrants...) user (can submit a bracket, view their bracket via signed read & view anyones after the deadline, update their bracket; and invoke the function to score anyone's bracket but only after the results were posted by owner); and owner (can do everythng user does but post results as well). the main hard piece of logic that isn't obvious (e.g. wrapping seismic-viem calls) will be the way we pack a user's bracket into the bytebracket representation. this library should support encode/decode functions that take bytes or hex, and a list of games, and spit out a human readable bracket. reference ~/code/sports/brackets for what that human readable bracket format should look like -- you'll know you found the right thing when you see a big list of strings like ["(1) Duke - Champion", "(2) Houston - appears in championship", "(1) Michigan - Final 4"]... esentially a list of teams with how far they go. there should also be a nice decode to json format so we have a more structured representation of the data.
+- tests should essentially have integration tests, and a typescript file we can run to fill out a bunch of brackets (each using different anvil private keys) so we can populate the data for local development. note that for local development we'll need a different deadline. also note that brackets should lock on Wednesday March 18 at Noon EST for the real go. but for local development server (it'll be hard for you to test the frontend) you'll want to set custom deadlines so you can populate brackets and score them. for web, i think it's fine if you have no tests for that; i'll just be me and my team members clicking around the UI before we release this thing.
+- but yeah the web ui should be a clean nice interface for punching in brackets. nothing too complex here. use jimpo for inspiration but note that he's never been a design guy. note that in the web interface we'll want to eventually have a setting where we live-score people's brackets using off chain data (including displaying win probabiliities for each game and each bracket overall. so leave space for that but if there's no data just show a clean bracket)
+
+crates repo:
+- listener's job will to just be writing down (even to some json file we check into git, dont need a crazy db here...key it by address and have: {"name": "optional-if-they-added", "udpated": { block: "block-number", "ts": block-timestamp-secnds}, "bracket": optional, "0x-hex-bytes-after-reveal"} ) which addresses that have submitted a bracket. it's VERY important we have commands to do a backfill over the whole chain, listening to the relevant events. we should have some commands to sanity check our toml list with the contract's count of entrants (which it will expose a public view function for)... because if we don't reveal all the brackets then we don't actually get to pick any winners. and there should be ways to surgically update this in the listener with correct mutex locking to prevent simulateous writes
+- server: you can leave this as mostly a stub for now. it should really just serve up that JSON file that listener is creating, so the frontent react app can read it. we'll do more with this later.
+
+we have a seismic MCP server you can use to query our docs. MCP is here:https://docs.seismic.systems/~gitbook/mcp;   llms.txt is here: https://docs.seismic.systems/llms.txt
+
+you'll want this repo structure:
+
+CLAUDE.md (make sure to make a super important note about following the rules in docs/ and editing README.md & CLAUDE.md after every change)
+README.md (general info on how to play and a little stuff about under the hood. make sure to shoutout our boi jimpo pretty early on; also shout out anyone he shouted out in his doc)
+.github/workflows/*.yml <-- add ci workflows: run tests for contracts + packages + crates, lints, typecheck, check that build works, etc.)
+contracts/ (seismic-solidity code: run sforge init within here to set up the project)
+packages/ (typescript with bun: should have: client, web, and tests)
+crates/ (rust code: should have: indexer, server)
+docs/
+  - changeset.md <-- every PR should write to this, including what we added. make sure we have a github action that REQUIRES this before PRs go in
+  - technical markdown for more details on what's going on
+  - prompts/ <-- this folder should contain a copy of EVERY prompt i have issued to you, verbatim. just take the text and copy it over there, with a synthesized name and timestamp. use .txt files for this)
+
+
+so papi it's your job to coordinate all the agents. you might want to do some initial "repo setup" work yourself (including commiting this initial prompt, for example). but then you should get it to a point where you can fanout to your chud agents.
+
+Important to add to claude.md:
+- when you submit PRs, write them in the chat. i'll review them and potentially leave comments, either in here or on github
+- when you work on a new feature, be very intentional abut what brach you are working off of. usually it should be the default/main/master branch. but sometimes your agents will stack on each other

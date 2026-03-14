@@ -1,0 +1,1 @@
+also... there's going to be a lot of prompts. let's put each prompt in a folder, organized by feature branch name. that will make things a lot more managable. but each piece of text i type to you, should be recorded exactly in one of these files. filenames sould be "{timestamp-seconds}-{slug}.txt"
