@@ -83,14 +83,12 @@ export function decodeBracket(
   }
 
   const champion = currentTeams[0];
-  // Work backwards from games to find achievements
-  const championshipGame = games[games.length - 1];
-  const runnerUp =
-    championshipGame.winner === champion
-      ? games[games.length - 1].winner === games[games.length - 2].winner
-        ? games[games.length - 3]?.winner ?? ""
-        : games[games.length - 2]?.winner ?? ""
-      : "";
+
+  // The runner-up is the loser of the championship game.
+  // The championship game's two participants are the winners of the two Final Four games.
+  // The Final Four games are at round 4, games 0 and 1.
+  const finalFourWinners = games.filter((g) => g.round === 4).map((g) => g.winner);
+  const runnerUp = finalFourWinners.find((t) => t !== champion) ?? "";
 
   // Extract by round from games
   const finalFourGames = games.filter((g) => g.round === 4);
@@ -100,11 +98,31 @@ export function decodeBracket(
 
   return {
     champion,
-    runnerUp: runnerUp || games[games.length - 2]?.winner || "",
+    runnerUp,
     finalFour: finalFourGames.map((g) => g.winner),
     eliteEight: eliteEightGames.map((g) => g.winner),
     sweetSixteen: sweetSixteenGames.map((g) => g.winner),
     roundOf32: roundOf32Games.map((g) => g.winner),
     games,
   };
+}
+
+/**
+ * Validate a bytes8 bracket hex string.
+ * Checks:
+ * - Correct format: 0x-prefixed, 16 hex characters (18 chars total)
+ * - Sentinel bit: MSB (bit 63) must be set
+ *
+ * @returns true if valid, false otherwise
+ */
+export function validateBracket(hex: string): hex is `0x${string}` {
+  // Must be 0x + 16 hex chars
+  if (!/^0x[0-9a-fA-F]{16}$/.test(hex)) {
+    return false;
+  }
+
+  // Sentinel bit (MSB, bit 63) must be set.
+  // The first hex digit after 0x must be >= 8 (i.e. top bit of first nibble set).
+  const firstNibble = parseInt(hex[2], 16);
+  return firstNibble >= 8;
 }

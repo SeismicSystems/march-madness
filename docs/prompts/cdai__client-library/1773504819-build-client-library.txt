@@ -1,0 +1,103 @@
+You are building the `packages/client` library for a March Madness bracket contest on the Seismic network. This is a TypeScript library (using Bun) that abstracts over seismic-viem and the MarchMadness contract ABI.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Branch
+Create branch `cdai__client-library` off of `main`.
+
+## What Already Exists
+- `packages/client/src/bracket.ts` — has `encodeBracket(picks: boolean[])` and `decodeBracket(hex, teams)` functions already
+- `packages/client/src/bracket.test.ts` — 5 existing tests for bracket encode/decode
+- `packages/client/package.json` and `packages/client/tsconfig.json` — basic config already set up
+- `contracts/src/MarchMadness.sol` — the contract you need to generate ABI bindings for
+- `data/mens-2026.json` — tournament data with teams in bracket order
+- `mise.toml` (root) — pins bun 1.3.9
+
+## What You Need to Build
+
+### 1. Contract ABI (`src/abi.ts`)
+Export the MarchMadness contract ABI as a const array. You can extract this from the contract or write it by hand matching the contract interface. Key functions:
+- `submitBracket(sbytes8 bracket)` — payable
+- `updateBracket(sbytes8 bracket)`
+- `setTag(string tag)`
+- `getBracket(address account) → bytes8` — view
+- `submitResults(bytes8 results)`
+- `scoreBracket(address account)`
+- `collectWinnings()`
+- `getEntryCount() → uint32` — view
+- `getScore(address) → uint8` — view
+- `getIsScored(address) → bool` — view
+- `getTag(address) → string` — view
+- `numEntries() → uint32` — view
+- `submissionDeadline() → uint256` — view
+- `results() → bytes8` — view
+- `owner() → address` — view
+- Events: BracketSubmitted(address indexed), TagSet(address indexed, string), BracketScored(address indexed, uint8), ResultsPosted(bytes8), WinningsCollected(address indexed, uint256)
+
+IMPORTANT: For shielded types (sbytes8), use `bytes8` in the ABI — seismic-viem handles the shielding transparently.
+
+### 2. Three Client Access Levels (`src/client.ts`)
+Create three client classes/factories:
+
+**PublicClient** — can only do transparent reads (`.treadContract()`):
+- `getEntryCount()`
+- `getResults()`
+- `getSubmissionDeadline()`
+- `getOwner()`
+- After deadline: `getBracket(address)`, `getScore(address)`, `getIsScored(address)`, `getTag(address)`
+
+**UserClient** — extends public + shielded writes and signed reads:
+- `submitBracket(bracket: `0x${string}`)` — uses `walletClient.writeContract()` (shielded write), sends entry fee
+- `updateBracket(bracket: `0x${string}`)`
+- `setTag(tag: string)`
+- `getMyBracket()` — before deadline: uses `walletClient.readContract()` (signed read); after deadline: transparent read
+- `scoreBracket(address)` — score anyone's bracket after results posted
+
+**OwnerClient** — extends user + owner functions:
+- `submitResults(results: `0x${string}`)`
+
+Each client should take a contract address and the appropriate viem/seismic-viem clients. Look at `/home/c/code/seismic-workspace/apps/poker/packages/poker-viem/` for reference on how seismic-viem is used.
+
+### 3. Human-Readable Bracket Format (`src/format.ts`)
+Create functions to format a decoded bracket into human-readable strings like:
+```
+"(1) Duke - Champion"
+"(2) Houston - appears in championship"
+"(1) Michigan - Final 4"
+"(3) UConn - Elite 8"
+```
+Look at `/home/c/code/sports/brackets/` for reference on this format. The format should show each team with their seed and how far they advance.
+
+Also add a `formatBracketJSON` that returns structured data.
+
+### 4. Improve existing bracket.ts
+- Add `validateBracket(hex)` — checks sentinel bit and length
+- Make sure encode/decode work correctly with jimpo's bit ordering
+
+### 5. Index/Barrel Exports (`src/index.ts`)
+Re-export everything from a clean entry point.
+
+### 6. Tests
+Add tests for the new functionality in `src/` using bun test. The existing bracket tests should continue to pass.
+
+## Reference Code
+- Poker app for seismic-viem patterns: `/home/c/code/seismic-workspace/apps/poker/packages/poker-viem/`
+- Sports brackets for human-readable format: `/home/c/code/sports/brackets/`
+- Contract source: `contracts/src/MarchMadness.sol`
+- Tournament data: `data/mens-2026.json`
+
+## Package Dependencies
+You'll likely need: `seismic-viem` and `viem` as dependencies. Check the poker app's package.json for version patterns.
+
+## Rules
+1. Update `docs/changeset.md` with what you added
+2. Run `./scripts/ci.sh` before pushing (or at minimum run `cd packages && mise run typecheck && mise run lint && mise run test`)
+3. Push branch and open a PR to main using `gh pr create`
+4. Save this prompt to `docs/prompts/cdai__client-library/` as a .txt file
+
+## Important Notes
+- Use `walletClient.writeContract()` for shielded writes (bracket submission), NOT `.twriteContract()`
+- Use `walletClient.readContract()` for signed reads (reading own bracket before deadline)
+- Use `publicClient.readContract()` (or `.treadContract()`) for transparent reads (after deadline, public data)
+- The entry fee is 1 ETH (1000000000000000000 wei)
