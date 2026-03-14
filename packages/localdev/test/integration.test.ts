@@ -6,7 +6,7 @@
  * MarchMadnessUserClient, MarchMadnessOwnerClient) for all contract
  * interactions instead of raw wallet/publicClient calls.
  *
- * Run: bun test src/integration.test.ts
+ * Run: bun test test/integration.test.ts
  */
 
 import { describe, test, expect, beforeAll } from "bun:test";
@@ -37,7 +37,7 @@ import {
   type AnvilAccount,
   type DeployResult,
   type WalletClient,
-} from "./utils.js";
+} from "../src/utils.js";
 
 // ── Shared state across tests ─────────────────────────────────────────
 

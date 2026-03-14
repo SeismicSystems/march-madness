@@ -57,7 +57,7 @@ contracts/          — Seismic Solidity smart contracts
 packages/
   client/           — TypeScript client library (bracket encoding, contract interaction)
   web/              — React web app (bracket UI, auth, live scoring)
-  tests/            — Integration tests + local dev tools
+  localdev/         — Local dev tools + integration tests
 crates/
   indexer/          — Rust event listener (tracks bracket submissions)
   server/           — HTTP API server
@@ -86,9 +86,9 @@ bun install
 cd packages/web && bun dev
 
 # Populate local state for development (spawns sanvil, deploys via sforge, populates brackets)
-bun run --filter @march-madness/tests populate
-# Or with a specific phase:
-bun run --filter @march-madness/tests populate -- --phase post-submission
+bun p:pre                     # pre-submission (default): deploy with future deadline, no brackets
+bun p:post                    # post-submission: brackets + results + partial scoring
+bun p:grading                 # post-grading: full lifecycle including payouts
 ```
 
 ## License

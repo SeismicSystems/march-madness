@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
+- Renamed `packages/tests` to `packages/localdev` (`@march-madness/localdev`) — this is primarily a local dev tool, not just tests
+- Moved `integration.test.ts` from `src/` to `test/` directory (at same level as `src/`)
+- Added shorthand bun scripts to root `package.json`: `bun p:pre`, `bun p:post`, `bun p:grading`
+- Updated all references across CLAUDE.md, README.md, docs/technical.md, packages/mise.toml
+
 ### 2026-03-14 — PR #8 Review: Refactor tests to use client library (`packages/tests`)
 - Refactored `populate.ts` and `integration.test.ts` to use `MarchMadnessPublicClient`, `MarchMadnessUserClient`, and `MarchMadnessOwnerClient` from `@march-madness/client` instead of raw `wallet.writeContract()` / `publicClient.readContract()` calls
 - Added factory functions to `utils.ts`: `createMMPublicClient()`, `createMMUserClient()`, `createMMOwnerClient()`

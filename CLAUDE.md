@@ -39,7 +39,7 @@ contracts/          — Seismic Solidity smart contracts (sforge project)
 packages/
   client/           — TypeScript client library (bracket encoding, contract calls)
   web/              — React frontend (bracket UI, Privy auth)
-  tests/            — Integration tests + local dev bracket population
+  localdev/         — Local dev tools (populate script) + integration tests
 crates/
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data
@@ -81,7 +81,7 @@ Events:
 
 ## Local Development
 
-### Populate Script (`packages/tests/src/populate.ts`)
+### Populate Script (`packages/localdev/src/populate.ts`)
 
 Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, and populates it with data for the requested phase. Sanvil is left running after the script completes so the frontend can use it.
 
@@ -91,19 +91,19 @@ Three phases:
 - **`post-grading`** — full lifecycle: deploy, submit, score all, fast-forward past scoring window. Use for testing payout collection and final leaderboard.
 
 ```bash
-bun run --filter @march-madness/tests populate                          # pre-submission
-bun run --filter @march-madness/tests populate -- --phase post-submission
-bun run --filter @march-madness/tests populate -- --phase post-grading
+bun p:pre                     # pre-submission (default)
+bun p:post                    # post-submission: brackets + results + partial scoring
+bun p:grading                 # post-grading: full lifecycle including payouts
 ```
 
 Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
 
-### Integration Tests (`packages/tests/src/integration.test.ts`)
+### Integration Tests (`packages/localdev/test/integration.test.ts`)
 
 Runs against an already-running sanvil node (started externally, e.g. by CI or the populate script). Deploys via sforge, then tests the full contract lifecycle.
 
 ```bash
-bun run --filter @march-madness/tests test
+bun run --filter @march-madness/localdev test
 ```
 
 Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.

@@ -1,5 +1,5 @@
 {
-  "name": "@march-madness/tests",
+  "name": "@march-madness/localdev",
   "version": "0.1.0",
   "private": true,
   "type": "module",

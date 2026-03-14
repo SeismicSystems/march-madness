@@ -159,7 +159,7 @@ This single JSON file is the source of truth for all tournament configuration. I
 
 ## Local Development: Populate Script
 
-The populate script (`packages/tests/src/populate.ts`) automates local development setup by deploying the MarchMadness contract to a sanvil node and optionally populating it with brackets, results, and scores.
+The populate script (`packages/localdev/src/populate.ts`) automates local development setup by deploying the MarchMadness contract to a sanvil node and optionally populating it with brackets, results, and scores.
 
 ### Phases
 
@@ -172,10 +172,10 @@ The populate script (`packages/tests/src/populate.ts`) automates local developme
 ### Usage
 
 ```bash
-bun run --filter @march-madness/tests populate                              # pre-submission (default)
-bun run --filter @march-madness/tests populate -- --phase post-submission    # brackets + results
-bun run --filter @march-madness/tests populate -- --phase post-grading      # full lifecycle
-bun run --filter @march-madness/tests populate -- --rpc-url http://host:port
+bun run --filter @march-madness/localdev populate                              # pre-submission (default)
+bun run --filter @march-madness/localdev populate -- --phase post-submission    # brackets + results
+bun run --filter @march-madness/localdev populate -- --phase post-grading      # full lifecycle
+bun run --filter @march-madness/localdev populate -- --rpc-url http://host:port
 ```
 
 ### Environment Variables
@@ -193,7 +193,7 @@ The script uses sanvil's pre-funded accounts from `data/anvil-accounts.json`. Ac
 
 ## Integration Tests
 
-The integration test suite (`packages/tests/src/integration.test.ts`) validates the full contract lifecycle against a live sanvil node using the `@march-madness/client` library:
+The integration test suite (`packages/localdev/test/integration.test.ts`) validates the full contract lifecycle against a live sanvil node using the `@march-madness/client` library:
 
 1. Contract deployment (via sforge or direct)
 2. Bracket submission and update
@@ -202,7 +202,7 @@ The integration test suite (`packages/tests/src/integration.test.ts`) validates 
 5. Winner determination and payout collection
 
 ```bash
-bun run --filter @march-madness/tests test
+bun run --filter @march-madness/localdev test
 ```
 
 Tests require sanvil running on `localhost:8545`.
