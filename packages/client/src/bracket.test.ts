@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { encodeBracket, decodeBracket } from "./bracket";
+import { encodeBracket, decodeBracket, validateBracket } from "./bracket";
 
 describe("encodeBracket", () => {
   test("sets MSB sentinel", () => {
@@ -49,5 +49,54 @@ describe("decodeBracket", () => {
     expect(() =>
       decodeBracket("0x8000000000000000", new Array(32).fill("T")),
     ).toThrow("Expected 64 teams");
+  });
+
+  test("runner-up is the loser of the championship game", () => {
+    const teams = Array.from({ length: 64 }, (_, i) => `Team${i}`);
+    // All team1 wins: Team0 beats everyone in their half, Team32 beats everyone in their half
+    // In the championship, Team0 beats Team32
+    const picks = new Array(63).fill(true);
+    const hex = encodeBracket(picks);
+    const decoded = decodeBracket(hex, teams);
+
+    expect(decoded.champion).toBe("Team0");
+    // Team32 is the first team in the bottom half (teams[32])
+    // With all team1 wins, Team32 wins the bottom half
+    expect(decoded.runnerUp).toBe("Team32");
+  });
+});
+
+describe("validateBracket", () => {
+  test("accepts valid brackets", () => {
+    expect(validateBracket("0xffffffffffffffff")).toBe(true);
+    expect(validateBracket("0x8000000000000000")).toBe(true);
+    expect(validateBracket("0xABCDEF1234567890")).toBe(true);
+  });
+
+  test("rejects missing sentinel bit", () => {
+    expect(validateBracket("0x7fffffffffffffff")).toBe(false);
+    expect(validateBracket("0x0000000000000000")).toBe(false);
+    expect(validateBracket("0x1234567890abcdef")).toBe(false);
+  });
+
+  test("rejects wrong length", () => {
+    expect(validateBracket("0xffffff")).toBe(false);
+    expect(validateBracket("0xffffffffffffffffff")).toBe(false);
+    expect(validateBracket("")).toBe(false);
+  });
+
+  test("rejects non-hex characters", () => {
+    expect(validateBracket("0xGGGGGGGGGGGGGGGG")).toBe(false);
+  });
+
+  test("rejects missing 0x prefix", () => {
+    expect(validateBracket("ffffffffffffffff")).toBe(false);
+  });
+
+  test("encoded brackets always validate", () => {
+    const picks1 = new Array(63).fill(true);
+    const picks2 = new Array(63).fill(false);
+    expect(validateBracket(encodeBracket(picks1))).toBe(true);
+    expect(validateBracket(encodeBracket(picks2))).toBe(true);
   });
 });
