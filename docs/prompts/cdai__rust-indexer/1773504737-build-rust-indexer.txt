@@ -1,0 +1,127 @@
+You are building the `crates/indexer` Rust binary for a March Madness bracket contest on the Seismic network. This indexer listens for on-chain events and maintains a JSON index file.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Branch
+Create branch `cdai__rust-indexer` off of `main`.
+
+## What Already Exists
+- `crates/Cargo.toml` — workspace with common, indexer, server members
+- `crates/common/src/types.rs` — `EntryRecord`, `UpdateInfo`, `EntryIndex` (BTreeMap<String, EntryRecord>)
+- `crates/common/Cargo.toml` — has serde + serde_json deps
+- `crates/indexer/src/main.rs` — stub
+- `crates/indexer/Cargo.toml` — basic deps
+- `contracts/src/MarchMadness.sol` — the contract with events:
+  - `BracketSubmitted(address indexed account)` — emitted on submit AND update
+  - `TagSet(address indexed account, string tag)`
+  - `BracketScored(address indexed account, uint8 score)`
+  - `ResultsPosted(bytes8 results)`
+  - `WinningsCollected(address indexed account, uint256 amount)`
+
+## What You Need to Build
+
+### Core Indexer (`src/main.rs` + modules)
+
+**1. Event Listener**
+- Connect to a Seismic node via JSON-RPC (WebSocket or HTTP, configurable)
+- Subscribe to / poll for `BracketSubmitted` and `TagSet` events from the MarchMadness contract
+- On `BracketSubmitted`: add/update entry in the index with address, block number, timestamp
+- On `TagSet`: update the entry's name field
+- Write the index to a JSON file after each update
+
+**2. Backfill Command**
+- `indexer backfill` — scan all historical blocks for relevant events and rebuild the index from scratch
+- Should handle pagination for large block ranges (batch `eth_getLogs` calls)
+- After backfill, do a sanity check: compare index entry count with contract's `getEntryCount()`
+
+**3. Bracket Reveal (post-deadline)**
+- `indexer reveal` — after the submission deadline, call `getBracket(address)` for each indexed address to read their bracket
+- Update the index with the bracket hex data
+- This only works after the deadline when brackets become publicly readable
+
+**4. Sanity Check Command**
+- `indexer check` — compare the number of entries in the local index with the contract's `getEntryCount()` return value
+- Report any discrepancy
+
+**5. File Locking / Mutex**
+- Use file-based locking (e.g., `fs2` crate or advisory locks) to prevent simultaneous writes to the index file
+- The server will be reading this file concurrently
+
+### Architecture
+```
+src/
+  main.rs          — CLI entry point (clap)
+  indexer.rs       — Core indexer logic (event processing, writing)
+  rpc.rs           — JSON-RPC client helpers (eth_getLogs, eth_call, etc.)
+  commands/
+    listen.rs      — Live event listener
+    backfill.rs    — Historical backfill
+    reveal.rs      — Post-deadline bracket reading
+    check.rs       — Sanity check
+```
+
+### CLI Interface (use clap)
+```
+march-madness-indexer listen --rpc-url <URL> --contract <ADDRESS> --index-file <PATH>
+march-madness-indexer backfill --rpc-url <URL> --contract <ADDRESS> --index-file <PATH> [--from-block <N>]
+march-madness-indexer reveal --rpc-url <URL> --contract <ADDRESS> --index-file <PATH>
+march-madness-indexer check --rpc-url <URL> --contract <ADDRESS> --index-file <PATH>
+```
+
+### JSON Index File Format
+The file is a JSON object keyed by lowercase hex address:
+```json
+{
+  "0x1234...abcd": {
+    "name": "optional-tag",
+    "updated": {
+      "block": 12345,
+      "ts": 1741945200
+    },
+    "bracket": "0x8000000000000001"
+  }
+}
+```
+- `name` is omitted if no tag set
+- `bracket` is omitted until after reveal
+- Use the types from `march_madness_common`
+
+### Ethereum ABI Encoding
+For decoding event logs and making contract calls, you can use:
+- `alloy-primitives` for types (Address, B256, etc.)
+- `alloy-sol-types` for ABI encoding/decoding
+- Or do manual ABI encoding since the interface is simple
+
+### Event Topics
+- `BracketSubmitted(address indexed account)` — topic0 = keccak256("BracketSubmitted(address)")
+- `TagSet(address indexed account, string tag)` — topic0 = keccak256("TagSet(address,string)"), topic1 = address, data = ABI-encoded string
+
+### Contract Calls
+- `getEntryCount()` — selector = first 4 bytes of keccak256("getEntryCount()")
+- `getBracket(address)` — selector = first 4 bytes of keccak256("getBracket(address)"), returns bytes8
+
+## Cargo Dependencies You'll Need
+- `tokio` (async runtime)
+- `clap` (CLI parsing, with derive feature)
+- `reqwest` or a lightweight JSON-RPC client
+- `serde` + `serde_json` (already in common)
+- `fs2` (file locking) or use `fd-lock`
+- `alloy-primitives` (Ethereum types)
+- `alloy-sol-types` (ABI encoding) — optional
+- `hex` (hex encoding/decoding)
+- `march_madness_common` (shared types)
+
+## Rules
+1. Update `docs/changeset.md` with what you added
+2. Make sure it compiles: `cd crates && cargo build`
+3. Run `cargo fmt` and `cargo clippy` before pushing
+4. Push branch and open a PR to main using `gh pr create`
+5. Save this prompt to `docs/prompts/cdai__rust-indexer/` as a .txt file
+
+## Important Notes
+- The index file path should default to `data/entries.json` relative to the project root
+- Use BTreeMap (not HashMap) for deterministic JSON output ordering
+- The indexer will run as a long-lived process for `listen`, but `backfill`, `reveal`, and `check` are one-shot commands
+- Handle graceful shutdown on SIGINT for the listener
+- Log clearly what's happening (use `println!` or `tracing` — your call, but keep it simple)

@@ -102,18 +102,18 @@ run_packages() {
 run_crates() {
   echo ""
   echo "━━━ Crates ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  if [ ! -f crates/Cargo.toml ]; then
-    skip_step "crates" "crates/Cargo.toml not found"
+  if [ ! -f Cargo.toml ]; then
+    run_step "crates" bash -c "echo 'Cargo.toml not found' && exit 1"
     return
   fi
   if ! command -v cargo &>/dev/null; then
-    skip_step "crates" "cargo not installed"
+    run_step "crates" bash -c "echo 'cargo not installed' && exit 1"
     return
   fi
-  run_step "crates build" cargo build --manifest-path crates/Cargo.toml
-  run_step "crates test" cargo test --manifest-path crates/Cargo.toml
-  run_step "crates fmt" cargo fmt --all --manifest-path crates/Cargo.toml -- --check
-  run_step "crates clippy" cargo clippy --all-targets --manifest-path crates/Cargo.toml -- -D warnings
+  run_step "crates build" cargo build
+  run_step "crates test" cargo test
+  run_step "crates fmt" cargo fmt --all -- --check
+  run_step "crates clippy" cargo clippy --all-targets -- -D warnings
 }
 
 # ─── Summary ──────────────────────────────────────────────────────────

@@ -1,0 +1,15 @@
+Fix 4 review comments on PR #5 (branch `cdai__rust-indexer`).
+
+## Review Comments
+
+### 1. scripts/ci.sh line 106
+> "why are we skipping this step at all? i feel like this is a clear failure case..."
+
+### 2. crates/indexer/src/provider.rs line 15
+> "will this only work with seismic-reth? or will it work with seismic-foundry too? definitely need to cover both (reth for prod, foundry for testing)"
+
+### 3. crates/indexer/src/main.rs line 110
+> "is reveal the right name? why not score?"
+
+### 4. crates/indexer/src/main.rs line 117
+> "the command should still be called `check` when invoked on cli, but in the code we should call it sanity_check or SanityCheck"

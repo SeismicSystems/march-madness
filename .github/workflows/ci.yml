@@ -69,21 +69,15 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: crates
 
       - name: Build
-        working-directory: crates
         run: cargo build
 
       - name: Test
-        working-directory: crates
         run: cargo test
 
       - name: Format check
-        working-directory: crates
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        working-directory: crates
         run: cargo clippy --all-targets -- -D warnings

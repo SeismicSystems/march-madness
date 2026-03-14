@@ -1,0 +1,13 @@
+Rewrite the `crates/indexer` to use seismic-alloy instead of raw reqwest + manual ABI encoding. This is on branch `cdai__rust-indexer` (PR #5).
+
+## What Needs to Change
+
+### 1. Replace raw reqwest JSON-RPC with seismic-alloy providers
+### 2. Use sol! macro for ABI types
+### 3. Cargo.toml Dependencies — use seismic-alloy from h/better-rust-client branch
+### 4. Reference Code — poker app patterns
+### 5. Architecture — keep same CLI structure, delete rpc.rs
+
+Also:
+- Move Cargo workspace to repo root
+- Update CI scripts for root workspace
