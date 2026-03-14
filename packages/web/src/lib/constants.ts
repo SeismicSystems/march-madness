@@ -1,5 +1,6 @@
 import { ENTRY_FEE } from "@march-madness/client";
 import { formatEther } from "viem";
+import { sanvil, seismicTestnetGcp2 } from "seismic-viem";
 
 /** Re-export ENTRY_FEE from client library */
 export { ENTRY_FEE } from "@march-madness/client";
@@ -11,13 +12,21 @@ export const SUBMISSION_DEADLINE = 1742313600;
 export const ENTRY_FEE_DISPLAY = `${formatEther(ENTRY_FEE)} ETH`;
 
 /**
- * Deployed contract address.
- * Testnet/prod: hardcode the real address here after deploying (source of truth).
- * Local dev: override via VITE_CONTRACT_ADDRESS env var to point at a populate-deployed contract.
+ * Known contract addresses by chain ID.
+ * Testnet: hardcoded after deploy (source of truth, checked into git).
+ * Sanvil: injected by populate script when it spawns vite — never set manually.
  */
-const TESTNET_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_CONTRACT_ADDRESS ||
-  TESTNET_CONTRACT_ADDRESS) as `0x${string}`;
+const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
+  [seismicTestnetGcp2.id]: "0x0000000000000000000000000000000000000000", // TODO: update after testnet deploy
+  [sanvil.id]: (import.meta.env.VITE_CONTRACT_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+};
+
+const CHAIN_ID = import.meta.env.VITE_CHAIN_ID
+  ? parseInt(import.meta.env.VITE_CHAIN_ID)
+  : sanvil.id;
+
+export const CONTRACT_ADDRESS: `0x${string}` =
+  CONTRACT_ADDRESSES[CHAIN_ID] ?? "0x0000000000000000000000000000000000000000";
 
 /** Seed order per region as defined in bracket encoding */
 export const SEED_ORDER = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];

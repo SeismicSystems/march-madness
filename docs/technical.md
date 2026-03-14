@@ -196,7 +196,7 @@ All env vars live in a single `.env` file at the repo root (see `.env.example`).
 |----------|------------|---------|
 | `DEPLOYER_PRIVATE_KEY` | Private key for signing deploy tx | — (required for testnet) |
 | `VITE_PRIVY_APP_ID` | Privy app ID | `"placeholder-app-id"` |
-| `VITE_CONTRACT_ADDRESS` | Override hardcoded contract address (local dev only) | `TESTNET_CONTRACT_ADDRESS` in constants.ts |
+| `VITE_CONTRACT_ADDRESS` | Injected by populate script for local dev (never set manually) | chain-specific address in constants.ts |
 | `VITE_CHAIN_ID` | Chain ID for wallet config | sanvil chain ID |
 | `VITE_RPC_URL` | RPC URL — used by both frontend and `bun deploy:testnet` | — |
 | `VITE_PUBLIC_RPC_URL` | Public RPC for transparent reads | — |
