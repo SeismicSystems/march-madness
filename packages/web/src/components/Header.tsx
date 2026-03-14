@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 
+import { FAUCET_URL } from "../lib/constants";
 import { truncateAddress } from "../lib/tournament";
 
 interface HeaderProps {
@@ -8,8 +10,16 @@ interface HeaderProps {
 
 export function Header({ entryCount }: HeaderProps) {
   const { login, logout, authenticated, user } = usePrivy();
+  const [copied, setCopied] = useState(false);
 
   const address = user?.wallet?.address;
+
+  const copyAddress = () => {
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <header className="border-b border-border bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
@@ -29,11 +39,28 @@ export function Header({ entryCount }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Faucet link */}
+          <a
+            href={FAUCET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+          >
+            Faucet
+          </a>
+
+          {/* Copyable address */}
           {authenticated && address && (
-            <span className="hidden sm:inline text-sm text-text-secondary font-mono">
-              {truncateAddress(address)}
-            </span>
+            <button
+              onClick={copyAddress}
+              type="button"
+              title="Copy address"
+              className="text-xs sm:text-sm text-text-secondary font-mono hover:text-text-primary transition-colors"
+            >
+              {copied ? "Copied!" : truncateAddress(address)}
+            </button>
           )}
+
           {authenticated ? (
             <button
               onClick={logout}

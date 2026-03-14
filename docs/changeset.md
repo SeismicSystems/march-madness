@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — UX improvements: faucet, localStorage picks, multi-round advancing
+- **Faucet link**: added "Faucet" link in header (opens in new tab), plus a prominent `FaucetBanner` when connected with 0 ETH balance — shows address with copy button and "Get Testnet ETH" link
+- **Copyable address**: connected wallet address is shown in header and clickable to copy on both mobile and desktop
+- **Balance check**: `useContract` now fetches wallet ETH balance; App shows faucet banner when balance is 0
+- **LocalStorage picks**: bracket picks persist in `localStorage` keyed by `mm-picks-{address}` (zero address for unauthenticated). On login, zero-address picks migrate to the real address if no existing picks. Picks survive page refresh.
+- **Multi-round advancing**: users can now pick a team to advance multiple rounds without filling in their opponent's bracket path. E.g., click Duke → Duke → Duke all the way to the championship. Winner computation allows single-team picks; BracketGame enables clicking a team even when opponent is TBD.
+- Added `FAUCET_URL` constant
+
 ### 2026-03-14 — Fix deadline timestamp + redeploy contract
 - **Bug**: `SUBMISSION_DEADLINE` was `1742313600` (March 18, **2025**) instead of `1773853200` (March 18, **2026**). This caused the app to show "Brackets are locked" a year early.
 - Fixed timestamp in `constants.ts` and `MarchMadness.s.sol`
