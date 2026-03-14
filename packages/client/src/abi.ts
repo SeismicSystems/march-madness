@@ -144,6 +144,25 @@ export const MarchMadnessAbi = [
   },
   {
     "type": "function",
+    "name": "hasEntry",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "hasCollectedWinnings",
     "inputs": [
       {

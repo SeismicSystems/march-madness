@@ -10,8 +10,10 @@ import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 
 /**
  * Hook for interacting with the MarchMadness contract.
- * Uses MarchMadnessPublicClient for transparent reads and
- * MarchMadnessUserClient for shielded writes and signed reads.
+ *
+ * On login, checks hasEntry(address) via a public read (no signing).
+ * The signed read (getMyBracket) only happens when the user explicitly
+ * clicks "Load my bracket".
  */
 export function useContract() {
   const { walletClient, publicClient } = useShieldedWallet();
@@ -21,6 +23,7 @@ export function useContract() {
     null,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
 
@@ -54,25 +57,16 @@ export function useContract() {
     }
   }, [mmPublic]);
 
-  // Fetch user's existing bracket (signed read before deadline, transparent after)
-  const fetchMyBracket = useCallback(async () => {
-    if (!mmUser) return;
-
+  // Check if user has submitted (public read — no signing needed)
+  const checkHasEntry = useCallback(async () => {
+    if (!mmPublic || !walletAddress) return;
     try {
-      const bracketHex = await mmUser.getMyBracket();
-      // Check if bracket has sentinel bit set (meaning it exists)
-      if (
-        bracketHex &&
-        bracketHex !== "0x0000000000000000" &&
-        BigInt(bracketHex) !== BigInt(0)
-      ) {
-        setExistingBracket(bracketHex);
-        setHasSubmitted(true);
-      }
+      const has = await mmPublic.getHasEntry(walletAddress);
+      setHasSubmitted(has);
     } catch {
-      // No bracket submitted yet or contract not deployed
+      // Contract might not be deployed yet
     }
-  }, [mmUser]);
+  }, [mmPublic, walletAddress]);
 
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
@@ -87,9 +81,39 @@ export function useContract() {
 
   useEffect(() => {
     fetchEntryCount();
-    fetchMyBracket();
+    checkHasEntry();
     fetchBalance();
-  }, [fetchEntryCount, fetchMyBracket, fetchBalance]);
+  }, [fetchEntryCount, checkHasEntry, fetchBalance]);
+
+  /**
+   * Load user's bracket via signed read (before deadline) or transparent read (after).
+   * This is the expensive operation that requires wallet signing — only call on user action.
+   */
+  const loadMyBracket = useCallback(async () => {
+    if (!mmUser) throw new Error("Wallet not connected");
+    setIsBracketLoading(true);
+    setError(null);
+
+    try {
+      const bracketHex = await mmUser.getMyBracket();
+      if (
+        bracketHex &&
+        bracketHex !== "0x0000000000000000" &&
+        BigInt(bracketHex) !== BigInt(0)
+      ) {
+        setExistingBracket(bracketHex);
+        return bracketHex;
+      }
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to load bracket";
+      setError(msg);
+      throw err;
+    } finally {
+      setIsBracketLoading(false);
+    }
+    return null;
+  }, [mmUser]);
 
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
@@ -167,14 +191,15 @@ export function useContract() {
     hasSubmitted,
     existingBracket,
     isLoading,
+    isBracketLoading,
     error,
     isBeforeDeadline,
     balance,
     submitBracket,
     updateBracket,
     setTag,
+    loadMyBracket,
     fetchEntryCount,
-    fetchMyBracket,
     walletAddress,
   };
 }

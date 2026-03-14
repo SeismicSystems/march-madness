@@ -103,6 +103,14 @@ export class MarchMadnessPublicClient {
     return this.contract.read.entryFee(opts);
   }
 
+  /** Check if an address has submitted a bracket (public, no signed read needed). */
+  async getHasEntry(
+    account: Address,
+    opts: ReadOptions = {},
+  ): Promise<boolean> {
+    return this.contract.read.hasEntry([account], opts);
+  }
+
   /** Read a bracket (after deadline — transparent read). */
   async getBracket(
     account: Address,

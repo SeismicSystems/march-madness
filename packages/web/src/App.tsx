@@ -14,20 +14,17 @@ export default function App() {
   const contract = useContract();
   const bracket = useBracket(contract.walletAddress);
 
-  // Load existing bracket if user has one
-  // (only do this once when existingBracket changes)
-  const loadedRef = { current: false };
-  if (contract.existingBracket && !loadedRef.current) {
-    bracket.loadFromHex(contract.existingBracket);
-    loadedRef.current = true;
-  }
-
   const isLocked = !contract.isBeforeDeadline;
   const showFaucetBanner =
     authenticated &&
     contract.walletAddress &&
     contract.balance !== null &&
     contract.balance === 0n;
+
+  const handleLoadBracket = async () => {
+    const hex = await contract.loadMyBracket();
+    if (hex) bracket.loadFromHex(hex);
+  };
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -58,11 +55,14 @@ export default function App() {
               pickCount={bracket.pickCount}
               hasSubmitted={contract.hasSubmitted}
               isLoading={contract.isLoading}
+              isBracketLoading={contract.isBracketLoading}
               error={contract.error}
               encodedBracket={bracket.encodedBracket}
+              existingBracket={contract.existingBracket}
               onSubmit={contract.submitBracket}
               onUpdate={contract.updateBracket}
               onSetTag={contract.setTag}
+              onLoadBracket={handleLoadBracket}
               walletConnected={authenticated}
             />
           </div>

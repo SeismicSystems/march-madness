@@ -1,0 +1,3 @@
+hey new branch off main, pull in. i notice we do a signed read right away when we're logged in. i don't want to do that -- instead there should be an indication that we've submitted a bracket (do we need a contract function for this?) that can be called publically -- and then the user can click a button to do a signed read if they want to do it.
+
+do we need to change the contract to allow asking it "has user X submitted a bracket?" i know we can get it for events, but in this case we want to do a public call
