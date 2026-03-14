@@ -3,13 +3,16 @@
 # Local CI — mirrors .github/workflows/ci.yml exactly.
 # Run from repo root:  ./scripts/ci.sh [section]
 #
+# Uses mise for tool management (sfoundry, ssolc, bun) — same as GitHub CI.
+# Requires: mise (https://mise.jdx.dev), cargo/rustup
+#
 # Sections (run individually or omit to run all):
-#   contracts   — build, test, fmt check
-#   packages    — typecheck, lint, build, test
-#   crates      — build, test, fmt, clippy
+#   contracts   — build, test, fmt check (via mise)
+#   packages    — typecheck, lint, build, test (via mise)
+#   crates      — build, test, fmt, clippy (cargo)
 #   changeset   — verify docs/changeset.md is modified (vs main)
 #
-# KEEP IN SYNC with .github/workflows/ci.yml — see CLAUDE.md rule #7.
+# KEEP IN SYNC with .github/workflows/ci.yml — see CLAUDE.md rule #8.
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -51,101 +54,60 @@ skip_step() {
 run_changeset() {
   echo ""
   echo "━━━ Changeset ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  if git diff --name-only main...HEAD 2>/dev/null | grep -q '^docs/changeset.md$'; then
+  if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
+    skip_step "changeset modified" "on main branch"
+  elif git diff --name-only main...HEAD 2>/dev/null | grep -q '^docs/changeset.md$'; then
     run_step "changeset modified" true
   else
-    # On main itself, skip the check
-    if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
-      skip_step "changeset modified" "on main branch"
-    else
-      run_step "changeset modified" false
-    fi
+    run_step "changeset modified" false
   fi
 }
 
-# ─── Contracts ────────────────────────────────────────────────────────
+# ─── Contracts (via mise — mirrors GitHub CI exactly) ─────────────────
 run_contracts() {
   echo ""
   echo "━━━ Contracts ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   if [ ! -f contracts/foundry.toml ]; then
-    skip_step "contracts build" "contracts/foundry.toml not found"
-    skip_step "contracts test" "contracts/foundry.toml not found"
-    skip_step "contracts fmt" "contracts/foundry.toml not found"
+    skip_step "contracts" "contracts/foundry.toml not found"
     return
   fi
-  if ! command -v sforge &>/dev/null; then
-    skip_step "contracts build" "sforge not installed"
-    skip_step "contracts test" "sforge not installed"
-    skip_step "contracts fmt" "sforge not installed"
+  if ! command -v mise &>/dev/null; then
+    skip_step "contracts" "mise not installed (https://mise.jdx.dev)"
     return
   fi
-  run_step "contracts build" sforge build --root contracts
-  run_step "contracts test" sforge test -vv --root contracts
-  run_step "contracts fmt" sforge fmt --check --root contracts
+  run_step "contracts build" bash -c "cd contracts && mise run build"
+  run_step "contracts test" bash -c "cd contracts && mise run test"
+  run_step "contracts fmt" bash -c "cd contracts && mise run fmt-check"
 }
 
-# ─── Packages ─────────────────────────────────────────────────────────
+# ─── Packages (via mise — mirrors GitHub CI exactly) ──────────────────
 run_packages() {
   echo ""
   echo "━━━ Packages ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  if ! command -v bun &>/dev/null; then
-    skip_step "packages install" "bun not installed"
+  if ! command -v mise &>/dev/null; then
+    skip_step "packages" "mise not installed (https://mise.jdx.dev)"
     return
   fi
-  if [ ! -f package.json ]; then
-    skip_step "packages install" "no root package.json"
+  if [ ! -f packages/mise.toml ]; then
+    skip_step "packages" "packages/mise.toml not found"
     return
   fi
-
-  run_step "packages install" bun install --frozen-lockfile 2>/dev/null || bun install
-
-  # Client
-  if [ -f packages/client/package.json ]; then
-    if grep -q '"typecheck"' packages/client/package.json 2>/dev/null; then
-      run_step "client typecheck" bash -c "cd packages/client && bun run typecheck"
-    fi
-    if grep -q '"lint:check"' packages/client/package.json 2>/dev/null; then
-      run_step "client lint" bash -c "cd packages/client && bun run lint:check"
-    fi
-    if grep -q '"build"' packages/client/package.json 2>/dev/null; then
-      run_step "client build" bash -c "cd packages/client && bun run build"
-    fi
-    if grep -q '"test"' packages/client/package.json 2>/dev/null; then
-      run_step "client test" bash -c "cd packages/client && bun test"
-    fi
-  else
-    skip_step "client" "packages/client/package.json not found"
-  fi
-
-  # Web
-  if [ -f packages/web/package.json ]; then
-    if grep -q '"typecheck"' packages/web/package.json 2>/dev/null; then
-      run_step "web typecheck" bash -c "cd packages/web && bun run typecheck"
-    fi
-    if grep -q '"lint:check"' packages/web/package.json 2>/dev/null; then
-      run_step "web lint" bash -c "cd packages/web && bun run lint:check"
-    fi
-    if grep -q '"build"' packages/web/package.json 2>/dev/null; then
-      run_step "web build" bash -c "cd packages/web && bun run build"
-    fi
-  else
-    skip_step "web" "packages/web/package.json not found"
-  fi
+  run_step "packages typecheck" bash -c "cd packages && mise run typecheck"
+  run_step "packages lint" bash -c "cd packages && mise run lint::check"
+  run_step "packages build" bash -c "cd packages && mise run build"
+  run_step "packages test" bash -c "cd packages && mise run test"
 }
 
-# ─── Crates ───────────────────────────────────────────────────────────
+# ─── Crates (cargo — no mise needed) ─────────────────────────────────
 run_crates() {
   echo ""
   echo "━━━ Crates ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   if [ ! -f crates/Cargo.toml ]; then
-    skip_step "crates build" "crates/Cargo.toml not found"
-    skip_step "crates test" "crates/Cargo.toml not found"
-    skip_step "crates fmt" "crates/Cargo.toml not found"
-    skip_step "crates clippy" "crates/Cargo.toml not found"
+    skip_step "crates" "crates/Cargo.toml not found"
     return
   fi
   if ! command -v cargo &>/dev/null; then
-    skip_step "crates build" "cargo not installed"
+    skip_step "crates" "cargo not installed"
     return
   fi
   run_step "crates build" cargo build --manifest-path crates/Cargo.toml

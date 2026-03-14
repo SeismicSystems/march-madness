@@ -1,0 +1,7 @@
+the CI pull request needs a lot of work.
+
+we want to draw inspiration from how to set up CI with foundry from the great work of chad developer samlaf, in the ~/code/seismic-workspace/seismic repo
+
+specifically, he uses mise to set up the building of seismic-foundry in CI. (we don't need reth). we also need seismic-solidity.
+
+his CI is in that seismic repo, at .github/workflows/client-ts.yml (there's also a bunch of mise configs in general there that are probably worth considering). we care about the latest version of seismic solidity and seismic-foundry. if it's easier to  hardcode commits for these repos thats fine. really just mirror what samlaf did, but strip out only the stuff we need for foundry + ssol setup (e.g. not reth or anything else that bloats)

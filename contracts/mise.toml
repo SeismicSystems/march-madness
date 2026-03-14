@@ -1,0 +1,26 @@
+[tasks.test]
+description = "Run contract tests"
+run = "mise run sforge -- test -vv"
+
+[tasks.build]
+description = "Build contracts"
+run = "mise run sforge -- build"
+
+[tasks.fmt]
+description = "Format contracts"
+run = "mise run sforge -- fmt"
+
+[tasks.fmt-check]
+description = "Check contract formatting"
+run = "mise run sforge -- fmt --check"
+
+[tasks.ci]
+description = "Run full contracts CI (build, test, fmt-check)"
+run = { tasks = ["build", "test", "fmt-check"] }
+
+[tasks.sforge]
+description = "Run mise-installed sforge with correct ssolc"
+raw = true
+usage = 'arg "[args]" var=#true help="Arguments to pass to sforge"'
+env = { FOUNDRY_SOLC = "{{env.HOME}}/.local/share/mise/installs/ssolc/2ebb36d/ssolc" }
+run = "sforge ${usage_args}"
