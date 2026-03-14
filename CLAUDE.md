@@ -84,7 +84,8 @@ Events:
 Single `.env` file at repo root — see `.env.example` for all variables. Never create `.env` files in subdirectories.
 
 - **Vite** loads from root via `envDir: "../../"` in `packages/web/vite.config.ts`
-- **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL` (shared with frontend — no duplicate RPC var)
+- **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL`, deploys via sforge, and writes the contract address to `data/deployments.json`
+- **Contract address resolution**: `VITE_CONTRACT_ADDRESS` CLI override → `data/deployments.json` (checked-in, keyed by year + chain ID) → zero address fallback
 - **Local dev** (populate script) uses hardcoded anvil accounts from `data/anvil-accounts.json` — does not need `DEPLOYER_PRIVATE_KEY`
 
 ## Local Development

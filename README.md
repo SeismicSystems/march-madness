@@ -93,8 +93,11 @@ bun p:pre                     # pre-submission (default): deploy with future dea
 bun p:post                    # post-submission: brackets + results + partial scoring
 bun p:grading                 # post-grading: full lifecycle including payouts
 
-# Deploy to testnet (uses DEPLOYER_PRIVATE_KEY and VITE_RPC_URL from .env)
+# Deploy to testnet — deploys + writes address to deployments.ts
 bun deploy:testnet
+
+# Or just write an already-deployed address
+./scripts/deploy-testnet.sh --contract-address 0x1234...
 ```
 
 ### Environment
