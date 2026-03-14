@@ -4,6 +4,15 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Rust HTTP Server (`crates/server`)
+- Built `march-madness-server` HTTP server using axum + tokio
+- Endpoints: `GET /api/entries` (full index), `GET /api/entries/:address` (single entry), `GET /api/stats` (total entries + scored count), `GET /health`
+- TTL-cached reads of the indexer's JSON file (5s default) with fs2 shared/read file locks
+- CORS enabled (Access-Control-Allow-Origin: *) for frontend access
+- CLI via clap: `--port` (default 3001) and `--index-file` (default `data/entries.json`)
+- Graceful shutdown on SIGINT/SIGTERM
+- Structured logging via tracing
+
 ### 2026-03-14 — CI Workflows + Local CI Script (mise-based)
 - Added `mise.toml` (root) — pins sfoundry (nightly), ssolc (2ebb36d), bun (1.3.9) via mise, mirroring samlaf's setup in the seismic repo
 - Added `contracts/mise.toml` — sforge tasks (build, test, fmt-check) with FOUNDRY_SOLC injection

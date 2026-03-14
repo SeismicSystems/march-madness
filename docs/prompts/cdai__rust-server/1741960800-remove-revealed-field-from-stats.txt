@@ -1,0 +1,9 @@
+The user left a review comment on PR #4 (branch: cdai__rust-server). Fix it and push.
+
+## Review Comment
+On `crates/server/src/routes.rs` line 50:
+> "why do we have this field? post-lock, they all get revealed immediately. the only distinction is whether we have scored them on chain after we reported results"
+
+This is about the `/api/stats` endpoint. Look at what fields are being returned there — there's likely a "revealed" count or similar field that doesn't make sense. Post-lock, ALL brackets are readable (they're just shielded before deadline). The meaningful distinction is only whether a bracket has been **scored** on-chain after results are posted.
+
+Fix the stats endpoint to remove the "revealed" field and only track meaningful stats like total entries and number scored.

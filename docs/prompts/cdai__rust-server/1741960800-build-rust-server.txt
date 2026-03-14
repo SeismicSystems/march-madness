@@ -1,0 +1,85 @@
+You are building the `crates/server` Rust HTTP server for a March Madness bracket contest on the Seismic network. This server serves the JSON index file created by the indexer to the frontend.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Branch
+Create branch `cdai__rust-server` off of `main`.
+
+## What Already Exists
+- `crates/Cargo.toml` — workspace with common, indexer, server members
+- `crates/common/src/types.rs` — `EntryRecord`, `UpdateInfo`, `EntryIndex` (BTreeMap<String, EntryRecord>)
+- `crates/common/Cargo.toml` — has serde + serde_json deps
+- `crates/server/src/main.rs` — stub
+- `crates/server/Cargo.toml` — basic deps (just march_madness_common)
+
+## What You Need to Build
+
+### HTTP Server
+A lightweight HTTP server that serves the indexed bracket data to the frontend React app.
+
+### Endpoints
+
+**GET /api/entries**
+- Read the JSON index file and serve it
+- Returns the full `EntryIndex` JSON (BTreeMap of address → EntryRecord)
+- Set CORS headers for frontend access (Access-Control-Allow-Origin: *)
+
+**GET /api/entries/:address**
+- Return a single entry by address
+- 404 if not found
+
+**GET /api/stats**
+- Return basic stats: total entries, number with brackets revealed, number scored
+- Derive from the index data
+
+**GET /health**
+- Simple health check, returns 200 OK
+
+### Architecture
+```
+src/
+  main.rs     — CLI entry + server startup
+  routes.rs   — Route handlers
+  state.rs    — Shared state (file path, caching)
+```
+
+### Key Behaviors
+- Read the index file on each request (or cache with a short TTL like 5 seconds)
+- Handle the case where the index file doesn't exist yet (return empty object)
+- File locking for reads (use shared/read locks via `fs2` to coexist with the indexer's write locks)
+- CORS headers on all responses
+- Configurable via CLI args: `--port`, `--index-file`
+
+### CLI Interface (use clap)
+```
+march-madness-server --port 3001 --index-file data/entries.json
+```
+- Default port: 3001
+- Default index file: `data/entries.json`
+
+### Framework
+Use `axum` — it's lightweight, async, and well-suited for this. With `tokio` as the runtime.
+
+## Cargo Dependencies
+- `axum` (HTTP framework)
+- `tokio` (async runtime, full features)
+- `tower-http` (for CORS middleware)
+- `clap` (CLI, derive feature)
+- `serde` + `serde_json`
+- `fs2` (file locking for shared reads)
+- `march_madness_common` (shared types)
+
+## Rules
+1. Update `docs/changeset.md` with what you added
+2. Make sure it compiles: `cd crates && cargo build`
+3. Run `cargo fmt` and `cargo clippy` before pushing
+4. Push branch and open a PR to main using `gh pr create`
+5. Save this prompt to `docs/prompts/cdai__rust-server/` as a .txt file
+
+## Important Notes
+- Keep it simple — this is mostly a stub/passthrough for the JSON file
+- The frontend will call these endpoints, so CORS is important
+- The indexer writes to the same file the server reads — use appropriate locking
+- Graceful shutdown on SIGINT
+- Log requests with basic info (method, path, status)
