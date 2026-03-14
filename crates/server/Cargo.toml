@@ -1,0 +1,11 @@
+[package]
+name = "march-madness-server"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+march-madness-common.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+eyre.workspace = true

@@ -25,7 +25,7 @@ contract PayoutTest is Test {
 
     function test_singleWinnerGetsFullPool() public {
         _submitEntry(alice, 0xFFFFFFFFFFFFFFFF); // perfect bracket
-        _submitEntry(bob, 0x8000000000000000);    // bad bracket
+        _submitEntry(bob, 0x8000000000000000); // bad bracket
 
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
@@ -44,7 +44,7 @@ contract PayoutTest is Test {
 
     function test_twoWinnersSplitPool() public {
         _submitEntry(alice, 0xFFFFFFFFFFFFFFFF);
-        _submitEntry(bob, 0xFFFFFFFFFFFFFFFF);   // same bracket, ties
+        _submitEntry(bob, 0xFFFFFFFFFFFFFFFF); // same bracket, ties
         _submitEntry(charlie, 0x8000000000000000); // loser
 
         vm.warp(DEADLINE + 1);

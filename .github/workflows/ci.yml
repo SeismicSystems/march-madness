@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # ─── Changeset check ───────────────────────────────────────────────
+  changeset:
+    name: Changeset Required
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check docs/changeset.md was modified
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^docs/changeset.md$' \
+            || (echo "::error::docs/changeset.md must be updated in every PR" && exit 1)
+
+  # ─── Contracts ──────────────────────────────────────────────────────
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: jdx/mise-action@v2
+
+      - run: mise run build
+      - run: mise run test
+      - run: mise run fmt-check
+
+  # ─── Packages (TypeScript) ─────────────────────────────────────────
+  packages:
+    name: Packages
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v2
+
+      - run: mise run typecheck
+      - run: mise run lint::check
+      - run: mise run build
+      - run: mise run test
+
+  # ─── Crates (Rust) ─────────────────────────────────────────────────
+  crates-build:
+    name: Crates — Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Build
+        working-directory: crates
+        run: cargo build
+
+      - name: Test
+        working-directory: crates
+        run: cargo test
+
+      - name: Format check
+        working-directory: crates
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        working-directory: crates
+        run: cargo clippy --all-targets -- -D warnings

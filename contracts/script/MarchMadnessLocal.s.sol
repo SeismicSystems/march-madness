@@ -16,10 +16,7 @@ contract MarchMadnessLocalScript is Script {
 
         vm.startBroadcast();
 
-        MarchMadness mm = new MarchMadness(
-            1 ether,
-            block.timestamp + deadlineOffset
-        );
+        MarchMadness mm = new MarchMadness(1 ether, block.timestamp + deadlineOffset);
 
         console.log("MarchMadness (local) deployed at:", address(mm));
         console.log("Submission deadline:", mm.submissionDeadline());

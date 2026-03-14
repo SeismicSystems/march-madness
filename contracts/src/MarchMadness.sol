@@ -17,7 +17,7 @@ contract MarchMadness {
 
     // ── State ──────────────────────────────────────────────────────────────
     mapping(address => sbytes8) private brackets; // SHIELDED bracket storage
-    mapping(address => string) public tags;        // optional display name
+    mapping(address => string) public tags; // optional display name
     mapping(address => uint8) public scores;
     mapping(address => bool) public isScored;
     uint32 public numEntries;
@@ -44,10 +44,7 @@ contract MarchMadness {
     event WinningsCollected(address indexed account, uint256 amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
-    constructor(
-        uint256 _entryFee,
-        uint256 _submissionDeadline
-    ) {
+    constructor(uint256 _entryFee, uint256 _submissionDeadline) {
         owner = msg.sender;
         entryFee = _entryFee;
         submissionDeadline = _submissionDeadline;

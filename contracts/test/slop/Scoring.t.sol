@@ -49,10 +49,10 @@ contract ScoringTest is Test {
 
     function test_multiplePlayersScored() public {
         uint64 resultBits = 0xFFFFFFFFFFFFFFFF;
-        _submitEntry(alice, 0xFFFFFFFFFFFFFFFF);   // perfect
-        _submitEntry(bob, 0x8000000000000000);      // minimal match
-        _submitEntry(charlie, 0xFFFF5555FFFFFFFF);  // mixed
-        _submitEntry(dave, 0xFFFFaaaaFFFFFFFF);      // inverted mixed
+        _submitEntry(alice, 0xFFFFFFFFFFFFFFFF); // perfect
+        _submitEntry(bob, 0x8000000000000000); // minimal match
+        _submitEntry(charlie, 0xFFFF5555FFFFFFFF); // mixed
+        _submitEntry(dave, 0xFFFFaaaaFFFFFFFF); // inverted mixed
 
         vm.warp(DEADLINE + 1);
         mm.submitResults(bytes8(resultBits));
@@ -64,7 +64,7 @@ contract ScoringTest is Test {
 
         assertEq(mm.scores(alice), 192);
         assertEq(mm.scores(charlie), 192 - 2 * 8); // 176
-        assertEq(mm.scores(dave), 32 + 2 * 8);     // 48
+        assertEq(mm.scores(dave), 32 + 2 * 8); // 48
 
         assertEq(mm.winningScore(), 192);
         assertEq(mm.numWinners(), 1);

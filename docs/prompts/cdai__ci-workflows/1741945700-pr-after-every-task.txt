@@ -1,0 +1,1 @@
+so firs tthihng you should do is open a PR with whatever scaffolding you already merged into your local copy of main. after every task is complete, it should end with you opening a PR. <-- add this to claude.ms
