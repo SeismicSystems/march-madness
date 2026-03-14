@@ -10,7 +10,6 @@ import {
   type Address,
   type Hex,
   type Abi,
-  parseEther,
   http,
   createPublicClient,
 } from "viem";
@@ -21,12 +20,21 @@ import {
   sanvil,
 } from "seismic-viem";
 import type { ShieldedPublicClient } from "seismic-viem";
-import { encodeBracket } from "@march-madness/client";
+import {
+  encodeBracket,
+  MarchMadnessPublicClient,
+  MarchMadnessUserClient,
+  MarchMadnessOwnerClient,
+  ENTRY_FEE,
+} from "@march-madness/client";
 
 // We use `any` for wallet client type to avoid chain-narrowing issues with viem generics.
 // At runtime, the client is always created with `chain: sanvil`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type WalletClient = any;
+
+// Re-export ENTRY_FEE from client library so existing imports still work
+export { ENTRY_FEE };
 
 // ── Paths ─────────────────────────────────────────────────────────────
 
@@ -57,6 +65,7 @@ export function getContractArtifact(): { abi: Abi; bytecode: Hex } {
   return _artifact;
 }
 
+/** Needed for deploy output parsing (reading deadline after sforge deploy). */
 export function getAbi(): Abi {
   return getContractArtifact().abi;
 }
@@ -125,6 +134,42 @@ export function createPublicClientInstance(): ShieldedPublicClient {
     chain: sanvil,
     transport: getTransport(),
   }) as ShieldedPublicClient;
+}
+
+// ── March Madness Client Library Factories ────────────────────────────
+
+/**
+ * Create a MarchMadnessPublicClient for transparent reads.
+ */
+export function createMMPublicClient(
+  contractAddress: Address,
+): MarchMadnessPublicClient {
+  const publicClient = createPublicClientInstance();
+  return new MarchMadnessPublicClient(publicClient, contractAddress);
+}
+
+/**
+ * Create a MarchMadnessUserClient for shielded writes + signed reads.
+ */
+export async function createMMUserClient(
+  privateKey: Hex,
+  contractAddress: Address,
+): Promise<MarchMadnessUserClient> {
+  const publicClient = createPublicClientInstance();
+  const walletClient = await createWallet(privateKey);
+  return new MarchMadnessUserClient(publicClient, walletClient, contractAddress);
+}
+
+/**
+ * Create a MarchMadnessOwnerClient for owner-only functions.
+ */
+export async function createMMOwnerClient(
+  privateKey: Hex,
+  contractAddress: Address,
+): Promise<MarchMadnessOwnerClient> {
+  const publicClient = createPublicClientInstance();
+  const walletClient = await createWallet(privateKey);
+  return new MarchMadnessOwnerClient(publicClient, walletClient, contractAddress);
 }
 
 // ── Random Bracket Generation ─────────────────────────────────────────
@@ -213,15 +258,9 @@ export async function deployContractViaSforge(
 
   const contractAddress = addressMatch[1] as Address;
 
-  // Read the deadline from the contract
-  const publicClient = createPublicClientInstance();
-  const abi = getAbi();
-
-  const deadline = (await publicClient.readContract({
-    address: contractAddress,
-    abi,
-    functionName: "submissionDeadline",
-  })) as bigint;
+  // Read the deadline from the contract using the client library
+  const mmPublic = createMMPublicClient(contractAddress);
+  const deadline = await mmPublic.getSubmissionDeadline();
 
   return {
     contractAddress,
@@ -300,10 +339,6 @@ export async function increaseTime(seconds: number): Promise<void> {
     params: [] as any,
   });
 }
-
-// ── Constants ─────────────────────────────────────────────────────────
-
-export const ENTRY_FEE = parseEther("1");
 
 // ── Connection Check ──────────────────────────────────────────────────
 

@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — PR #8 Review: Refactor tests to use client library (`packages/tests`)
+- Refactored `populate.ts` and `integration.test.ts` to use `MarchMadnessPublicClient`, `MarchMadnessUserClient`, and `MarchMadnessOwnerClient` from `@march-madness/client` instead of raw `wallet.writeContract()` / `publicClient.readContract()` calls
+- Added factory functions to `utils.ts`: `createMMPublicClient()`, `createMMUserClient()`, `createMMOwnerClient()`
+- Removed local `ENTRY_FEE` constant from `utils.ts` — now re-exported from `@march-madness/client`
+- Raw wallet calls kept only where client library cannot express the test (wrong entry fee, cross-user bracket read before deadline, non-owner submitResults)
+
 ### 2026-03-14 — Integration Tests & Local Dev Population (`packages/tests`)
 - Added `src/utils.ts` — test utilities: random/chalky bracket generation, sforge deploy, sanvil process spawning, anvil account loader, seismic-viem client helpers, time manipulation (evm_increaseTime + evm_mine)
 - Added `src/integration.test.ts` — full end-to-end test suite (expects sanvil already running): deploy via sforge, concurrent bracket submission, tags, updates, signed read (own bracket before deadline), fast-forward past deadline, transparent read, results posting, scoring, payout collection with balance verification

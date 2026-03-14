@@ -1,0 +1,6 @@
+Review comments on PR #8:
+
+- "should be using the 'get deadline' function on the public client... like you did before... i dont know why you changed this here man..."
+- "same thing here... why arent you calling the library function directly? if its to pass lint checks, that's a bad reason. it means you probably haven't gotten the types right on your abi definition. should be something like `as const satisfies Abi`. you're allowed to do some lint ignores in places like defining the abi... but there's definitely a way to get typechecking to work WITHOUT having to make this ugly writecontract call"
+
+Task: Refactor populate.ts and integration.test.ts to use MarchMadnessPublicClient, MarchMadnessUserClient, and MarchMadnessOwnerClient from @march-madness/client instead of raw wallet.writeContract() / publicClient.readContract() calls. Add factory functions to utils.ts. Remove local ENTRY_FEE constant. Rebase onto main (PR #6 merged).
