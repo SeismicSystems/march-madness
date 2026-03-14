@@ -72,14 +72,10 @@ docs/               — Technical docs, changeset log, prompt archive
 - [Bun](https://bun.sh) (TypeScript runtime & package manager)
 - [Rust](https://rustup.rs) (for crates)
 - [sforge/sanvil](https://docs.seismic.systems/getting-started/installation) (Seismic dev tools)
-- [mise](https://mise.jdx.dev) (for sforge toolchain management)
 
 ### Quick Start
 
 ```bash
-# Start local Seismic node
-sanvil
-
 # Build & test contracts
 cd contracts && sforge test -vv
 
@@ -88,37 +84,11 @@ bun install
 
 # Run frontend dev server
 cd packages/web && bun dev
-```
 
-### Populating Local Data
-
-The populate script (`packages/tests/src/populate.ts`) deploys the contract to a local sanvil node and sets up different tournament phases for development. Requires sanvil running on port 8545.
-
-```bash
-# Pre-submission (default) — deploy contract with future deadline, no brackets
-# Good for: testing bracket picker UI, submission flow
+# Populate local state for development (spawns sanvil, deploys via sforge, populates brackets)
 bun run --filter @march-madness/tests populate
-
-# Post-submission — deploy, submit brackets, fast-forward past deadline, post results
-# Good for: testing bracket viewing, scoring UI, off-chain preview
+# Or with a specific phase:
 bun run --filter @march-madness/tests populate -- --phase post-submission
-
-# Post-grading — full cycle including scoring and payout
-# Good for: testing payout collection, final leaderboard
-bun run --filter @march-madness/tests populate -- --phase post-grading
-```
-
-Additional options:
-- `--rpc-url <url>` — custom RPC URL (default: `http://localhost:8545`)
-- `CONTRACT_ADDRESS=0x...` env var — use an existing deployed contract instead of deploying a new one
-- `USE_SFORGE=false` env var — deploy directly via viem instead of sforge
-- `DEADLINE_OFFSET=<seconds>` env var — custom deadline offset (default: 3600s for pre-submission)
-
-### Running Integration Tests
-
-```bash
-# Requires sanvil running on localhost:8545
-bun run --filter @march-madness/tests test
 ```
 
 ## License

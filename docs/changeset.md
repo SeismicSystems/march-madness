@@ -4,11 +4,6 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-14 — Documentation: Populate Script & Integration Tests
-- Added Local Development section to README.md: populate script phases, CLI args, env vars, integration test commands
-- Added Local Development section to CLAUDE.md: populate phases, usage, env vars, integration test info
-- Added populate script and integration test documentation to docs/technical.md: phase table, usage, env vars, test account details, test coverage summary
-
 ### 2026-03-14 — Integration Tests & Local Dev Population (`packages/tests`)
 - Added `src/utils.ts` — test utilities: random/chalky bracket generation, sforge deploy, sanvil process spawning, anvil account loader, seismic-viem client helpers, time manipulation (evm_increaseTime + evm_mine)
 - Added `src/integration.test.ts` — full end-to-end test suite (expects sanvil already running): deploy via sforge, concurrent bracket submission, tags, updates, signed read (own bracket before deadline), fast-forward past deadline, transparent read, results posting, scoring, payout collection with balance verification
@@ -21,7 +16,6 @@ All notable changes to this project. Every PR must add an entry here.
 - Added `contracts/.env.example` — deployer key format for sforge script
 - Added `tsconfig.json` to tests package, added typecheck/lint/build scripts to `package.json`
 - Updated `packages/mise.toml` to include tests package in typecheck, lint, and build tasks
-- Refactored to use `@march-madness/client` library: ABI from `MarchMadnessAbi`, client classes (`MarchMadnessPublicClient`, `MarchMadnessUserClient`, `MarchMadnessOwnerClient`), and `ENTRY_FEE` constant instead of duplicating logic
 
 ### 2026-03-14 — PR #5 Review Fixes
 - provider.rs: Support both SeismicReth (prod) and SeismicFoundry (sanvil) via `IndexerProvider` enum and `--network` CLI flag

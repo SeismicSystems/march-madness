@@ -83,7 +83,7 @@ Events:
 
 ### Populate Script (`packages/tests/src/populate.ts`)
 
-Deploys the MarchMadness contract to a local sanvil node and populates it with data for the requested phase. Requires sanvil running on port 8545.
+Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, and populates it with data for the requested phase. Sanvil is left running after the script completes so the frontend can use it.
 
 Three phases:
 - **`pre-submission`** (default) — deploys contract with future deadline (1 hour). No brackets submitted. Use for testing bracket picker UI and submission flow.
@@ -96,9 +96,11 @@ bun run --filter @march-madness/tests populate -- --phase post-submission
 bun run --filter @march-madness/tests populate -- --phase post-grading
 ```
 
-Key env vars: `CONTRACT_ADDRESS` (skip deploy), `USE_SFORGE=false` (deploy via viem), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
+Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
 
-### Integration Tests
+### Integration Tests (`packages/tests/src/integration.test.ts`)
+
+Runs against an already-running sanvil node (started externally, e.g. by CI or the populate script). Deploys via sforge, then tests the full contract lifecycle.
 
 ```bash
 bun run --filter @march-madness/tests test
