@@ -12,7 +12,7 @@ export const ENTRY_FEE_DISPLAY = `${formatEther(ENTRY_FEE)} ETH`;
 // ── Tournament season ────────────────────────────────────
 const YEAR = "2026";
 /** Unix timestamp for bracket lock: Wednesday March 18, 2026 at Noon EST */
-export const SUBMISSION_DEADLINE = 1742313600;
+export const SUBMISSION_DEADLINE = 1773853200;
 
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? String(sanvil.id);
 
