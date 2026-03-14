@@ -22,8 +22,11 @@ export function useContract() {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<bigint | null>(null);
 
   const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
+
+  const walletAddress = walletClient?.account?.address ?? null;
 
   // Construct client library instances from seismic-react wallet/public clients
   const mmPublic = useMemo(() => {
@@ -71,10 +74,22 @@ export function useContract() {
     }
   }, [mmUser]);
 
+  // Fetch wallet ETH balance
+  const fetchBalance = useCallback(async () => {
+    if (!publicClient || !walletAddress) return;
+    try {
+      const bal = await publicClient.getBalance({ address: walletAddress });
+      setBalance(bal);
+    } catch {
+      // ignore
+    }
+  }, [publicClient, walletAddress]);
+
   useEffect(() => {
     fetchEntryCount();
     fetchMyBracket();
-  }, [fetchEntryCount, fetchMyBracket]);
+    fetchBalance();
+  }, [fetchEntryCount, fetchMyBracket, fetchBalance]);
 
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
@@ -88,6 +103,7 @@ export function useContract() {
         setHasSubmitted(true);
         setExistingBracket(bracketHex);
         await fetchEntryCount();
+        await fetchBalance();
         return hash;
       } catch (err) {
         const msg =
@@ -98,7 +114,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [mmUser, fetchEntryCount],
+    [mmUser, fetchEntryCount, fetchBalance],
   );
 
   // Update bracket (shielded write, no additional fee)
@@ -153,11 +169,12 @@ export function useContract() {
     isLoading,
     error,
     isBeforeDeadline,
+    balance,
     submitBracket,
     updateBracket,
     setTag,
     fetchEntryCount,
     fetchMyBracket,
-    walletAddress: walletClient?.account?.address ?? null,
+    walletAddress,
   };
 }

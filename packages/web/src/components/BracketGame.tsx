@@ -39,9 +39,9 @@ export function BracketGame({
       <TeamSlot
         team={team1}
         isWinner={winner !== null && winner === team1}
-        isLoser={winner !== null && winner !== team1}
-        onClick={() => team1 && team2 && !disabled && onPick(true)}
-        disabled={disabled || !team1 || !team2}
+        isLoser={winner !== null && winner !== team1 && team1 !== null}
+        onClick={() => team1 && !disabled && onPick(true)}
+        disabled={disabled || !team1}
         py={py}
         px={px}
         textSize={textSize}
@@ -50,9 +50,9 @@ export function BracketGame({
       <TeamSlot
         team={team2}
         isWinner={winner !== null && winner === team2}
-        isLoser={winner !== null && winner !== team2}
-        onClick={() => team1 && team2 && !disabled && onPick(false)}
-        disabled={disabled || !team1 || !team2}
+        isLoser={winner !== null && winner !== team2 && team2 !== null}
+        onClick={() => team2 && !disabled && onPick(false)}
+        disabled={disabled || !team2}
         py={py}
         px={px}
         textSize={textSize}

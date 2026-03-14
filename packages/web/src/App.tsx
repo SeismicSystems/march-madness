@@ -2,6 +2,7 @@ import { usePrivy } from "@privy-io/react-auth";
 
 import { BracketView } from "./components/BracketView";
 import { DeadlineCountdown } from "./components/DeadlineCountdown";
+import { FaucetBanner } from "./components/FaucetBanner";
 import { Header } from "./components/Header";
 import { Scoreboard } from "./components/Scoreboard";
 import { SubmitPanel } from "./components/SubmitPanel";
@@ -10,8 +11,8 @@ import { useContract } from "./hooks/useContract";
 
 export default function App() {
   const { authenticated } = usePrivy();
-  const bracket = useBracket();
   const contract = useContract();
+  const bracket = useBracket(contract.walletAddress);
 
   // Load existing bracket if user has one
   // (only do this once when existingBracket changes)
@@ -22,12 +23,22 @@ export default function App() {
   }
 
   const isLocked = !contract.isBeforeDeadline;
+  const showFaucetBanner =
+    authenticated &&
+    contract.walletAddress &&
+    contract.balance !== null &&
+    contract.balance === 0n;
 
   return (
     <div className="min-h-screen bg-bg-primary">
       <Header entryCount={contract.entryCount} />
 
       <main className="max-w-[1800px] mx-auto px-2 sm:px-4 py-4 sm:py-6">
+        {/* Faucet banner when connected with 0 balance */}
+        {showFaucetBanner && (
+          <FaucetBanner address={contract.walletAddress!} />
+        )}
+
         {/* Top bar: countdown + submit panel */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6 sm:mb-8">
           <div className="flex-1 flex items-start gap-2 sm:gap-4">

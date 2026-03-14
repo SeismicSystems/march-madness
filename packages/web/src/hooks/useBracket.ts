@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { encodeBracket } from "@march-madness/client";
 
@@ -18,31 +18,69 @@ export interface GameSlot {
   winner: Team | null;
 }
 
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+const STORAGE_PREFIX = "mm-picks-";
+const storageKey = (addr: string) => `${STORAGE_PREFIX}${addr.toLowerCase()}`;
+
+function loadPicks(addr: string): (boolean | null)[] | null {
+  try {
+    const raw = localStorage.getItem(storageKey(addr));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length === 63) return parsed;
+  } catch {
+    // corrupt data
+  }
+  return null;
+}
+
+function savePicks(addr: string, picks: (boolean | null)[]) {
+  localStorage.setItem(storageKey(addr), JSON.stringify(picks));
+}
+
 /**
  * Hook that manages bracket pick state and encoding.
  *
- * The bracket is 63 games organized as:
- *   Round 0 (R64): games 0-31 (32 games)
- *   Round 1 (R32): games 32-47 (16 games)
- *   Round 2 (S16): games 48-55 (8 games)
- *   Round 3 (E8):  games 56-59 (4 games)
- *   Round 4 (F4):  games 60-61 (2 games)
- *   Round 5 (Championship): game 62 (1 game)
+ * @param walletAddress - Connected wallet address, or undefined/null if not connected.
+ *   Picks are persisted in localStorage keyed by address (zero address when not connected).
+ *   On login, zero-address picks migrate to the real address if the real address has no data.
  *
- * A pick of `true` at index i means team1 (the first/higher-seeded team in the matchup) wins.
+ * Teams can be advanced multiple rounds without their opponent decided —
+ * e.g., pick Duke all the way to the championship without filling in the rest.
  */
-export function useBracket() {
+export function useBracket(walletAddress?: string | null) {
   const allTeams = useMemo(() => getAllTeamsInBracketOrder(), []);
+  const effectiveAddr = walletAddress || ZERO_ADDR;
+  const prevAddrRef = useRef(effectiveAddr);
 
   // picks[i] = true means team1 wins, false means team2 wins, null means no pick
-  const [picks, setPicks] = useState<(boolean | null)[]>(
-    new Array(63).fill(null),
-  );
+  const [picks, setPicks] = useState<(boolean | null)[]>(() => {
+    return loadPicks(effectiveAddr) ?? new Array(63).fill(null);
+  });
+
+  // Handle address changes (login/logout) — migrate zero-address picks on login
+  useEffect(() => {
+    if (prevAddrRef.current === effectiveAddr) return;
+    prevAddrRef.current = effectiveAddr;
+
+    // Migrate zero-address picks to real address on login
+    if (effectiveAddr !== ZERO_ADDR) {
+      const zeroPicks = loadPicks(ZERO_ADDR);
+      const existing = loadPicks(effectiveAddr);
+      if (zeroPicks && zeroPicks.some((p) => p !== null) && !existing) {
+        savePicks(effectiveAddr, zeroPicks);
+      }
+      localStorage.removeItem(storageKey(ZERO_ADDR));
+    }
+
+    // Load picks for the new address
+    const saved = loadPicks(effectiveAddr);
+    setPicks(saved ?? new Array(63).fill(null));
+  }, [effectiveAddr]);
 
   /**
    * Compute all game slots based on current picks.
-   * Games are numbered 0-62. The first 32 games are Round of 64 (teams from the data).
-   * Later rounds derive their teams from the winners of earlier games.
+   * A team can be picked as winner even if the opponent is unknown (multi-round advancing).
    */
   const games = useMemo((): GameSlot[] => {
     const slots: GameSlot[] = [];
@@ -52,8 +90,20 @@ export function useBracket() {
     for (let g = 0; g < 32; g++) {
       const team1 = allTeams[g * 2];
       const team2 = allTeams[g * 2 + 1];
-      const winner = picks[gameIndex] === true ? team1 : picks[gameIndex] === false ? team2 : null;
-      slots.push({ gameIndex, round: 0, gameInRound: g, team1, team2, winner });
+      const winner =
+        picks[gameIndex] === true
+          ? team1
+          : picks[gameIndex] === false
+            ? team2
+            : null;
+      slots.push({
+        gameIndex,
+        round: 0,
+        gameInRound: g,
+        team1,
+        team2,
+        winner,
+      });
       gameIndex++;
     }
 
@@ -64,17 +114,16 @@ export function useBracket() {
     for (let round = 1; round <= 5; round++) {
       const gamesInRound = gamesInPrevRound / 2;
       for (let g = 0; g < gamesInRound; g++) {
-        // The two feeder games for this matchup
         const feeder1 = slots[prevRoundStart + g * 2];
         const feeder2 = slots[prevRoundStart + g * 2 + 1];
         const team1 = feeder1.winner;
         const team2 = feeder2.winner;
-        const winner =
-          team1 && team2 && picks[gameIndex] !== null
-            ? picks[gameIndex]
-              ? team1
-              : team2
-            : null;
+
+        // Allow winner even if opponent is unknown (multi-round advance)
+        let winner: Team | null = null;
+        if (picks[gameIndex] === true && team1) winner = team1;
+        else if (picks[gameIndex] === false && team2) winner = team2;
+
         slots.push({
           gameIndex,
           round,
@@ -108,20 +157,21 @@ export function useBracket() {
         next[gameIndex] = pickTeam1;
 
         // Clear downstream picks that might have used the old winner
-        // We need to find which later games this game feeds into
-        // and clear picks where the winner was the team that no longer advances
-        clearDownstream(next, gameIndex, allTeams);
+        clearDownstream(next, gameIndex);
 
+        savePicks(effectiveAddr, next);
         return next;
       });
     },
-    [allTeams],
+    [effectiveAddr],
   );
 
   /** Reset all picks */
   const resetPicks = useCallback(() => {
-    setPicks(new Array(63).fill(null));
-  }, []);
+    const empty = new Array(63).fill(null) as (boolean | null)[];
+    setPicks(empty);
+    savePicks(effectiveAddr, empty);
+  }, [effectiveAddr]);
 
   /** Check if all 63 picks are made */
   const isComplete = picks.every((p) => p !== null);
@@ -147,8 +197,9 @@ export function useBracket() {
         );
       }
       setPicks(newPicks);
+      savePicks(effectiveAddr, newPicks);
     },
-    [],
+    [effectiveAddr],
   );
 
   /** Count of picks made */
@@ -175,45 +226,32 @@ export function useBracket() {
 }
 
 /**
- * When a pick changes, clear any downstream games where the old loser
- * was picked as a winner.
+ * When a pick changes, clear any downstream games whose outcome
+ * may have depended on the old winner.
  */
 function clearDownstream(
   picks: (boolean | null)[],
   changedGameIndex: number,
-  allTeams: Team[],
 ) {
-  // Recompute which team won from the changed game
-  // Then walk forward through subsequent rounds
-  // This is simpler: just clear all downstream games that feed from this one
-
-  // Find what round and position this game is in
   let idx = 0;
   let round = 0;
   let roundSize = 32;
-  let posInRound = 0;
 
   while (idx + roundSize <= changedGameIndex) {
     idx += roundSize;
     round++;
     roundSize = roundSize / 2;
   }
-  posInRound = changedGameIndex - idx;
+  const posInRound = changedGameIndex - idx;
 
-  // The next-round game that this feeds into
   let nextGamePos = Math.floor(posInRound / 2);
   let nextGameRound = round + 1;
-  let nextIdx = idx + roundSize; // start of next round
+  let nextIdx = idx + roundSize;
 
-  // Walk through downstream rounds and clear picks if they depend on the changed game
   while (nextGameRound <= 5) {
     const nextRoundSize = roundSize / 2;
     const gameIdx = nextIdx + nextGamePos;
-
-    // Clear this downstream pick
     picks[gameIdx] = null;
-
-    // Move to the next round
     nextGamePos = Math.floor(nextGamePos / 2);
     nextIdx += nextRoundSize;
     roundSize = nextRoundSize;
