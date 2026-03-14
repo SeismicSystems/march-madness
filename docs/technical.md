@@ -180,12 +180,25 @@ bun run --filter @march-madness/localdev populate -- --rpc-url http://host:port
 
 ### Environment Variables
 
+All env vars live in a single `.env` file at the repo root (see `.env.example`).
+
+**Populate script (local dev):**
+
 | Variable | Description | Default |
 |----------|------------|---------|
 | `CONTRACT_ADDRESS` | Use existing contract (skip deploy) | — |
 | `RPC_URL` | RPC endpoint (overridden by `--rpc-url`) | `http://localhost:8545` |
 | `DEADLINE_OFFSET` | Deadline offset in seconds | `3600` (pre-submission) |
-| `USE_SFORGE` | Set to `"false"` to deploy via viem instead of sforge | `true` |
+
+**Deployment + Frontend (VITE_ vars are shared):**
+
+| Variable | Description | Default |
+|----------|------------|---------|
+| `DEPLOYER_PRIVATE_KEY` | Private key for signing deploy tx | — (required for testnet) |
+| `VITE_PRIVY_APP_ID` | Privy app ID | `"placeholder-app-id"` |
+| `VITE_CONTRACT_ADDRESS` | CLI override (populate injects for local dev, or pass manually) | `data/deployments.json` by year + chain ID |
+| `VITE_CHAIN_ID` | Chain ID for wallet config | sanvil chain ID |
+| `VITE_RPC_URL` | RPC URL — used by frontend and `bun deploy:testnet` | — |
 
 ### Test Accounts
 

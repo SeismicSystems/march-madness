@@ -1,15 +1,16 @@
 /**
  * Bracket population script for local development.
  *
- * Spawns a sanvil node, deploys the MarchMadness contract via sforge, and
- * populates it with brackets, results, and scores depending on the phase.
- * Sanvil is left running after the script completes so the frontend can use it.
+ * Spawns a sanvil node, deploys the MarchMadness contract via sforge, populates
+ * it with brackets/results/scores depending on the phase, then starts the Vite
+ * dev server with the contract address injected automatically.
  *
  * Usage:
- *   bun run src/populate.ts                              # default: pre-submission
+ *   bun run src/populate.ts                              # default: pre-submission, starts vite
  *   bun run src/populate.ts --phase pre-submission       # deploy with future deadline, no brackets
  *   bun run src/populate.ts --phase post-submission      # deploy, submit brackets, fast-forward, post results
  *   bun run src/populate.ts --phase post-grading         # everything above + score all + fast-forward past scoring window
+ *   bun run src/populate.ts --no-vite                    # skip starting vite (e.g. for CI or tests)
  *   bun run src/populate.ts --rpc-url http://localhost:8545
  *   CONTRACT_ADDRESS=0x... bun run src/populate.ts --phase post-submission  # use existing contract
  */
@@ -38,10 +39,11 @@ import {
 
 type Phase = "pre-submission" | "post-submission" | "post-grading";
 
-function parseArgs(): { phase: Phase; rpcUrl?: string } {
+function parseArgs(): { phase: Phase; rpcUrl?: string; noVite: boolean } {
   const args = process.argv.slice(2);
   let phase: Phase = "pre-submission";
   let rpcUrl: string | undefined;
+  let noVite = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--phase" && args[i + 1]) {
@@ -62,12 +64,14 @@ function parseArgs(): { phase: Phase; rpcUrl?: string } {
     } else if (args[i] === "--rpc-url" && args[i + 1]) {
       rpcUrl = args[i + 1];
       i++;
+    } else if (args[i] === "--no-vite") {
+      noVite = true;
     } else if (args[i] === "--help" || args[i] === "-h") {
       console.log(`
 Usage: bun run src/populate.ts [OPTIONS]
 
 Spawns a sanvil node (if not already running), deploys via sforge, and populates state.
-Sanvil is left running after the script completes so you can use the frontend against it.
+Then starts the Vite dev server with the contract address injected.
 
 Options:
   --phase <phase>       Tournament phase to set up (default: pre-submission)
@@ -75,6 +79,7 @@ Options:
                           post-submission  - Deploy, submit brackets, fast-forward, post results
                           post-grading     - Everything above + score all + past scoring window
   --rpc-url <url>       RPC URL (default: http://localhost:8545)
+  --no-vite             Skip starting the Vite dev server (for CI or tests)
   --help, -h            Show this help
 
 Environment Variables:
@@ -86,12 +91,12 @@ Environment Variables:
     }
   }
 
-  return { phase, rpcUrl };
+  return { phase, rpcUrl, noVite };
 }
 
 // ── Config ────────────────────────────────────────────────────────────
 
-const { phase, rpcUrl } = parseArgs();
+const { phase, rpcUrl, noVite } = parseArgs();
 if (rpcUrl) {
   process.env.RPC_URL = rpcUrl;
 }
@@ -153,7 +158,7 @@ async function deploy(deadlineOffset: number): Promise<DeployResult> {
 
 // ── Phase Implementations ─────────────────────────────────────────────
 
-async function phasePreSubmission() {
+async function phasePreSubmission(): Promise<Address> {
   console.log("=== Phase: pre-submission ===");
   console.log("Deploying contract with future deadline (1 hour).");
   console.log("No brackets will be submitted -- use the UI to test submission flow.\n");
@@ -163,9 +168,10 @@ async function phasePreSubmission() {
 
   await printContractState(contractAddress);
   console.log("Ready for manual bracket submission via the frontend.");
+  return contractAddress;
 }
 
-async function phasePostSubmission() {
+async function phasePostSubmission(): Promise<Address> {
   console.log("=== Phase: post-submission ===");
   console.log("Deploying contract, submitting brackets, fast-forwarding past deadline, posting results.\n");
 
@@ -266,9 +272,10 @@ async function phasePostSubmission() {
 
   await printContractState(contractAddress);
   console.log("Remaining brackets are unscored -- test scoring via the UI or CLI.");
+  return contractAddress;
 }
 
-async function phasePostGrading() {
+async function phasePostGrading(): Promise<Address> {
   console.log("=== Phase: post-grading ===");
   console.log("Deploying contract, submitting brackets, scoring all, fast-forwarding past scoring window.\n");
 
@@ -351,6 +358,7 @@ async function phasePostGrading() {
 
   await printContractState(contractAddress);
   console.log("Winners can now call collectWinnings() via the UI or CLI.");
+  return contractAddress;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -368,19 +376,50 @@ async function main() {
     console.log("");
   }
 
+  let contractAddress: Address;
   switch (phase) {
     case "pre-submission":
-      await phasePreSubmission();
+      contractAddress = await phasePreSubmission();
       break;
     case "post-submission":
-      await phasePostSubmission();
+      contractAddress = await phasePostSubmission();
       break;
     case "post-grading":
-      await phasePostGrading();
+      contractAddress = await phasePostGrading();
       break;
   }
 
-  console.log("Done. sanvil is still running — use it with the frontend.");
+  if (noVite) {
+    console.log("Done. sanvil is still running. Vite skipped (--no-vite).");
+    return;
+  }
+
+  // Start Vite dev server with the contract address injected
+  console.log(`\nStarting Vite dev server (contract: ${contractAddress})...\n`);
+  const { spawn } = await import("child_process");
+  const { resolve } = await import("path");
+
+  const webDir = resolve(import.meta.dir, "../../web");
+  const vite = spawn("bun", ["run", "dev"], {
+    cwd: webDir,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      VITE_CONTRACT_ADDRESS: contractAddress,
+      VITE_CHAIN_ID: String(31337), // sanvil
+    },
+  });
+
+  // Forward SIGINT to vite so ctrl-c shuts down cleanly
+  process.on("SIGINT", () => {
+    vite.kill("SIGINT");
+    process.exit(0);
+  });
+
+  // Keep the process alive while vite runs
+  await new Promise<void>((resolve) => {
+    vite.on("close", () => resolve());
+  });
 }
 
 main().catch((err) => {

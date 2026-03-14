@@ -1,5 +1,6 @@
-crates/target/
+target/
 node_modules/
 bun.lock
 contracts/out/
 contracts/cache/
+.env

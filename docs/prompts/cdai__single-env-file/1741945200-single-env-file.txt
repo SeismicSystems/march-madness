@@ -1,0 +1,3 @@
+alright first task... we want only 1 .env file, and it should be at repo root level... let's update everything to use that .env file instead. you may have to configure foundry/bun to do that... also... make sure our deploy script to testnet (not the local one) uses the value in .env... the local deploy script should use the default value ... when youre done open a pr
+
+notice that i stuck a private key for testnet deployment in the repo root .env -- thats a sensitive value! we will use that to actually deploy to testnet

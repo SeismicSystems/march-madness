@@ -4,6 +4,22 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Single .env at repo root + testnet deploy script
+- Consolidated all env vars into a single `.env` file at repo root (was also in `contracts/.env.example`)
+- Added `.env` to root `.gitignore` — the file contains a real testnet deployer private key
+- Created `.env.example` with documented placeholders for all env vars (deployment, frontend, local dev)
+- Removed `contracts/.env.example` (no longer needed)
+- Removed `.env` from `contracts/.gitignore` (root `.gitignore` handles it)
+- Added `bun deploy:testnet` script — sources root `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL` (shared with frontend, no duplicate RPC var), runs sforge with the production deploy script
+- Local populate script unchanged — still uses hardcoded anvil accounts, no `DEPLOYER_PRIVATE_KEY` needed
+- Contract address resolution: `VITE_CONTRACT_ADDRESS` CLI override → `data/deployments.json` (checked-in, keyed by year + chain ID) → zero address fallback
+- Added `data/deployments.json` — source of truth for deployed contract addresses, grouped by year (`{"2026": {"5124": "0x..."}}`). Written automatically by deploy script, easy to extend for 2027+.
+- `bun deploy:testnet` runs `scripts/deploy-testnet.sh` — deploys via sforge, parses address, writes to `deployments.json`. Also supports `--contract-address 0x...` to skip deploy and just write the address.
+- Populate script starts Vite dev server automatically after deploying, with `VITE_CONTRACT_ADDRESS` and `VITE_CHAIN_ID` injected. Use `--no-vite` to skip.
+- Removed `VITE_PUBLIC_RPC_URL` — single `VITE_RPC_URL` used everywhere (wagmi transport + ShieldedWalletProvider public transport)
+- Added `target/` to root `.gitignore`
+- Updated CLAUDE.md, README.md, docs/technical.md with environment documentation
+
 ### 2026-03-14 — PR #8 Review: Restructure tests package to localdev (`packages/localdev`)
 - Renamed `packages/tests` to `packages/localdev` (`@march-madness/localdev`) — this is primarily a local dev tool, not just tests
 - Moved `integration.test.ts` from `src/` to `test/` directory (at same level as `src/`)
@@ -71,7 +87,7 @@ All notable changes to this project. Every PR must add an entry here.
 - Deadline countdown timer with lock detection (March 18, 2026 noon EST)
 - Scoreboard placeholder for post-tournament scoring
 - Dark theme with Tailwind CSS v4 (@tailwindcss/vite plugin)
-- Env vars: VITE_PRIVY_APP_ID, VITE_CONTRACT_ADDRESS, VITE_CHAIN_ID, VITE_RPC_URL, VITE_PUBLIC_RPC_URL
+- Env vars: VITE_PRIVY_APP_ID, VITE_CHAIN_ID, VITE_RPC_URL
 
 ### 2026-03-14 — Client Library Review Fixes (`packages/client`)
 - Replaced hand-written ABI with exact sforge-generated ABI from `contracts/out/MarchMadness.sol/MarchMadness.json` (includes proper `sbytes8` types for shielded inputs)

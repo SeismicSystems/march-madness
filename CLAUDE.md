@@ -79,11 +79,20 @@ Events:
 - Use signed reads (`walletClient.readContract()`) to read own bracket before deadline
 - After deadline, client should use `.treadContract()` since brackets are publicly readable
 
+## Environment
+
+Single `.env` file at repo root — see `.env.example` for all variables. Never create `.env` files in subdirectories.
+
+- **Vite** loads from root via `envDir: "../../"` in `packages/web/vite.config.ts`
+- **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL`, deploys via sforge, and writes the contract address to `data/deployments.json`
+- **Contract address resolution**: `VITE_CONTRACT_ADDRESS` CLI override → `data/deployments.json` (checked-in, keyed by year + chain ID) → zero address fallback
+- **Local dev** (populate script) uses hardcoded anvil accounts from `data/anvil-accounts.json` — does not need `DEPLOYER_PRIVATE_KEY`
+
 ## Local Development
 
 ### Populate Script (`packages/localdev/src/populate.ts`)
 
-Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, and populates it with data for the requested phase. Sanvil is left running after the script completes so the frontend can use it.
+Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, populates it with data for the requested phase, then starts the Vite dev server with the contract address injected automatically. Use `--no-vite` to skip starting Vite (e.g. for CI or scripting).
 
 Three phases:
 - **`pre-submission`** (default) — deploys contract with future deadline (1 hour). No brackets submitted. Use for testing bracket picker UI and submission flow.
