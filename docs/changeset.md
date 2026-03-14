@@ -9,7 +9,7 @@ All notable changes to this project. Every PR must add an entry here.
 - Fixed timestamp in `constants.ts` and `MarchMadness.s.sol`
 - Redeployed contract to testnet: `0x9cf71ec28D89330fD537b9131752ADA8157622b5`
 - Updated `CLAUDE.md` with correct timestamp and documented Seismic RPC millisecond-timestamp quirk
-- **Privy connect**: requires adding `brackets.seismictest.net` to allowed domains in Privy dashboard (not a code fix)
+- **Privy connect**: configured Privy app with correct app ID, enabled all social login methods, and added `brackets.seismictest.net` to allowed domains in Privy dashboard
 
 ### 2026-03-14 — Mobile-friendly web app (closes #10)
 - Added `useIsMobile` hook (viewport < 768px detection via matchMedia)

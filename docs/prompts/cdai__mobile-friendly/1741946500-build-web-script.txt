@@ -1,0 +1,1 @@
+ok what's the command to build the frontend from root? can you add a frontend build bun script in this pr even tho its unrelated to mobile dev?
