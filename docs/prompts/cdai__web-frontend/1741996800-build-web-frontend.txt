@@ -1,0 +1,108 @@
+You are building the `packages/web` React frontend for a March Madness bracket contest on the Seismic network.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Branch
+Create branch `cdai__web-frontend` off of `main`.
+
+## What Already Exists
+- `packages/web/` — stub with App.tsx ("Coming soon"), main.tsx, index.html, vite.config.ts, package.json, tsconfig.json
+- `packages/web/vite.config.ts` — basic Vite config
+- `data/mens-2026.json` — tournament data with 64 teams, 4 regions, seeds, abbreviations
+- `contracts/src/MarchMadness.sol` — the contract interface
+- `packages/client/src/bracket.ts` — bracket encode/decode functions (this is a sibling package being built in parallel — you can import from it or copy the types)
+
+## What You Need to Build
+
+### Tech Stack
+- React + TypeScript + Vite (already configured)
+- Tailwind CSS for styling
+- Privy for authentication (Twitter, Discord, social logins → embedded wallet)
+- seismic-react (ShieldedWalletProvider, useShieldedWallet hook) for blockchain interaction
+- wagmi + @tanstack/react-query as peer deps of seismic-react
+
+### Core Pages/Components
+
+**1. Layout & Auth**
+- Privy login button (support Twitter, Discord, other social logins)
+- Connected wallet address display
+- Clean header/nav
+
+**2. Bracket Selection UI (main feature)**
+- Display the full 64-team bracket organized by region (4 regions from the tournament data)
+- Users click to pick winners for each game, advancing winners through rounds
+- Visual bracket tree showing Round of 64 → 32 → Sweet 16 → Elite 8 → Final 4 → Championship
+- Show team seeds next to team names
+- Highlight selected winners
+- Show clear visual progression as picks are made
+- Teams are ordered by region with seed order [1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15] per region
+
+**3. Bracket Submission**
+- "Submit Bracket" button that encodes picks into bytes8 hex and calls submitBracket
+- Show entry fee (1 ETH) prominently before submission
+- "Update Bracket" for users who already submitted (calls updateBracket)
+- Optional tag/name input that calls setTag separately
+- Status indicators: submitted, deadline approaching, locked
+
+**4. Bracket Viewing**
+- After deadline: show all submitted brackets with scores
+- Before deadline: show only your own bracket (via signed read)
+- Display tags/names where available, fall back to truncated address
+
+**5. Scoreboard (placeholder)**
+- Leave space for live scoring with off-chain data
+- Show bracket scores after results are posted
+- If no scoring data available, just show a clean placeholder
+
+### Privy Setup
+Look at `/home/c/code/seismic-workspace/apps/poker/packages/web/` for reference on how Privy + seismic-react are set up together. Key patterns:
+- PrivyProvider wraps the app with config
+- ShieldedWalletProvider from seismic-react wraps inside Privy
+- useShieldedWallet() hook gives you the wallet client for shielded transactions
+- For Privy app ID, use a placeholder env var `VITE_PRIVY_APP_ID`
+
+### Styling
+- Clean, modern design. Don't go overboard but make it look good
+- Dark theme preferred (bracket contests look better dark)
+- Responsive but desktop-first (most bracket filling happens on desktop)
+- Use Tailwind utility classes
+
+### Contract Integration
+You'll need the MarchMadness ABI. You can define it inline or import from the client package. Key calls:
+- `submitBracket(bytes8)` — shielded write via walletClient.writeContract(), payable 1 ETH
+- `updateBracket(bytes8)` — shielded write
+- `setTag(string)` — regular write
+- `getBracket(address)` — signed read (own, before deadline) or transparent read (anyone, after deadline)
+- `getEntryCount()` — transparent read
+- `getTag(address)` — transparent read
+
+### Important Architecture Note
+The contract address should come from an env var: `VITE_CONTRACT_ADDRESS`
+
+## Reference Code
+- Poker web app: `/home/c/code/seismic-workspace/apps/poker/packages/web/` — reference for Privy + seismic-react setup
+- Tournament data: `data/mens-2026.json`
+- Bracket encoding: `packages/client/src/bracket.ts`
+
+## Package Dependencies You'll Need
+Check the poker web app for version patterns:
+- @privy-io/react-auth
+- seismic-react (+ wagmi, @tanstack/react-query as peer deps)
+- seismic-viem (+ viem as peer dep)
+- tailwindcss + postcss + autoprefixer
+- React already exists
+
+## Rules
+1. Update `docs/changeset.md` with what you added
+2. Make sure the app builds: `cd packages/web && bun run build`
+3. Push branch and open a PR to main using `gh pr create`
+4. Save this prompt to `docs/prompts/cdai__web-frontend/` as a .txt file
+
+## Important Notes
+- Use `walletClient.writeContract()` for shielded writes, NOT `.twriteContract()`
+- Use `walletClient.readContract()` for signed reads before deadline
+- After deadline, use `.treadContract()` or publicClient for bracket reads since they're publicly readable
+- Bracket lock: Wednesday March 18, 2026 at Noon EST (unix timestamp 1742313600)
+- Entry fee: 1 ETH
+- If a user hasn't set a tag, display first/last 8 chars of their address

@@ -1,0 +1,33 @@
+Fix 2 review comments on PR #6 (branch `cdai__web-frontend`).
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## Review Comments
+
+### 1. packages/web/src/lib/tournament.ts line 43
+> "should be first 4 + last 4...8 is too many"
+
+This is about address truncation for display. When a user hasn't set a tag, we show their address. Currently showing 8 chars which is too many. Change to show first 4 + last 4 characters (e.g., `0x1234...abcd`). Find this logic and fix it.
+
+### 2. packages/web/index.html line 9
+> "can we use the Fira-Mono font everywhere to start?"
+
+Add Fira Mono as the global font. Either:
+- Add a Google Fonts link in index.html for Fira Mono
+- Set it as the default font-family in the CSS/Tailwind config
+
+Make sure it applies everywhere — body, all text, inputs, etc. Something like:
+```html
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+```
+And in CSS/Tailwind:
+```css
+body { font-family: 'Fira Mono', monospace; }
+```
+
+## Rules
+- Work on the existing branch `cdai__web-frontend`
+- CRITICAL: Verify with `git diff --name-only origin/main..HEAD` before pushing that only web files are included
+- Make sure build passes: `cd packages/web && bun run build`
+- Push to the existing branch, do NOT open a new PR

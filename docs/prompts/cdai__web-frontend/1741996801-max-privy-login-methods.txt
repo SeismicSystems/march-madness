@@ -1,0 +1,36 @@
+Update PR #6 (branch `cdai__web-frontend`) to support more Privy login methods. The user wants MAXIMUM login support.
+
+## Working Directory
+/home/c/code/seismic-workspace/apps/march-madness
+
+## What to Change
+
+Find the Privy provider configuration (likely in `packages/web/src/lib/providers.tsx` or similar) and add all available login methods:
+
+- Twitter (already there)
+- Discord (already there)
+- Google
+- Apple
+- Email
+- Ethereum wallet (MetaMask, etc.)
+- Facebook (if Privy supports it)
+- Any other social login Privy supports — really max it out
+
+Check Privy's `loginMethods` config option. In the PrivyProvider config, it looks something like:
+```tsx
+<PrivyProvider
+  appId={...}
+  config={{
+    loginMethods: ['twitter', 'discord', 'google', 'apple', 'email', 'wallet', 'facebook', ...],
+    ...
+  }}
+>
+```
+
+Check the poker app at `/home/c/code/seismic-workspace/apps/poker/packages/web/` for reference on Privy config patterns.
+
+## Rules
+- Work on the existing branch `cdai__web-frontend`
+- CRITICAL: Verify with `git diff --name-only origin/main..HEAD` before pushing that only web files are included
+- Make sure build still passes: `cd packages/web && bun run build`
+- Push to the existing branch, do NOT open a new PR
