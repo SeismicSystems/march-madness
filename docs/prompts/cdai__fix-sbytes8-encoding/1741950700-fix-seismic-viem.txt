@@ -1,0 +1,1 @@
+oh why you are probably completely correct... why dont you cd into seismic-viem ~/code/seismic-workspace/seismic-viem and make a pr to fix that. include an update in the version as well (just bump the last one so to 1.1.2)... then i'll publish that and you can restrict this change to padding sizes

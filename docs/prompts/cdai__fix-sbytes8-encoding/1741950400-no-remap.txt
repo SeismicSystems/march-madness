@@ -1,0 +1,1 @@
+you dont need to call remap seismic params yourself

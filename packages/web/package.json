@@ -18,7 +18,7 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "seismic-react": "^1.1.1",
-    "seismic-viem": "^1.1.1",
+    "seismic-viem": "^1.1.2",
     "tailwindcss": "^4.1.4",
     "viem": "2.x",
     "wagmi": "^2.15.5"

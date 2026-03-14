@@ -1,0 +1,1 @@
+also... i think you didn't pull in main branch here... i see you ahve a delete for getHasEntry -- we don't want to delete that function my man.
