@@ -8,11 +8,7 @@ import {ByteBracket} from "../../src/ByteBracket.sol";
 /// @dev We expose the library functions via a wrapper since libraries with internal functions
 ///      cannot be called directly in tests.
 contract ByteBracketWrapper {
-    function getBracketScore(bytes8 bracket, bytes8 results, uint64 filter)
-        external
-        pure
-        returns (uint8)
-    {
+    function getBracketScore(bytes8 bracket, bytes8 results, uint64 filter) external pure returns (uint8) {
         return ByteBracket.getBracketScore(bracket, results, filter);
     }
 

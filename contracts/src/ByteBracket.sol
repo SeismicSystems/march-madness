@@ -15,11 +15,7 @@ library ByteBracket {
     /// @param results  A bytes8 results (same layout).
     /// @param filter   The 64-bit scoring mask derived from `results` via `getScoringMask`.
     /// @return points  Total points scored (max 192).
-    function getBracketScore(bytes8 bracket, bytes8 results, uint64 filter)
-        internal
-        pure
-        returns (uint8 points)
-    {
+    function getBracketScore(bytes8 bracket, bytes8 results, uint64 filter) internal pure returns (uint8 points) {
         unchecked {
             uint64 bracketBits = uint64(bracket);
             uint64 resultsBits = uint64(results);
