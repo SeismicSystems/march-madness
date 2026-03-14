@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-14 — Deploy MarchMadness to Seismic testnet (gcp-2)
+- Deployed MarchMadness contract to Seismic testnet (chain 5124): `0xEbc32b5436D7DaA0e5b79431074242a29890364b`
+- Entry fee: 1 ETH, submission deadline: March 18, 2026 12:00 PM EST
+- Updated `data/deployments.json` with testnet contract address
+- Added `contracts/broadcast/` to `.gitignore` (sforge broadcast artifacts)
+
 ### 2026-03-14 — Single .env at repo root + testnet deploy script
 - Consolidated all env vars into a single `.env` file at repo root (was also in `contracts/.env.example`)
 - Added `.env` to root `.gitignore` — the file contains a real testnet deployer private key

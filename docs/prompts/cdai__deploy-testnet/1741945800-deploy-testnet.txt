@@ -1,0 +1,1 @@
+clear out all branches that we've merged. next we're going to actually deploy the contract to the chain! we have the right .env variables. see what happens when you try to deploy these -- hopefully it works my man.
