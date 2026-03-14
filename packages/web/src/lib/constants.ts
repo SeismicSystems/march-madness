@@ -6,13 +6,14 @@ import deployments from "../../../../data/deployments.json";
 /** Re-export ENTRY_FEE from client library */
 export { ENTRY_FEE } from "@march-madness/client";
 
-/** Unix timestamp for bracket lock: Wednesday March 18, 2026 at Noon EST */
-export const SUBMISSION_DEADLINE = 1742313600;
-
 /** Entry fee display string */
 export const ENTRY_FEE_DISPLAY = `${formatEther(ENTRY_FEE)} ETH`;
 
+// ── Tournament season ────────────────────────────────────
 const YEAR = "2026";
+/** Unix timestamp for bracket lock: Wednesday March 18, 2026 at Noon EST */
+export const SUBMISSION_DEADLINE = 1742313600;
+
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? String(sanvil.id);
 
 /** VITE_CONTRACT_ADDRESS overrides deployments.json (populate injects this for local dev) */
