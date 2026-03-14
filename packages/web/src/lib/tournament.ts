@@ -36,8 +36,8 @@ export function getAllTeamsInBracketOrder(): Team[] {
   return tournament.regions.flatMap((region) => getRegionTeams(region));
 }
 
-/** Truncate an address to first 8 + last 8 chars */
+/** Truncate an address to first 4 + last 4 chars (e.g., 0x1234...abcd) */
 export function truncateAddress(address: string): string {
-  if (address.length <= 18) return address;
-  return `${address.slice(0, 8)}...${address.slice(-8)}`;
+  if (address.length <= 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
