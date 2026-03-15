@@ -525,13 +525,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "missing seed")]
     fn setup_first_round_panics_on_missing_seed() {
-        let config = BracketConfig::for_year(2025);
-        let teams_path = "../../data/2025/teams.csv";
-        if !std::path::Path::new(teams_path).exists() {
+        let config = BracketConfig::for_year(2026);
+        let kenpom_path = crate::data_dir().join("2026/kenpom.csv");
+        if !kenpom_path.exists() {
             panic!("missing seed (test skipped: data file not found)");
         }
 
-        let mut teams = crate::team::load_teams_from_combined_csv(teams_path).unwrap();
+        let mut teams = crate::load_teams_for_year(None, 2026).unwrap();
         let region_order = config.region_order();
         let target_region = region_order[0];
         let remove_idx = teams
@@ -614,14 +614,14 @@ mod tests {
 
     #[test]
     fn score_base_bb_cross_validate_with_string_scoring() {
-        let config = BracketConfig::for_year(2025);
-        let teams_path = "../../data/2025/teams.csv";
+        let config = BracketConfig::for_year(2026);
+        let kenpom_path = crate::data_dir().join("2026/kenpom.csv");
 
-        if !std::path::Path::new(teams_path).exists() {
+        if !kenpom_path.exists() {
             return;
         }
 
-        let teams = crate::team::load_teams_from_combined_csv(teams_path).unwrap();
+        let teams = crate::load_teams_for_year(None, 2026).unwrap();
         let mut tournament = Tournament::new();
         tournament.setup_tournament(teams, &config);
 

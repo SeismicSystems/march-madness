@@ -1145,7 +1145,6 @@ dependencies = [
  "serde_json",
  "statrs",
  "tempfile",
- "toml",
  "tracing",
  "tracing-subscriber",
 ]

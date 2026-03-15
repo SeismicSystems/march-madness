@@ -1,7 +1,5 @@
 use crate::team::Team;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub const DEFAULT_YEAR: u16 = 2026;
 
@@ -25,46 +23,27 @@ pub struct BracketConfig {
     pub final_four: [(String, String); 2],
 }
 
+/// Tournament JSON: regions array encodes Final Four pairings —
+/// [0] vs [1] is semi 1, [2] vs [3] is semi 2.
 #[derive(Debug, Deserialize)]
-struct YearConfig {
-    final_four: [[String; 2]; 2],
-}
-
-fn config_path() -> PathBuf {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    PathBuf::from(manifest_dir)
-        .parent()
-        .and_then(|p| p.parent())
-        .expect("Could not find workspace root")
-        .join("data")
-        .join("bracket_config.toml")
+struct TournamentJson {
+    regions: [String; 4],
 }
 
 impl BracketConfig {
-    /// Get bracket config for a given year. Panics if year is not configured.
+    /// Load bracket config for a given year from data/mens-{year}.json.
+    /// The JSON `regions` array encodes Final Four pairings: [0] vs [1], [2] vs [3].
     pub fn for_year(year: u16) -> Self {
-        let path = config_path();
+        let path = crate::data_dir().join(format!("mens-{}.json", year));
         let content = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
-        let configs: HashMap<String, YearConfig> = toml::from_str(&content)
+        let tournament: TournamentJson = serde_json::from_str(&content)
             .unwrap_or_else(|e| panic!("Failed to parse {}: {}", path.display(), e));
 
-        let year_str = year.to_string();
-        let cfg = configs.get(&year_str).unwrap_or_else(|| {
-            panic!(
-                "No bracket config for year {} in {}. Add a [{}] section.",
-                year,
-                path.display(),
-                year
-            )
-        });
-
+        let r = tournament.regions;
         BracketConfig {
             year,
-            final_four: [
-                (cfg.final_four[0][0].clone(), cfg.final_four[0][1].clone()),
-                (cfg.final_four[1][0].clone(), cfg.final_four[1][1].clone()),
-            ],
+            final_four: [(r[0].clone(), r[1].clone()), (r[2].clone(), r[3].clone())],
         }
     }
 
