@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../src/MarchMadness.sol";
+import {IMarchMadness} from "../src/IMarchMadness.sol";
 import {BracketGroups} from "../src/BracketGroups.sol";
 
 /// @title BracketGroups tests — linked sub-groups with optional password and entry fee
@@ -402,7 +403,7 @@ contract BracketGroupsTest is Test {
         vm.prank(alice);
         bg.joinGroup(groupId, "Alice");
 
-        vm.expectRevert(MarchMadness.ResultsNotPosted.selector);
+        vm.expectRevert(IMarchMadness.ResultsNotPosted.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -437,7 +438,7 @@ contract BracketGroupsTest is Test {
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
         // Not scored on main, so scoreBracket will revert with ScoringWindowClosed
-        vm.expectRevert(MarchMadness.ScoringWindowClosed.selector);
+        vm.expectRevert(IMarchMadness.ScoringWindowClosed.selector);
         bg.scoreEntry(groupId, 0);
     }
 

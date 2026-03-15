@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
+import {IMarchMadness} from "../../src/IMarchMadness.sol";
 
 /// @title Access control tests for getBracket
 contract AccessControlTest is Test {
@@ -31,7 +32,7 @@ contract AccessControlTest is Test {
 
     function test_otherCannotReadBracketBeforeDeadline() public {
         vm.prank(bob);
-        vm.expectRevert(MarchMadness.CannotReadBracketBeforeDeadline.selector);
+        vm.expectRevert(IMarchMadness.CannotReadBracketBeforeDeadline.selector);
         mm.getBracket(alice);
     }
 

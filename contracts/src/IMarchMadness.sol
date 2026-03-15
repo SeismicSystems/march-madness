@@ -11,6 +11,7 @@ interface IMarchMadness {
     error InvalidSentinelByte();
     error AlreadySubmitted();
     error NoBracketSubmitted();
+    error EntryCountOverflow();
     error CannotReadBracketBeforeDeadline();
     error OnlyOwner();
     error ResultsAlreadyPosted();
@@ -19,7 +20,9 @@ interface IMarchMadness {
     error AlreadyScored();
     error ScoringWindowClosed();
     error ScoringWindowStillOpen();
+    error NoBracketsScored();
     error NotAWinner();
+    error NotScored();
     error AlreadyCollected();
     error TransferFailed();
 

@@ -2,33 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {ByteBracket} from "./ByteBracket.sol";
+import {IMarchMadness} from "./IMarchMadness.sol";
 
 /// @title MarchMadness — Seismic privacy-preserving bracket contest
 /// @notice Brackets are stored as sbytes8 (shielded) and hidden until the submission deadline.
 ///         After the deadline, brackets become publicly readable. Scoring uses jimpo's ByteBracket
 ///         library. Winners split the prize pool equally.
-contract MarchMadness {
-    // ── Errors ───────────────────────────────────────────────────────────
-    error IncorrectEntryFee(uint256 expected, uint256 actual);
-    error SubmissionDeadlinePassed();
-    error InvalidSentinelByte();
-    error AlreadySubmitted();
-    error NoBracketSubmitted();
-    error EntryCountOverflow();
-    error CannotReadBracketBeforeDeadline();
-    error OnlyOwner();
-    error ResultsAlreadyPosted();
-    error SubmissionPhaseNotOver();
-    error ResultsNotPosted();
-    error AlreadyScored();
-    error ScoringWindowClosed();
-    error ScoringWindowStillOpen();
-    error NoBracketsScored();
-    error NotAWinner();
-    error NotScored();
-    error AlreadyCollected();
-    error TransferFailed();
-
+contract MarchMadness is IMarchMadness {
     // ── Owner ──────────────────────────────────────────────────────────────
     address public owner;
 
@@ -58,13 +38,6 @@ contract MarchMadness {
 
     // ── Constants ──────────────────────────────────────────────────────────
     uint256 public constant SCORING_DURATION = 7 days;
-
-    // ── Events ─────────────────────────────────────────────────────────────
-    event BracketSubmitted(address indexed account);
-    event TagSet(address indexed account, string tag);
-    event BracketScored(address indexed account, uint8 score);
-    event ResultsPosted(bytes8 results);
-    event WinningsCollected(address indexed account, uint256 amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(uint16 _year, uint256 _entryFee, uint256 _submissionDeadline) {

@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
+import {IMarchMadness} from "../../src/IMarchMadness.sol";
 
 /// @title Payout tests for collectWinnings with single and multiple winners
 contract PayoutTest is Test {
@@ -109,7 +110,7 @@ contract PayoutTest is Test {
         mm.collectWinnings();
 
         vm.prank(alice);
-        vm.expectRevert(MarchMadness.AlreadyCollected.selector);
+        vm.expectRevert(IMarchMadness.AlreadyCollected.selector);
         mm.collectWinnings();
     }
 
@@ -126,7 +127,7 @@ contract PayoutTest is Test {
         vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         vm.prank(bob);
-        vm.expectRevert(MarchMadness.NotAWinner.selector);
+        vm.expectRevert(IMarchMadness.NotAWinner.selector);
         mm.collectWinnings();
     }
 
