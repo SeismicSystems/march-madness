@@ -4,8 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-15 — Bracket forecaster: Monte Carlo win probabilities
-- **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json`, runs Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
+### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
+- **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
+- **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.
 - **Common crate**: Added `scoring.rs` — Rust port of ByteBracket scoring algorithm (`score_bracket`, `get_scoring_mask`, `popcount`, `pairwise_or`, `parse_bracket_hex`). Added `TournamentStatus`, `GameStatus`, `GameState`, `BracketForecast`, `ForecastIndex` types.
 - **Server**: Added `GET /api/forecasts` endpoint — serves `data/forecasts.json` with TTL cache (same pattern as entries/tournament-status).
 - **Client types**: Added `BracketForecast` and `ForecastIndex` TypeScript types.

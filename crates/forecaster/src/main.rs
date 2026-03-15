@@ -4,13 +4,15 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use clap::Parser;
+use eyre::bail;
+use serde::Deserialize;
 use tracing::info;
 
 use march_madness_common::{
     BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentStatus, parse_bracket_hex,
 };
 
-use crate::simulate::run_simulations;
+use crate::simulate::{ReachProbs, run_simulations};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -26,6 +28,10 @@ struct Cli {
     #[arg(long, default_value = "data/tournament-status.json")]
     status_file: PathBuf,
 
+    /// Path to the tournament data JSON (team names in bracket order).
+    #[arg(long, default_value = "data/mens-2026.json")]
+    tournament_file: PathBuf,
+
     /// Path to write the forecast output JSON.
     #[arg(long, default_value = "data/forecasts.json")]
     output_file: PathBuf,
@@ -33,6 +39,63 @@ struct Cli {
     /// Number of Monte Carlo simulations to run.
     #[arg(long, default_value = "100000")]
     simulations: u32,
+}
+
+/// Minimal tournament data — just enough to get team names in bracket order.
+#[derive(Deserialize)]
+struct TournamentData {
+    regions: Vec<String>,
+    teams: Vec<TeamData>,
+}
+
+#[derive(Deserialize)]
+struct TeamData {
+    name: String,
+    seed: u32,
+    region: String,
+}
+
+/// Seed order per region (matches bracket encoding).
+const SEED_ORDER: [u32; 16] = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
+
+/// Get all 64 team names in bracket order (region by region, seed-ordered).
+fn get_teams_in_bracket_order(data: &TournamentData) -> Vec<String> {
+    let mut teams = Vec::with_capacity(64);
+    for region in &data.regions {
+        let region_teams: Vec<&TeamData> =
+            data.teams.iter().filter(|t| t.region == *region).collect();
+        for &seed in &SEED_ORDER {
+            let team = region_teams
+                .iter()
+                .find(|t| t.seed == seed)
+                .expect("missing team for seed");
+            teams.push(team.name.clone());
+        }
+    }
+    teams
+}
+
+/// Build reach probability array (64 teams × 6 rounds) from the name-keyed map.
+/// Falls back to a default (flat 0.5 per round) for teams not in the map.
+fn build_reach_probs(
+    team_names: &[String],
+    reach_map: &std::collections::HashMap<String, Vec<f64>>,
+) -> ReachProbs {
+    team_names
+        .iter()
+        .map(|name| {
+            if let Some(probs) = reach_map.get(name) {
+                let mut arr = [0.5; 6];
+                for (i, &p) in probs.iter().enumerate().take(6) {
+                    arr[i] = p;
+                }
+                arr
+            } else {
+                // Default: uniform low probability
+                [1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125]
+            }
+        })
+        .collect()
 }
 
 fn main() -> eyre::Result<()> {
@@ -51,12 +114,24 @@ fn main() -> eyre::Result<()> {
         serde_json::from_str(&data)?
     };
 
+    let tournament: TournamentData = {
+        let data = std::fs::read_to_string(&cli.tournament_file)?;
+        serde_json::from_str(&data)?
+    };
+
     info!(
         entries = entries.len(),
         games = status.games.len(),
         simulations = cli.simulations,
         "loaded data"
     );
+
+    // Build reach probabilities from team names → bracket positions
+    let team_names = get_teams_in_bracket_order(&tournament);
+    let reach = match &status.team_reach_probabilities {
+        Some(reach_map) => build_reach_probs(&team_names, reach_map),
+        None => bail!("tournament status missing teamReachProbabilities — cannot simulate"),
+    };
 
     // Parse all valid brackets
     let mut brackets: Vec<(String, u64, Option<String>)> = Vec::new();
@@ -77,30 +152,14 @@ fn main() -> eyre::Result<()> {
 
     info!(valid_brackets = brackets.len(), "parsed brackets");
 
-    // Identify undecided games and their probabilities
-    let undecided: Vec<(usize, f64)> = status
+    let undecided_count = status
         .games
         .iter()
         .filter(|g| g.status != GameState::Final)
-        .map(|g| {
-            let p = g.team1_win_probability.unwrap_or(0.5);
-            (g.game_index as usize, p)
-        })
-        .collect();
-
-    // Build the "results so far" bits from decided games
-    let mut partial_results: u64 = 0x8000_0000_0000_0000; // sentinel
-    for game in &status.games {
-        if game.status == GameState::Final && game.winner == Some(true) {
-            // team1 won → set bit (62 - gameIndex)
-            let bit_pos = 62 - game.game_index as u32;
-            partial_results |= 1u64 << bit_pos;
-        }
-    }
-
+        .count();
     info!(
-        undecided = undecided.len(),
-        decided = 63 - undecided.len(),
+        undecided = undecided_count,
+        decided = 63 - undecided_count,
         "game status"
     );
 
@@ -116,17 +175,10 @@ fn main() -> eyre::Result<()> {
         .map(|&b| compute_max_possible(b, &status))
         .collect();
 
-    // Run Monte Carlo simulations
-    let win_counts = run_simulations(
-        &bracket_bits,
-        &status,
-        &undecided,
-        partial_results,
-        cli.simulations,
-    );
+    // Run forward Monte Carlo simulations
+    let sim_results = run_simulations(&bracket_bits, &status, &reach, cli.simulations);
 
-    // Compute expected scores from simulation
-    let expected_scores: Vec<f64> = win_counts
+    let expected_scores: Vec<f64> = sim_results
         .expected_scores
         .iter()
         .map(|&total| total / cli.simulations as f64)
@@ -143,7 +195,7 @@ fn main() -> eyre::Result<()> {
                 current_score: current_scores[i],
                 max_possible_score: max_possible_scores[i],
                 expected_score: expected_scores[i],
-                win_probability: win_counts.wins[i] as f64 / total_sims,
+                win_probability: sim_results.wins[i] as f64 / total_sims,
                 name: name.clone(),
             },
         );

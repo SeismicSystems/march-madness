@@ -1,0 +1,1 @@
+no we shouldnt have "strengths"... we can derive this all from reach probs. P(a beats B) can be derived from the two reach probs
