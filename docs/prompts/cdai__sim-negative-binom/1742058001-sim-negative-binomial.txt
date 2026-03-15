@@ -1,0 +1,1 @@
+put up another issue: make the sim use something smarter than poisson distributions, especially for # of possessions count. i am guessing we can fit something like a negative binomial to the variance of the pace data and we'd get something that behaves much better than our current poisson if we were using it for overtime.

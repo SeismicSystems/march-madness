@@ -1,5 +1,5 @@
 use rand::Rng;
-use rand_distr::{Distribution, Poisson};
+use rand_distr::{Binomial, Distribution, Gamma, Poisson};
 use statrs::distribution::{ContinuousCDF, Normal};
 
 use crate::{AVERAGE_PACE, AVERAGE_RATING, metrics::Metrics, team::Team};
@@ -73,28 +73,84 @@ impl Game {
         }
     }
 
-    pub fn simulate(t1_metrics: Metrics, rng: &mut impl Rng) -> GameResult {
-        let pace_poisson = Poisson::new(t1_metrics.pace).unwrap();
-        let actual_pace = pace_poisson.sample(rng);
-        Self::simulate_with_pace(t1_metrics, actual_pace, rng)
+    /// Sample a non-negative integer count with given `mean` and dispersion ratio
+    /// `d = variance / mean`.
+    ///
+    /// - `d < 1`: underdispersed → Binomial(n, p) where p = 1 - d, n = mean / p
+    /// - `d = 1`: Poisson(mean)
+    /// - `d > 1`: overdispersed → Gamma-Poisson mixture (negative binomial)
+    ///   with shape r = mean / (d - 1)
+    pub fn sample_count(mean: f64, d: f64, rng: &mut impl Rng) -> f64 {
+        if mean < 0.01 || !mean.is_finite() {
+            return 0.0;
+        }
+        let d = d.max(0.01); // clamp to avoid division by zero
+
+        if d < 1.0 {
+            // Underdispersed: Binomial(n, p) with mean = np, variance = np(1-p) = mean*d
+            // So 1-p = d, p = 1-d, n = mean/p = mean/(1-d)
+            let p = 1.0 - d;
+            let n = (mean / p).round() as u64;
+            if n == 0 {
+                return 0.0;
+            }
+            let p_actual = (mean / n as f64).clamp(0.0, 1.0);
+            match Binomial::new(n, p_actual) {
+                Ok(dist) => dist.sample(rng) as f64,
+                Err(_) => mean.round(), // fallback: deterministic
+            }
+        } else if (d - 1.0).abs() < 1e-6 {
+            match Poisson::new(mean) {
+                Ok(dist) => dist.sample(rng),
+                Err(_) => mean.round(),
+            }
+        } else {
+            // Overdispersed: Gamma-Poisson (negative binomial)
+            let r = mean / (d - 1.0);
+            let scale = mean / r;
+            let lambda = match Gamma::new(r, scale) {
+                Ok(dist) => dist.sample(rng),
+                Err(_) => return mean.round(),
+            };
+            if lambda < 0.01 {
+                return 0.0;
+            }
+            match Poisson::new(lambda) {
+                Ok(dist) => dist.sample(rng),
+                Err(_) => lambda.round(),
+            }
+        }
     }
 
-    /// Simulate with a fixed pace (no Poisson on possessions).
-    /// Used for OT where the low possession count makes Poisson a poor fit.
-    fn simulate_fixed_pace(t1_metrics: Metrics, rng: &mut impl Rng) -> GameResult {
-        Self::simulate_with_pace(t1_metrics, t1_metrics.pace, rng)
+    pub fn simulate(t1_metrics: Metrics, pace_d: f64, rng: &mut impl Rng) -> GameResult {
+        let actual_pace = Self::sample_count(t1_metrics.pace, pace_d, rng);
+        Self::simulate_with_pace(t1_metrics, actual_pace, rng)
     }
 
     fn simulate_with_pace(t1_metrics: Metrics, actual_pace: f64, rng: &mut impl Rng) -> GameResult {
         let team1_expected = t1_metrics.ortg * actual_pace / 100.0;
         let team2_expected = t1_metrics.drtg * actual_pace / 100.0;
 
-        let team1_score = Poisson::new(team1_expected).unwrap().sample(rng);
-        let team2_score = Poisson::new(team2_expected).unwrap().sample(rng);
+        let team1_score = if team1_expected < 0.01 {
+            0
+        } else {
+            match Poisson::new(team1_expected) {
+                Ok(dist) => dist.sample(rng) as u32,
+                Err(_) => team1_expected.round() as u32,
+            }
+        };
+        let team2_score = if team2_expected < 0.01 {
+            0
+        } else {
+            match Poisson::new(team2_expected) {
+                Ok(dist) => dist.sample(rng) as u32,
+                Err(_) => team2_expected.round() as u32,
+            }
+        };
 
         GameResult {
-            team1_score: team1_score as u32,
-            team2_score: team2_score as u32,
+            team1_score,
+            team2_score,
             pace: actual_pace,
         }
     }
@@ -113,7 +169,10 @@ impl Game {
 
     /// Simulate up to MAX_OT overtime periods (5 min each). Returns the winner,
     /// or None if still tied after all OT periods.
-    fn resolve_overtime(&self, tied_score: u32, rng: &mut impl Rng) -> Option<&Team> {
+    /// Uses the same pace distribution as regulation — the dispersion parameter
+    /// naturally scales variance with the mean, so low-possession OT periods
+    /// get appropriately tighter distributions without special-casing.
+    fn resolve_overtime(&self, tied_score: u32, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
         let base_metrics = self.expected_t1_metrics();
         let ot_metrics = Metrics {
             pace: base_metrics.pace * Self::OT_MINUTES / Self::REGULATION_MINUTES,
@@ -123,7 +182,7 @@ impl Game {
         let mut t1_total = tied_score;
         let mut t2_total = tied_score;
         for _ in 0..Self::MAX_OT {
-            let ot = Game::simulate_fixed_pace(ot_metrics, rng);
+            let ot = Game::simulate(ot_metrics, pace_d, rng);
             t1_total += ot.team1_score;
             t2_total += ot.team2_score;
             if let Some(w) = self.pick_by_score(t1_total, t2_total) {
@@ -133,11 +192,11 @@ impl Game {
         None
     }
 
-    pub fn winner(&self, rng: &mut impl Rng) -> Option<&Team> {
+    pub fn winner(&self, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
         let result = self.result.as_ref()?;
 
         self.pick_by_score(result.team1_score, result.team2_score)
-            .or_else(|| self.resolve_overtime(result.team1_score, rng))
+            .or_else(|| self.resolve_overtime(result.team1_score, pace_d, rng))
             .or_else(|| {
                 // Coin flip after MAX_OT
                 if rng.random::<bool>() {
@@ -152,6 +211,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DEFAULT_PACE_D;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
 
@@ -175,7 +235,7 @@ mod tests {
     fn winner_returns_none_without_result() {
         let game = make_equal_game();
         let mut rng = StdRng::seed_from_u64(0);
-        assert!(game.winner(&mut rng).is_none());
+        assert!(game.winner(DEFAULT_PACE_D, &mut rng).is_none());
     }
 
     #[test]
@@ -187,14 +247,14 @@ mod tests {
             pace: 68.0,
         });
         let mut rng = StdRng::seed_from_u64(0);
-        assert_eq!(game.winner(&mut rng).unwrap().team, "Team1");
+        assert_eq!(game.winner(DEFAULT_PACE_D, &mut rng).unwrap().team, "Team1");
 
         game.result = Some(GameResult {
             team1_score: 70,
             team2_score: 80,
             pace: 68.0,
         });
-        assert_eq!(game.winner(&mut rng).unwrap().team, "Team2");
+        assert_eq!(game.winner(DEFAULT_PACE_D, &mut rng).unwrap().team, "Team2");
     }
 
     #[test]
@@ -214,7 +274,7 @@ mod tests {
                 team2_score: 75,
                 pace: 68.0,
             });
-            let winner = game.winner(&mut rng).unwrap();
+            let winner = game.winner(DEFAULT_PACE_D, &mut rng).unwrap();
             if winner.team == "Team1" {
                 t1_wins += 1;
             } else {
@@ -246,7 +306,7 @@ mod tests {
                 team2_score: 75,
                 pace: 68.0,
             });
-            if game.winner(&mut rng).unwrap().team == "Favorite" {
+            if game.winner(DEFAULT_PACE_D, &mut rng).unwrap().team == "Favorite" {
                 fav_wins += 1;
             }
         }
@@ -255,6 +315,124 @@ mod tests {
             fav_wins > 600,
             "Favorite should win most OTs, got {}/1000",
             fav_wins
+        );
+    }
+
+    #[test]
+    fn sample_count_underdispersed() {
+        let mut rng = StdRng::seed_from_u64(123);
+        let mean = 68.0;
+        let d = 0.5; // underdispersed: variance = 0.5 * mean = 34
+        let n = 10_000;
+
+        let samples: Vec<f64> = (0..n)
+            .map(|_| Game::sample_count(mean, d, &mut rng))
+            .collect();
+        let sample_mean: f64 = samples.iter().sum::<f64>() / n as f64;
+        let sample_var: f64 = samples
+            .iter()
+            .map(|x| (x - sample_mean).powi(2))
+            .sum::<f64>()
+            / (n - 1) as f64;
+
+        // Variance should be roughly mean * d = 34 (less than Poisson's 68)
+        assert!(
+            sample_var < mean * 0.8,
+            "Underdispersed variance ({:.1}) should be well below Poisson ({:.1})",
+            sample_var,
+            mean
+        );
+        assert!(
+            (sample_mean - mean).abs() < 2.0,
+            "Mean ({:.1}) should be close to target ({:.1})",
+            sample_mean,
+            mean
+        );
+    }
+
+    #[test]
+    fn sample_count_overdispersed() {
+        let mut rng = StdRng::seed_from_u64(123);
+        let mean = 68.0;
+        let d = 1.68; // overdispersed: variance = 1.68 * mean ≈ 114
+        let n = 10_000;
+
+        let samples: Vec<f64> = (0..n)
+            .map(|_| Game::sample_count(mean, d, &mut rng))
+            .collect();
+        let sample_mean: f64 = samples.iter().sum::<f64>() / n as f64;
+        let sample_var: f64 = samples
+            .iter()
+            .map(|x| (x - sample_mean).powi(2))
+            .sum::<f64>()
+            / (n - 1) as f64;
+
+        assert!(
+            sample_var > mean * 1.2,
+            "Overdispersed variance ({:.1}) should exceed Poisson ({:.1})",
+            sample_var,
+            mean
+        );
+        assert!(
+            (sample_mean - mean).abs() < 2.0,
+            "Mean ({:.1}) should be close to target ({:.1})",
+            sample_mean,
+            mean
+        );
+    }
+
+    #[test]
+    fn sample_count_poisson_baseline() {
+        let mut rng = StdRng::seed_from_u64(123);
+        let mean = 68.0;
+        let d = 1.0; // Poisson
+        let n = 10_000;
+
+        let samples: Vec<f64> = (0..n)
+            .map(|_| Game::sample_count(mean, d, &mut rng))
+            .collect();
+        let sample_mean: f64 = samples.iter().sum::<f64>() / n as f64;
+        let sample_var: f64 = samples
+            .iter()
+            .map(|x| (x - sample_mean).powi(2))
+            .sum::<f64>()
+            / (n - 1) as f64;
+
+        // Poisson: variance ≈ mean
+        assert!(
+            (sample_var - mean).abs() < mean * 0.1,
+            "Poisson variance ({:.1}) should be close to mean ({:.1})",
+            sample_var,
+            mean
+        );
+    }
+
+    #[test]
+    fn ot_has_pace_variance() {
+        let t1 = make_team("Team1", 1, 105.0, 105.0, 68.0);
+        let t2 = make_team("Team2", 16, 105.0, 105.0, 68.0);
+        let game = Game::new(t1, t2);
+        let base_metrics = game.expected_t1_metrics();
+        let ot_metrics = Metrics {
+            pace: base_metrics.pace * Game::OT_MINUTES / Game::REGULATION_MINUTES,
+            ..base_metrics
+        };
+
+        let mut rng = StdRng::seed_from_u64(456);
+        let n = 1000;
+        let paces: Vec<f64> = (0..n)
+            .map(|_| Game::simulate(ot_metrics, DEFAULT_PACE_D, &mut rng).pace)
+            .collect();
+
+        let pace_mean: f64 = paces.iter().sum::<f64>() / n as f64;
+        let pace_var: f64 =
+            paces.iter().map(|x| (x - pace_mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+
+        // OT pace is ~8.5 possessions — should have some variance
+        assert!(
+            pace_var > 1.0,
+            "OT pace should have variance > 1, got {:.2}",
+            pace_var
         );
     }
 }
