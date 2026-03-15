@@ -6,9 +6,10 @@ import {
   scoreBracketPartial,
   validateBracket,
 } from "@march-madness/client";
-import type { PartialScore } from "@march-madness/client";
+import type { BracketForecast, PartialScore } from "@march-madness/client";
 
 import { useEntries } from "../hooks/useEntries";
+import { useForecasts } from "../hooks/useForecasts";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 import { getAllTeamsInBracketOrder, truncateAddress } from "../lib/tournament";
 
@@ -18,6 +19,7 @@ interface ScoredEntry {
   bracket: `0x${string}`;
   score: PartialScore;
   championName: string;
+  forecast?: BracketForecast;
 }
 
 const teamNames = getAllTeamsInBracketOrder().map((t) => t.name);
@@ -33,6 +35,9 @@ function getChampionName(hex: `0x${string}`): string {
 export function LeaderboardPage() {
   const { entries, loading: entriesLoading } = useEntries();
   const { status, loading: statusLoading } = useTournamentStatus();
+  const { forecasts } = useForecasts();
+
+  const hasForecasts = forecasts !== null && Object.keys(forecasts).length > 0;
 
   const leaderboard = useMemo((): ScoredEntry[] => {
     if (!entries || !status) return [];
@@ -42,12 +47,14 @@ export function LeaderboardPage() {
       if (!entry.bracket || !validateBracket(entry.bracket)) continue;
       const bracketHex = entry.bracket as `0x${string}`;
       const score = scoreBracketPartial(bracketHex, status);
+      const forecast = forecasts?.[address] ?? forecasts?.[address.toLowerCase()];
       scored.push({
         address,
         tag: entry.name,
         bracket: bracketHex,
         score,
         championName: getChampionName(bracketHex),
+        forecast,
       });
     }
 
@@ -57,7 +64,7 @@ export function LeaderboardPage() {
     });
 
     return scored;
-  }, [entries, status]);
+  }, [entries, status, forecasts]);
 
   const loading = entriesLoading || statusLoading;
 
@@ -108,13 +115,24 @@ export function LeaderboardPage() {
               <th className="py-2 px-2">Player</th>
               <th className="py-2 px-2 text-right">Score</th>
               <th className="py-2 px-2 text-right hidden sm:table-cell">Max</th>
-              <th className="py-2 px-2 hidden md:table-cell">Champion</th>
+              {hasForecasts && (
+                <>
+                  <th className="py-2 px-2 text-right hidden sm:table-cell">E[Score]</th>
+                  <th className="py-2 px-2 text-right hidden md:table-cell">P(Win)</th>
+                </>
+              )}
+              <th className="py-2 px-2 hidden lg:table-cell">Champion</th>
               <th className="py-2 pl-2 w-16"></th>
             </tr>
           </thead>
           <tbody>
             {leaderboard.map((entry, i) => (
-              <LeaderboardRow key={entry.address} entry={entry} rank={i + 1} />
+              <LeaderboardRow
+                key={entry.address}
+                entry={entry}
+                rank={i + 1}
+                hasForecasts={hasForecasts}
+              />
             ))}
           </tbody>
         </table>
@@ -123,7 +141,15 @@ export function LeaderboardPage() {
   );
 }
 
-function LeaderboardRow({ entry, rank }: { entry: ScoredEntry; rank: number }) {
+function LeaderboardRow({
+  entry,
+  rank,
+  hasForecasts,
+}: {
+  entry: ScoredEntry;
+  rank: number;
+  hasForecasts: boolean;
+}) {
   return (
     <tr className="border-b border-border/50 hover:bg-bg-hover/50 transition-colors">
       <td className="py-2.5 pr-2 text-text-muted font-mono">{rank}</td>
@@ -150,7 +176,29 @@ function LeaderboardRow({ entry, rank }: { entry: ScoredEntry; rank: number }) {
       <td className="py-2.5 px-2 text-right text-text-muted hidden sm:table-cell">
         {entry.score.maxPossible}
       </td>
-      <td className="py-2.5 px-2 text-text-secondary hidden md:table-cell">
+      {hasForecasts && (
+        <>
+          <td className="py-2.5 px-2 text-right text-text-secondary hidden sm:table-cell">
+            {entry.forecast ? entry.forecast.expectedScore.toFixed(1) : "—"}
+          </td>
+          <td className="py-2.5 px-2 text-right hidden md:table-cell">
+            {entry.forecast ? (
+              <span
+                className={
+                  entry.forecast.winProbability > 0.1
+                    ? "text-green-400 font-medium"
+                    : "text-text-muted"
+                }
+              >
+                {(entry.forecast.winProbability * 100).toFixed(1)}%
+              </span>
+            ) : (
+              "—"
+            )}
+          </td>
+        </>
+      )}
+      <td className="py-2.5 px-2 text-text-secondary hidden lg:table-cell">
         {entry.championName}
       </td>
       <td className="py-2.5 pl-2">

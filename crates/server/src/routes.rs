@@ -92,6 +92,27 @@ pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoRe
     }
 }
 
+/// GET /api/forecasts — serve forecasts JSON (from forecaster crate output).
+pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
+    match state.get_forecasts().await {
+        Ok(data) => {
+            if data.is_null() {
+                (StatusCode::NOT_FOUND, "forecasts not available").into_response()
+            } else {
+                Json(data).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read forecasts: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read forecasts",
+            )
+                .into_response()
+        }
+    }
+}
+
 /// POST /api/tournament-status — update tournament status JSON (requires API key).
 pub async fn post_tournament_status(
     State(state): State<AppState>,

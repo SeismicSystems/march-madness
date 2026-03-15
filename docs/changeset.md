@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Bracket forecaster: Monte Carlo win probabilities
+- **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json`, runs Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
+- **Common crate**: Added `scoring.rs` — Rust port of ByteBracket scoring algorithm (`score_bracket`, `get_scoring_mask`, `popcount`, `pairwise_or`, `parse_bracket_hex`). Added `TournamentStatus`, `GameStatus`, `GameState`, `BracketForecast`, `ForecastIndex` types.
+- **Server**: Added `GET /api/forecasts` endpoint — serves `data/forecasts.json` with TTL cache (same pattern as entries/tournament-status).
+- **Client types**: Added `BracketForecast` and `ForecastIndex` TypeScript types.
+- **Leaderboard**: When forecasts are available, shows E[Score] and P(Win) columns. Win probability > 10% highlighted in green.
+- **Frontend hook**: `useForecasts` — polls `/api/forecasts` every 30s.
+
 ### 2026-03-15 — Tournament Live UI: leaderboard, bracket viewer, scoring
 - **Client library**: Ported ByteBracket scoring algorithm from Solidity to TypeScript BigInt (`scoring.ts`). Added `scoreBracket()` (full), `scoreBracketPartial()` (in-progress with max possible), `getScoringMask()`, `popcount()`, `pairwiseOr()`.
 - **Types**: Added shared types in `packages/client/src/types.ts` — `TournamentStatus`, `GameStatus`, `EntryRecord`, `EntryIndex`, `PartialScore`.

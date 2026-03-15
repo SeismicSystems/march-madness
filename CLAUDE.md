@@ -44,7 +44,8 @@ packages/
   localdev/         — Local dev tools (populate script) + integration tests
 crates/
   indexer/          — Rust event listener + backfill
-  server/           — HTTP server for indexed data + tournament status
+  server/           — HTTP server for indexed data + tournament status + forecasts
+  forecaster/       — Monte Carlo bracket win probability simulator
 data/               — Tournament data (teams, brackets, configs, tournament-status.json)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
@@ -82,6 +83,7 @@ Rust HTTP server (`crates/server`, default port 3001):
 - `GET /api/stats` — total entries + scored count
 - `GET /api/tournament-status` — tournament status JSON (from `data/tournament-status.json`, TTL cached)
 - `POST /api/tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
+- `GET /api/forecasts` — bracket win probabilities (from `data/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 
 Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3001`).

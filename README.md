@@ -48,7 +48,8 @@ A later-round pick only scores if the feeder games were also picked correctly.
 | Frontend | React + Vite + Tailwind + seismic-react |
 | Auth | Privy (social login → embedded wallet) |
 | Indexer | Rust (event listener + backfill) |
-| Server | Rust (HTTP, serves indexed data + tournament status) |
+| Server | Rust (HTTP, serves indexed data + tournament status + forecasts) |
+| Forecaster | Rust (Monte Carlo bracket win probability simulator) |
 
 ## Pages
 
@@ -68,7 +69,8 @@ packages/
   localdev/         — Local dev tools + integration tests
 crates/
   indexer/          — Rust event listener (tracks bracket submissions)
-  server/           — HTTP API server (entries + tournament status)
+  server/           — HTTP API server (entries + tournament status + forecasts)
+  forecaster/       — Monte Carlo win probability simulator
 data/               — Tournament data, seed configs, tournament-status.json
 docs/               — Technical docs, changeset log, prompt archive
 ```
