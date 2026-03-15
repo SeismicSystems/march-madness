@@ -22,8 +22,8 @@ contract BracketGroupsTest is Test {
     bytes8 constant BAD = bytes8(0x8000000000000000);
     bytes8 constant RESULTS = bytes8(0xFFFFFFFFFFFFFFFF);
 
-    // Password: keccak256("secret") stored as sbytes32
-    bytes32 constant PASSWORD = keccak256("secret");
+    // Password: truncated keccak256("secret") stored as sbytes12
+    bytes12 constant PASSWORD = bytes12(keccak256("secret"));
 
     function setUp() public {
         vm.warp(100);
@@ -58,7 +58,7 @@ contract BracketGroupsTest is Test {
 
     function test_createGroupWithPassword() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private Group", 0, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private Group", 0, sbytes12(PASSWORD));
 
         BracketGroups.Group memory g = bg.getGroup(groupId);
         assertTrue(g.hasPassword);
@@ -274,46 +274,46 @@ contract BracketGroupsTest is Test {
 
     function test_joinPasswordGroup() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
         vm.prank(alice);
-        bg.joinGroupWithPassword(groupId, sbytes32(PASSWORD));
+        bg.joinGroupWithPassword(groupId, sbytes12(PASSWORD));
 
         assertTrue(bg.isMemberOf(groupId, alice));
     }
 
     function test_joinPasswordGroup_withName() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
         vm.prank(alice);
-        bg.joinGroupWithPasswordAndName(groupId, sbytes32(PASSWORD), "Alice");
+        bg.joinGroupWithPasswordAndName(groupId, sbytes12(PASSWORD), "Alice");
 
         assertEq(bg.getMembers(groupId)[0].name, "Alice");
     }
 
     function test_joinPasswordGroup_wrongPassword() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
-        bytes32 wrongPw = keccak256("wrong");
+        bytes12 wrongPw = bytes12(keccak256("wrong"));
         vm.prank(alice);
         vm.expectRevert("Wrong password");
-        bg.joinGroupWithPassword(groupId, sbytes32(wrongPw));
+        bg.joinGroupWithPassword(groupId, sbytes12(wrongPw));
     }
 
     function test_joinPasswordGroup_publicJoinReverts() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -326,13 +326,13 @@ contract BracketGroupsTest is Test {
 
     function test_joinPasswordGroup_withFee() public {
         vm.prank(admin);
-        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0.5 ether, sbytes32(PASSWORD));
+        uint256 groupId = bg.createGroupWithPassword("private", "Private", 0.5 ether, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
         vm.prank(alice);
-        bg.joinGroupWithPassword{value: 0.5 ether}(groupId, sbytes32(PASSWORD));
+        bg.joinGroupWithPassword{value: 0.5 ether}(groupId, sbytes12(PASSWORD));
 
         assertTrue(bg.isMemberOf(groupId, alice));
         assertEq(address(bg).balance, 0.5 ether);
@@ -348,7 +348,7 @@ contract BracketGroupsTest is Test {
 
         vm.prank(alice);
         vm.expectRevert("Group is not password-protected");
-        bg.joinGroupWithPassword(groupId, sbytes32(PASSWORD));
+        bg.joinGroupWithPassword(groupId, sbytes12(PASSWORD));
     }
 
     // ════════════════════════════════════════════════════════════════════

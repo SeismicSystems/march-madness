@@ -85,13 +85,13 @@ Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no
 Linked sub-groups composing with MarchMadness. Optional password + entry fee.
 
 - `createGroup(slug, displayName, entryFee)` → groupId (public)
-- `createGroupWithPassword(slug, displayName, entryFee, sbytes32 password)` → groupId (private)
-- `joinGroup(groupId)` / `joinGroupWithPassword(groupId, sbytes32 password)` — payable
+- `createGroupWithPassword(slug, displayName, entryFee, sbytes12 password)` → groupId (private)
+- `joinGroup(groupId)` / `joinGroupWithPassword(groupId, sbytes12 password)` — payable
 - `leaveGroup(groupId)` — refund before results
 - `scoreEntry(groupId, memberIndex)` — anyone triggers, reads bracket from main contract
 - `collectWinnings(groupId)` — winners split group prize pool after scoring window
 
-Password stored as `sbytes32` (shielded). Public groups reject password joins and vice versa.
+Password stored as `sbytes12` (shielded). Public groups reject password joins and vice versa.
 
 ## Bracket Encoding
 

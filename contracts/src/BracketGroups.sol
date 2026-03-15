@@ -5,7 +5,7 @@ import {ByteBracket} from "./ByteBracket.sol";
 import {MarchMadness} from "./MarchMadness.sol";
 
 /// @title BracketGroups — sub-groups for the main MarchMadness bracket contest
-/// @notice Users create groups, optionally password-protected (sbytes32) and with an entry fee.
+/// @notice Users create groups, optionally password-protected (sbytes12) and with an entry fee.
 ///         Members self-join by linking their main-contract bracket. Winners of each group
 ///         split the group's prize pool after the scoring window.
 contract BracketGroups {
@@ -43,7 +43,7 @@ contract BracketGroups {
     mapping(bytes32 => uint256) public slugToGroupId;
 
     // Password storage: shielded so nodes won't reveal it
-    mapping(uint256 => sbytes32) internal _passwords;
+    mapping(uint256 => sbytes12) internal _passwords;
 
     // Members
     mapping(uint256 => mapping(uint32 => Member)) internal _members;
@@ -88,13 +88,13 @@ contract BracketGroups {
         groupId = _createGroup(slug, displayName, entryFee, false);
     }
 
-    /// @notice Create a password-protected group. Password is stored shielded (sbytes32).
+    /// @notice Create a password-protected group. Password is stored shielded (sbytes12).
     ///         Frontend converts user's string password to bytes32 (e.g. keccak256) before sending.
     function createGroupWithPassword(
         string calldata slug,
         string calldata displayName,
         uint256 entryFee,
-        sbytes32 password
+        sbytes12 password
     ) external returns (uint256 groupId) {
         groupId = _createGroup(slug, displayName, entryFee, true);
         _passwords[groupId] = password;
@@ -144,21 +144,21 @@ contract BracketGroups {
         _joinGroup(groupId, name);
     }
 
-    /// @notice Join a password-protected group. Caller provides the password as sbytes32.
-    function joinGroupWithPassword(uint256 groupId, sbytes32 password) external payable groupExists(groupId) {
+    /// @notice Join a password-protected group. Caller provides the password as sbytes12.
+    function joinGroupWithPassword(uint256 groupId, sbytes12 password) external payable groupExists(groupId) {
         require(_groups[groupId].hasPassword, "Group is not password-protected");
-        require(bytes32(password) == bytes32(_passwords[groupId]), "Wrong password");
+        require(bytes12(password) == bytes12(_passwords[groupId]), "Wrong password");
         _joinGroup(groupId, "");
     }
 
     /// @notice Join a password-protected group with a display name.
-    function joinGroupWithPasswordAndName(uint256 groupId, sbytes32 password, string calldata name)
+    function joinGroupWithPasswordAndName(uint256 groupId, sbytes12 password, string calldata name)
         external
         payable
         groupExists(groupId)
     {
         require(_groups[groupId].hasPassword, "Group is not password-protected");
-        require(bytes32(password) == bytes32(_passwords[groupId]), "Wrong password");
+        require(bytes12(password) == bytes12(_passwords[groupId]), "Wrong password");
         _joinGroup(groupId, name);
     }
 
