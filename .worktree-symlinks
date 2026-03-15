@@ -1,22 +1,9 @@
-# Secrets
 .env
 kalshi-rsa-pk
-
-# Rust
-target/*
-
-# Typescript
 bun.lock
-node_modules/
-
-# Solidity
 contracts/out/
 contracts/cache/
 contracts/broadcast/*
-
-# Python
 .venv/
-__pycache__/
 data/*/plots/
 data/cache
-
