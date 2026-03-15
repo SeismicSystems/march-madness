@@ -1,0 +1,23 @@
+Port the bracket simulation library and CLI binaries from the private
+~/code/sports/brackets repo into the seismic march-madness workspace as
+a new crate: crates/bracket-sim.
+
+This is a lib crate with two binaries (calibrate and sim).
+
+Ported modules from crates/bracket/src/:
+- lib.rs (removed equity and sim_ev modules)
+- team.rs, bracket.rs, bracket_config.rs, metrics.rs, scoring.rs, calibration.rs (verbatim)
+- game.rs, tournament.rs (migrated rand 0.8 -> 0.9: thread_rng -> rng, gen -> random)
+
+Extracted binaries from crates/sim/src/main.rs:
+- src/bin/sim.rs: tournament simulation with round-by-round advancement probabilities
+- src/bin/calibrate.rs: goose value calibration to match target probabilities
+
+Data files copied:
+- data/bracket_config.toml (Final Four pairings by year)
+- data/2026/bracket.csv (team, seed, region)
+- data/2026/kenpom.csv (team, ortg, drtg, pace, goose)
+
+Dependencies updated for edition 2024 compatibility:
+- rand 0.9, rand_distr 0.5, statrs 0.18
+- All clippy warnings resolved

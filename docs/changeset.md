@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Bracket simulation library and CLI
+- **New crate** `crates/bracket-sim` — Poisson-based NCAA tournament simulation engine with Bayesian metric updates. Ported from private `brackets` repo with rand 0.8->0.9 migration for edition 2024 compatibility.
+- **Library modules**: team loading/validation, game simulation (Poisson scoring + overtime), tournament orchestration, bracket encoding (ByteBracket u64 format), scoring systems, goose calibration against market odds.
+- **CLI binary** `sim` — runs Monte Carlo tournament simulations and prints round-by-round advancement probabilities for all 64 teams.
+- **CLI binary** `calibrate` — adjusts team "goose" ratings to match target probabilities (e.g. from Kalshi) using iterative Bayesian calibration with Beta posterior convergence checks.
+- **Data files**: `data/bracket_config.toml` (Final Four pairings by year), `data/2026/bracket.csv`, `data/2026/kenpom.csv`.
+
 ### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
 - **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
 - **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.
