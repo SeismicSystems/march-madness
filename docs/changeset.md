@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Pipeline orchestration scripts
+- **New script** `scripts/refresh.sh` — runs the full KenPom/Kalshi ingestion pipeline (scrape KenPom, fetch raw Kalshi futures, fit anchor model, normalize Kalshi futures, calibrate goose values). Supports `--hours N` flag to control cache TTL (default 6 hours).
+- **CI: Python checks** — added `run_python` section to `scripts/ci.sh`: verifies `uv` deps install (`uv sync --frozen`) and runs `scrape_kenpom.py --help` as a smoke test. Wired into `all` and available as `./scripts/ci.sh python`.
+
 ### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
 - **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
 - **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.

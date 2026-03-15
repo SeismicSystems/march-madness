@@ -10,6 +10,7 @@
 #   contracts   — build, test, fmt check (via mise)
 #   packages    — typecheck, lint, build, test (via mise)
 #   crates      — build, test, fmt, clippy (cargo)
+#   python      — deps install, script smoke tests (via uv)
 #   changeset   — verify docs/changeset.md is modified (vs main)
 #
 # KEEP IN SYNC with .github/workflows/ci.yml — see CLAUDE.md rule #8.
@@ -116,6 +117,26 @@ run_crates() {
   run_step "crates clippy" cargo clippy --all-targets -- -D warnings
 }
 
+# ─── Python (via uv) ─────────────────────────────────────────────────
+run_python() {
+  echo ""
+  echo "━━━ Python ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  if [ ! -f pyproject.toml ]; then
+    skip_step "python" "pyproject.toml not found"
+    return
+  fi
+  if ! command -v uv &>/dev/null; then
+    skip_step "python" "uv not installed (https://docs.astral.sh/uv/)"
+    return
+  fi
+  if [ -f uv.lock ]; then
+    run_step "python deps" uv sync --frozen
+  else
+    run_step "python deps" uv sync
+  fi
+  run_step "scrape_kenpom --help" uv run scripts/scrape_kenpom.py --help
+}
+
 # ─── Summary ──────────────────────────────────────────────────────────
 print_summary() {
   echo ""
@@ -146,15 +167,17 @@ case "$section" in
   contracts)  run_contracts ;;
   packages)   run_packages ;;
   crates)     run_crates ;;
+  python)     run_python ;;
   changeset)  run_changeset ;;
   all)
     run_changeset
     run_contracts
     run_packages
     run_crates
+    run_python
     ;;
   *)
-    echo "Usage: $0 [contracts|packages|crates|changeset|all]"
+    echo "Usage: $0 [contracts|packages|crates|python|changeset|all]"
     exit 1
     ;;
 esac
