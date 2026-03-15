@@ -2,7 +2,7 @@
 # Downloads nightly release: https://github.com/SeismicSystems/seismic-foundry/releases
 # Contains sforge, sanvil, scast, schisel — all added to PATH.
 # Pin updated from samlaf's seismic repo. Run `mise install` to get latest.
-sfoundry = "nightly-08913bcc240efcb17dcee38e60adfa482b4bcd44"
+sfoundry = "nightly-94eb5fc14e4797b6436ba000d0dbcfe8d2318b57"
 
 # Downloads ssolc release: https://github.com/SeismicSystems/seismic-solidity/releases
 ssolc = { version = "2ebb36d", bin = "ssolc" }

@@ -26,7 +26,7 @@ export function FinalFour({
         Final Four
       </h3>
 
-      <div className="flex flex-col items-center gap-8">
+      <div className="flex flex-col items-center justify-center gap-8 flex-1">
         {/* Semifinal 1 */}
         {semifinal1 && (
           <BracketGame

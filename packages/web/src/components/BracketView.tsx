@@ -69,7 +69,7 @@ export function BracketView({
     <div className="overflow-x-auto pb-4">
       <div className="flex flex-col gap-12 min-w-[1400px]">
         {/* Top half: East (left) + Final Four + West (right) */}
-        <div className="flex items-start justify-center gap-4">
+        <div className="flex items-stretch justify-center gap-4">
           <BracketRegion
             regionName={regions[0]}
             rounds={getRegionGames(0)}
@@ -96,7 +96,7 @@ export function BracketView({
         </div>
 
         {/* Bottom half: South (left) + spacer + Midwest (right) */}
-        <div className="flex items-start justify-center gap-4">
+        <div className="flex items-stretch justify-center gap-4">
           <BracketRegion
             regionName={regions[2]}
             rounds={getRegionGames(2)}
