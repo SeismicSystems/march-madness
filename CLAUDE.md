@@ -33,6 +33,8 @@
 ### Rust (Crates)
 - **indexer**: Listens for on-chain events, writes entrant data to JSON
 - **server**: Serves indexed data to frontend via HTTP
+- **ncaa-api**: NCAA basketball API client (scoreboard + schedule, rate-limited)
+- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament-status.json
 
 ## Architecture
 
@@ -47,6 +49,8 @@ crates/
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
   forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
+  ncaa-api/         — NCAA basketball API client (scoreboard + schedule)
+  ncaa-feed/        — NCAA live score feed → tournament-status.json
 data/               — Tournament data (teams, brackets, configs, tournament-status.json)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build

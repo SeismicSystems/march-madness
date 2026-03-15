@@ -4,6 +4,15 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
+- **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1).
+- **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/tournament-status.json`. Adaptive polling: idle (30min), pre-game (60s), active (configurable, default 1/s), auto-exit on tournament completion.
+- **Game mapping**: Uses `tournament.json` + `get_teams_in_bracket_order()` to match NCAA `nameShort` to bracket positions. Hardcoded alias map for name mismatches (e.g. "Michigan St" → "Michigan St.", "UConn" → "Connecticut"). Later rounds derive matchups from decided game winners.
+- **Atomic writes**: tournament-status.json is written via tmp+rename to prevent partial reads by the server.
+- **Optional server POST**: `--api-url` + `--api-key` flags push status updates to the HTTP server's `POST /api/tournament-status` endpoint.
+- **GameStatus fields**: Added `seconds_remaining: Option<i32>` and `period: Option<u8>` to `GameStatus` in `seismic-march-madness` types (per issue #43 spec for live game conditioning in simulations).
+- **14 new tests**: 7 in ncaa-api (scoreboard parsing, season year, schedule, clock/period parsing, sport codes), 7 in ncaa-feed (mapper positions, feeder games, alias resolution, feed state, poll intervals, seeding from existing status).
+
 ### 2026-03-15 — Pipeline orchestration scripts
 - **New script** `scripts/refresh.sh` — runs the full KenPom/Kalshi ingestion pipeline (scrape KenPom, fetch raw Kalshi futures, fit anchor model, normalize Kalshi futures, calibrate goose values). Supports `--hours N` flag to control cache TTL (default 6 hours).
 - **CI: Python checks** — added `run_python` section to `scripts/ci.sh`: verifies `uv` deps install (`uv sync --frozen`) and runs `scrape_kenpom.py --help` as a smoke test. Wired into `all` and available as `./scripts/ci.sh python`.

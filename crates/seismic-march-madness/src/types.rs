@@ -41,6 +41,12 @@ pub struct GameStatus {
     /// current in-game score. Not used for upcoming games (use teamReachProbabilities).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub team1_win_probability: Option<f64>,
+    /// Seconds remaining in the current period (live games only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seconds_remaining: Option<i32>,
+    /// Current period number (1 = 1st half, 2 = 2nd half, 3+ = OT).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period: Option<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

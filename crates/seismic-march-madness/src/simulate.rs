@@ -170,6 +170,8 @@ mod tests {
                 score: None,
                 winner: None,
                 team1_win_probability: None,
+                seconds_remaining: None,
+                period: None,
             })
             .collect();
 
