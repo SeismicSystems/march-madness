@@ -31,25 +31,33 @@ export function useContract() {
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
+  // Serializes objects to JSON so we never get "[object Object]".
+  const stringify = (v: unknown): string => {
+    if (typeof v === "string") return v;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  };
   const extractErrorMessage = (err: unknown, fallback: string): string => {
     if (!err) return fallback;
     const parts: string[] = [];
     let current: unknown = err;
     for (let i = 0; i < 8 && current; i++) {
       if (current instanceof Error) {
-        const e = current as Error & { shortMessage?: string; details?: string; cause?: unknown };
-        if (e.shortMessage) parts.push(e.shortMessage);
+        const e = current as Error & { shortMessage?: unknown; details?: unknown; cause?: unknown };
+        if (e.shortMessage) parts.push(stringify(e.shortMessage));
         else if (e.message) parts.push(e.message);
-        if (e.details) parts.push(`details: ${e.details}`);
+        if (e.details) parts.push(`details: ${stringify(e.details)}`);
         current = e.cause;
       } else if (typeof current === "object" && current !== null) {
         const obj = current as Record<string, unknown>;
-        if (typeof obj.shortMessage === "string") parts.push(obj.shortMessage);
-        else if (typeof obj.message === "string") parts.push(obj.message);
-        if (typeof obj.details === "string") parts.push(`details: ${obj.details}`);
+        if (obj.shortMessage) parts.push(stringify(obj.shortMessage));
+        else if (obj.message) parts.push(stringify(obj.message));
+        if (obj.details) parts.push(`details: ${stringify(obj.details)}`);
+        if (!obj.shortMessage && !obj.message && !obj.details) {
+          parts.push(stringify(obj));
+        }
         current = obj.cause;
       } else {
-        parts.push(String(current));
+        parts.push(stringify(current));
         break;
       }
     }

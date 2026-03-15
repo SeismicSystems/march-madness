@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Fix [object Object] in error display
+- Error extraction now JSON.stringifies all non-string values so object details render as readable JSON instead of `[object Object]`
+- Unrecognized error objects without standard fields are dumped in full
+
 ### 2026-03-15 — Mobile header dropdown + better error surfacing
 - **Header**: On mobile, replaced inline buttons (Faucet, address, Connect/Disconnect) with a hamburger dropdown menu to prevent text overlap on small screens. Desktop layout unchanged.
 - **Error handling**: Added `extractErrorMessage` helper that walks the error cause chain to surface the real error from Privy/viem instead of showing generic "An error has occurred" messages. Errors now show in a scrollable container on mobile.
