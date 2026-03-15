@@ -47,3 +47,34 @@ pub const MAX_RTG: f64 = 135.0;
 pub const MIN_RTG: f64 = 75.0;
 
 pub const UPDATE_FACTOR: f64 = 0.05;
+
+/// Returns the `data/` directory at the workspace root.
+/// Works because `CARGO_MANIFEST_DIR` is `crates/bracket-sim/` — two levels up.
+pub fn data_dir() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("Could not find workspace root from CARGO_MANIFEST_DIR")
+        .join("data")
+}
+
+/// Load teams from the default data paths for a given year: `data/mens-{year}.json` + `data/{year}/kenpom.csv`.
+/// If `input` is Some, loads from that combined CSV instead.
+pub fn load_teams_for_year(
+    input: Option<&std::path::Path>,
+    year: u16,
+) -> std::io::Result<Vec<Team>> {
+    if let Some(path) = input {
+        let p = path.to_str().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "non-UTF-8 path")
+        })?;
+        return team::load_teams_from_combined_csv(p);
+    }
+    let data = data_dir();
+    let bracket_json = data.join(format!("mens-{}.json", year));
+    let kenpom = data.join(year.to_string()).join("kenpom.csv");
+    let kenpom_str = kenpom
+        .to_str()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "non-UTF-8 path"))?;
+    team::load_teams_from_json(&bracket_json, kenpom_str)
+}

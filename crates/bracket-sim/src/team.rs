@@ -49,6 +49,13 @@ struct TournamentJsonTeam {
     region: String,
 }
 
+/// A bracket entry (name, seed, region) before joining with KenPom ratings.
+struct BracketEntry {
+    name: String,
+    seed: u8,
+    region: String,
+}
+
 fn load_kenpom_map(kenpom_path: &str) -> io::Result<HashMap<String, (Metrics, f64)>> {
     let kenpom_file = File::open(kenpom_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", kenpom_path, e)))?;
@@ -73,36 +80,26 @@ fn load_kenpom_map(kenpom_path: &str) -> io::Result<HashMap<String, (Metrics, f6
     Ok(kenpom_map)
 }
 
-/// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
-/// The JSON provides bracket structure (name, seed, region); KenPom provides ratings.
-pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
+/// Join bracket entries with KenPom ratings, validate structure, and return teams.
+fn join_with_kenpom(entries: Vec<BracketEntry>, kenpom_path: &str) -> io::Result<Vec<Team>> {
     let kenpom_map = load_kenpom_map(kenpom_path)?;
-
-    let json_content = std::fs::read_to_string(json_path)
-        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
-    let tournament: TournamentJson = serde_json::from_str(&json_content).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("{}: {}", json_path.display(), e),
-        )
-    })?;
 
     let mut teams = Vec::new();
     let mut missing = Vec::new();
 
-    for t in tournament.teams {
-        match kenpom_map.get(&t.name) {
+    for entry in entries {
+        match kenpom_map.get(&entry.name) {
             Some((metrics, goose)) => {
                 teams.push(Team {
-                    team: t.name,
-                    seed: t.seed,
-                    region: t.region,
+                    team: entry.name,
+                    seed: entry.seed,
+                    region: entry.region,
                     metrics: *metrics,
                     goose: *goose,
                 });
             }
             None => {
-                missing.push(t.name);
+                missing.push(entry.name);
             }
         }
     }
@@ -121,52 +118,50 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
     Ok(teams)
 }
 
-/// Load teams by joining a bracket CSV (team,seed,region) with a KenPom CSV
-/// (team,ortg,drtg,pace). Panics if any team in the bracket file is missing
-/// from the KenPom file.
-pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>> {
-    let kenpom_map = load_kenpom_map(kenpom_path)?;
+/// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
+/// The JSON provides bracket structure (name, seed, region); KenPom provides ratings.
+pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
+    let json_content = std::fs::read_to_string(json_path)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
+    let tournament: TournamentJson = serde_json::from_str(&json_content).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("{}: {}", json_path.display(), e),
+        )
+    })?;
 
+    let entries = tournament
+        .teams
+        .into_iter()
+        .map(|t| BracketEntry {
+            name: t.name,
+            seed: t.seed,
+            region: t.region,
+        })
+        .collect();
+
+    join_with_kenpom(entries, kenpom_path)
+}
+
+/// Load teams by joining a bracket CSV (team,seed,region) with a KenPom CSV (team,ortg,drtg,pace).
+pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>> {
     let bracket_file = File::open(bracket_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", bracket_path, e)))?;
     let mut bracket_reader = csv::ReaderBuilder::new()
         .has_headers(true)
         .from_reader(bracket_file);
 
-    let mut teams = Vec::new();
-    let mut missing = Vec::new();
-
+    let mut entries = Vec::new();
     for row in bracket_reader.deserialize() {
         let b: BracketRow = row?;
-        match kenpom_map.get(&b.team) {
-            Some((metrics, goose)) => {
-                teams.push(Team {
-                    team: b.team,
-                    seed: b.seed,
-                    region: b.region,
-                    metrics: *metrics,
-                    goose: *goose,
-                });
-            }
-            None => {
-                missing.push(b.team);
-            }
-        }
+        entries.push(BracketEntry {
+            name: b.team,
+            seed: b.seed,
+            region: b.region,
+        });
     }
 
-    if !missing.is_empty() {
-        panic!(
-            "FATAL: {} bracket team(s) not found in KenPom file '{}':\n  {}\n\
-             Fix the team name mapping or update the KenPom data.",
-            missing.len(),
-            kenpom_path,
-            missing.join("\n  ")
-        );
-    }
-
-    validate_bracket_structure(&teams);
-
-    Ok(teams)
+    join_with_kenpom(entries, kenpom_path)
 }
 
 /// Validate that the loaded teams form a valid 64-team bracket:
@@ -231,7 +226,7 @@ fn validate_bracket_structure(teams: &[Team]) {
     if !errors.is_empty() {
         panic!(
             "FATAL: Invalid bracket structure:\n  {}\n\
-             Fix bracket.csv to have exactly 4 regions x 16 seeds (1-16).",
+             Ensure exactly 4 regions x 16 seeds (1-16).",
             errors.join("\n  ")
         );
     }
@@ -248,6 +243,7 @@ pub fn load_teams_from_combined_csv(path: &str) -> io::Result<Vec<Team>> {
         let team: Team = line?;
         teams.push(team);
     }
+    validate_bracket_structure(&teams);
     Ok(teams)
 }
 
@@ -286,22 +282,11 @@ pub fn save_kenpom_csv(teams: &[Team], path: &str) -> io::Result<()> {
 
 impl Team {
     /// Update team metrics based on game performance vs expectations.
-    /// `expected` and `observed` are from THIS team's perspective:
-    ///   - ortg = this team's offensive efficiency
-    ///   - drtg = opponent's offensive efficiency (this team's defensive result)
-    ///   - pace = game pace
     pub fn update_metrics(&mut self, expected: Metrics, observed: Metrics) {
-        // Offense: scored more than expected -> nudge ortg up
         self.metrics.ortg += (observed.ortg - expected.ortg) * UPDATE_FACTOR;
-
-        // Defense: opponent scored more than expected -> nudge drtg up (worse)
-        //          opponent scored less than expected -> nudge drtg down (better)
         self.metrics.drtg += (observed.drtg - expected.drtg) * UPDATE_FACTOR;
-
-        // Pace: game was faster/slower than expected -> nudge pace accordingly
         self.metrics.pace += (observed.pace - expected.pace) * UPDATE_FACTOR;
 
-        // Clamp to reasonable bounds
         self.metrics.ortg = self.metrics.ortg.clamp(MIN_RTG, MAX_RTG);
         self.metrics.drtg = self.metrics.drtg.clamp(MIN_RTG, MAX_RTG);
         self.metrics.pace = self.metrics.pace.clamp(MIN_PACE, MAX_PACE);
@@ -354,7 +339,6 @@ mod tests {
     #[should_panic(expected = "Duplicate seed 3 in region")]
     fn duplicate_seed_detected() {
         let mut teams = make_valid_bracket();
-        // Replace East seed-16 with a duplicate of East seed-3
         let idx = teams
             .iter()
             .position(|t| t.region == "East" && t.seed == 16)
@@ -367,7 +351,6 @@ mod tests {
     #[should_panic(expected = "Duplicate team name")]
     fn duplicate_team_name_detected() {
         let mut teams = make_valid_bracket();
-        // Make two teams share the same name (different regions/seeds so structure otherwise ok)
         let r0 = teams[0].region.clone();
         let s0 = teams[0].seed;
         teams[0] = make_team("SameName", s0, &r0);

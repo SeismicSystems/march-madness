@@ -3,11 +3,10 @@ use rand::Rng;
 use crate::bracket_config::{BRACKET_SEED_ORDER, BracketConfig};
 use crate::game::Game;
 use crate::metrics::Metrics;
-use crate::team::{self, Team};
+use crate::team::Team;
 use crate::{Bracket, ScoringSystem};
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct Tournament {
@@ -29,22 +28,6 @@ impl Tournament {
             games: Vec::new(),
             seeds: HashMap::new(),
         }
-    }
-
-    /// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
-    pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
-        team::load_teams_from_json(json_path, kenpom_path)
-    }
-
-    /// Load teams by joining bracket CSV (team,seed,region) with KenPom CSV (team,ortg,drtg,pace).
-    /// Panics if any bracket team is missing from KenPom data.
-    pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>> {
-        team::load_teams(bracket_path, kenpom_path)
-    }
-
-    /// Load teams from a single combined CSV (legacy format: team,seed,region,ortg,drtg,pace[,goose]).
-    pub fn load_teams_from_csv(path: &str) -> io::Result<Vec<Team>> {
-        team::load_teams_from_combined_csv(path)
     }
 
     pub fn setup_tournament(&mut self, teams: Vec<Team>, config: &BracketConfig) {
@@ -548,7 +531,7 @@ mod tests {
             panic!("missing seed (test skipped: data file not found)");
         }
 
-        let mut teams = Tournament::load_teams_from_csv(teams_path).unwrap();
+        let mut teams = crate::team::load_teams_from_combined_csv(teams_path).unwrap();
         let region_order = config.region_order();
         let target_region = region_order[0];
         let remove_idx = teams
@@ -638,7 +621,7 @@ mod tests {
             return;
         }
 
-        let teams = Tournament::load_teams_from_csv(teams_path).unwrap();
+        let teams = crate::team::load_teams_from_combined_csv(teams_path).unwrap();
         let mut tournament = Tournament::new();
         tournament.setup_tournament(teams, &config);
 
