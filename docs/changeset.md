@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Fix Kalshi orderbook parsing + calibration sensitivity
+- **Fix** Kalshi API now returns `orderbook_fp` (string dollar format) instead of `orderbook` (integer cents). `OrderbookResponse` is now a `#[serde(untagged)]` enum supporting both legacy and FP formats. FP values converted to integer cents for downstream use.
+- **Fix** Calibration `sensitivity` default changed from `2.0` to `0.001`. The old value was tuned for probability-based edges (small numbers), but real orderbook edges are in the thousands of dollars, causing goose values to slam to ±15 clamp on the first iteration.
+
 ### 2026-03-15 — Market-making calibrator (replaces CSV normalization pipeline)
 - **New module** `crates/kalshi/src/orderbook.rs` — market-making edge computation against Kalshi orderbooks. Walks top N orderbook levels to compute buy/sell edge per team/round. Includes trade log printer with Kalshi URLs.
 - **New types** in `crates/kalshi/src/types.rs` — `OrderbookLevel`, `Orderbook`, `TeamOrderbook`, `CachedOrderbooks`, `OrderbookResponse` for orderbook fetching and caching.

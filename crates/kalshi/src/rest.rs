@@ -105,12 +105,39 @@ impl KalshiRestClient {
             return Err(format!("Kalshi orderbook API error ({}): {}", status, body).into());
         }
 
-        let data: OrderbookResponse = resp.json()?;
+        let body = resp.text()?;
+        let data: OrderbookResponse = serde_json::from_str(&body).map_err(|e| {
+            format!(
+                "failed to parse orderbook for {}: {} — body: {}",
+                ticker,
+                e,
+                &body[..body.len().min(500)]
+            )
+        })?;
+
+        // Parse levels from whichever format the API returned
+        let (raw_yes, raw_no): (Vec<[u32; 2]>, Vec<[u32; 2]>) = match data {
+            OrderbookResponse::Legacy { orderbook } => (orderbook.yes, orderbook.no),
+            OrderbookResponse::Fp { orderbook_fp } => {
+                let parse = |entries: &[[String; 2]]| -> Result<Vec<[u32; 2]>, Box<dyn std::error::Error>> {
+                    entries
+                        .iter()
+                        .map(|[price_str, qty_str]| {
+                            let price_dollars: f64 = price_str.parse()?;
+                            let qty_dollars: f64 = qty_str.parse()?;
+                            Ok([
+                                (price_dollars * 100.0).round() as u32,
+                                qty_dollars.round() as u32,
+                            ])
+                        })
+                        .collect()
+                };
+                (parse(&orderbook_fp.yes_dollars)?, parse(&orderbook_fp.no_dollars)?)
+            }
+        };
 
         // YES bids come directly from the YES side, sorted descending by price
-        let mut yes_bids: Vec<OrderbookLevel> = data
-            .orderbook
-            .yes
+        let mut yes_bids: Vec<OrderbookLevel> = raw_yes
             .iter()
             .map(|[p, q]| OrderbookLevel {
                 price: *p,
@@ -120,9 +147,7 @@ impl KalshiRestClient {
         yes_bids.sort_by(|a, b| b.price.cmp(&a.price));
 
         // NO bids at price X → YES asks at (100 - X) cents, sorted ascending by price
-        let mut yes_asks: Vec<OrderbookLevel> = data
-            .orderbook
-            .no
+        let mut yes_asks: Vec<OrderbookLevel> = raw_no
             .iter()
             .map(|[p, q]| OrderbookLevel {
                 price: 100 - p,
