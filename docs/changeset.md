@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Upgrade seismic foundry to nightly-94eb5fc (closes #15)
+- Updated `sfoundry` pin in `mise.toml` from `nightly-08913bcc...` to `nightly-94eb5fc1...` (2026-03-14 release).
+
 ### 2026-03-15 — Make `score_base_bb` public in bracket-sim
 - Removed `#[cfg(test)]` and `pub(crate)` gate from `scoring::score_base_bb` so downstream consumers (e.g. the brackets pool-strategy repo) can use it directly instead of duplicating the function.
 
