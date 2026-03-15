@@ -427,61 +427,6 @@ pub fn calibrate(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-
-    fn write_csv(content: &str) -> tempfile::NamedTempFile {
-        let mut f = tempfile::NamedTempFile::new().unwrap();
-        f.write_all(content.as_bytes()).unwrap();
-        f.flush().unwrap();
-        f
-    }
-
-    #[test]
-    fn load_targets_valid() {
-        let f = write_csv("team,round,probability\nDuke,1,0.95\nDuke,2,0.80\n");
-        let targets = load_targets_from_csv(f.path().to_str().unwrap()).unwrap();
-        assert_eq!(targets.len(), 2);
-        assert_eq!(targets[0].team, "Duke");
-    }
-
-    #[test]
-    fn load_targets_rejects_probability_above_one() {
-        let f = write_csv("team,round,probability\nDuke,1,1.5\n");
-        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-        let msg = err.to_string();
-        assert!(msg.contains("Duke"), "error should name the team: {msg}");
-        assert!(msg.contains("1.5"), "error should include the value: {msg}");
-    }
-
-    #[test]
-    fn load_targets_rejects_negative_probability() {
-        let f = write_csv("team,round,probability\nUNC,2,-0.1\n");
-        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-        assert!(err.to_string().contains("UNC"));
-    }
-
-    #[test]
-    fn load_targets_rejects_round_zero() {
-        let f = write_csv("team,round,probability\nUNC,0,0.5\n");
-        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-        assert!(err.to_string().contains("round 0"));
-    }
-
-    #[test]
-    fn load_targets_rejects_round_seven() {
-        let f = write_csv("team,round,probability\nUNC,7,0.5\n");
-        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
-        assert!(err.to_string().contains("round 7"));
-    }
-}
-
 /// Pretty-print a table comparing target vs calibrated probabilities.
 /// Sorted by target expected points descending.
 pub fn print_calibration_table(final_errors: &[(String, usize, f64, f64)]) {
@@ -544,5 +489,60 @@ pub fn print_calibration_table(final_errors: &[(String, usize, f64, f64)]) {
             print!("\u{2503} {:5.1} {:5.1} ", t * 100.0, c * 100.0);
         }
         println!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_csv(content: &str) -> tempfile::NamedTempFile {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(content.as_bytes()).unwrap();
+        f.flush().unwrap();
+        f
+    }
+
+    #[test]
+    fn load_targets_valid() {
+        let f = write_csv("team,round,probability\nDuke,1,0.95\nDuke,2,0.80\n");
+        let targets = load_targets_from_csv(f.path().to_str().unwrap()).unwrap();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0].team, "Duke");
+    }
+
+    #[test]
+    fn load_targets_rejects_probability_above_one() {
+        let f = write_csv("team,round,probability\nDuke,1,1.5\n");
+        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        let msg = err.to_string();
+        assert!(msg.contains("Duke"), "error should name the team: {msg}");
+        assert!(msg.contains("1.5"), "error should include the value: {msg}");
+    }
+
+    #[test]
+    fn load_targets_rejects_negative_probability() {
+        let f = write_csv("team,round,probability\nUNC,2,-0.1\n");
+        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("UNC"));
+    }
+
+    #[test]
+    fn load_targets_rejects_round_zero() {
+        let f = write_csv("team,round,probability\nUNC,0,0.5\n");
+        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("round 0"));
+    }
+
+    #[test]
+    fn load_targets_rejects_round_seven() {
+        let f = write_csv("team,round,probability\nUNC,7,0.5\n");
+        let err = load_targets_from_csv(f.path().to_str().unwrap()).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("round 7"));
     }
 }
