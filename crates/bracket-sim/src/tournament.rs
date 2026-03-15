@@ -4,7 +4,7 @@ use crate::bracket_config::{BRACKET_SEED_ORDER, BracketConfig};
 use crate::game::Game;
 use crate::metrics::Metrics;
 use crate::team::Team;
-use crate::{Bracket, ScoringSystem};
+use crate::{Bracket, DEFAULT_PACE_D, ScoringSystem};
 use std::collections::HashMap;
 use std::io;
 
@@ -13,6 +13,8 @@ pub struct Tournament {
     teams: Vec<Team>,
     games: Vec<Game>,
     seeds: HashMap<String, u8>,
+    /// Pace dispersion ratio (variance / mean). See [`DEFAULT_PACE_D`].
+    pace_d: f64,
 }
 
 impl Default for Tournament {
@@ -27,7 +29,14 @@ impl Tournament {
             teams: Vec::new(),
             games: Vec::new(),
             seeds: HashMap::new(),
+            pace_d: DEFAULT_PACE_D,
         }
+    }
+
+    /// Set the pace dispersion ratio. See [`DEFAULT_PACE_D`] for details.
+    pub fn with_pace_d(mut self, pace_d: f64) -> Self {
+        self.pace_d = pace_d;
+        self
     }
 
     pub fn setup_tournament(&mut self, teams: Vec<Team>, config: &BracketConfig) {
@@ -141,9 +150,9 @@ impl Tournament {
 
         for mut game in games {
             let t1_expected = game.expected_t1_metrics();
-            game.result = Some(Game::simulate(t1_expected, rng));
+            game.result = Some(Game::simulate(t1_expected, self.pace_d, rng));
 
-            if let Some(winner) = game.winner(rng) {
+            if let Some(winner) = game.winner(self.pace_d, rng) {
                 let result = game.result.as_ref().unwrap();
                 let winner_is_t1 = winner.team == game.team1.team;
 
@@ -345,7 +354,7 @@ impl Tournament {
     }
 
     /// Simulate the tournament, returning results as a ByteBracket u64.
-    /// Same Poisson simulation + Bayesian metric updates as `simulate_tournament`,
+    /// Same NB/Poisson simulation + Bayesian metric updates as `simulate_tournament`,
     /// but sets bits instead of collecting string pairs.
     pub fn simulate_tournament_bb(&mut self, rng: &mut impl Rng) -> u64 {
         let mut bits: u64 = 0;
@@ -357,9 +366,9 @@ impl Tournament {
 
             for mut game in current_round_games {
                 let t1_expected = game.expected_t1_metrics();
-                game.result = Some(Game::simulate(t1_expected, rng));
+                game.result = Some(Game::simulate(t1_expected, self.pace_d, rng));
 
-                if let Some(winner) = game.winner(rng) {
+                if let Some(winner) = game.winner(self.pace_d, rng) {
                     let result = game.result.as_ref().unwrap();
                     let winner_is_t1 = winner.team == game.team1.team;
 

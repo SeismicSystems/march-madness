@@ -5,13 +5,40 @@ All notable changes to this project. Every PR must add an entry here.
 ## [Unreleased]
 
 ### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
-- **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1).
-- **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/tournament-status.json`. Adaptive polling: idle (30min), pre-game (60s), active (configurable, default 1/s), auto-exit on tournament completion.
-- **Game mapping**: Uses `tournament.json` + `get_teams_in_bracket_order()` to match NCAA `nameShort` to bracket positions. Hardcoded alias map for name mismatches (e.g. "Michigan St" → "Michigan St.", "UConn" → "Connecticut"). Later rounds derive matchups from decided game winners.
-- **Atomic writes**: tournament-status.json is written via tmp+rename to prevent partial reads by the server.
-- **Optional server POST**: `--api-url` + `--api-key` flags push status updates to the HTTP server's `POST /api/tournament-status` endpoint.
+- **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1). Strong types: `ContestState` enum (Pre, Live{period,clock}, Final(overtimes), Other(raw)), `Period` enum, `ContestDate`, parsed scores/seeds.
+- **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/2026/tournament-status.json`. Adaptive polling: pre-game (60s), active (configurable, default 1/s), auto-exit on tournament complete.
+- **Game mapping**: Uses `data/2026/mappings/ncaa-names.json` (NCAA nameShort → bracket position). R64 fast path computes game index directly. Later rounds derive matchups from decided game winners.
+- **Atomic writes**: tournament-status.json written via tmp+rename to prevent partial reads.
 - **GameStatus fields**: Added `seconds_remaining: Option<i32>` and `period: Option<u8>` to `GameStatus` in `seismic-march-madness` types (per issue #43 spec for live game conditioning in simulations).
-- **14 new tests**: 7 in ncaa-api (scoreboard parsing, season year, schedule, clock/period parsing, sport codes), 7 in ncaa-feed (mapper positions, feeder games, alias resolution, feed state, poll intervals, seeding from existing status).
+- **16 new tests**: 9 in ncaa-api (scoreboard parsing, clock/period/overtime parsing, team scores, contest date, sport codes), 7 in ncaa-feed (mapper positions, feeder games, name resolution, feed state, poll intervals, seeding from existing status).
+
+### 2026-03-15 — Use custom errors instead of require strings in all contracts (closes #39)
+- **MarchMadness.sol**: Replaced all ~15 `require(condition, "string")` statements with custom errors (`error ErrorName()` + `if (!condition) revert ErrorName()`). Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketGroups.sol**: Replaced all ~20 `require` statements with custom errors. Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketMirror.sol**: Replaced all ~10 `require` statements with custom errors.
+- **All test files** updated to use `vm.expectRevert(ContractName.ErrorName.selector)` (or `abi.encodeWithSelector` for parameterized errors) instead of revert string matching.
+- Errors defined per-contract (no shared error file) to keep things simple.
+
+### 2026-03-15 — Improve desktop bracket vertical symmetry (closes #31)
+- Replaced hardcoded pixel spacing (`getVerticalSpacing`) with flex-based layout using `justify-around` and `items-stretch`. Each round column now stretches to the same height as the R64 column, and games within each round automatically center between their two feeder games from the previous round.
+- Top and bottom halves now use `items-stretch` for equal-height regions, producing a symmetric layout where the Final Four sits cleanly in the center.
+- Added `gap-2` minimum spacing between games for visual breathing room.
+
+### 2026-03-15 — Upgrade seismic foundry to nightly-94eb5fc (closes #15)
+- Updated `sfoundry` pin in `mise.toml` from `nightly-08913bcc...` to `nightly-94eb5fc1...` (2026-03-14 release).
+
+### 2026-03-15 — Make `score_base_bb` public in bracket-sim
+- Removed `#[cfg(test)]` and `pub(crate)` gate from `scoring::score_base_bb` so downstream consumers (e.g. the brackets pool-strategy repo) can use it directly instead of duplicating the function.
+
+### 2026-03-15 — Sim: configurable pace dispersion + score-dist calibration tool (closes #41)
+- **Generalized pace distribution** in `crates/bracket-sim/src/game.rs` via `Game::sample_count(mean, d)` — a single dispersion ratio `d = variance/mean` controls the distribution family: d<1 uses binomial (underdispersed), d=1 uses Poisson, d>1 uses Gamma-Poisson/NB (overdispersed).
+- **Unified regulation and OT paths** — overtime now uses the same pace distribution as regulation instead of the old fixed-pace workaround. The dispersion parameter naturally scales variance with the mean.
+- **Calibrated default `DEFAULT_PACE_D = 0.3`** (underdispersed) via score-dist sweep against NCAA tournament empirical targets. At d=0.3 the simulated total-score stddev ≈ 20, closest to the empirical ~19.
+- **Panic-free simulation** — all distribution constructors use `match` with deterministic fallbacks instead of `unwrap()`. No panics possible in `sample_count` or `simulate_with_pace`.
+- **New CLI binary `score-dist`** — sweeps pace dispersion values and reports game-level statistics (avg total, margin spread, OT frequency, pace stddev) for calibration against empirical data.
+- **New CLI flag `--pace-d`** on `sim` binary — overrides the default dispersion ratio.
+- **Threaded `pace_d`** through `Tournament` (new field + `with_pace_d()` builder) → `Game::simulate()` → `Game::winner()` → `resolve_overtime()`.
+- **New tests**: `sample_count_underdispersed`, `sample_count_overdispersed`, `sample_count_poisson_baseline`, `ot_has_pace_variance`.
 
 ### 2026-03-15 — Pipeline orchestration scripts
 - **New script** `scripts/refresh.sh` — runs the full KenPom/Kalshi ingestion pipeline (scrape KenPom, fetch raw Kalshi futures, fit anchor model, normalize Kalshi futures, calibrate goose values). Supports `--hours N` flag to control cache TTL (default 6 hours).

@@ -11,6 +11,10 @@ path = "src/bin/calibrate.rs"
 name = "sim"
 path = "src/bin/sim.rs"
 
+[[bin]]
+name = "score-dist"
+path = "src/bin/score_dist.rs"
+
 [dependencies]
 rand = "0.9"
 rand_distr = "0.5"

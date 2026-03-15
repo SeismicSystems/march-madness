@@ -3,19 +3,19 @@
 kalshi-rsa-pk
 
 # Rust
-target/*
+target/
 
 # Typescript
 bun.lock
 node_modules/
 
-# Solidity
-contracts/out/
-contracts/cache/
-contracts/broadcast/*
+# Solidity (no trailing slash — these are symlinks in worktrees)
+contracts/out
+contracts/cache
+contracts/broadcast
 
-# Python
-.venv/
+# Python (no trailing slash — symlink in worktrees)
+.venv
 __pycache__/
 data/*/plots/
 data/cache

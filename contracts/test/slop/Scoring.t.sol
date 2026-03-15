@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
+import {IMarchMadness} from "../../src/IMarchMadness.sol";
 
 /// @title Scoring tests with various bracket combinations
 contract ScoringTest is Test {
@@ -76,7 +77,7 @@ contract ScoringTest is Test {
         mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
         mm.scoreBracket(alice);
 
-        vm.expectRevert("Already scored");
+        vm.expectRevert(IMarchMadness.AlreadyScored.selector);
         mm.scoreBracket(alice);
     }
 
@@ -84,7 +85,7 @@ contract ScoringTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
 
-        vm.expectRevert("No bracket submitted");
+        vm.expectRevert(IMarchMadness.NoBracketSubmitted.selector);
         mm.scoreBracket(alice);
     }
 

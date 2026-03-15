@@ -1,0 +1,3 @@
+your job is to tackle an issue on github. note that there is a branch called cdai__stray-prompts. you should pop off the prompt that created this issue and include it when you go through your checklist of including all the prompts (but include it on this branch, not the folder it's in currently). when you're done, go through the /checklist and submit a PR
+
+the issue you will take is #41; the stray prompt is docs/prompts/cdai__add-bracket-sim/1742058001-sim-negative-binomial.txt
