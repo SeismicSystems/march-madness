@@ -67,6 +67,10 @@ struct CalibrateArgs {
     /// Sleep between API requests in milliseconds
     #[arg(long, default_value_t = 300)]
     sleep_ms: u64,
+
+    /// Max trades to display (omit for all, 0 for none)
+    #[arg(long)]
+    top_trades: Option<usize>,
 }
 
 fn main() -> io::Result<()> {
@@ -216,8 +220,11 @@ fn main() -> io::Result<()> {
     // Edge summary by round
     orderbook::print_edge_summary(&result.final_edges, result.final_total_edge);
 
-    // All profitable trades
-    let trades = orderbook::all_trades(&result.final_edges);
+    // Profitable trades
+    let mut trades = orderbook::all_trades(&result.final_edges);
+    if let Some(n) = args.top_trades {
+        trades.truncate(n);
+    }
     orderbook::print_trade_log(&trades);
 
     // Goose values
