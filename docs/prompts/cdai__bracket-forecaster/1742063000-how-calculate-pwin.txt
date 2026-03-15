@@ -1,0 +1,1 @@
+how do we calculate P(who wins)? is it bc the file that the other server sends to us has the full joint distribution ?

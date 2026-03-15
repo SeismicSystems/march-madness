@@ -14,6 +14,8 @@ All notable changes to this project. Every PR must add an entry here.
 - **Client types**: Added `BracketForecast` and `ForecastIndex` TypeScript types.
 - **Leaderboard**: When forecasts are available, shows E[Score] and P(Win) columns. Win probability > 10% highlighted in green.
 - **Frontend hook**: `useForecasts` — polls `/api/forecasts` every 30s.
+- **API docs**: Added `docs/api.md` — full schema documentation with game index layout, all 64 team names, curl examples, Cargo.toml import snippet for the `seismic-march-madness` crate.
+- **Server port**: Default port changed from 3001 → 3000 (matches nginx proxy config at `brackets.seismictest.net`).
 
 ### 2026-03-15 — Tournament Live UI: leaderboard, bracket viewer, scoring
 - **Client library**: Ported ByteBracket scoring algorithm from Solidity to TypeScript BigInt (`scoring.ts`). Added `scoreBracket()` (full), `scoreBracketPartial()` (in-progress with max possible), `getScoringMask()`, `popcount()`, `pairwiseOr()`.

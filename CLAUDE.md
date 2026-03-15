@@ -43,9 +43,10 @@ packages/
   web/              — React frontend (bracket UI, Privy auth, leaderboard, bracket viewer)
   localdev/         — Local dev tools (populate script) + integration tests
 crates/
+  seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
-  forecaster/       — Monte Carlo bracket win probability simulator
+  forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
 data/               — Tournament data (teams, brackets, configs, tournament-status.json)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
