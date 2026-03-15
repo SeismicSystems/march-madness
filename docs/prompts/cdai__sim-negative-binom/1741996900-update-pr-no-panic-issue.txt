@@ -1,0 +1,5 @@
+yes update the PR. only thing you might want to do is prevent panicking on zero draws -- it shouldnt happen any more, but in that edge case we should either re-sample or eject to coinflip. i just want this part of the code to be panick-free.
+
+and it depends on how you're getting your data. our initial bracket here has say the top 1-64 teams... is your dataset over all ncaa games? we might have a mismatch somewhere
+
+i guess total being too high is interesting... so what i would do is make an issue with all of the observations you made, how you got the data, any updates re: the questions i asked you

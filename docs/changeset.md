@@ -4,6 +4,16 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Sim: configurable pace dispersion + score-dist calibration tool (closes #41)
+- **Generalized pace distribution** in `crates/bracket-sim/src/game.rs` via `Game::sample_count(mean, d)` — a single dispersion ratio `d = variance/mean` controls the distribution family: d<1 uses binomial (underdispersed), d=1 uses Poisson, d>1 uses Gamma-Poisson/NB (overdispersed).
+- **Unified regulation and OT paths** — overtime now uses the same pace distribution as regulation instead of the old fixed-pace workaround. The dispersion parameter naturally scales variance with the mean.
+- **Calibrated default `DEFAULT_PACE_D = 0.3`** (underdispersed) via score-dist sweep against NCAA tournament empirical targets. At d=0.3 the simulated total-score stddev ≈ 20, closest to the empirical ~19.
+- **Panic-free simulation** — all distribution constructors use `match` with deterministic fallbacks instead of `unwrap()`. No panics possible in `sample_count` or `simulate_with_pace`.
+- **New CLI binary `score-dist`** — sweeps pace dispersion values and reports game-level statistics (avg total, margin spread, OT frequency, pace stddev) for calibration against empirical data.
+- **New CLI flag `--pace-d`** on `sim` binary — overrides the default dispersion ratio.
+- **Threaded `pace_d`** through `Tournament` (new field + `with_pace_d()` builder) → `Game::simulate()` → `Game::winner()` → `resolve_overtime()`.
+- **New tests**: `sample_count_underdispersed`, `sample_count_overdispersed`, `sample_count_poisson_baseline`, `ot_has_pace_variance`.
+
 ### 2026-03-15 — Pipeline orchestration scripts
 - **New script** `scripts/refresh.sh` — runs the full KenPom/Kalshi ingestion pipeline (scrape KenPom, fetch raw Kalshi futures, fit anchor model, normalize Kalshi futures, calibrate goose values). Supports `--hours N` flag to control cache TTL (default 6 hours).
 - **CI: Python checks** — added `run_python` section to `scripts/ci.sh`: verifies `uv` deps install (`uv sync --frozen`) and runs `scrape_kenpom.py --help` as a smoke test. Wired into `all` and available as `./scripts/ci.sh python`.

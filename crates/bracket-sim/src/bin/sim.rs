@@ -21,6 +21,11 @@ struct SimArgs {
     /// Number of tournament simulations to run
     #[arg(short, long, default_value_t = 10000)]
     n_sims: usize,
+
+    /// Pace dispersion ratio (variance / mean).
+    /// <1 = underdispersed (binomial), 1 = Poisson, >1 = overdispersed (NB).
+    #[arg(long, default_value_t = bracket_sim::DEFAULT_PACE_D)]
+    pace_d: f64,
 }
 
 fn main() -> io::Result<()> {
@@ -40,12 +45,13 @@ fn main() -> io::Result<()> {
     info!(
         year = args.year,
         n_sims = args.n_sims,
+        pace_d = args.pace_d,
         "starting simulation"
     );
 
     let teams = load_teams_for_year(args.input.as_deref(), args.year)?;
 
-    let mut tournament = Tournament::new();
+    let mut tournament = Tournament::new().with_pace_d(args.pace_d);
     tournament.setup_tournament(teams, &bracket_config);
     let win_probs = tournament.calculate_team_win_probabilities(args.n_sims);
 
