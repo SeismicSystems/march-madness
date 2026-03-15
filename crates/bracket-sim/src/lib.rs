@@ -5,8 +5,8 @@ mod bracket;
 pub mod bracket_config;
 pub mod calibration;
 mod game;
-mod metrics;
-mod scoring;
+pub mod metrics;
+pub mod scoring;
 pub mod team;
 mod tournament;
 
