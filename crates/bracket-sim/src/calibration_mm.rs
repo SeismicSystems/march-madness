@@ -105,18 +105,17 @@ pub fn calibrate_mm(
             break;
         }
 
-        // 5. Compute per-team goose adjustment from signed edge
-        // signed_edge = sell_edge - buy_edge
-        // Positive → market values team higher → increase goose
-        // Negative → market values team lower → decrease goose
+        // 5. Compute per-team goose adjustment from edge
+        // Positive edge → market values team higher → increase goose
+        // Negative edge → market values team lower → decrease goose
         let mut goose_deltas: HashMap<String, (f64, f64)> = HashMap::new(); // (sum, count)
 
         for edge in &final_edges {
-            if edge.total_edge < 0.001 {
+            if edge.edge.abs() < 0.001 {
                 continue; // no meaningful edge, skip
             }
             let entry = goose_deltas.entry(edge.team.clone()).or_insert((0.0, 0.0));
-            entry.0 += edge.signed_edge;
+            entry.0 += edge.edge;
             entry.1 += 1.0;
         }
 
