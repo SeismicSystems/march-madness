@@ -1,0 +1,7 @@
+put up an issue to change the calibrator binary to instead do this:
+- get rid of this ugly normalize kalshi odds bullshit pipeline
+- instead, store bid and ask sizes alongside the kalshi data. then our loss function is defined by, how much our fair values go through the kalshi prices levels, times the size of those levels
+- essentially the metric is "how many trades would our model want to do on kalshi, and how much money would it make diong them?"
+- our target is to be able to make $0 trading on kalshi, as we're modeling it as an efficient market
+
+at the very end of the calibrator script, we should log out the best trades one can do on kalshi, along with their EV. ideally even a link to the market itself if that is possible!

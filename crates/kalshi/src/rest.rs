@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
 use tracing::debug;
 
 use crate::auth::{KalshiAuth, workspace_root};
-use crate::types::{CachedRound, KALSHI_API_BASE, Market, MarketDef, MarketsResponse};
+use crate::types::{
+    CachedOrderbooks, CachedRound, KALSHI_API_BASE, Market, MarketDef, MarketsResponse, Orderbook,
+    OrderbookLevel, OrderbookResponse,
+};
 
 pub struct KalshiRestClient {
     client: Client,
@@ -75,6 +78,90 @@ impl KalshiRestClient {
 
         Ok(all_markets)
     }
+
+    /// Fetch the orderbook for a single market ticker.
+    ///
+    /// `GET /trade-api/v2/markets/{ticker}/orderbook?depth={depth}`
+    ///
+    /// NO bids at price X are converted to YES asks at (100 - X) cents.
+    pub fn get_orderbook(
+        &self,
+        ticker: &str,
+        depth: usize,
+    ) -> Result<Orderbook, Box<dyn std::error::Error>> {
+        let path = format!("/trade-api/v2/markets/{}/orderbook", ticker);
+        let url = format!("{}{}?depth={}", KALSHI_API_BASE, path, depth);
+
+        let headers = self.auth.auth_headers("GET", &path)?;
+        let mut req = self.client.get(&url);
+        for (k, v) in &headers {
+            req = req.header(k.as_str(), v.as_str());
+        }
+        let resp = req.send()?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().unwrap_or_default();
+            return Err(format!("Kalshi orderbook API error ({}): {}", status, body).into());
+        }
+
+        let data: OrderbookResponse = resp.json()?;
+
+        // YES bids come directly from the YES side, sorted descending by price
+        let mut yes_bids: Vec<OrderbookLevel> = data
+            .orderbook
+            .yes
+            .iter()
+            .map(|[p, q]| OrderbookLevel {
+                price: *p,
+                quantity: *q,
+            })
+            .collect();
+        yes_bids.sort_by(|a, b| b.price.cmp(&a.price));
+
+        // NO bids at price X → YES asks at (100 - X) cents, sorted ascending by price
+        let mut yes_asks: Vec<OrderbookLevel> = data
+            .orderbook
+            .no
+            .iter()
+            .map(|[p, q]| OrderbookLevel {
+                price: 100 - p,
+                quantity: *q,
+            })
+            .collect();
+        yes_asks.sort_by(|a, b| a.price.cmp(&b.price));
+
+        debug!(
+            ticker,
+            yes_bids = yes_bids.len(),
+            yes_asks = yes_asks.len(),
+            "fetched orderbook"
+        );
+
+        Ok(Orderbook {
+            ticker: ticker.to_string(),
+            yes_bids,
+            yes_asks,
+        })
+    }
+
+    /// Fetch orderbooks for all tickers in a round.
+    pub fn get_round_orderbooks(
+        &self,
+        markets: &[Market],
+        depth: usize,
+        sleep_ms: u64,
+    ) -> Result<Vec<Orderbook>, Box<dyn std::error::Error>> {
+        let mut orderbooks = Vec::new();
+        for (i, market) in markets.iter().enumerate() {
+            if i > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+            }
+            let ob = self.get_orderbook(&market.ticker, depth)?;
+            orderbooks.push(ob);
+        }
+        Ok(orderbooks)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +212,57 @@ pub fn save_cache(
     };
     let json = serde_json::to_string_pretty(&cached)?;
     let path = cache_path(market);
+    fs::write(&path, json)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Orderbook cache
+// ---------------------------------------------------------------------------
+
+fn orderbook_cache_path(market: &MarketDef) -> PathBuf {
+    cache_dir().join(format!(
+        "orderbook_round{}_{}.json",
+        market.round, market.label
+    ))
+}
+
+pub fn load_orderbook_cache(market: &MarketDef, ttl: Duration) -> Option<CachedOrderbooks> {
+    let path = orderbook_cache_path(market);
+    let content = fs::read_to_string(&path).ok()?;
+    let cached: CachedOrderbooks = serde_json::from_str(&content).ok()?;
+    let age = Utc::now() - cached.fetched_at;
+    if age > ttl {
+        debug!(
+            "orderbook cache expired for {} (age: {}s, ttl: {}s)",
+            market.label,
+            age.num_seconds(),
+            ttl.num_seconds()
+        );
+        return None;
+    }
+    debug!(
+        "using cached orderbook {} (age: {}s)",
+        market.label,
+        age.num_seconds()
+    );
+    Some(cached)
+}
+
+pub fn save_orderbook_cache(
+    market: &MarketDef,
+    orderbooks: &[Orderbook],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let dir = cache_dir();
+    fs::create_dir_all(&dir)?;
+    let cached = CachedOrderbooks {
+        fetched_at: Utc::now(),
+        event_ticker: market.event_ticker.to_string(),
+        round: market.round,
+        orderbooks: orderbooks.to_vec(),
+    };
+    let json = serde_json::to_string_pretty(&cached)?;
+    let path = orderbook_cache_path(market);
     fs::write(&path, json)?;
     Ok(())
 }

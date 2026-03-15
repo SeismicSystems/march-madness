@@ -1,0 +1,77 @@
+Implement the following plan:
+
+# Plan: Market-Making Loss Calibrator (Issue #40)
+
+## Context
+
+The current calibration pipeline is: `kalshi fetch` → normalize probabilities to CSV → `calibrate` fits goose values using Beta-CI convergence. The normalization pipeline (backfill, 5-pass rescaling, monotonicity enforcement) is fragile and lossy. Issue #40 proposes replacing it with a market-making loss function: measure how much money our model would make trading against Kalshi's orderbook. An efficient model makes $0.
+
+User requirements: HTTPS-only (no WS) for V1, use cache with TTL, fetch **top N orderbook levels** (not just NBBO) to penalize passing through spread, build modularly for future complexity.
+
+## Housekeeping
+
+1. **Move stray prompt**: Copy `docs/prompts/cdai__add-bracket-sim/1742058000-calibrator-kalshi-loss-function.txt` from `cdai__stray-prompts` branch into `docs/prompts/cdai__kalshi-calibrator-revamp/` on this branch
+2. **Save this prompt** to `docs/prompts/cdai__kalshi-calibrator-revamp/`
+3. **Update** `docs/changeset.md`, `README.md`, `CLAUDE.md` at the end
+
+## Architecture
+
+```
+kalshi crate (existing)                  bracket-sim crate (existing)
+├── types.rs + new Orderbook types       ├── calibration.rs (keep, legacy CSV mode)
+├── rest.rs + get_orderbook()            ├── calibration_mm.rs (NEW: market-making loop)
+├── orderbook.rs (NEW: edge computation) └── bin/calibrate.rs (revamp: add --mode mm)
+└── lib.rs (export orderbook module)
+```
+
+`bracket-sim` gains a dependency on `kalshi` crate. The calibrate binary fetches orderbook data in-process (with cache), no intermediate CSV.
+
+## Implementation Steps
+
+### Phase 1: Kalshi Orderbook Types & Fetching
+
+**File: `crates/kalshi/src/types.rs`** — Add types:
+- `OrderbookLevel { price: u32, quantity: u32 }` — single price level (cents, contracts)
+- `Orderbook { ticker: String, yes_bids: Vec<OrderbookLevel>, yes_asks: Vec<OrderbookLevel> }`
+- `OrderbookResponse` / `OrderbookResponseInner` — raw API deserialization (`{"orderbook": {"yes": [[p,q],...], "no": [[p,q],...]}}`)
+- `CachedOrderbooks { fetched_at, event_ticker, round, orderbooks: Vec<Orderbook> }`
+- `TeamOrderbook { team: String, round: usize, ticker: String, orderbook: Orderbook }`
+
+**File: `crates/kalshi/src/rest.rs`** — Add methods:
+- `get_orderbook(ticker: &str, depth: usize) -> Result<Orderbook>` — `GET /trade-api/v2/markets/{ticker}/orderbook?depth={depth}`, parse YES bids/asks from response (NO bids at price X → YES asks at 100-X)
+- `get_round_orderbooks(market_def, markets, depth, sleep_ms) -> Result<Vec<Orderbook>>` — batch fetch for all tickers in a round
+- `load_orderbook_cache(market, ttl)` / `save_orderbook_cache(market, orderbooks)` — same pattern as existing `load_cache`/`save_cache`
+
+**File: `crates/kalshi/src/lib.rs`** — Add `pub mod orderbook;`
+
+### Phase 2: Edge Computation Module
+
+**New file: `crates/kalshi/src/orderbook.rs`** — Market-making loss computation:
+
+```rust
+// Core types
+pub struct MarketEdge { team, round, ticker, model_prob, buy_edge, sell_edge, total_edge, best_trade }
+pub struct Trade { side, team, round, price_cents, model_prob_cents, edge_cents, quantity, ticker }
+pub enum Side { Buy, Sell }
+
+// Core functions
+pub fn compute_edge(model_prob: f64, orderbook: &Orderbook) -> (f64, f64)
+pub fn compute_total_loss(model_probs: &HashMap<(String, usize), f64>, orderbooks: &[TeamOrderbook]) -> (f64, Vec<MarketEdge>)
+pub fn best_trades(edges: &[MarketEdge], top_n: usize) -> Vec<Trade>
+pub fn print_trade_log(trades: &[Trade])
+pub fn kalshi_url(ticker: &str) -> String
+```
+
+### Phase 3: Market-Making Calibration Loop
+
+**New file: `crates/bracket-sim/src/calibration_mm.rs`**:
+- MmCalibrationConfig, MmCalibrationResult, calibrate_mm()
+- Calibration loop: simulate → compute model probs → compute edge → adjust goose using signed edge as gradient → zero-sum center + clamp
+
+### Phase 4: Revamp Calibrate Binary
+
+**File: `crates/bracket-sim/src/bin/calibrate.rs`** — Add --mode mm/csv
+- MM mode fetches orderbooks in-process, runs calibrate_mm, prints trade log
+- Legacy csv mode preserved
+
+### Phase 5: Docs & Cleanup

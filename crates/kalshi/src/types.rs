@@ -99,6 +99,59 @@ pub struct CachedRound {
 }
 
 // ---------------------------------------------------------------------------
+// Orderbook types
+// ---------------------------------------------------------------------------
+
+/// A single price level in an orderbook (price in cents, quantity in contracts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderbookLevel {
+    pub price: u32,
+    pub quantity: u32,
+}
+
+/// Parsed orderbook for a single market: YES-side bids and asks, sorted by price.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Orderbook {
+    pub ticker: String,
+    /// YES bids sorted descending by price (best bid first).
+    pub yes_bids: Vec<OrderbookLevel>,
+    /// YES asks sorted ascending by price (best ask first).
+    pub yes_asks: Vec<OrderbookLevel>,
+}
+
+/// Raw API response: `{"orderbook": {"yes": [[p,q],...], "no": [[p,q],...]}}`.
+#[derive(Debug, Deserialize)]
+pub struct OrderbookResponse {
+    pub orderbook: OrderbookResponseInner,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderbookResponseInner {
+    #[serde(default)]
+    pub yes: Vec<[u32; 2]>,
+    #[serde(default)]
+    pub no: Vec<[u32; 2]>,
+}
+
+/// Orderbook data for a specific team, round, and ticker.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeamOrderbook {
+    pub team: String,
+    pub round: usize,
+    pub ticker: String,
+    pub orderbook: Orderbook,
+}
+
+/// Cached orderbooks for a round (mirrors CachedRound pattern).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CachedOrderbooks {
+    pub fetched_at: chrono::DateTime<chrono::Utc>,
+    pub event_ticker: String,
+    pub round: usize,
+    pub orderbooks: Vec<Orderbook>,
+}
+
+// ---------------------------------------------------------------------------
 // WebSocket message types
 // ---------------------------------------------------------------------------
 

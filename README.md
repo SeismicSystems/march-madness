@@ -57,6 +57,7 @@ Two separate contracts for side pools alongside the main contest:
 | Indexer | Rust (event listener + backfill) |
 | Server | Rust (HTTP, serves indexed data + tournament status + forecasts) |
 | Forecaster | Rust (Monte Carlo bracket win probability simulator) |
+| Calibrator | Rust (goose fitting via market-making loss against Kalshi orderbooks) |
 
 ## Pages
 
@@ -84,6 +85,9 @@ packages/
   web/              — React web app (bracket UI, auth, leaderboard, bracket viewer)
   localdev/         — Local dev tools + integration tests
 crates/
+  seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers
+  kalshi/           — Kalshi odds ingestor (REST + WS + orderbook fetching)
+  bracket-sim/      — Tournament simulation, calibration (CSV + market-making modes)
   indexer/          — Rust event listener (tracks bracket submissions)
   server/           — HTTP API server (entries + tournament status + forecasts)
   forecaster/       — Monte Carlo win probability simulator
