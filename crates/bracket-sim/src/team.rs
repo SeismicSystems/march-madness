@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
+use std::path::Path;
 
 use crate::{MAX_PACE, MAX_RTG, MIN_PACE, MIN_RTG, UPDATE_FACTOR, metrics::Metrics};
 
@@ -35,11 +36,20 @@ struct KenpomRow {
     goose: f64,
 }
 
-/// Load teams by joining a bracket CSV (team,seed,region) with a KenPom CSV
-/// (team,ortg,drtg,pace). Panics if any team in the bracket file is missing
-/// from the KenPom file.
-pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>> {
-    // Load KenPom ratings into a map
+/// Tournament JSON format (mens-{year}.json).
+#[derive(Debug, Deserialize)]
+struct TournamentJson {
+    teams: Vec<TournamentJsonTeam>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TournamentJsonTeam {
+    name: String,
+    seed: u8,
+    region: String,
+}
+
+fn load_kenpom_map(kenpom_path: &str) -> io::Result<HashMap<String, (Metrics, f64)>> {
     let kenpom_file = File::open(kenpom_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", kenpom_path, e)))?;
     let mut kenpom_reader = csv::ReaderBuilder::new()
@@ -60,8 +70,63 @@ pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>
             ),
         );
     }
+    Ok(kenpom_map)
+}
 
-    // Load bracket and join
+/// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
+/// The JSON provides bracket structure (name, seed, region); KenPom provides ratings.
+pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
+    let kenpom_map = load_kenpom_map(kenpom_path)?;
+
+    let json_content = std::fs::read_to_string(json_path)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
+    let tournament: TournamentJson = serde_json::from_str(&json_content).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("{}: {}", json_path.display(), e),
+        )
+    })?;
+
+    let mut teams = Vec::new();
+    let mut missing = Vec::new();
+
+    for t in tournament.teams {
+        match kenpom_map.get(&t.name) {
+            Some((metrics, goose)) => {
+                teams.push(Team {
+                    team: t.name,
+                    seed: t.seed,
+                    region: t.region,
+                    metrics: *metrics,
+                    goose: *goose,
+                });
+            }
+            None => {
+                missing.push(t.name);
+            }
+        }
+    }
+
+    if !missing.is_empty() {
+        panic!(
+            "FATAL: {} bracket team(s) not found in KenPom file '{}':\n  {}\n\
+             Fix the team name mapping or update the KenPom data.",
+            missing.len(),
+            kenpom_path,
+            missing.join("\n  ")
+        );
+    }
+
+    validate_bracket_structure(&teams);
+    Ok(teams)
+}
+
+/// Load teams by joining a bracket CSV (team,seed,region) with a KenPom CSV
+/// (team,ortg,drtg,pace). Panics if any team in the bracket file is missing
+/// from the KenPom file.
+pub fn load_teams(bracket_path: &str, kenpom_path: &str) -> io::Result<Vec<Team>> {
+    let kenpom_map = load_kenpom_map(kenpom_path)?;
+
     let bracket_file = File::open(bracket_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", bracket_path, e)))?;
     let mut bracket_reader = csv::ReaderBuilder::new()

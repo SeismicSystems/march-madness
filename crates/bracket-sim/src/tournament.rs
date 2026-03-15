@@ -7,6 +7,7 @@ use crate::team::{self, Team};
 use crate::{Bracket, ScoringSystem};
 use std::collections::HashMap;
 use std::io;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct Tournament {
@@ -28,6 +29,11 @@ impl Tournament {
             games: Vec::new(),
             seeds: HashMap::new(),
         }
+    }
+
+    /// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
+    pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
+        team::load_teams_from_json(json_path, kenpom_path)
     }
 
     /// Load teams by joining bracket CSV (team,seed,region) with KenPom CSV (team,ortg,drtg,pace).

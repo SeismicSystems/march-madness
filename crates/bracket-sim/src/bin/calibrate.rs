@@ -85,10 +85,9 @@ fn load_teams(input: Option<PathBuf>, year: u16) -> std::io::Result<Vec<bracket_
         return Tournament::load_teams_from_csv(path_to_str(&path)?);
     }
     let data = default_data_dir();
-    let season_dir = data.join(year.to_string());
-    let bracket = season_dir.join("bracket.csv");
-    let kenpom = season_dir.join("kenpom.csv");
-    Tournament::load_teams(path_to_str(&bracket)?, path_to_str(&kenpom)?)
+    let bracket_json = data.join(format!("mens-{}.json", year));
+    let kenpom = data.join(year.to_string()).join("kenpom.csv");
+    Tournament::load_teams_from_json(&bracket_json, path_to_str(&kenpom)?)
 }
 
 fn main() -> io::Result<()> {
