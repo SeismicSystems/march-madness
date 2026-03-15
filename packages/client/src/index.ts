@@ -29,3 +29,22 @@ export {
   getTeamAdvancements,
 } from "./format.ts";
 export type { TeamInfo, FormattedTeamLine, RoundName } from "./format.ts";
+
+// ── Scoring ─────────────────────────────────────────────────────────
+export {
+  scoreBracket,
+  scoreBracketWithMask,
+  scoreBracketPartial,
+  getScoringMask,
+  popcount,
+  pairwiseOr,
+} from "./scoring.ts";
+
+// ── Types ───────────────────────────────────────────────────────────
+export type {
+  GameStatus,
+  TournamentStatus,
+  EntryRecord,
+  EntryIndex,
+  PartialScore,
+} from "./types.ts";

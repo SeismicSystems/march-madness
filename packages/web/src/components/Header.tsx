@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
 
 import { FAUCET_URL } from "../lib/constants";
@@ -15,6 +16,7 @@ export function Header({ entryCount }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   const address = user?.wallet?.address;
 
@@ -37,16 +39,37 @@ export function Header({ entryCount }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  const navLinkClass = (path: string) => {
+    const active = location.pathname === path;
+    return `px-3 py-2 text-sm rounded-lg transition-colors ${
+      active
+        ? "bg-bg-tertiary text-text-primary font-medium"
+        : "text-text-secondary hover:text-text-primary hover:bg-bg-hover"
+    }`;
+  };
+
   return (
     <header className="border-b border-border bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-[1800px] mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <h1 className="text-base sm:text-xl font-bold text-text-primary tracking-tight whitespace-nowrap">
-            March Madness
-            <span className="text-accent ml-1 sm:ml-2 font-normal text-xs sm:text-sm">
-              on Seismic
-            </span>
-          </h1>
+          <Link to="/" className="flex items-center gap-1 sm:gap-2">
+            <h1 className="text-base sm:text-xl font-bold text-text-primary tracking-tight whitespace-nowrap">
+              March Madness
+              <span className="text-accent ml-1 sm:ml-2 font-normal text-xs sm:text-sm">
+                on Seismic
+              </span>
+            </h1>
+          </Link>
+          {!isMobile && (
+            <nav className="flex items-center gap-1 ml-2">
+              <Link to="/" className={navLinkClass("/")}>
+                Bracket
+              </Link>
+              <Link to="/leaderboard" className={navLinkClass("/leaderboard")}>
+                Leaderboard
+              </Link>
+            </nav>
+          )}
           {entryCount > 0 && !isMobile && (
             <span className="text-xs text-text-muted bg-bg-tertiary px-2 py-1 rounded-full">
               {entryCount} {entryCount === 1 ? "entry" : "entries"}
@@ -132,6 +155,20 @@ export function Header({ entryCount }: HeaderProps) {
                     {entryCount} {entryCount === 1 ? "entry" : "entries"}
                   </div>
                 )}
+                <Link
+                  to="/"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+                >
+                  Bracket
+                </Link>
+                <Link
+                  to="/leaderboard"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+                >
+                  Leaderboard
+                </Link>
                 {authenticated && address && (
                   <button
                     onClick={() => {

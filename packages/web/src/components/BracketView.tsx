@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import type { TournamentStatus } from "@march-madness/client";
+
 import type { GameSlot } from "../hooks/useBracket";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { tournament } from "../lib/tournament";
@@ -11,6 +13,7 @@ interface BracketViewProps {
   getGamesForRound: (round: number) => GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled?: boolean;
+  tournamentStatus?: TournamentStatus;
 }
 
 /**
@@ -27,6 +30,7 @@ export function BracketView({
   getGamesForRound,
   onPick,
   disabled = false,
+  tournamentStatus,
 }: BracketViewProps) {
   const isMobile = useIsMobile();
   const regions = tournament.regions; // [East, West, South, Midwest]
@@ -56,6 +60,7 @@ export function BracketView({
         champGame={champGame}
         onPick={onPick}
         disabled={disabled}
+        tournamentStatus={tournamentStatus}
       />
     );
   }
@@ -70,6 +75,7 @@ export function BracketView({
             rounds={getRegionGames(0)}
             onPick={onPick}
             disabled={disabled}
+            tournamentStatus={tournamentStatus}
           />
           <FinalFour
             semifinal1={f4Games[0] ?? null}
@@ -77,6 +83,7 @@ export function BracketView({
             championship={champGame[0] ?? null}
             onPick={onPick}
             disabled={disabled}
+            tournamentStatus={tournamentStatus}
           />
           <BracketRegion
             regionName={regions[1]}
@@ -84,6 +91,7 @@ export function BracketView({
             onPick={onPick}
             disabled={disabled}
             reversed
+            tournamentStatus={tournamentStatus}
           />
         </div>
 
@@ -94,6 +102,7 @@ export function BracketView({
             rounds={getRegionGames(2)}
             onPick={onPick}
             disabled={disabled}
+            tournamentStatus={tournamentStatus}
           />
           {/* Spacer for alignment with Final Four column */}
           <div className="min-w-[200px]" />
@@ -103,6 +112,7 @@ export function BracketView({
             onPick={onPick}
             disabled={disabled}
             reversed
+            tournamentStatus={tournamentStatus}
           />
         </div>
       </div>
@@ -121,6 +131,7 @@ function MobileBracket({
   champGame,
   onPick,
   disabled,
+  tournamentStatus,
 }: {
   regions: string[];
   getRegionGames: (i: number) => GameSlot[][];
@@ -128,6 +139,7 @@ function MobileBracket({
   champGame: GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled: boolean;
+  tournamentStatus?: TournamentStatus;
 }) {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -160,6 +172,7 @@ function MobileBracket({
             onPick={onPick}
             disabled={disabled}
             compact
+            tournamentStatus={tournamentStatus}
           />
         ) : (
           <FinalFour
@@ -168,6 +181,7 @@ function MobileBracket({
             championship={champGame[0] ?? null}
             onPick={onPick}
             disabled={disabled}
+            tournamentStatus={tournamentStatus}
           />
         )}
       </div>

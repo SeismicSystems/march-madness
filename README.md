@@ -48,20 +48,28 @@ A later-round pick only scores if the feeder games were also picked correctly.
 | Frontend | React + Vite + Tailwind + seismic-react |
 | Auth | Privy (social login → embedded wallet) |
 | Indexer | Rust (event listener + backfill) |
-| Server | Rust (HTTP, serves indexed data) |
+| Server | Rust (HTTP, serves indexed data + tournament status) |
+
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline) |
+| `/leaderboard` | All entries ranked by score with current/max points, champion pick |
+| `/bracket/:address` | Read-only bracket view for any player with tournament status overlay |
 
 ## Project Structure
 
 ```
 contracts/          — Seismic Solidity smart contracts
 packages/
-  client/           — TypeScript client library (bracket encoding, contract interaction)
-  web/              — React web app (bracket UI, auth, live scoring)
+  client/           — TypeScript client library (bracket encoding, scoring, contract interaction)
+  web/              — React web app (bracket UI, auth, leaderboard, bracket viewer)
   localdev/         — Local dev tools + integration tests
 crates/
   indexer/          — Rust event listener (tracks bracket submissions)
-  server/           — HTTP API server
-data/               — Tournament configuration (teams, regions, seeds)
+  server/           — HTTP API server (entries + tournament status)
+data/               — Tournament data, seed configs, tournament-status.json
 docs/               — Technical docs, changeset log, prompt archive
 ```
 

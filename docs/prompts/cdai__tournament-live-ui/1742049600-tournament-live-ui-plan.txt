@@ -1,0 +1,7 @@
+Implement the following plan:
+
+# Tournament-in-Progress UI
+
+[full plan as provided]
+
+User addendum: "yes you define the schema you like and i will make it work on my end. just make sure we add some functionality to load it from backend and add ability to POST it to backend (with simple api key).. once we get that response with probabilities of all ways tournament can evolve, we can use the other "what addresses submitted whixh brackets" json to generate scores and forecasts for these brackets. thats stuff we'll add to the scope of this PR (maybe work on it in parallel agent? -- ones pure backend the others pure frontend and we'll tie them together in a future pr)"
