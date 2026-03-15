@@ -1,0 +1,1 @@
+we need to be getting the sig from privy and calling send raw transaction ourselves! we need message version 2 for both anvil and reth... add reth integration test suite too
