@@ -1,3 +1,5 @@
+import type { TournamentStatus } from "@march-madness/client";
+
 import type { GameSlot } from "../hooks/useBracket";
 import { ROUND_NAMES } from "../lib/constants";
 import { BracketGame } from "./BracketGame";
@@ -12,6 +14,7 @@ interface BracketRegionProps {
   reversed?: boolean;
   /** Compact mode for mobile — smaller sizing and spacing */
   compact?: boolean;
+  tournamentStatus?: TournamentStatus;
 }
 
 export function BracketRegion({
@@ -21,6 +24,7 @@ export function BracketRegion({
   disabled = false,
   reversed = false,
   compact = false,
+  tournamentStatus,
 }: BracketRegionProps) {
   const orderedRounds = reversed ? [...rounds].reverse() : rounds;
 
@@ -55,6 +59,7 @@ export function BracketRegion({
                   disabled={disabled}
                   compact={actualRoundIdx === 0}
                   mobile={compact}
+                  gameStatus={tournamentStatus?.games[game.gameIndex]}
                 />
               ))}
             </div>

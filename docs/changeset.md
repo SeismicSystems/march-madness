@@ -4,6 +4,18 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Tournament Live UI: leaderboard, bracket viewer, scoring
+- **Client library**: Ported ByteBracket scoring algorithm from Solidity to TypeScript BigInt (`scoring.ts`). Added `scoreBracket()` (full), `scoreBracketPartial()` (in-progress with max possible), `getScoringMask()`, `popcount()`, `pairwiseOr()`.
+- **Types**: Added shared types in `packages/client/src/types.ts` — `TournamentStatus`, `GameStatus`, `EntryRecord`, `EntryIndex`, `PartialScore`.
+- **Rust server**: Added `GET /api/tournament-status` (serves `data/tournament-status.json` with TTL cache) and `POST /api/tournament-status` (API key auth via `TOURNAMENT_API_KEY` env var or `--api-key` flag) for external data sources to push status updates.
+- **React Router**: Added `react-router-dom` — routes: `/` (home/bracket picker), `/leaderboard` (scored entries), `/bracket/:address` (read-only viewer).
+- **Leaderboard page**: Fetches entries + tournament status, scores each bracket with `scoreBracketPartial`, sorts by score. Shows rank, player tag/address, current/max score, champion pick, and link to bracket viewer.
+- **Bracket viewer page**: Read-only bracket view at `/bracket/:address` with tournament status overlay. Breadcrumb nav back to leaderboard.
+- **Tournament overlays on BracketGame**: Live games show pulsing green dot + basketball scores + win probability badge. Final correct picks show green checkmark. Final wrong picks show red X + strikethrough + muted opacity.
+- **Header nav**: Added Bracket/Leaderboard navigation links (desktop inline, mobile in dropdown menu).
+- **Seed data**: Created `data/tournament-status.json` with ~16 R64 finals, ~8 live games, rest upcoming, plus sample `teamReachProbabilities`.
+- **Hooks**: `useTournamentStatus` (polls /api/tournament-status every 30s), `useEntries` (polls /api/entries every 30s), `useReadOnlyBracket` (compute GameSlot[] from hex string).
+
 ### 2026-03-15 — Desktop bracket layout redesign
 - **Bracket convergence**: Fixed double-reversal bug in `BracketRegion` — right-side regions (West, Midwest) now correctly flow inward toward the center where the champion is crowned, matching standard bracket app convention.
 - **Submit panel**: Redesigned as a compact horizontal bar on desktop (mobile layout unchanged). Progress, status, entry fee, tag input, and submit button all in one thin row.

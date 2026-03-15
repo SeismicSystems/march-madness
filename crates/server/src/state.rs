@@ -15,6 +15,10 @@ struct Inner {
     index_path: PathBuf,
     cache: RwLock<CachedIndex>,
     ttl: Duration,
+    tournament_status_path: PathBuf,
+    tournament_status_cache: RwLock<CachedJson>,
+    /// API key for POST /api/tournament-status.
+    api_key: Option<String>,
 }
 
 struct CachedIndex {
@@ -22,16 +26,33 @@ struct CachedIndex {
     fetched_at: Instant,
 }
 
+struct CachedJson {
+    data: serde_json::Value,
+    fetched_at: Instant,
+}
+
 impl AppState {
-    pub fn new(index_path: PathBuf, ttl: Duration) -> Self {
+    pub fn new(
+        index_path: PathBuf,
+        ttl: Duration,
+        tournament_status_path: PathBuf,
+        api_key: Option<String>,
+    ) -> Self {
+        let expired = Instant::now() - ttl - Duration::from_secs(1);
         Self {
             inner: Arc::new(Inner {
                 index_path,
                 cache: RwLock::new(CachedIndex {
                     data: EntryIndex::new(),
-                    fetched_at: Instant::now() - ttl - Duration::from_secs(1), // force first load
+                    fetched_at: expired,
                 }),
                 ttl,
+                tournament_status_path,
+                tournament_status_cache: RwLock::new(CachedJson {
+                    data: serde_json::Value::Null,
+                    fetched_at: expired,
+                }),
+                api_key,
             }),
         }
     }
@@ -68,5 +89,59 @@ impl AppState {
         cache.fetched_at = Instant::now();
 
         Ok(data)
+    }
+
+    /// Get the tournament status JSON, with TTL cache.
+    pub async fn get_tournament_status(&self) -> Result<serde_json::Value> {
+        {
+            let cache = self.inner.tournament_status_cache.read().await;
+            if cache.fetched_at.elapsed() < self.inner.ttl && !cache.data.is_null() {
+                return Ok(cache.data.clone());
+            }
+        }
+
+        let path = self.inner.tournament_status_path.clone();
+        let data = tokio::task::spawn_blocking(move || -> Result<serde_json::Value> {
+            if !path.exists() {
+                return Ok(serde_json::Value::Null);
+            }
+            let file = std::fs::File::open(&path)?;
+            let reader = std::io::BufReader::new(&file);
+            let value: serde_json::Value = serde_json::from_reader(reader)?;
+            Ok(value)
+        })
+        .await??;
+
+        let mut cache = self.inner.tournament_status_cache.write().await;
+        cache.data = data.clone();
+        cache.fetched_at = Instant::now();
+
+        Ok(data)
+    }
+
+    /// Write tournament status JSON to disk and invalidate cache.
+    pub async fn set_tournament_status(&self, value: serde_json::Value) -> Result<()> {
+        let path = self.inner.tournament_status_path.clone();
+        let data = value.clone();
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let contents = serde_json::to_string_pretty(&data)?;
+            std::fs::write(&path, contents)?;
+            Ok(())
+        })
+        .await??;
+
+        let mut cache = self.inner.tournament_status_cache.write().await;
+        cache.data = value;
+        cache.fetched_at = Instant::now();
+
+        Ok(())
+    }
+
+    /// Check if the provided API key is valid.
+    pub fn check_api_key(&self, key: &str) -> bool {
+        match &self.inner.api_key {
+            Some(expected) => key == expected,
+            None => false,
+        }
     }
 }

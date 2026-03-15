@@ -1,0 +1,4 @@
+we should now focus on UIs for when the tournament is in progress. we want to think about:
+- a page that shows all brackets, associated tags, current (off-chain) score, and a link to view the bracket
+- a view that shows someone else's submitted bracket (only available after lock)
+--> on this page (and on user's homepage after lock), we should load a json from the backend server. this server will have all the relevant info about the status of a game: current score, if exists; end result, if finalized; probability that each team wins; also probability that user's bracket is correct in future rounds (e.g. if duke is 15% to win final and they have duke to win, then in the final champion part of their bracket, it sjould say 15%

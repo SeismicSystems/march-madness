@@ -39,13 +39,13 @@
 ```
 contracts/          — Seismic Solidity smart contracts (sforge project)
 packages/
-  client/           — TypeScript client library (bracket encoding, contract calls)
-  web/              — React frontend (bracket UI, Privy auth)
+  client/           — TypeScript client library (bracket encoding, scoring, contract calls, types)
+  web/              — React frontend (bracket UI, Privy auth, leaderboard, bracket viewer)
   localdev/         — Local dev tools (populate script) + integration tests
 crates/
   indexer/          — Rust event listener + backfill
-  server/           — HTTP server for indexed data
-data/               — Tournament data (teams, brackets, configs)
+  server/           — HTTP server for indexed data + tournament status
+data/               — Tournament data (teams, brackets, configs, tournament-status.json)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
@@ -73,6 +73,24 @@ Events:
 - This is identical to jimpo's original bytes8 encoding — no changes needed to his ByteBracket scoring library
 - Scoring: jimpo's ByteBracket library (bit-level scoring, max score 192)
 - Teams ordered by region, seeded [1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15] per region
+
+## Server API
+
+Rust HTTP server (`crates/server`, default port 3001):
+- `GET /api/entries` — full entry index (from indexer)
+- `GET /api/entries/:address` — single entry by address
+- `GET /api/stats` — total entries + scored count
+- `GET /api/tournament-status` — tournament status JSON (from `data/tournament-status.json`, TTL cached)
+- `POST /api/tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
+- `GET /health` — health check
+
+Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3001`).
+
+## Frontend Routes
+
+- `/` — Home: bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline)
+- `/leaderboard` — All entries ranked by `scoreBracketPartial` (current score, max possible)
+- `/bracket/:address` — Read-only bracket view with tournament status overlay
 
 ## Shielded Types & Security
 

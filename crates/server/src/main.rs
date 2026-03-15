@@ -24,6 +24,14 @@ struct Cli {
     /// Path to the JSON index file written by the indexer.
     #[arg(long, default_value = "data/entries.json")]
     index_file: PathBuf,
+
+    /// Path to the tournament status JSON file.
+    #[arg(long, default_value = "data/tournament-status.json")]
+    tournament_status_file: PathBuf,
+
+    /// API key for POST /api/tournament-status. Read from TOURNAMENT_API_KEY env var if not set.
+    #[arg(long, env = "TOURNAMENT_API_KEY")]
+    api_key: Option<String>,
 }
 
 #[tokio::main]
@@ -32,7 +40,12 @@ async fn main() -> eyre::Result<()> {
 
     let cli = Cli::parse();
 
-    let state = AppState::new(cli.index_file.clone(), Duration::from_secs(5));
+    let state = AppState::new(
+        cli.index_file.clone(),
+        Duration::from_secs(5),
+        cli.tournament_status_file.clone(),
+        cli.api_key.clone(),
+    );
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -44,6 +57,10 @@ async fn main() -> eyre::Result<()> {
         .route("/api/entries", get(routes::get_entries))
         .route("/api/entries/{address}", get(routes::get_entry))
         .route("/api/stats", get(routes::get_stats))
+        .route(
+            "/api/tournament-status",
+            get(routes::get_tournament_status).post(routes::post_tournament_status),
+        )
         .layer(cors)
         .with_state(state);
 

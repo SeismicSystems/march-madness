@@ -1,3 +1,5 @@
+import type { TournamentStatus } from "@march-madness/client";
+
 import type { GameSlot } from "../hooks/useBracket";
 import { BracketGame } from "./BracketGame";
 
@@ -7,6 +9,7 @@ interface FinalFourProps {
   championship: GameSlot | null;
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled?: boolean;
+  tournamentStatus?: TournamentStatus;
 }
 
 export function FinalFour({
@@ -15,6 +18,7 @@ export function FinalFour({
   championship,
   onPick,
   disabled = false,
+  tournamentStatus,
 }: FinalFourProps) {
   return (
     <div className="flex flex-col items-center gap-6 min-w-[200px]">
@@ -31,6 +35,7 @@ export function FinalFour({
             winner={semifinal1.winner}
             onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
             disabled={disabled}
+            gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
           />
         )}
 
@@ -48,6 +53,7 @@ export function FinalFour({
                 onPick(championship.gameIndex, pickTeam1)
               }
               disabled={disabled}
+              gameStatus={tournamentStatus?.games[championship.gameIndex]}
             />
           )}
           {championship?.winner && (
@@ -70,6 +76,7 @@ export function FinalFour({
             winner={semifinal2.winner}
             onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
             disabled={disabled}
+            gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
           />
         )}
       </div>

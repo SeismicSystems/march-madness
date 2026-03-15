@@ -1,3 +1,4 @@
+import type { GameStatus } from "@march-madness/client";
 import type { Team } from "../lib/tournament";
 
 interface BracketGameProps {
@@ -9,6 +10,8 @@ interface BracketGameProps {
   compact?: boolean;
   /** Mobile mode — tighter sizing */
   mobile?: boolean;
+  /** Tournament status overlay for this game */
+  gameStatus?: GameStatus;
 }
 
 export function BracketGame({
@@ -19,6 +22,7 @@ export function BracketGame({
   disabled = false,
   compact = false,
   mobile = false,
+  gameStatus,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -34,8 +38,27 @@ export function BracketGame({
     minW = compact ? "min-w-[120px]" : "min-w-[160px]";
   }
 
+  // Determine if each team's pick was correct/wrong based on game result
+  const pickCorrectTeam1 =
+    gameStatus?.status === "final" && gameStatus.winner === true && winner === team1;
+  const pickCorrectTeam2 =
+    gameStatus?.status === "final" && gameStatus.winner === false && winner === team2;
+  const pickWrongTeam1 =
+    gameStatus?.status === "final" && gameStatus.winner === false && winner === team1;
+  const pickWrongTeam2 =
+    gameStatus?.status === "final" && gameStatus.winner === true && winner === team2;
+
   return (
-    <div className={`flex flex-col ${minW} gap-0.5`}>
+    <div className={`flex flex-col ${minW} gap-0.5 relative`}>
+      {/* Live indicator */}
+      {gameStatus?.status === "live" && (
+        <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+          </span>
+        </div>
+      )}
       <TeamSlot
         team={team1}
         isWinner={winner !== null && winner === team1}
@@ -46,6 +69,13 @@ export function BracketGame({
         px={px}
         textSize={textSize}
         mobile={mobile}
+        gameScore={gameStatus?.score?.team1}
+        pickCorrect={pickCorrectTeam1}
+        pickWrong={pickWrongTeam1}
+        isLive={gameStatus?.status === "live"}
+        winProbability={
+          gameStatus?.status === "live" ? gameStatus.team1WinProbability : undefined
+        }
       />
       <TeamSlot
         team={team2}
@@ -57,6 +87,17 @@ export function BracketGame({
         px={px}
         textSize={textSize}
         mobile={mobile}
+        gameScore={gameStatus?.score?.team2}
+        pickCorrect={pickCorrectTeam2}
+        pickWrong={pickWrongTeam2}
+        isLive={gameStatus?.status === "live"}
+        winProbability={
+          gameStatus?.status === "live"
+            ? gameStatus.team1WinProbability !== undefined
+              ? 1 - gameStatus.team1WinProbability
+              : undefined
+            : undefined
+        }
       />
     </div>
   );
@@ -72,6 +113,11 @@ interface TeamSlotProps {
   px: string;
   textSize: string;
   mobile?: boolean;
+  gameScore?: number;
+  pickCorrect?: boolean;
+  pickWrong?: boolean;
+  isLive?: boolean;
+  winProbability?: number;
 }
 
 function TeamSlot({
@@ -84,6 +130,11 @@ function TeamSlot({
   px,
   textSize,
   mobile = false,
+  gameScore,
+  pickCorrect = false,
+  pickWrong = false,
+  isLive = false,
+  winProbability,
 }: TeamSlotProps) {
   if (!team) {
     return (
@@ -95,9 +146,18 @@ function TeamSlot({
     );
   }
 
-  let className = `${py} ${px} ${textSize} rounded cursor-pointer transition-all border `;
+  let className = `${py} ${px} ${textSize} rounded cursor-pointer transition-all border flex items-center justify-between `;
 
-  if (isWinner) {
+  if (pickCorrect) {
+    className +=
+      "bg-green-500/15 border-green-500/50 text-text-primary font-semibold";
+  } else if (pickWrong) {
+    className +=
+      "bg-red-500/10 border-red-500/30 text-text-muted line-through opacity-60";
+  } else if (isLive && isWinner) {
+    className +=
+      "bg-accent/20 border-accent text-text-primary font-semibold";
+  } else if (isWinner) {
     className +=
       "bg-accent/20 border-accent text-text-primary font-semibold";
   } else if (isLoser) {
@@ -118,10 +178,30 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}>
-        {team.seed}
+      <span className="flex items-center">
+        <span className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}>
+          {team.seed}
+        </span>
+        <span>{team.abbrev}</span>
+        {pickCorrect && (
+          <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
+        )}
+        {pickWrong && (
+          <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
+        )}
       </span>
-      <span>{team.abbrev}</span>
+      <span className="flex items-center gap-1">
+        {gameScore !== undefined && (
+          <span className={`font-mono text-[10px] ${isLive ? "text-green-400" : "text-text-muted"}`}>
+            {gameScore}
+          </span>
+        )}
+        {isLive && winProbability !== undefined && (
+          <span className="text-[9px] text-text-muted bg-bg-secondary/80 px-1 rounded">
+            {Math.round(winProbability * 100)}%
+          </span>
+        )}
+      </span>
     </button>
   );
 }
