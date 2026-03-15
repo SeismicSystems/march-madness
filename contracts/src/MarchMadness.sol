@@ -12,6 +12,7 @@ contract MarchMadness {
     address public owner;
 
     // ── Tournament parameters (set in constructor) ─────────────────────────
+    uint16 public year; // tournament season (e.g. 2026)
     uint256 public entryFee;
     uint256 public submissionDeadline; // unix timestamp
 
@@ -45,8 +46,9 @@ contract MarchMadness {
     event WinningsCollected(address indexed account, uint256 amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
-    constructor(uint256 _entryFee, uint256 _submissionDeadline) {
+    constructor(uint16 _year, uint256 _entryFee, uint256 _submissionDeadline) {
         owner = msg.sender;
+        year = _year;
         entryFee = _entryFee;
         submissionDeadline = _submissionDeadline;
     }

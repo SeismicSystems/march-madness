@@ -17,7 +17,7 @@ contract PayoutTest is Test {
 
     function setUp() public {
         vm.warp(100);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
+        mm = new MarchMadness(2026, ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(charlie, 10 ether);

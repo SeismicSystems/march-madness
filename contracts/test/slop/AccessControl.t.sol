@@ -16,7 +16,7 @@ contract AccessControlTest is Test {
 
     function setUp() public {
         vm.warp(100);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
+        mm = new MarchMadness(2026, ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
 
         vm.prank(alice);

@@ -54,6 +54,8 @@ docs/               — Technical docs, changeset, prompts
 
 ## Contract Interface (MarchMadness.sol)
 
+Constructor: `MarchMadness(uint16 year, uint256 entryFee, uint256 submissionDeadline)`
+
 Key functions:
 - `submitBracket(sbytes8 bracket)` — submit shielded bracket, 1 ETH buy-in
 - `updateBracket(sbytes8 bracket)` — update bracket before deadline

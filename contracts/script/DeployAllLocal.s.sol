@@ -14,7 +14,9 @@ contract DeployAllLocalScript is Script {
 
         vm.startBroadcast();
 
-        MarchMadness mm = new MarchMadness(1 ether, block.timestamp + deadlineOffset);
+        uint16 year = uint16(vm.envOr("YEAR", uint256(2026)));
+
+        MarchMadness mm = new MarchMadness(year, 1 ether, block.timestamp + deadlineOffset);
         console.log("MarchMadness deployed at:", address(mm));
         console.log("Submission deadline:", mm.submissionDeadline());
         console.log("Deadline offset (seconds):", deadlineOffset);

@@ -14,6 +14,7 @@ contract DeployAllScript is Script {
         vm.startBroadcast();
 
         MarchMadness mm = new MarchMadness(
+            2026, // year
             1 ether, // entryFee
             1773853200 // submissionDeadline: March 18, 2026 12:00 PM EST
         );

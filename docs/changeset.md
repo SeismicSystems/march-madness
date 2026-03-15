@@ -11,6 +11,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **Deploy scripts**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts. `deploy-testnet.sh` parses all 3 addresses and writes to `data/deployments.json`.
 - **Frontend**: `constants.ts` exports `CONTRACT_ADDRESS`, `GROUPS_CONTRACT_ADDRESS`, `MIRROR_CONTRACT_ADDRESS` from `deployments.json` (handles both old string and new object formats).
 - **Tests**: 35 BracketGroups tests (creation, join/leave, password, scoring delegation, payouts, deadline enforcement) + 24 BracketMirror tests (creation, entries, slug lookup, swap-and-pop, access control).
+- **MarchMadness constructor**: Added `uint16 year` parameter — contracts are now self-describing for which tournament season they belong to. Deploy scripts pass year (production: `2026`, local: `YEAR` env var, default `2026`).
 
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.

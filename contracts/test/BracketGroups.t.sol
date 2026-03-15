@@ -27,7 +27,7 @@ contract BracketGroupsTest is Test {
 
     function setUp() public {
         vm.warp(100);
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
+        mm = new MarchMadness(2026, ENTRY_FEE, DEADLINE);
         bg = new BracketGroups(address(mm));
 
         vm.deal(creator, 100 ether);
