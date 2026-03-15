@@ -12,6 +12,8 @@
 8. **`scripts/ci.sh` and `.github/workflows/ci.yml` must stay in sync.** If you change one, update the other. The local script mirrors the GitHub workflow exactly so you can validate before pushing.
 9. **Run `./scripts/ci.sh` locally before pushing any commits or opening PRs.** CI must pass locally first. No exceptions. If you break CI, fix it before pushing.
 
+> **Keep in sync**: Whenever you add or change anything in this Rules checklist, also update the skill at `.claude/skills/checklist/SKILL.md`.
+
 ## Tech Stack
 
 ### Contracts
