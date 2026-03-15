@@ -1,0 +1,1 @@
+i deployed here's the error for you: An internal error was received. → details: [object Object].... wait this seems less informative than before!!! wtf
