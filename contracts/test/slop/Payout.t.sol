@@ -109,7 +109,7 @@ contract PayoutTest is Test {
         mm.collectWinnings();
 
         vm.prank(alice);
-        vm.expectRevert("Already collected");
+        vm.expectRevert(MarchMadness.AlreadyCollected.selector);
         mm.collectWinnings();
     }
 
@@ -126,7 +126,7 @@ contract PayoutTest is Test {
         vm.warp(mm.resultsPostedAt() + mm.SCORING_DURATION());
 
         vm.prank(bob);
-        vm.expectRevert("Not a winner");
+        vm.expectRevert(MarchMadness.NotAWinner.selector);
         mm.collectWinnings();
     }
 

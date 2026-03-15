@@ -48,7 +48,7 @@ contract MarchMadnessJimpoTest is Test {
     function test_submitBracket_rejectsWithoutEntryFee() public {
         bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        vm.expectRevert("Incorrect entry fee");
+        vm.expectRevert(abi.encodeWithSelector(MarchMadness.IncorrectEntryFee.selector, ENTRY_FEE, 0));
         mm.submitBracket{value: 0}(sbytes8(bracket));
     }
 
@@ -56,7 +56,7 @@ contract MarchMadnessJimpoTest is Test {
         vm.warp(DEADLINE + 1);
         bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        vm.expectRevert("Submission deadline passed");
+        vm.expectRevert(MarchMadness.SubmissionDeadlinePassed.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
@@ -66,7 +66,7 @@ contract MarchMadnessJimpoTest is Test {
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
 
         vm.prank(alice);
-        vm.expectRevert("Already submitted");
+        vm.expectRevert(MarchMadness.AlreadySubmitted.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
@@ -76,7 +76,7 @@ contract MarchMadnessJimpoTest is Test {
         _submitEntry(alice, 0xC000000000000000);
         vm.warp(DEADLINE + 1);
 
-        vm.expectRevert("Results not posted");
+        vm.expectRevert(MarchMadness.ResultsNotPosted.selector);
         mm.scoreBracket(alice);
     }
 
@@ -135,7 +135,7 @@ contract MarchMadnessJimpoTest is Test {
         mm.scoreBracket(bob);
 
         vm.prank(alice);
-        vm.expectRevert("Scoring window still open");
+        vm.expectRevert(MarchMadness.ScoringWindowStillOpen.selector);
         mm.collectWinnings();
     }
 
@@ -168,7 +168,7 @@ contract MarchMadnessJimpoTest is Test {
 
         // bob is not a winner
         vm.prank(bob);
-        vm.expectRevert("Not a winner");
+        vm.expectRevert(MarchMadness.NotAWinner.selector);
         mm.collectWinnings();
     }
 

@@ -31,7 +31,7 @@ contract EdgeCasesTest is Test {
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
         vm.prank(alice);
-        vm.expectRevert("Already submitted");
+        vm.expectRevert(MarchMadness.AlreadySubmitted.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
     }
 
@@ -39,7 +39,7 @@ contract EdgeCasesTest is Test {
 
     function test_cannotUpdateWithoutSubmission() public {
         vm.prank(alice);
-        vm.expectRevert("No bracket submitted");
+        vm.expectRevert(MarchMadness.NoBracketSubmitted.selector);
         mm.updateBracket(sbytes8(BRACKET));
     }
 
@@ -51,7 +51,7 @@ contract EdgeCasesTest is Test {
 
         vm.warp(DEADLINE + 1);
         vm.prank(alice);
-        vm.expectRevert("Submission deadline passed");
+        vm.expectRevert(MarchMadness.SubmissionDeadlinePassed.selector);
         mm.updateBracket(sbytes8(BRACKET));
     }
 
@@ -60,7 +60,7 @@ contract EdgeCasesTest is Test {
     function test_cannotSubmitAfterDeadline() public {
         vm.warp(DEADLINE + 1);
         vm.prank(alice);
-        vm.expectRevert("Submission deadline passed");
+        vm.expectRevert(MarchMadness.SubmissionDeadlinePassed.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
     }
 
@@ -70,7 +70,7 @@ contract EdgeCasesTest is Test {
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(BRACKET));
 
-        vm.expectRevert("Results not posted");
+        vm.expectRevert(MarchMadness.ResultsNotPosted.selector);
         mm.scoreBracket(alice);
     }
 
@@ -88,7 +88,7 @@ contract EdgeCasesTest is Test {
         mm.scoreBracket(bob);
 
         vm.prank(alice);
-        vm.expectRevert("Scoring window still open");
+        vm.expectRevert(MarchMadness.ScoringWindowStillOpen.selector);
         mm.collectWinnings();
     }
 
@@ -97,12 +97,12 @@ contract EdgeCasesTest is Test {
     function test_onlyOwnerCanPostResults() public {
         vm.warp(DEADLINE + 1);
         vm.prank(alice);
-        vm.expectRevert("Only owner");
+        vm.expectRevert(MarchMadness.OnlyOwner.selector);
         mm.submitResults(RESULTS);
     }
 
     function test_cannotPostResultsBeforeDeadline() public {
-        vm.expectRevert("Submission phase not over");
+        vm.expectRevert(MarchMadness.SubmissionPhaseNotOver.selector);
         mm.submitResults(RESULTS);
     }
 
@@ -110,7 +110,7 @@ contract EdgeCasesTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
 
-        vm.expectRevert("Results already posted");
+        vm.expectRevert(MarchMadness.ResultsAlreadyPosted.selector);
         mm.submitResults(RESULTS);
     }
 
@@ -186,13 +186,13 @@ contract EdgeCasesTest is Test {
 
     function test_rejectsTooLittleFee() public {
         vm.prank(alice);
-        vm.expectRevert("Incorrect entry fee");
+        vm.expectRevert(abi.encodeWithSelector(MarchMadness.IncorrectEntryFee.selector, ENTRY_FEE, 0.5 ether));
         mm.submitBracket{value: 0.5 ether}(sbytes8(BRACKET));
     }
 
     function test_rejectsTooMuchFee() public {
         vm.prank(alice);
-        vm.expectRevert("Incorrect entry fee");
+        vm.expectRevert(abi.encodeWithSelector(MarchMadness.IncorrectEntryFee.selector, ENTRY_FEE, 2 ether));
         mm.submitBracket{value: 2 ether}(sbytes8(BRACKET));
     }
 }

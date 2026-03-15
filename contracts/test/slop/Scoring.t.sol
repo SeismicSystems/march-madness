@@ -76,7 +76,7 @@ contract ScoringTest is Test {
         mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
         mm.scoreBracket(alice);
 
-        vm.expectRevert("Already scored");
+        vm.expectRevert(MarchMadness.AlreadyScored.selector);
         mm.scoreBracket(alice);
     }
 
@@ -84,7 +84,7 @@ contract ScoringTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(bytes8(0xFFFFFFFFFFFFFFFF));
 
-        vm.expectRevert("No bracket submitted");
+        vm.expectRevert(MarchMadness.NoBracketSubmitted.selector);
         mm.scoreBracket(alice);
     }
 

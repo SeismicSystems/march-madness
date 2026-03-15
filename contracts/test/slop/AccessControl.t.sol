@@ -31,7 +31,7 @@ contract AccessControlTest is Test {
 
     function test_otherCannotReadBracketBeforeDeadline() public {
         vm.prank(bob);
-        vm.expectRevert("Cannot read bracket before deadline");
+        vm.expectRevert(MarchMadness.CannotReadBracketBeforeDeadline.selector);
         mm.getBracket(alice);
     }
 

@@ -69,27 +69,27 @@ contract BracketGroupsTest is Test {
         bg.createGroup("bet", "Bet", 0);
 
         vm.prank(creator);
-        vm.expectRevert("Slug already taken");
+        vm.expectRevert(BracketGroups.SlugAlreadyTaken.selector);
         bg.createGroup("bet", "Other", 0);
     }
 
     function test_emptySlugReverts() public {
-        vm.expectRevert("Slug cannot be empty");
+        vm.expectRevert(BracketGroups.SlugCannotBeEmpty.selector);
         bg.createGroup("", "Bet", 0);
     }
 
     function test_longSlugReverts() public {
-        vm.expectRevert("Slug too long");
+        vm.expectRevert(BracketGroups.SlugTooLong.selector);
         bg.createGroup("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Bet", 0);
     }
 
     function test_slugLookupNonexistent() public {
-        vm.expectRevert("Group not found");
+        vm.expectRevert(BracketGroups.GroupNotFound.selector);
         bg.getGroupBySlug("nope");
     }
 
     function test_nonexistentGroupReverts() public {
-        vm.expectRevert("Group does not exist");
+        vm.expectRevert(BracketGroups.GroupDoesNotExist.selector);
         bg.getGroup(999);
     }
 
@@ -138,7 +138,7 @@ contract BracketGroupsTest is Test {
         bg.joinGroup(groupId, "Alice");
 
         vm.prank(alice);
-        vm.expectRevert("Already a member");
+        vm.expectRevert(BracketGroups.AlreadyAMember.selector);
         bg.joinGroup(groupId, "Alice");
     }
 
@@ -147,7 +147,7 @@ contract BracketGroupsTest is Test {
         uint32 groupId = bg.createGroup("bet", "Bet", 0);
 
         vm.prank(alice);
-        vm.expectRevert("No bracket in main contract");
+        vm.expectRevert(BracketGroups.NoBracketInMainContract.selector);
         bg.joinGroup(groupId, "Alice");
     }
 
@@ -159,7 +159,7 @@ contract BracketGroupsTest is Test {
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
         vm.prank(alice);
-        vm.expectRevert("Incorrect entry fee");
+        vm.expectRevert(abi.encodeWithSelector(BracketGroups.IncorrectEntryFee.selector, 0.1 ether, 0.05 ether));
         bg.joinGroup{value: 0.05 ether}(groupId, "Alice");
     }
 
@@ -173,7 +173,7 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE);
 
         vm.prank(alice);
-        vm.expectRevert("Cannot join after deadline");
+        vm.expectRevert(BracketGroups.CannotJoinAfterDeadline.selector);
         bg.joinGroup(groupId, "Alice");
     }
 
@@ -235,7 +235,7 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE);
 
         vm.prank(alice);
-        vm.expectRevert("Cannot leave after deadline");
+        vm.expectRevert(BracketGroups.CannotLeaveAfterDeadline.selector);
         bg.leaveGroup(groupId);
     }
 
@@ -281,7 +281,7 @@ contract BracketGroupsTest is Test {
 
         bytes12 wrongPw = bytes12(keccak256("wrong"));
         vm.prank(alice);
-        vm.expectRevert("Wrong password");
+        vm.expectRevert(BracketGroups.WrongPassword.selector);
         bg.joinGroupWithPassword(groupId, sbytes12(wrongPw), "Alice");
     }
 
@@ -294,7 +294,7 @@ contract BracketGroupsTest is Test {
 
         // Can't use joinGroup on password-protected group
         vm.prank(alice);
-        vm.expectRevert("Password required");
+        vm.expectRevert(BracketGroups.PasswordRequired.selector);
         bg.joinGroup(groupId, "Alice");
     }
 
@@ -321,7 +321,7 @@ contract BracketGroupsTest is Test {
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
 
         vm.prank(alice);
-        vm.expectRevert("Group is not password-protected");
+        vm.expectRevert(BracketGroups.GroupIsNotPasswordProtected.selector);
         bg.joinGroupWithPassword(groupId, sbytes12(PASSWORD), "Alice");
     }
 
@@ -402,7 +402,7 @@ contract BracketGroupsTest is Test {
         vm.prank(alice);
         bg.joinGroup(groupId, "Alice");
 
-        vm.expectRevert("Results not posted");
+        vm.expectRevert(MarchMadness.ResultsNotPosted.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -419,7 +419,7 @@ contract BracketGroupsTest is Test {
         mm.submitResults(RESULTS);
 
         bg.scoreEntry(groupId, 0);
-        vm.expectRevert("Already scored");
+        vm.expectRevert(BracketGroups.AlreadyScored.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -436,8 +436,8 @@ contract BracketGroupsTest is Test {
         mm.submitResults(RESULTS);
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
-        // Not scored on main, so scoreBracket will revert with "Scoring window closed"
-        vm.expectRevert("Scoring window closed");
+        // Not scored on main, so scoreBracket will revert with ScoringWindowClosed
+        vm.expectRevert(MarchMadness.ScoringWindowClosed.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -534,7 +534,7 @@ contract BracketGroupsTest is Test {
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
         vm.prank(bob);
-        vm.expectRevert("Not a winner");
+        vm.expectRevert(BracketGroups.NotAWinner.selector);
         bg.collectWinnings(groupId);
     }
 
@@ -557,7 +557,7 @@ contract BracketGroupsTest is Test {
         vm.prank(alice);
         bg.collectWinnings(groupId);
         vm.prank(alice);
-        vm.expectRevert("Already collected");
+        vm.expectRevert(BracketGroups.AlreadyCollected.selector);
         bg.collectWinnings(groupId);
     }
 
@@ -576,7 +576,7 @@ contract BracketGroupsTest is Test {
         bg.scoreEntry(groupId, 0);
 
         vm.prank(alice);
-        vm.expectRevert("Scoring window still open");
+        vm.expectRevert(BracketGroups.ScoringWindowStillOpen.selector);
         bg.collectWinnings(groupId);
     }
 
@@ -596,7 +596,7 @@ contract BracketGroupsTest is Test {
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
         vm.prank(alice);
-        vm.expectRevert("No entry fee");
+        vm.expectRevert(BracketGroups.NoEntryFee.selector);
         bg.collectWinnings(groupId);
     }
 
@@ -604,10 +604,10 @@ contract BracketGroupsTest is Test {
         vm.prank(creator);
         uint32 groupId = bg.createGroup("bet", "Bet", 0);
 
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(BracketGroups.IndexOutOfBounds.selector);
         bg.scoreEntry(groupId, 0);
 
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(BracketGroups.IndexOutOfBounds.selector);
         bg.getMember(groupId, 0);
     }
 }

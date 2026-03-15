@@ -21,7 +21,7 @@ contract SentinelTest is Test {
         // No sentinel bit (MSB is 0)
         bytes8 bad = bytes8(0x0000000000000001);
         vm.prank(alice);
-        vm.expectRevert("Invalid sentinel byte");
+        vm.expectRevert(MarchMadness.InvalidSentinelByte.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bad));
     }
 
@@ -29,7 +29,7 @@ contract SentinelTest is Test {
         // MSB clear, other bits set
         bytes8 bad = bytes8(0x7FFFFFFFFFFFFFFF);
         vm.prank(alice);
-        vm.expectRevert("Invalid sentinel byte");
+        vm.expectRevert(MarchMadness.InvalidSentinelByte.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bad));
     }
 
@@ -56,7 +56,7 @@ contract SentinelTest is Test {
 
         vm.warp(DEADLINE + 1);
         bytes8 badResults = bytes8(0x0000000000000001); // MSB not set
-        vm.expectRevert("Invalid sentinel byte");
+        vm.expectRevert(MarchMadness.InvalidSentinelByte.selector);
         mm.submitResults(badResults);
     }
 
@@ -67,7 +67,7 @@ contract SentinelTest is Test {
 
         bytes8 bad = bytes8(0x0AAAAAAAAAAAAAAA); // MSB not set
         vm.prank(alice);
-        vm.expectRevert("Invalid sentinel byte");
+        vm.expectRevert(MarchMadness.InvalidSentinelByte.selector);
         mm.updateBracket(sbytes8(bad));
     }
 

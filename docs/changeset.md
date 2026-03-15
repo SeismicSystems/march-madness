@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Use custom errors instead of require strings in all contracts (closes #39)
+- **MarchMadness.sol**: Replaced all ~15 `require(condition, "string")` statements with custom errors (`error ErrorName()` + `if (!condition) revert ErrorName()`). Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketGroups.sol**: Replaced all ~20 `require` statements with custom errors. Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketMirror.sol**: Replaced all ~10 `require` statements with custom errors.
+- **All test files** updated to use `vm.expectRevert(ContractName.ErrorName.selector)` (or `abi.encodeWithSelector` for parameterized errors) instead of revert string matching.
+- Errors defined per-contract (no shared error file) to keep things simple.
+
 ### 2026-03-15 — Make `score_base_bb` public in bracket-sim
 - Removed `#[cfg(test)]` and `pub(crate)` gate from `scoring::score_base_bb` so downstream consumers (e.g. the brackets pool-strategy repo) can use it directly instead of duplicating the function.
 
