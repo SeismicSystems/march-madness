@@ -1,0 +1,36 @@
+Create PR 4 — Pipeline Scripts in the seismic march-madness repo
+
+You are adding pipeline orchestration scripts to `/home/c/code/seismic-workspace/apps/march-madness` (target repo). This PR depends on PRs 1-3 which added:
+- `crates/bracket-sim` (bracket-sim crate with `calibrate` and `sim` binaries)
+- `crates/kalshi` (kalshi crate with `kalshi` binary)
+- Python scripts in `scripts/scrape_kenpom.py` and `scripts/fit_kenpom_model.py` with a `pyproject.toml`
+
+## Branch
+Create branch `cdai__add-pipeline` from `main`. The PR description should note it depends on PRs #34, #35, #36.
+
+## What to create
+
+### 1. `scripts/refresh.sh`
+
+Adapt from the source at `/home/c/code/sports/brackets/scripts/refresh.sh`. Read it for reference.
+
+The adapted version should call the new crate/script names:
+- 5-step pipeline (scrape KenPom, fetch raw Kalshi, fit anchor model, normalize Kalshi, calibrate goose values)
+- Uses `cargo run --release -p kalshi --bin kalshi -- fetch` and `cargo run --release -p bracket-sim --bin calibrate`
+- Supports `--hours N` cache TTL flag (default 6 hours)
+
+Make it executable (`chmod +x`).
+
+### 2. Update `scripts/ci.sh`
+
+Add a new section for Python checks:
+- Checks for `pyproject.toml` and `uv`
+- Runs `uv sync --frozen` (or `uv sync` if no lockfile)
+- Runs `uv run scripts/scrape_kenpom.py --help` as a smoke test
+
+Wire it into the `all)` case and add `python)` to the case statement.
+
+## Verification
+
+1. The refresh.sh script should be syntactically valid (bash -n check)
+2. The ci.sh changes should not break existing sections

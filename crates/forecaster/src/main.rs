@@ -26,7 +26,7 @@ struct Cli {
     status_file: PathBuf,
 
     /// Path to the tournament data JSON (team names in bracket order).
-    #[arg(long, default_value = "data/mens-2026.json")]
+    #[arg(long, default_value = "data/2026/tournament.json")]
     tournament_file: PathBuf,
 
     /// Path to write the forecast output JSON.

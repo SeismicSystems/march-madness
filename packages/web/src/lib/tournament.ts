@@ -1,4 +1,4 @@
-import tournamentData from "../../../../data/mens-2026.json";
+import tournamentData from "../../../../data/2026/tournament.json";
 import { SEED_ORDER } from "./constants";
 
 export interface Team {
