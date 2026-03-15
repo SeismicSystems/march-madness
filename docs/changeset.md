@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Mobile header dropdown + better error surfacing
+- **Header**: On mobile, replaced inline buttons (Faucet, address, Connect/Disconnect) with a hamburger dropdown menu to prevent text overlap on small screens. Desktop layout unchanged.
+- **Error handling**: Added `extractErrorMessage` helper that walks the error cause chain to surface the real error from Privy/viem instead of showing generic "An error has occurred" messages. Errors now show in a scrollable container on mobile.
+
 ### 2026-03-14 — Add `/checklist` skill
 - Added `.claude/skills/checklist/SKILL.md` — user-invocable skill that mirrors the CLAUDE.md rules checklist, for quick verification before pushing or opening PRs
 - Added sync note to CLAUDE.md: any changes to the rules checklist must also be reflected in the skill

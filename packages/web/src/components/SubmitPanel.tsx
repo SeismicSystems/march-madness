@@ -184,9 +184,15 @@ export function SubmitPanel({
         </div>
       )}
 
-      {/* Error display */}
+      {/* Error display — tap to copy for mobile debugging */}
       {error && (
-        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 text-sm text-danger">
+        <div
+          onClick={() => {
+            navigator.clipboard.writeText(error);
+          }}
+          className="bg-danger/10 border border-danger/30 rounded-lg p-3 text-xs text-danger max-h-40 overflow-y-auto break-words cursor-pointer active:bg-danger/20"
+        >
+          <div className="font-semibold mb-1 text-sm">Error (tap to copy)</div>
           {error}
         </div>
       )}
