@@ -12,6 +12,12 @@ All notable changes to this project. Every PR must add an entry here.
 - **Zero dependencies on other workspace crates** — fully standalone, can be used independently of the bracket simulation or forecaster.
 - Ported from the `brackets` repo with edition 2024 compatibility fixes (removed explicit `ref` in implicitly-borrowing patterns, collapsed `if` blocks per clippy).
 
+### 2026-03-15 — Python KenPom scripts + UV project
+- **New**: `pyproject.toml` — UV Python project (`march-madness-scripts`) with dependencies for data pipeline scripts (cloudscraper, kenpompy, matplotlib, numpy, pandas, scikit-learn).
+- **New**: `scripts/scrape_kenpom.py` — scrapes KenPom ratings via kenpompy + cloudscraper (Cloudflare bypass), outputs `data/{YEAR}/kenpom.csv` (team, ortg, drtg, pace). Supports `--bracket-only` filtering and `--seeds-from` bracket CSV.
+- **New**: `scripts/fit_kenpom_model.py` — fits per-round logistic regression (degree-2 polynomial features, C=0.1 regularization) from KenPom stats to Kalshi market probabilities. Outputs `data/{YEAR}/kenpom_anchor_model.json` with model coefficients, scaler params, and anchor ranges. Generates fit quality plots to `data/{YEAR}/plots/`.
+- **Updated**: `.gitignore` — added `.venv/`, `data/*/plots/`, `__pycache__/`.
+
 ### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
 - **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
 - **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.

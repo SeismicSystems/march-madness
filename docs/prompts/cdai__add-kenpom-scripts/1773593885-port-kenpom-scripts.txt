@@ -1,0 +1,26 @@
+Create PR 3 — Python KenPom Scripts + UV Project in the seismic march-madness repo
+
+Port Python scripts from /home/c/code/sports/brackets (source) to /home/c/code/seismic-workspace/apps/march-madness (target). Work in the target repo.
+
+Branch: cdai__add-kenpom-scripts from main.
+
+What to create:
+
+1. pyproject.toml at repo root — UV Python project with dependencies: cloudscraper, kenpompy, matplotlib, numpy, pandas, scikit-learn.
+
+2. Scripts — copy to scripts/:
+   - scrape_kenpom.py — scrapes KenPom ratings, outputs kenpom.csv
+   - fit_kenpom_model.py — fits logistic regression from KenPom stats to advance probabilities
+
+3. Update .gitignore — add .venv/, data/*/plots/, __pycache__/
+
+4. Data files — scripts output to data/2026/. No pre-copy needed.
+
+PR Requirements:
+- Add entry to docs/changeset.md
+- Save prompt to docs/prompts/cdai__add-kenpom-scripts/
+
+Verification:
+- uv sync
+- uv run scripts/scrape_kenpom.py --help
+- uv run scripts/fit_kenpom_model.py --help

@@ -6,3 +6,6 @@ contracts/cache/
 contracts/broadcast/*
 .env
 kalshi-rsa-pk
+.venv/
+data/*/plots/
+__pycache__/
