@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/common", "crates/indexer", "crates/server", "crates/forecaster"]
+members = ["crates/seismic-march-madness", "crates/indexer", "crates/server", "crates/forecaster"]
 
 [workspace.package]
 edition = "2024"
@@ -16,7 +16,7 @@ hex = "0.4"
 fs2 = "0.4"
 url = "2.5"
 reqwest = { version = "0.12", default-features = false }
-march-madness-common = { path = "crates/common" }
+seismic-march-madness = { path = "crates/seismic-march-madness" }
 
 # Alloy
 alloy-consensus = { version = "=1.1.0", default-features = false }

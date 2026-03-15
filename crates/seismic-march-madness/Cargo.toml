@@ -1,9 +1,11 @@
 [package]
-name = "march-madness-common"
+name = "seismic-march-madness"
 edition.workspace = true
 version.workspace = true
+description = "March Madness on Seismic — types, scoring, and simulation library"
 
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 eyre.workspace = true
+rand = "0.9"

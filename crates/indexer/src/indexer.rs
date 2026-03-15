@@ -2,7 +2,7 @@
 
 use eyre::{Result, WrapErr};
 use fs2::FileExt;
-use march_madness_common::{EntryIndex, EntryRecord, UpdateInfo};
+use seismic_march_madness::{EntryIndex, EntryRecord, UpdateInfo};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;

@@ -7,9 +7,8 @@
 //!    then derive P(A beats B) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])
 //! 4. Build complete 64-bit results, score all brackets, find winner(s)
 
-use march_madness_common::{
-    GameState, TournamentStatus, get_scoring_mask, score_bracket_with_mask,
-};
+use crate::scoring::{get_scoring_mask, score_bracket_with_mask};
+use crate::types::{GameState, TournamentStatus};
 use rand::Rng;
 
 /// Round start offsets: R64=0, R32=32, S16=48, E8=56, F4=60, Champ=62
@@ -161,7 +160,7 @@ pub fn run_simulations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use march_madness_common::{GameScore, GameState, GameStatus, TournamentStatus};
+    use crate::types::{GameScore, GameState, GameStatus, TournamentStatus};
 
     fn make_status(decided: &[(u8, bool)], live: &[(u8, f64)]) -> TournamentStatus {
         let mut games: Vec<GameStatus> = (0..63)

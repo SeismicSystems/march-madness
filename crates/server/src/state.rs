@@ -1,5 +1,5 @@
 use eyre::Result;
-use march_madness_common::EntryIndex;
+use seismic_march_madness::EntryIndex;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
