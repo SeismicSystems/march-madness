@@ -29,31 +29,33 @@ export function useContract() {
 
   const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
 
-  // Extract a useful error message from nested/wrapped errors (Privy, viem, etc.)
+  // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
+  // Returns all messages in the cause chain so we can debug on mobile.
   const extractErrorMessage = (err: unknown, fallback: string): string => {
     if (!err) return fallback;
-    // Walk the cause chain to find the most specific message
+    const parts: string[] = [];
     let current: unknown = err;
-    const messages: string[] = [];
-    for (let i = 0; i < 5 && current; i++) {
+    for (let i = 0; i < 8 && current; i++) {
       if (current instanceof Error) {
-        if (current.message) messages.push(current.message);
-        current = (current as Error & { cause?: unknown }).cause;
+        const e = current as Error & { shortMessage?: string; details?: string; cause?: unknown };
+        if (e.shortMessage) parts.push(e.shortMessage);
+        else if (e.message) parts.push(e.message);
+        if (e.details) parts.push(`details: ${e.details}`);
+        current = e.cause;
       } else if (typeof current === "object" && current !== null) {
         const obj = current as Record<string, unknown>;
-        if (typeof obj.shortMessage === "string") messages.push(obj.shortMessage);
-        if (typeof obj.message === "string") messages.push(obj.message);
+        if (typeof obj.shortMessage === "string") parts.push(obj.shortMessage);
+        else if (typeof obj.message === "string") parts.push(obj.message);
+        if (typeof obj.details === "string") parts.push(`details: ${obj.details}`);
         current = obj.cause;
       } else {
-        if (typeof current === "string") messages.push(current);
+        parts.push(String(current));
         break;
       }
     }
-    // Prefer the deepest specific message, skip generic "An error has occurred"
-    const specific = messages.find(
-      (m) => m && !m.includes("An error has occurred") && m.length > 10,
-    );
-    return specific || messages[0] || fallback;
+    // Deduplicate consecutive identical messages
+    const deduped = parts.filter((m, i) => i === 0 || m !== parts[i - 1]);
+    return deduped.join(" → ") || fallback;
   };
 
   const walletAddress = walletClient?.account?.address ?? null;

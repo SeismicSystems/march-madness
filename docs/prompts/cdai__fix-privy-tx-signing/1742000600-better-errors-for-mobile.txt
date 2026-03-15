@@ -1,0 +1,1 @@
+in main thread re: error... the app right now is still in developmemt so making the errors really easy to undersrand (and more importantly so i can feel them to you) is critical... im on my phone and i can deploy but dont have desktop browser
