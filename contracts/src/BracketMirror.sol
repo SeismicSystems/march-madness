@@ -10,7 +10,7 @@ contract BracketMirror {
     struct Mirror {
         string slug;
         string displayName;
-        uint256 entryFee; // off-chain entry fee amount (display only, e.g. 25 for "$25 USD")
+        uint32 entryFee; // off-chain entry fee amount (display only, e.g. 25 for "$25 USD")
         string entryCurrency; // currency label (e.g. "USD", "ETH")
         address admin;
     }
@@ -75,7 +75,7 @@ contract BracketMirror {
     }
 
     /// @notice Set or update the entry fee display info. Admin only.
-    function setEntryFee(uint256 mirrorId, uint256 fee, string calldata currency) external onlyAdmin(mirrorId) {
+    function setEntryFee(uint256 mirrorId, uint32 fee, string calldata currency) external onlyAdmin(mirrorId) {
         _mirrors[mirrorId].entryFee = fee;
         _mirrors[mirrorId].entryCurrency = currency;
     }
