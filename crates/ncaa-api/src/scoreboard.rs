@@ -3,7 +3,7 @@
 use tracing::debug;
 
 use crate::NcaaApiError;
-use crate::client::{NCAA_API_BASE, NcaaClient};
+use crate::client::{NcaaClient, build_gql_url};
 use crate::types::{Contest, ScoreboardGqlResponse, SportCode};
 
 /// Persisted query hash for the scoreboard endpoint.
@@ -13,28 +13,6 @@ const SCOREBOARD_HASH: &str = "7287cda610a9326931931080cb3a604828febe6fe3c9016a7
 /// Convention: months Jan-Jun → year - 1, Jul-Dec → year.
 pub fn season_year(year: i32, month: u32) -> i32 {
     if month < 7 { year - 1 } else { year }
-}
-
-/// Build the scoreboard URL for a given sport, date, and season year.
-fn build_scoreboard_url(sport: SportCode, date: &str, season_year: i32) -> String {
-    let variables = serde_json::json!({
-        "sportCode": sport.as_str(),
-        "division": 1,
-        "seasonYear": season_year,
-        "contestDate": date
-    });
-    let extensions = serde_json::json!({
-        "persistedQuery": {
-            "version": 1,
-            "sha256Hash": SCOREBOARD_HASH
-        }
-    });
-    format!(
-        "{}?extensions={}&variables={}",
-        NCAA_API_BASE,
-        urlencoded(&extensions.to_string()),
-        urlencoded(&variables.to_string())
-    )
 }
 
 /// Fetch the scoreboard for a given date.
@@ -60,7 +38,13 @@ pub async fn fetch_scoreboard(
         .map_err(|_| NcaaApiError::Config(format!("invalid month in date: {date}")))?;
 
     let sy = season_year(year, month);
-    let url = build_scoreboard_url(sport, date, sy);
+    let variables = serde_json::json!({
+        "sportCode": sport.as_str(),
+        "division": 1,
+        "seasonYear": sy,
+        "contestDate": date
+    });
+    let url = build_gql_url(SCOREBOARD_HASH, &variables);
 
     debug!("fetching scoreboard for {sport} on {date} (season {sy})");
     let body = client.get(&url).await?;
@@ -79,14 +63,10 @@ pub async fn fetch_scoreboard(
     Ok(contests)
 }
 
-/// URL-encode a string (minimal: just what's needed for query params).
-fn urlencoded(s: &str) -> String {
-    url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::NCAA_API_BASE;
 
     #[test]
     fn test_season_year() {
@@ -98,7 +78,13 @@ mod tests {
 
     #[test]
     fn test_build_scoreboard_url() {
-        let url = build_scoreboard_url(SportCode::Mbb, "2026/03/15", 2025);
+        let variables = serde_json::json!({
+            "sportCode": "MBB",
+            "division": 1,
+            "seasonYear": 2025,
+            "contestDate": "2026/03/15"
+        });
+        let url = build_gql_url(SCOREBOARD_HASH, &variables);
         assert!(url.starts_with(NCAA_API_BASE));
         assert!(url.contains("MBB"));
         assert!(url.contains("2025")); // season year

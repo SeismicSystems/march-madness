@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use ncaa_api::Contest;
 use seismic_march_madness::tournament::{TournamentData, get_teams_in_bracket_order};
+use seismic_march_madness::types::{GameState, GameStatus};
 use tracing::{debug, warn};
 
 /// Alias map: NCAA `nameShort` → tournament.json `name`.
@@ -161,6 +162,21 @@ impl GameMapper {
         let team0_pos = self.team_position(name0)?;
 
         if team0_pos == pos1 { Some(0) } else { Some(1) }
+    }
+
+    /// Record winner from a final GameStatus (used by both feed updates and startup seeding).
+    pub fn record_winner_from_game(&mut self, game: &GameStatus) {
+        if game.status == GameState::Final
+            && let Some(winner) = game.winner
+            && let Some((pos1, pos2)) = self.game_team_positions(game.game_index)
+        {
+            let winner_pos = if winner { pos1 } else { pos2 };
+            self.record_winner(game.game_index, winner_pos);
+            debug!(
+                "recorded winner for game {}: position {winner_pos}",
+                game.game_index
+            );
+        }
     }
 
     /// Log unmatched teams from a contest for debugging alias issues.

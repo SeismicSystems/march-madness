@@ -5,13 +5,13 @@ use std::time::Duration;
 
 use ncaa_api::Contest;
 use seismic_march_madness::types::{GameScore, GameState, GameStatus};
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::mapper::GameMapper;
 
 /// Adaptive poll intervals.
-const IDLE_INTERVAL: Duration = Duration::from_secs(30 * 60); // 30 min
 const PRE_GAME_INTERVAL: Duration = Duration::from_secs(60); // 1 min
+const IDLE_INTERVAL: Duration = Duration::from_secs(30 * 60); // 30 min
 const COMPLETE_SENTINEL: Duration = Duration::from_secs(0); // exit signal
 
 /// Current feed phase.
@@ -54,15 +54,7 @@ impl FeedState {
 
         // Fill in any missing games as upcoming.
         for i in 0..63u8 {
-            games.entry(i).or_insert_with(|| GameStatus {
-                game_index: i,
-                status: GameState::Upcoming,
-                score: None,
-                winner: None,
-                team1_win_probability: None,
-                seconds_remaining: None,
-                period: None,
-            });
+            games.entry(i).or_insert_with(|| GameStatus::upcoming(i));
         }
 
         let active_interval = Duration::from_secs_f64(1.0 / requests_per_sec);
@@ -102,15 +94,11 @@ impl FeedState {
 
     /// Update a single game from a contest. Returns true if state changed.
     fn update_game(&mut self, game_index: u8, contest: &Contest, mapper: &mut GameMapper) -> bool {
-        let current = self.games.get(&game_index).cloned().unwrap_or(GameStatus {
-            game_index,
-            status: GameState::Upcoming,
-            score: None,
-            winner: None,
-            team1_win_probability: None,
-            seconds_remaining: None,
-            period: None,
-        });
+        let current = self
+            .games
+            .get(&game_index)
+            .cloned()
+            .unwrap_or_else(|| GameStatus::upcoming(game_index));
 
         // Don't downgrade final games.
         if current.status == GameState::Final {
@@ -151,16 +139,10 @@ impl FeedState {
         };
 
         // Clock and period for live games.
-        let seconds_remaining = if new_status == GameState::Live {
-            contest.clock_seconds()
+        let (seconds_remaining, period) = if new_status == GameState::Live {
+            (contest.clock_seconds(), contest.period_number())
         } else {
-            None
-        };
-
-        let period = if new_status == GameState::Live {
-            contest.period_number()
-        } else {
-            None
+            (None, None)
         };
 
         let new_game = GameStatus {
@@ -175,7 +157,7 @@ impl FeedState {
 
         // Check if anything actually changed.
         let changed = current.status != new_game.status
-            || game_score_changed(&current.score, &new_game.score)
+            || current.score != new_game.score
             || current.seconds_remaining != new_game.seconds_remaining
             || current.period != new_game.period;
 
@@ -201,14 +183,7 @@ impl FeedState {
             }
 
             // Record winner for later-round mapping.
-            if new_game.status == GameState::Final
-                && let Some(w) = new_game.winner
-                && let Some((pos1, pos2)) = mapper.game_team_positions(game_index)
-            {
-                let winner_pos = if w { pos1 } else { pos2 };
-                mapper.record_winner(game_index, winner_pos);
-                debug!("recorded winner for game {game_index}: position {winner_pos}");
-            }
+            mapper.record_winner_from_game(&new_game);
 
             self.games.insert(game_index, new_game);
         }
@@ -219,18 +194,14 @@ impl FeedState {
     /// Determine the current feed phase and appropriate poll interval.
     pub fn poll_interval(&self) -> (FeedPhase, Duration) {
         let mut has_live = false;
-        let mut has_upcoming = false;
-        let mut has_pre = false;
+        let mut has_non_final = false;
         let mut final_count = 0u8;
 
         for game in self.games.values() {
             match game.status {
                 GameState::Final => final_count += 1,
                 GameState::Live => has_live = true,
-                GameState::Upcoming => {
-                    has_upcoming = true;
-                    has_pre = true;
-                }
+                GameState::Upcoming => has_non_final = true,
             }
         }
 
@@ -242,7 +213,7 @@ impl FeedState {
             return (FeedPhase::Active, self.active_interval);
         }
 
-        if has_pre || has_upcoming {
+        if has_non_final {
             return (FeedPhase::PreGame, PRE_GAME_INTERVAL);
         }
 
@@ -264,15 +235,6 @@ impl FeedState {
     /// Mark state as clean (after writing).
     pub fn mark_clean(&mut self) {
         self.dirty = false;
-    }
-}
-
-/// Compare two optional scores for equality.
-fn game_score_changed(a: &Option<GameScore>, b: &Option<GameScore>) -> bool {
-    match (a, b) {
-        (Some(a), Some(b)) => a.team1 != b.team1 || a.team2 != b.team2,
-        (None, None) => false,
-        _ => true,
     }
 }
 

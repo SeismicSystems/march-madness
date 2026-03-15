@@ -4,8 +4,9 @@ mod feed;
 mod mapper;
 mod writer;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use chrono::Datelike;
 use clap::Parser;
 use eyre::{Context, Result};
 use ncaa_api::{NcaaClient, SportCode, fetch_schedule, fetch_scoreboard};
@@ -81,19 +82,21 @@ async fn main() -> Result<()> {
     // Load existing tournament status if present.
     let existing_status = if cli.output_file.exists() {
         match std::fs::read_to_string(&cli.output_file) {
-            Ok(json) => match serde_json::from_str(&json) {
-                Ok(status) => {
-                    info!(
-                        "loaded existing tournament status from {}",
-                        cli.output_file.display()
-                    );
-                    Some(status)
+            Ok(json) => {
+                match serde_json::from_str::<seismic_march_madness::TournamentStatus>(&json) {
+                    Ok(status) => {
+                        info!(
+                            "loaded existing tournament status from {}",
+                            cli.output_file.display()
+                        );
+                        Some(status)
+                    }
+                    Err(e) => {
+                        warn!("failed to parse existing status: {e}");
+                        None
+                    }
                 }
-                Err(e) => {
-                    warn!("failed to parse existing status: {e}");
-                    None
-                }
-            },
+            }
             Err(e) => {
                 warn!("failed to read existing status: {e}");
                 None
@@ -105,7 +108,9 @@ async fn main() -> Result<()> {
 
     // Seed mapper with existing final results.
     if let Some(ref status) = existing_status {
-        seed_mapper_from_status(&mut mapper, status);
+        for game in &status.games {
+            mapper.record_winner_from_game(game);
+        }
     }
 
     let mut state = FeedState::new(cli.requests_per_sec, existing_status.as_ref());
@@ -133,21 +138,14 @@ async fn main() -> Result<()> {
 
                 if changes > 0 || state.dirty {
                     info!("{changes} game(s) changed");
-
-                    let status = state.to_tournament_status();
-
-                    // Write to file.
-                    if let Err(e) = writer::write_tournament_status(&cli.output_file, &status) {
-                        error!("failed to write status: {e}");
-                    }
-
-                    // POST to server if configured.
-                    if let (Some(url), Some(key)) = (&cli.api_url, &cli.api_key)
-                        && let Err(e) = writer::post_tournament_status(url, key, &status).await
-                    {
-                        error!("failed to POST status: {e}");
-                    }
-
+                    publish_status(
+                        &state,
+                        &cli.output_file,
+                        cli.api_url.as_deref(),
+                        cli.api_key.as_deref(),
+                        client.http(),
+                    )
+                    .await;
                     state.mark_clean();
                 }
             }
@@ -160,12 +158,14 @@ async fn main() -> Result<()> {
         match phase {
             FeedPhase::Complete => {
                 info!("all 63 games are final — tournament complete!");
-                // Write final state.
-                let status = state.to_tournament_status();
-                writer::write_tournament_status(&cli.output_file, &status)?;
-                if let (Some(url), Some(key)) = (&cli.api_url, &cli.api_key) {
-                    let _ = writer::post_tournament_status(url, key, &status).await;
-                }
+                publish_status(
+                    &state,
+                    &cli.output_file,
+                    cli.api_url.as_deref(),
+                    cli.api_key.as_deref(),
+                    client.http(),
+                )
+                .await;
                 break;
             }
             _ => {
@@ -176,6 +176,27 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Write tournament status to file and optionally POST to server.
+async fn publish_status(
+    state: &FeedState,
+    output_file: &Path,
+    api_url: Option<&str>,
+    api_key: Option<&str>,
+    http: &reqwest::Client,
+) {
+    let status = state.to_tournament_status();
+
+    if let Err(e) = writer::write_tournament_status(output_file, &status) {
+        error!("failed to write status: {e}");
+    }
+
+    if let (Some(url), Some(key)) = (api_url, api_key)
+        && let Err(e) = writer::post_tournament_status(http, url, key, &status).await
+    {
+        error!("failed to POST status: {e}");
+    }
 }
 
 /// Auto-detect today's date from the NCAA schedule API.
@@ -197,7 +218,7 @@ async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<String> {
         return Ok(today);
     }
 
-    // Find the next upcoming date.
+    // Find the next upcoming date (lexicographic compare works for YYYY/MM/DD format).
     for date in &dates {
         if date.as_str() >= today.as_str() {
             info!("no games today, next game date: {date}");
@@ -208,22 +229,4 @@ async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<String> {
     // Fall back to today.
     warn!("could not find a game date in schedule, using today: {today}");
     Ok(today)
-}
-
-use chrono::Datelike;
-
-/// Seed the mapper with winner data from existing tournament status.
-fn seed_mapper_from_status(
-    mapper: &mut GameMapper,
-    status: &seismic_march_madness::TournamentStatus,
-) {
-    for game in &status.games {
-        if game.status == seismic_march_madness::types::GameState::Final
-            && let Some(winner) = game.winner
-            && let Some((pos1, pos2)) = mapper.game_team_positions(game.game_index)
-        {
-            let winner_pos = if winner { pos1 } else { pos2 };
-            mapper.record_winner(game.game_index, winner_pos);
-        }
-    }
 }

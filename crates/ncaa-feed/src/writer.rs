@@ -34,15 +34,14 @@ pub fn write_tournament_status(
 
 /// POST tournament status to the server API.
 pub async fn post_tournament_status(
+    http: &reqwest::Client,
     api_url: &str,
     api_key: &str,
     status: &seismic_march_madness::TournamentStatus,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = http
         .post(api_url)
         .header("Authorization", format!("Bearer {api_key}"))
-        .header("Content-Type", "application/json")
         .json(status)
         .send()
         .await

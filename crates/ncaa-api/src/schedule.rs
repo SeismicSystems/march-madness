@@ -3,7 +3,7 @@
 use tracing::debug;
 
 use crate::NcaaApiError;
-use crate::client::{NCAA_API_BASE, NcaaClient};
+use crate::client::{NcaaClient, build_gql_url};
 use crate::types::{ScheduleGqlResponse, SportCode};
 
 /// Persisted query hash for the schedule endpoint.
@@ -22,19 +22,7 @@ pub async fn fetch_schedule(
         "division": 1,
         "seasonYear": season_year
     });
-    let extensions = serde_json::json!({
-        "persistedQuery": {
-            "version": 1,
-            "sha256Hash": SCHEDULE_HASH
-        }
-    });
-
-    let url = format!(
-        "{}?extensions={}&variables={}",
-        NCAA_API_BASE,
-        urlencoded(&extensions.to_string()),
-        urlencoded(&variables.to_string())
-    );
+    let url = build_gql_url(SCHEDULE_HASH, &variables);
 
     debug!("fetching schedule for {sport} season {season_year}");
     let body = client.get(&url).await?;
@@ -52,10 +40,6 @@ pub async fn fetch_schedule(
         .collect();
 
     Ok(dates)
-}
-
-fn urlencoded(s: &str) -> String {
-    url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
 }
 
 #[cfg(test)]

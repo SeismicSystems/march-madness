@@ -26,11 +26,53 @@ struct RateLimitState {
     consecutive_429s: u32,
 }
 
+impl RateLimitState {
+    /// Compute how long to wait before the next request.
+    fn wait_duration(&self, min_interval: Duration) -> Duration {
+        if self.backoff > Duration::ZERO {
+            self.backoff
+        } else {
+            let elapsed = self.last_request.elapsed();
+            if elapsed < min_interval {
+                min_interval - elapsed
+            } else {
+                Duration::ZERO
+            }
+        }
+    }
+
+    /// Record a 429 response: increment counter and double backoff.
+    fn record_429(&mut self) {
+        self.consecutive_429s += 1;
+        self.backoff = if self.backoff == Duration::ZERO {
+            Duration::from_secs(2)
+        } else {
+            (self.backoff * 2).min(Duration::from_secs(60))
+        };
+        warn!(
+            "429 rate limited (consecutive: {}), backing off {}s",
+            self.consecutive_429s,
+            self.backoff.as_secs()
+        );
+    }
+
+    /// Reset backoff state after a successful (non-429) response.
+    fn record_success(&mut self) {
+        if self.consecutive_429s > 0 {
+            debug!(
+                "rate limit cleared after {} consecutive 429s",
+                self.consecutive_429s
+            );
+        }
+        self.backoff = Duration::ZERO;
+        self.consecutive_429s = 0;
+    }
+}
+
 impl NcaaClient {
     /// Create a new client with the given max requests per second.
     ///
-    /// # Panics
-    /// Panics if `max_requests_per_sec` >= 5.0 or <= 0.0.
+    /// Returns an error if `max_requests_per_sec` is not in (0, 5).
     pub fn new(max_requests_per_sec: f64) -> Result<Self, NcaaApiError> {
         if max_requests_per_sec <= 0.0 || max_requests_per_sec >= 5.0 {
             return Err(NcaaApiError::Config(
@@ -54,35 +96,15 @@ impl NcaaClient {
         })
     }
 
+    /// Get the inner HTTP client (for reuse by other components, e.g. POST requests).
+    pub fn http(&self) -> &reqwest::Client {
+        &self.http
+    }
+
     /// Make a rate-limited GET request. Handles 429 backoff automatically.
     pub async fn get(&self, url: &str) -> Result<String, NcaaApiError> {
         loop {
-            // Wait for rate limit
-            {
-                let state = self.state.lock().await;
-                let elapsed = state.last_request.elapsed();
-
-                // Apply backoff if we've been getting 429s
-                let wait = if state.backoff > Duration::ZERO {
-                    state.backoff
-                } else if elapsed < self.min_interval {
-                    self.min_interval - elapsed
-                } else {
-                    Duration::ZERO
-                };
-
-                if wait > Duration::ZERO {
-                    drop(state);
-                    debug!("rate limit: sleeping {}ms", wait.as_millis());
-                    tokio::time::sleep(wait).await;
-                }
-            }
-
-            // Make the request
-            {
-                let mut state = self.state.lock().await;
-                state.last_request = Instant::now();
-            }
+            self.wait_for_rate_limit().await;
 
             debug!("GET {url}");
             let resp = self
@@ -95,45 +117,51 @@ impl NcaaClient {
             let status = resp.status();
 
             if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                let mut state = self.state.lock().await;
-                state.consecutive_429s += 1;
-                let new_backoff = if state.backoff == Duration::ZERO {
-                    Duration::from_secs(2)
-                } else {
-                    (state.backoff * 2).min(Duration::from_secs(60))
-                };
-                state.backoff = new_backoff;
-                warn!(
-                    "429 rate limited (consecutive: {}), backing off {}s",
-                    state.consecutive_429s,
-                    new_backoff.as_secs()
-                );
+                self.state.lock().await.record_429();
                 continue;
             }
 
-            // Reset backoff on success
-            {
-                let mut state = self.state.lock().await;
-                if state.consecutive_429s > 0 {
-                    debug!(
-                        "rate limit cleared after {} consecutive 429s",
-                        state.consecutive_429s
-                    );
-                }
-                state.backoff = Duration::ZERO;
-                state.consecutive_429s = 0;
-            }
+            self.state.lock().await.record_success();
 
             if !status.is_success() {
                 return Err(NcaaApiError::Http(format!("HTTP {status} from {url}")));
             }
 
-            let body = resp
+            return resp
                 .text()
                 .await
-                .map_err(|e| NcaaApiError::Http(e.to_string()))?;
-
-            return Ok(body);
+                .map_err(|e| NcaaApiError::Http(e.to_string()));
         }
     }
+
+    /// Wait for rate limit, then stamp the request time (single lock acquisition).
+    async fn wait_for_rate_limit(&self) {
+        let wait = self.state.lock().await.wait_duration(self.min_interval);
+        if wait > Duration::ZERO {
+            debug!("rate limit: sleeping {}ms", wait.as_millis());
+            tokio::time::sleep(wait).await;
+        }
+        self.state.lock().await.last_request = Instant::now();
+    }
+}
+
+/// Build an NCAA GraphQL persisted-query URL.
+pub(crate) fn build_gql_url(hash: &str, variables: &serde_json::Value) -> String {
+    let extensions = serde_json::json!({
+        "persistedQuery": {
+            "version": 1,
+            "sha256Hash": hash
+        }
+    });
+    format!(
+        "{}?extensions={}&variables={}",
+        NCAA_API_BASE,
+        urlencoded(&extensions.to_string()),
+        urlencoded(&variables.to_string())
+    )
+}
+
+/// URL-encode a string for query parameters.
+fn urlencoded(s: &str) -> String {
+    url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
 }

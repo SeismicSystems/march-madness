@@ -57,10 +57,25 @@ pub enum GameState {
     Final,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameScore {
     pub team1: u32,
     pub team2: u32,
+}
+
+impl GameStatus {
+    /// Create an upcoming game with no score data.
+    pub fn upcoming(game_index: u8) -> Self {
+        Self {
+            game_index,
+            status: GameState::Upcoming,
+            score: None,
+            winner: None,
+            team1_win_probability: None,
+            seconds_remaining: None,
+            period: None,
+        }
+    }
 }
 
 /// Full tournament status — served by backend, updated via POST.
