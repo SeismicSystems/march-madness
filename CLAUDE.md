@@ -77,7 +77,7 @@ Events:
 
 ## Server API
 
-Rust HTTP server (`crates/server`, default port 3001):
+Rust HTTP server (`crates/server`, default port 3000):
 - `GET /api/entries` — full entry index (from indexer)
 - `GET /api/entries/:address` — single entry by address
 - `GET /api/stats` — total entries + scored count
@@ -86,7 +86,10 @@ Rust HTTP server (`crates/server`, default port 3001):
 - `GET /api/forecasts` — bracket win probabilities (from `data/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 
-Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3001`).
+Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3000`).
+
+Production URL: `https://brackets.seismictest.net/api/...` (nginx proxies `/api/*` to port 3000).
+See `docs/api.md` for full API documentation including schema, game index layout, and team names.
 
 ## Frontend Routes
 

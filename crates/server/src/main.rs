@@ -18,7 +18,7 @@ use crate::state::AppState;
 #[command(name = "march-madness-server", about = "Serve bracket index data")]
 struct Cli {
     /// Port to listen on.
-    #[arg(long, default_value = "3001")]
+    #[arg(long, default_value = "3000")]
     port: u16,
 
     /// Path to the JSON index file written by the indexer.

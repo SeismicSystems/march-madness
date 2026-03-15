@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EntryIndex } from "@march-madness/client";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 const POLL_INTERVAL = 30_000; // 30s
 
 export function useEntries() {
