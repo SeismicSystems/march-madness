@@ -23,7 +23,9 @@ pub struct MmCalibrationConfig {
     pub base_learning_rate: f64,
     pub decay_factor: f64,
     pub max_goose: f64,
-    /// Sensitivity constant: scales edge (dollars) to goose (pts/100 possessions).
+    /// Sensitivity: converts edge dollars to goose points.
+    /// goose_delta = avg_edge_dollars * sensitivity * lr.
+    /// With deep orderbooks (1000s of contracts), try ~0.001.
     pub sensitivity: f64,
 }
 
@@ -36,7 +38,7 @@ impl Default for MmCalibrationConfig {
             base_learning_rate: 1.0,
             decay_factor: 0.3,
             max_goose: 15.0,
-            sensitivity: 2.0,
+            sensitivity: 0.001,
         }
     }
 }

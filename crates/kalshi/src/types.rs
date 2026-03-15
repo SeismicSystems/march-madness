@@ -104,18 +104,34 @@ pub struct Orderbook {
     pub yes_asks: Vec<OrderbookLevel>,
 }
 
-/// Raw API response: `{"orderbook": {"yes": [[p,q],...], "no": [[p,q],...]}}`.
+/// Raw API response — supports both legacy integer-cents and new string-dollar formats.
 #[derive(Debug, Deserialize)]
-pub struct OrderbookResponse {
-    pub orderbook: OrderbookResponseInner,
+#[serde(untagged)]
+pub enum OrderbookResponse {
+    /// Legacy format: `{"orderbook": {"yes": [[cents, qty], ...], "no": [...]}}`
+    Legacy {
+        orderbook: OrderbookLegacyInner,
+    },
+    /// New format: `{"orderbook_fp": {"yes_dollars": [["0.24","100.00"], ...], "no_dollars": [...]}}`
+    Fp {
+        orderbook_fp: OrderbookFpInner,
+    },
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OrderbookResponseInner {
+pub struct OrderbookLegacyInner {
     #[serde(default)]
     pub yes: Vec<[u32; 2]>,
     #[serde(default)]
     pub no: Vec<[u32; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderbookFpInner {
+    #[serde(default)]
+    pub yes_dollars: Vec<[String; 2]>,
+    #[serde(default)]
+    pub no_dollars: Vec<[String; 2]>,
 }
 
 /// Orderbook data for a specific team, round, and ticker.
