@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.30;
 
 /// @title IMarchMadness — public interface for the MarchMadness bracket contest
 /// @notice Defines the full public API for MarchMadness. Implementation details

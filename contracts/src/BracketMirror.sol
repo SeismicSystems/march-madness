@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.30;
 
 /// @title BracketMirror — admin-managed off-chain bracket pool mirror
 /// @notice Stores brackets + slugs from external pools (e.g. Yahoo Fantasy) on-chain
