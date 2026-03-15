@@ -142,15 +142,19 @@ async function deploy(deadlineOffset: number): Promise<DeployResult> {
     console.log(`Using existing contract: ${EXISTING_CONTRACT}`);
     return {
       contractAddress: EXISTING_CONTRACT,
+      groupsContractAddress: "0x0000000000000000000000000000000000000000" as Address,
+      mirrorContractAddress: "0x0000000000000000000000000000000000000000" as Address,
       ownerAddress: deployer.address,
       deadline,
     };
   }
 
-  console.log(`Deploying contract via sforge (deadline offset: ${deadlineOffset}s)...`);
+  console.log(`Deploying all contracts via sforge (deadline offset: ${deadlineOffset}s)...`);
   const result = await deployContractViaSforge(deadlineOffset);
 
-  console.log(`Contract deployed at: ${result.contractAddress}`);
+  console.log(`MarchMadness deployed at: ${result.contractAddress}`);
+  console.log(`BracketGroups deployed at: ${result.groupsContractAddress}`);
+  console.log(`BracketMirror deployed at: ${result.mirrorContractAddress}`);
   console.log(`Owner: ${result.ownerAddress}`);
   console.log(`Deadline: ${result.deadline}`);
   return result;
@@ -158,25 +162,26 @@ async function deploy(deadlineOffset: number): Promise<DeployResult> {
 
 // ── Phase Implementations ─────────────────────────────────────────────
 
-async function phasePreSubmission(): Promise<Address> {
+async function phasePreSubmission(): Promise<DeployResult> {
   console.log("=== Phase: pre-submission ===");
   console.log("Deploying contract with future deadline (1 hour).");
   console.log("No brackets will be submitted -- use the UI to test submission flow.\n");
 
   const deadlineOffset = parseInt(process.env.DEADLINE_OFFSET || "3600", 10);
-  const { contractAddress } = await deploy(deadlineOffset);
+  const result = await deploy(deadlineOffset);
 
-  await printContractState(contractAddress);
+  await printContractState(result.contractAddress);
   console.log("Ready for manual bracket submission via the frontend.");
-  return contractAddress;
+  return result;
 }
 
-async function phasePostSubmission(): Promise<Address> {
+async function phasePostSubmission(): Promise<DeployResult> {
   console.log("=== Phase: post-submission ===");
   console.log("Deploying contract, submitting brackets, fast-forwarding past deadline, posting results.\n");
 
   // Deploy with a short deadline (60s) so we can fast-forward past it
-  const { contractAddress } = await deploy(60);
+  const deployResult = await deploy(60);
+  const { contractAddress } = deployResult;
   const publicClient = createPublicClientInstance();
   const players = getPlayerAccounts();
   const deployer = getDeployerAccount();
@@ -272,15 +277,16 @@ async function phasePostSubmission(): Promise<Address> {
 
   await printContractState(contractAddress);
   console.log("Remaining brackets are unscored -- test scoring via the UI or CLI.");
-  return contractAddress;
+  return deployResult;
 }
 
-async function phasePostGrading(): Promise<Address> {
+async function phasePostGrading(): Promise<DeployResult> {
   console.log("=== Phase: post-grading ===");
   console.log("Deploying contract, submitting brackets, scoring all, fast-forwarding past scoring window.\n");
 
   // Deploy with short deadline
-  const { contractAddress } = await deploy(60);
+  const deployResult = await deploy(60);
+  const { contractAddress } = deployResult;
   const publicClient = createPublicClientInstance();
   const players = getPlayerAccounts();
   const deployer = getDeployerAccount();
@@ -358,7 +364,7 @@ async function phasePostGrading(): Promise<Address> {
 
   await printContractState(contractAddress);
   console.log("Winners can now call collectWinnings() via the UI or CLI.");
-  return contractAddress;
+  return deployResult;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -376,16 +382,16 @@ async function main() {
     console.log("");
   }
 
-  let contractAddress: Address;
+  let result: DeployResult;
   switch (phase) {
     case "pre-submission":
-      contractAddress = await phasePreSubmission();
+      result = await phasePreSubmission();
       break;
     case "post-submission":
-      contractAddress = await phasePostSubmission();
+      result = await phasePostSubmission();
       break;
     case "post-grading":
-      contractAddress = await phasePostGrading();
+      result = await phasePostGrading();
       break;
   }
 
@@ -394,8 +400,8 @@ async function main() {
     return;
   }
 
-  // Start Vite dev server with the contract address injected
-  console.log(`\nStarting Vite dev server (contract: ${contractAddress})...\n`);
+  // Start Vite dev server with all contract addresses injected
+  console.log(`\nStarting Vite dev server (contract: ${result.contractAddress})...\n`);
   const { spawn } = await import("child_process");
   const { resolve } = await import("path");
 
@@ -405,7 +411,9 @@ async function main() {
     stdio: "inherit",
     env: {
       ...process.env,
-      VITE_CONTRACT_ADDRESS: contractAddress,
+      VITE_CONTRACT_ADDRESS: result.contractAddress,
+      VITE_GROUPS_CONTRACT_ADDRESS: result.groupsContractAddress,
+      VITE_MIRROR_CONTRACT_ADDRESS: result.mirrorContractAddress,
       VITE_CHAIN_ID: String(31337), // sanvil
     },
   });

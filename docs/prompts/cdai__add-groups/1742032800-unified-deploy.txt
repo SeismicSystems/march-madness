@@ -1,0 +1,1 @@
+have we updated the deploy scripts? ideally we just have one deploy script. there's a lot of infra -- we need to track 3 contract addresses now right? can marchmadness have an interface and then pass the address to the group contract for a lighter weight deploy?

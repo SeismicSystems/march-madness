@@ -1,5 +1,5 @@
 import { ENTRY_FEE } from "@march-madness/client";
-import { formatEther } from "viem";
+import { type Address, formatEther } from "viem";
 import { sanvil } from "seismic-viem";
 import deployments from "../../../../data/deployments.json";
 
@@ -16,12 +16,21 @@ export const SUBMISSION_DEADLINE = 1773853200;
 
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? String(sanvil.id);
 
+type DeploymentEntry = { marchMadness: Address; bracketGroups: Address; bracketMirror: Address };
+const chainDeployment = (deployments as Record<string, Record<string, DeploymentEntry>>)[YEAR]?.[CHAIN_ID];
+if (!chainDeployment) {
+  throw new Error(`No deployment found for year=${YEAR} chain=${CHAIN_ID}`);
+}
+
 /** VITE_CONTRACT_ADDRESS overrides deployments.json (populate injects this for local dev) */
-export const CONTRACT_ADDRESS = (
-  import.meta.env.VITE_CONTRACT_ADDRESS ??
-  (deployments as Record<string, Record<string, string>>)[YEAR]?.[CHAIN_ID] ??
-  "0x0000000000000000000000000000000000000000"
-) as `0x${string}`;
+export const CONTRACT_ADDRESS: Address =
+  (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ?? chainDeployment.marchMadness;
+
+export const GROUPS_CONTRACT_ADDRESS: Address =
+  (import.meta.env.VITE_GROUPS_CONTRACT_ADDRESS as Address | undefined) ?? chainDeployment.bracketGroups;
+
+export const MIRROR_CONTRACT_ADDRESS: Address =
+  (import.meta.env.VITE_MIRROR_CONTRACT_ADDRESS as Address | undefined) ?? chainDeployment.bracketMirror;
 
 /** Seismic testnet faucet */
 export const FAUCET_URL = "https://faucet.seismictest.net";
