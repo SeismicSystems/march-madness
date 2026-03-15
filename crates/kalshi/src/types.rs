@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 pub const KALSHI_API_BASE: &str = "https://api.elections.kalshi.com";
+pub const KALSHI_WS_URL: &str = "wss://api.elections.kalshi.com/trade-api/ws/v2";
+pub const KALSHI_WS_PATH: &str = "/trade-api/ws/v2";
 pub const YEAR: u16 = 2026;
 
 /// One market/round we care about.
@@ -132,4 +134,24 @@ pub struct CachedOrderbooks {
     pub event_ticker: String,
     pub round: usize,
     pub orderbooks: Vec<Orderbook>,
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket message types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct WsTickerMsg {
+    pub market_ticker: String,
+    pub yes_bid_dollars: Option<String>,
+    pub yes_ask_dollars: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WsEnvelope {
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    pub sid: Option<u64>,
+    pub seq: Option<u64>,
+    pub msg: Option<serde_json::Value>,
 }
