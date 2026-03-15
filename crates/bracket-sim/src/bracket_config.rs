@@ -31,10 +31,10 @@ struct TournamentJson {
 }
 
 impl BracketConfig {
-    /// Load bracket config for a given year from data/mens-{year}.json.
+    /// Load bracket config for a given year from data/{year}/tournament.json.
     /// The JSON `regions` array encodes Final Four pairings: [0] vs [1], [2] vs [3].
     pub fn for_year(year: u16) -> Self {
-        let path = crate::data_dir().join(format!("mens-{}.json", year));
+        let path = crate::season_dir(year).join("tournament.json");
         let content = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
         let tournament: TournamentJson = serde_json::from_str(&content)

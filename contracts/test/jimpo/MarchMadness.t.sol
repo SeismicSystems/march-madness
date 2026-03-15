@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
@@ -22,7 +22,7 @@ contract MarchMadnessJimpoTest is Test {
 
     function setUp() public {
         vm.warp(100); // well before deadline
-        mm = new MarchMadness(ENTRY_FEE, DEADLINE);
+        mm = new MarchMadness(2026, ENTRY_FEE, DEADLINE);
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(charlie, 10 ether);

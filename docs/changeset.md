@@ -9,7 +9,16 @@ All notable changes to this project. Every PR must add an entry here.
 - **Library modules**: team loading/validation, game simulation (Poisson scoring + overtime), tournament orchestration, bracket encoding (ByteBracket u64 format), scoring systems, goose calibration against market odds.
 - **CLI binary** `sim` — runs Monte Carlo tournament simulations and prints round-by-round advancement probabilities for all 64 teams.
 - **CLI binary** `calibrate` — adjusts team "goose" ratings to match target probabilities (e.g. from Kalshi) using iterative Bayesian calibration with Beta posterior convergence checks.
-- **Data files**: `data/bracket_config.toml` (Final Four pairings by year), `data/2026/bracket.csv`, `data/2026/kenpom.csv`.
+- **Data files**: `data/2025/tournament.json`, `data/2026/tournament.json`, `data/{year}/kenpom.csv`.
+
+### 2026-03-15 — BracketMirror + BracketGroups contracts
+- **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. Entries have unique slugs within a mirror for URL-friendly lookup (`getEntryBySlug`). Swap-and-pop removal.
+- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Optional `sbytes12` password protection (shielded), optional entry fee with scoring + payout. Group IDs are `uint32`. Scoring delegates to `marchMadness.scoreBracket()` to avoid double work. Group struct uses `creator` (not `admin`). Join/leave gated by submission deadline.
+- **New interface** `IMarchMadness.sol` — minimal 6-function interface (`hasEntry`, `submissionDeadline`, `resultsPostedAt`, `scoreBracket`, `scores`, `isScored`) so BracketGroups only needs the deployed address.
+- **Deploy scripts**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts. `deploy-testnet.sh` parses all 3 addresses and writes to `data/deployments.json`.
+- **Frontend**: `constants.ts` exports `CONTRACT_ADDRESS`, `GROUPS_CONTRACT_ADDRESS`, `MIRROR_CONTRACT_ADDRESS` from `deployments.json` (handles both old string and new object formats).
+- **Tests**: 35 BracketGroups tests (creation, join/leave, password, scoring delegation, payouts, deadline enforcement) + 24 BracketMirror tests (creation, entries, slug lookup, swap-and-pop, access control).
+- **MarchMadness constructor**: Added `uint16 year` parameter — contracts are now self-describing for which tournament season they belong to. Deploy scripts pass year (production: `2026`, local: `YEAR` env var, default `2026`).
 
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.

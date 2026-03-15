@@ -58,7 +58,13 @@ pub fn data_dir() -> std::path::PathBuf {
         .join("data")
 }
 
-/// Load teams from the default data paths for a given year: `data/mens-{year}.json` + `data/{year}/kenpom.csv`.
+/// Returns the `data/{year}/` directory for a given tournament year.
+pub fn season_dir(year: u16) -> std::path::PathBuf {
+    data_dir().join(year.to_string())
+}
+
+/// Load teams from the default data paths for a given year:
+/// `data/{year}/tournament.json` + `data/{year}/kenpom.csv`.
 /// If `input` is Some, loads from that combined CSV instead.
 pub fn load_teams_for_year(
     input: Option<&std::path::Path>,
@@ -70,11 +76,11 @@ pub fn load_teams_for_year(
         })?;
         return team::load_teams_from_combined_csv(p);
     }
-    let data = data_dir();
-    let bracket_json = data.join(format!("mens-{}.json", year));
-    let kenpom = data.join(year.to_string()).join("kenpom.csv");
+    let dir = season_dir(year);
+    let tournament_json = dir.join("tournament.json");
+    let kenpom = dir.join("kenpom.csv");
     let kenpom_str = kenpom
         .to_str()
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "non-UTF-8 path"))?;
-    team::load_teams_from_json(&bracket_json, kenpom_str)
+    team::load_teams_from_json(&tournament_json, kenpom_str)
 }

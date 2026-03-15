@@ -36,7 +36,7 @@ struct KenpomRow {
     goose: f64,
 }
 
-/// Tournament JSON format (mens-{year}.json).
+/// Tournament JSON format (data/{year}/tournament.json).
 #[derive(Debug, Deserialize)]
 struct TournamentJson {
     teams: Vec<TournamentJsonTeam>,
@@ -118,7 +118,7 @@ fn join_with_kenpom(entries: Vec<BracketEntry>, kenpom_path: &str) -> io::Result
     Ok(teams)
 }
 
-/// Load teams by joining a tournament JSON (data/mens-{year}.json) with a KenPom CSV.
+/// Load teams by joining a tournament JSON (data/{year}/tournament.json) with a KenPom CSV.
 /// The JSON provides bracket structure (name, seed, region); KenPom provides ratings.
 pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
     let json_content = std::fs::read_to_string(json_path)

@@ -54,6 +54,8 @@ docs/               — Technical docs, changeset, prompts
 
 ## Contract Interface (MarchMadness.sol)
 
+Constructor: `MarchMadness(uint16 year, uint256 entryFee, uint256 submissionDeadline)`
+
 Key functions:
 - `submitBracket(sbytes8 bracket)` — submit shielded bracket, 1 ETH buy-in
 - `updateBracket(sbytes8 bracket)` — update bracket before deadline
@@ -68,6 +70,49 @@ Key functions:
 
 Events:
 - `BracketSubmitted(address indexed account)` — emitted on submit AND update
+
+## BracketMirror Contract (BracketMirror.sol)
+
+Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. All winner computation happens off-chain.
+
+- `createMirror(slug, displayName)` → mirrorId
+- `addEntry(mirrorId, bracket, slug)` — admin adds `MirrorEntry { bracket, slug }`; slug must be unique within mirror
+- `removeEntry(mirrorId, index)` — swap-and-pop
+- `updateBracket(mirrorId, index, bracket)` / `updateEntrySlug(mirrorId, index, slug)`
+- `setPrizeDescription(mirrorId, description)` — off-chain prize bookkeeping
+- `getEntryBySlug(mirrorId, slug)` — lookup entry by slug for nice URLs (e.g. `/mirrors/mens-league/brackets/my-entry-slug`)
+- Entries stored as `MirrorEntry[]` array per mirror
+- Existence check: `admin != address(0)` (no `exists` field)
+
+## BracketGroups Contract (BracketGroups.sol)
+
+Linked sub-groups composing with MarchMadness. Optional password + entry fee.
+
+- `createGroup(slug, displayName, entryFee)` → groupId (public)
+- `createGroupWithPassword(slug, displayName, entryFee, sbytes12 password)` → groupId (private)
+- `joinGroup(groupId, name)` / `joinGroupWithPassword(groupId, sbytes12 password, name)` — payable, always requires name
+- `leaveGroup(groupId)` — refund before submission deadline
+- `editEntryName(groupId, name)` — update display name
+- `scoreEntry(groupId, memberIndex)` — delegates to `marchMadness.scoreBracket()` if not already scored, then reads score
+- `collectWinnings(groupId)` — winners split group prize pool after scoring window
+- `getGroupBySlug(slug)` → `(uint32, Group memory)` — returns both ID and group data
+
+Password stored as `sbytes12` (shielded). Public groups reject password joins and vice versa.
+Group IDs are `uint32`. GroupPayout uses `uint32` for numWinners/numScored.
+BracketGroups imports `IMarchMadness` interface (not the full contract) — field named `marchMadness`.
+Group struct uses `creator` (not `admin`) since group creators have no extra privileges.
+Existence check: `creator != address(0)` (no `exists` field).
+
+## Deploy Scripts
+
+Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMadness address in its constructor.
+
+- **Production**: `contracts/script/DeployAll.s.sol` — deploys MM + Groups + Mirror
+- **Local dev**: `contracts/script/DeployAllLocal.s.sol` — same with configurable `DEADLINE_OFFSET`
+- **Testnet**: `scripts/deploy-testnet.sh` — runs `DeployAll.s.sol`, writes all 3 addresses to `data/deployments.json`
+- **Legacy scripts**: `MarchMadness.s.sol` / `MarchMadnessLocal.s.sol` still work for MM-only deploys
+
+`data/deployments.json` format: `{ "2026": { "5124": { "marchMadness": "0x...", "bracketGroups": "0x...", "bracketMirror": "0x..." } } }`
 
 ## Bracket Encoding
 
