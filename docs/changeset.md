@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Improve desktop bracket vertical symmetry (closes #31)
+- Replaced hardcoded pixel spacing (`getVerticalSpacing`) with flex-based layout using `justify-around` and `items-stretch`. Each round column now stretches to the same height as the R64 column, and games within each round automatically center between their two feeder games from the previous round.
+- Top and bottom halves now use `items-stretch` for equal-height regions, producing a symmetric layout where the Final Four sits cleanly in the center.
+- Added `gap-2` minimum spacing between games for visual breathing room.
+
 ### 2026-03-15 — Upgrade seismic foundry to nightly-94eb5fc (closes #15)
 - Updated `sfoundry` pin in `mise.toml` from `nightly-08913bcc...` to `nightly-94eb5fc1...` (2026-03-14 release).
 
