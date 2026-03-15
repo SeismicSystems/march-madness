@@ -1,0 +1,1 @@
+Make score_base_bb public in bracket-sim's scoring module. It's currently #[cfg(test)] pub(crate) but downstream consumers need it for ByteBracket scoring in equity simulations.
