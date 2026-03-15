@@ -1,0 +1,5 @@
+i feel like we are trying to send this thing through *privy* and not sending the raw tx directly to the node... I'm on desktop now so can see develpoier console
+
+An internal error was received. → details: {"eipCode":-32603,"message":"Internal error","detail":"Internal JSON-RPC error","default":true,"retryable":true}
+
+that's what i get. estimate gas returns a valid response. but i don't see any outgoing reqest to rpc endpoing eth_sendRawTransaction - and we should definitely see that. the request just is never firing off. study out code and seismic-viem repo
