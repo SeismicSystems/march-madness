@@ -2,12 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {ByteBracket} from "./ByteBracket.sol";
+import {IMarchMadness} from "./IMarchMadness.sol";
 
 /// @title MarchMadness — Seismic privacy-preserving bracket contest
 /// @notice Brackets are stored as sbytes8 (shielded) and hidden until the submission deadline.
 ///         After the deadline, brackets become publicly readable. Scoring uses jimpo's ByteBracket
 ///         library. Winners split the prize pool equally.
-contract MarchMadness {
+contract MarchMadness is IMarchMadness {
     // ── Owner ──────────────────────────────────────────────────────────────
     address public owner;
 
@@ -38,13 +39,6 @@ contract MarchMadness {
     // ── Constants ──────────────────────────────────────────────────────────
     uint256 public constant SCORING_DURATION = 7 days;
 
-    // ── Events ─────────────────────────────────────────────────────────────
-    event BracketSubmitted(address indexed account);
-    event TagSet(address indexed account, string tag);
-    event BracketScored(address indexed account, uint8 score);
-    event ResultsPosted(bytes8 results);
-    event WinningsCollected(address indexed account, uint256 amount);
-
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(uint16 _year, uint256 _entryFee, uint256 _submissionDeadline) {
         owner = msg.sender;
@@ -58,20 +52,20 @@ contract MarchMadness {
     /// @notice Submit a shielded bracket with entry fee.
     /// @param bracket  The shielded bracket (MSB must be set as sentinel).
     function submitBracket(sbytes8 bracket) external payable {
-        require(msg.value == entryFee, "Incorrect entry fee");
-        require(block.timestamp < submissionDeadline, "Submission deadline passed");
+        if (msg.value != entryFee) revert IncorrectEntryFee(entryFee, msg.value);
+        if (block.timestamp >= submissionDeadline) revert SubmissionDeadlinePassed();
 
         // Validate sentinel: MSB (bit 63) must be set
         bytes8 raw = bytes8(bracket);
-        require(raw[0] & 0x80 != 0, "Invalid sentinel byte");
+        if (raw[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         // Check address hasn't already submitted (sentinel check on existing bracket)
         bytes8 existing = bytes8(brackets[msg.sender]);
-        require(existing[0] & 0x80 == 0, "Already submitted");
+        if (existing[0] & 0x80 != 0) revert AlreadySubmitted();
 
         brackets[msg.sender] = bracket;
         hasEntry[msg.sender] = true;
-        require(numEntries < type(uint32).max, "Entry count overflow");
+        if (numEntries >= type(uint32).max) revert EntryCountOverflow();
         numEntries++;
 
         emit BracketSubmitted(msg.sender);
@@ -81,7 +75,7 @@ contract MarchMadness {
     /// @param tag  The display name to associate with the sender's bracket.
     function setTag(string calldata tag) external {
         bytes8 existing = bytes8(brackets[msg.sender]);
-        require(existing[0] & 0x80 != 0, "No bracket submitted");
+        if (existing[0] & 0x80 == 0) revert NoBracketSubmitted();
         tags[msg.sender] = tag;
 
         emit TagSet(msg.sender, tag);
@@ -90,15 +84,15 @@ contract MarchMadness {
     /// @notice Update an already-submitted bracket (no additional fee required).
     /// @param bracket  The new shielded bracket (MSB must be set as sentinel).
     function updateBracket(sbytes8 bracket) external {
-        require(block.timestamp < submissionDeadline, "Submission deadline passed");
+        if (block.timestamp >= submissionDeadline) revert SubmissionDeadlinePassed();
 
         // Require address HAS already submitted
         bytes8 existing = bytes8(brackets[msg.sender]);
-        require(existing[0] & 0x80 != 0, "No bracket submitted");
+        if (existing[0] & 0x80 == 0) revert NoBracketSubmitted();
 
         // Validate sentinel on new bracket
         bytes8 raw = bytes8(bracket);
-        require(raw[0] & 0x80 != 0, "Invalid sentinel byte");
+        if (raw[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         brackets[msg.sender] = bracket;
 
@@ -114,7 +108,7 @@ contract MarchMadness {
     /// @return The bracket as bytes8 (unshielded).
     function getBracket(address account) public view returns (bytes8) {
         if (block.timestamp < submissionDeadline) {
-            require(msg.sender == account, "Cannot read bracket before deadline");
+            if (msg.sender != account) revert CannotReadBracketBeforeDeadline();
         }
         return bytes8(brackets[account]);
     }
@@ -124,10 +118,10 @@ contract MarchMadness {
     /// @notice Post tournament results. Owner only, once.
     /// @param _results  The tournament results as bytes8 (MSB must be set as sentinel).
     function submitResults(bytes8 _results) external {
-        require(msg.sender == owner, "Only owner");
-        require(results == bytes8(0), "Results already posted");
-        require(block.timestamp >= submissionDeadline, "Submission phase not over");
-        require(_results[0] & 0x80 != 0, "Invalid sentinel byte");
+        if (msg.sender != owner) revert OnlyOwner();
+        if (results != bytes8(0)) revert ResultsAlreadyPosted();
+        if (block.timestamp < submissionDeadline) revert SubmissionPhaseNotOver();
+        if (_results[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         results = _results;
         scoringMask = ByteBracket.getScoringMask(_results);
@@ -141,12 +135,12 @@ contract MarchMadness {
     /// @notice Score a bracket against the posted results. Anyone can call this.
     /// @param account  The address whose bracket to score.
     function scoreBracket(address account) external {
-        require(results != bytes8(0), "Results not posted");
-        require(!isScored[account], "Already scored");
-        require(block.timestamp < resultsPostedAt + SCORING_DURATION, "Scoring window closed");
+        if (results == bytes8(0)) revert ResultsNotPosted();
+        if (isScored[account]) revert AlreadyScored();
+        if (block.timestamp >= resultsPostedAt + SCORING_DURATION) revert ScoringWindowClosed();
 
         bytes8 b = bytes8(brackets[account]);
-        require(b[0] & 0x80 != 0, "No bracket submitted");
+        if (b[0] & 0x80 == 0) revert NoBracketSubmitted();
 
         uint8 score = ByteBracket.getBracketScore(b, results, scoringMask);
         scores[account] = score;
@@ -169,12 +163,12 @@ contract MarchMadness {
     /// @notice Collect winnings. Available once the scoring window has closed.
     ///         Winners are the entrants with the highest scored bracket.
     function collectWinnings() external {
-        require(resultsPostedAt > 0, "Results not posted");
-        require(block.timestamp >= resultsPostedAt + SCORING_DURATION, "Scoring window still open");
-        require(numWinners > 0, "No brackets scored");
-        require(scores[msg.sender] == winningScore, "Not a winner");
-        require(isScored[msg.sender], "Not scored");
-        require(!hasCollectedWinnings[msg.sender], "Already collected");
+        if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp < resultsPostedAt + SCORING_DURATION) revert ScoringWindowStillOpen();
+        if (numWinners == 0) revert NoBracketsScored();
+        if (scores[msg.sender] != winningScore) revert NotAWinner();
+        if (!isScored[msg.sender]) revert NotScored();
+        if (hasCollectedWinnings[msg.sender]) revert AlreadyCollected();
 
         hasCollectedWinnings[msg.sender] = true;
         uint256 payout = (uint256(numEntries) * entryFee) / numWinners;
@@ -182,7 +176,7 @@ contract MarchMadness {
         emit WinningsCollected(msg.sender, payout);
 
         (bool success,) = msg.sender.call{value: payout}("");
-        require(success, "Transfer failed");
+        if (!success) revert TransferFailed();
     }
 
     // ── View Functions ─────────────────────────────────────────────────────

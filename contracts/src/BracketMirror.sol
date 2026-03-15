@@ -6,6 +6,18 @@ pragma solidity ^0.8.30;
 ///         for display purposes. No money, no scoring, no composition with MarchMadness.
 ///         All winner computation happens off-chain.
 contract BracketMirror {
+    // ── Errors ───────────────────────────────────────────────────────────
+    error MirrorDoesNotExist();
+    error NotMirrorAdmin();
+    error SlugCannotBeEmpty();
+    error SlugTooLong();
+    error SlugAlreadyTaken();
+    error InvalidSentinelByte();
+    error EntrySlugAlreadyTaken();
+    error IndexOutOfBounds();
+    error MirrorNotFound();
+    error EntryNotFound();
+
     // ── Types ───────────────────────────────────────────────────────────
     struct Mirror {
         string slug;
@@ -41,13 +53,13 @@ contract BracketMirror {
 
     // ── Modifiers ───────────────────────────────────────────────────────
     modifier onlyAdmin(uint256 mirrorId) {
-        require(_mirrors[mirrorId].admin != address(0), "Mirror does not exist");
-        require(msg.sender == _mirrors[mirrorId].admin, "Not mirror admin");
+        if (_mirrors[mirrorId].admin == address(0)) revert MirrorDoesNotExist();
+        if (msg.sender != _mirrors[mirrorId].admin) revert NotMirrorAdmin();
         _;
     }
 
     modifier mirrorExists(uint256 mirrorId) {
-        require(_mirrors[mirrorId].admin != address(0), "Mirror does not exist");
+        if (_mirrors[mirrorId].admin == address(0)) revert MirrorDoesNotExist();
         _;
     }
 
@@ -58,11 +70,11 @@ contract BracketMirror {
     /// @notice Create a new mirror pool. Caller becomes admin.
     function createMirror(string calldata slug, string calldata displayName) external returns (uint256 mirrorId) {
         bytes memory slugBytes = bytes(slug);
-        require(slugBytes.length > 0, "Slug cannot be empty");
-        require(slugBytes.length <= MAX_SLUG_LENGTH, "Slug too long");
+        if (slugBytes.length == 0) revert SlugCannotBeEmpty();
+        if (slugBytes.length > MAX_SLUG_LENGTH) revert SlugTooLong();
 
         bytes32 slugHash = keccak256(slugBytes);
-        require(slugToMirrorId[slugHash] == 0, "Slug already taken");
+        if (slugToMirrorId[slugHash] != 0) revert SlugAlreadyTaken();
 
         mirrorId = nextMirrorId++;
 
@@ -86,10 +98,10 @@ contract BracketMirror {
 
     /// @notice Add a bracket entry (bracket + slug). Admin only. Slug must be unique within mirror.
     function addEntry(uint256 mirrorId, bytes8 bracket, string calldata slug) external onlyAdmin(mirrorId) {
-        require(bracket[0] & 0x80 != 0, "Invalid sentinel byte");
+        if (bracket[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         bytes32 entrySlugHash = keccak256(bytes(slug));
-        require(_entrySlugIndex[mirrorId][entrySlugHash] == 0, "Entry slug already taken");
+        if (_entrySlugIndex[mirrorId][entrySlugHash] != 0) revert EntrySlugAlreadyTaken();
 
         _entries[mirrorId].push(MirrorEntry({bracket: bracket, slug: slug}));
         _entrySlugIndex[mirrorId][entrySlugHash] = _entries[mirrorId].length; // index + 1
@@ -100,7 +112,7 @@ contract BracketMirror {
     /// @notice Remove an entry (swap-and-pop). Admin only.
     function removeEntry(uint256 mirrorId, uint256 entryIndex) external onlyAdmin(mirrorId) {
         MirrorEntry[] storage entries = _entries[mirrorId];
-        require(entryIndex < entries.length, "Index out of bounds");
+        if (entryIndex >= entries.length) revert IndexOutOfBounds();
 
         uint256 lastIndex = entries.length - 1;
 
@@ -120,8 +132,8 @@ contract BracketMirror {
 
     /// @notice Update the bracket for an entry. Admin only.
     function updateBracket(uint256 mirrorId, uint256 entryIndex, bytes8 bracket) external onlyAdmin(mirrorId) {
-        require(entryIndex < _entries[mirrorId].length, "Index out of bounds");
-        require(bracket[0] & 0x80 != 0, "Invalid sentinel byte");
+        if (entryIndex >= _entries[mirrorId].length) revert IndexOutOfBounds();
+        if (bracket[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         _entries[mirrorId][entryIndex].bracket = bracket;
 
@@ -130,13 +142,13 @@ contract BracketMirror {
 
     /// @notice Update the slug for an entry. Admin only. New slug must be unique within mirror.
     function updateEntrySlug(uint256 mirrorId, uint256 entryIndex, string calldata slug) external onlyAdmin(mirrorId) {
-        require(entryIndex < _entries[mirrorId].length, "Index out of bounds");
+        if (entryIndex >= _entries[mirrorId].length) revert IndexOutOfBounds();
 
         bytes32 oldSlugHash = keccak256(bytes(_entries[mirrorId][entryIndex].slug));
         bytes32 newSlugHash = keccak256(bytes(slug));
 
         if (oldSlugHash != newSlugHash) {
-            require(_entrySlugIndex[mirrorId][newSlugHash] == 0, "Entry slug already taken");
+            if (_entrySlugIndex[mirrorId][newSlugHash] != 0) revert EntrySlugAlreadyTaken();
             delete _entrySlugIndex[mirrorId][oldSlugHash];
             _entrySlugIndex[mirrorId][newSlugHash] = entryIndex + 1;
         }
@@ -151,7 +163,7 @@ contract BracketMirror {
     function getMirrorBySlug(string calldata slug) external view returns (uint256) {
         bytes32 slugHash = keccak256(bytes(slug));
         uint256 mirrorId = slugToMirrorId[slugHash];
-        require(mirrorId != 0, "Mirror not found");
+        if (mirrorId == 0) revert MirrorNotFound();
         return mirrorId;
     }
 
@@ -169,7 +181,7 @@ contract BracketMirror {
         mirrorExists(mirrorId)
         returns (MirrorEntry memory)
     {
-        require(index < _entries[mirrorId].length, "Index out of bounds");
+        if (index >= _entries[mirrorId].length) revert IndexOutOfBounds();
         return _entries[mirrorId][index];
     }
 
@@ -181,7 +193,7 @@ contract BracketMirror {
     {
         bytes32 slugHash = keccak256(bytes(slug));
         uint256 indexPlusOne = _entrySlugIndex[mirrorId][slugHash];
-        require(indexPlusOne != 0, "Entry not found");
+        if (indexPlusOne == 0) revert EntryNotFound();
         return _entries[mirrorId][indexPlusOne - 1];
     }
 
