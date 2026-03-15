@@ -92,6 +92,18 @@ Linked sub-groups composing with MarchMadness. Optional password + entry fee.
 - `collectWinnings(groupId)` — winners split group prize pool after scoring window
 
 Password stored as `sbytes12` (shielded). Public groups reject password joins and vice versa.
+BracketGroups imports `IMarchMadness` interface (not the full contract) — only needs the deployed address.
+
+## Deploy Scripts
+
+Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMadness address in its constructor.
+
+- **Production**: `contracts/script/DeployAll.s.sol` — deploys MM + Groups + Mirror
+- **Local dev**: `contracts/script/DeployAllLocal.s.sol` — same with configurable `DEADLINE_OFFSET`
+- **Testnet**: `scripts/deploy-testnet.sh` — runs `DeployAll.s.sol`, writes all 3 addresses to `data/deployments.json`
+- **Legacy scripts**: `MarchMadness.s.sol` / `MarchMadnessLocal.s.sol` still work for MM-only deploys
+
+`data/deployments.json` format: `{ "2026": { "5124": { "marchMadness": "0x...", "bracketGroups": "0x...", "bracketMirror": "0x..." } } }`
 
 ## Bracket Encoding
 

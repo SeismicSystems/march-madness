@@ -4,11 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-15 — BracketMirror + BracketGroups contracts
+### 2026-03-15 — BracketMirror + BracketGroups contracts + unified deploy
 - **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. Stores `MirrorEntry[]` (bracket + slug) per mirror. No money, no scoring, no composition with MarchMadness. Admin sets `prizeDescription` for off-chain bookkeeping (e.g. "$500 Amazon gift card").
-- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness. Users self-join with main-contract bracket. Optional `sbytes32` password protection (shielded). Optional entry fee → prize pool → winner payout. Scoring + payout mirrors main contract pattern.
-- **Three separate contracts**: MarchMadness (main), BracketGroups (linked sub-groups), BracketMirror (off-chain mirror) — clean separation of concerns.
-- **Tests**: 19 mirror tests (`BracketMirror.t.sol`), 35 group tests (`BracketGroups.t.sol`), 111 total passing. No changes to MarchMadness.sol.
+- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Users self-join with main-contract bracket. Optional `sbytes12` password protection (shielded). Optional entry fee → prize pool → winner payout.
+- **New interface** `IMarchMadness.sol` — minimal 5-function interface (`hasEntry`, `results`, `scoringMask`, `resultsPostedAt`, `getBracket`). BracketGroups imports this instead of the full contract for lighter-weight deployment.
+- **Unified deploy**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts in one transaction. `deploy-testnet.sh` updated to parse and write all 3 addresses.
+- **Updated `deployments.json` format**: `{ "2026": { "5124": { "marchMadness": "0x...", "bracketGroups": "0x...", "bracketMirror": "0x..." } } }` — frontend `constants.ts` handles both old (string) and new (object) formats.
+- **Populate script**: `deployContractViaSforge()` now deploys all 3 contracts, passes all addresses to Vite dev server.
+- **Tests**: 19 mirror + 35 group + 57 existing = 111 total passing. No changes to MarchMadness.sol.
 
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.

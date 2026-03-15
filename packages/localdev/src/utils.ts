@@ -199,18 +199,20 @@ export function chalkyBracket(): `0x${string}` {
 
 export interface DeployResult {
   contractAddress: Address;
+  groupsContractAddress: Address;
+  mirrorContractAddress: Address;
   ownerAddress: Address;
   deadline: bigint;
 }
 
 /**
- * Deploy the MarchMadness contract using the sforge deploy script.
+ * Deploy all contracts (MarchMadness, BracketGroups, BracketMirror) using the sforge deploy script.
  *
- * Runs: cd contracts && mise run sforge -- script script/MarchMadnessLocal.s.sol \
+ * Runs: cd contracts && mise run sforge -- script script/DeployAllLocal.s.sol \
  *         --rpc-url $RPC_URL --broadcast --private-key $DEPLOYER_KEY
  *
  * @param deadlineOffset - Seconds from now until submission deadline (default: 3600)
- * @returns Deployed contract address, owner, and deadline
+ * @returns Deployed contract addresses, owner, and deadline
  */
 export async function deployContractViaSforge(
   deadlineOffset: number = 3600,
@@ -220,7 +222,7 @@ export async function deployContractViaSforge(
 
   const cmd = [
     "mise run sforge --",
-    "script script/MarchMadnessLocal.s.sol",
+    "script script/DeployAllLocal.s.sol",
     `--rpc-url ${rpcUrl}`,
     "--broadcast",
     `--private-key ${deployer.privateKey}`,
@@ -245,18 +247,26 @@ export async function deployContractViaSforge(
     );
   }
 
-  // Parse deployed address from sforge output
-  // Expected line: "MarchMadness (local) deployed at: 0x..."
-  const addressMatch = output.match(
-    /deployed at:\s+(0x[0-9a-fA-F]{40})/,
+  // Parse all 3 addresses from sforge output
+  const mmMatch = output.match(
+    /MarchMadness deployed at:\s+(0x[0-9a-fA-F]{40})/,
   );
-  if (!addressMatch) {
+  if (!mmMatch) {
     throw new Error(
-      `Could not parse contract address from sforge output:\n${output}`,
+      `Could not parse MarchMadness address from sforge output:\n${output}`,
     );
   }
 
-  const contractAddress = addressMatch[1] as Address;
+  const bgMatch = output.match(
+    /BracketGroups deployed at:\s+(0x[0-9a-fA-F]{40})/,
+  );
+  const bmMatch = output.match(
+    /BracketMirror deployed at:\s+(0x[0-9a-fA-F]{40})/,
+  );
+
+  const contractAddress = mmMatch[1] as Address;
+  const groupsContractAddress = (bgMatch?.[1] ?? "0x0000000000000000000000000000000000000000") as Address;
+  const mirrorContractAddress = (bmMatch?.[1] ?? "0x0000000000000000000000000000000000000000") as Address;
 
   // Read the deadline from the contract using the client library
   const mmPublic = createMMPublicClient(contractAddress);
@@ -264,6 +274,8 @@ export async function deployContractViaSforge(
 
   return {
     contractAddress,
+    groupsContractAddress,
+    mirrorContractAddress,
     ownerAddress: deployer.address,
     deadline,
   };

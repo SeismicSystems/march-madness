@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ByteBracket} from "./ByteBracket.sol";
-import {MarchMadness} from "./MarchMadness.sol";
+import {IMarchMadness} from "./IMarchMadness.sol";
 
 /// @title BracketGroups — sub-groups for the main MarchMadness bracket contest
 /// @notice Users create groups, optionally password-protected (sbytes12) and with an entry fee.
@@ -10,7 +10,7 @@ import {MarchMadness} from "./MarchMadness.sol";
 ///         split the group's prize pool after the scoring window.
 contract BracketGroups {
     // ── References ──────────────────────────────────────────────────────
-    MarchMadness public immutable mainContract;
+    IMarchMadness public immutable mainContract;
 
     // ── Types ───────────────────────────────────────────────────────────
     struct Group {
@@ -67,7 +67,7 @@ contract BracketGroups {
 
     // ── Constructor ─────────────────────────────────────────────────────
     constructor(address _mainContract) {
-        mainContract = MarchMadness(_mainContract);
+        mainContract = IMarchMadness(_mainContract);
     }
 
     // ── Modifiers ───────────────────────────────────────────────────────
