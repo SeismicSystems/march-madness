@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Make `score_base_bb` public in bracket-sim
+- Removed `#[cfg(test)]` and `pub(crate)` gate from `scoring::score_base_bb` so downstream consumers (e.g. the brackets pool-strategy repo) can use it directly instead of duplicating the function.
+
 ### 2026-03-15 — Sim: configurable pace dispersion + score-dist calibration tool (closes #41)
 - **Generalized pace distribution** in `crates/bracket-sim/src/game.rs` via `Game::sample_count(mean, d)` — a single dispersion ratio `d = variance/mean` controls the distribution family: d<1 uses binomial (underdispersed), d=1 uses Poisson, d>1 uses Gamma-Poisson/NB (overdispersed).
 - **Unified regulation and OT paths** — overtime now uses the same pace distribution as regulation instead of the old fixed-pace workaround. The dispersion parameter naturally scales variance with the mean.
