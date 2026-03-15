@@ -105,6 +105,43 @@ contract BracketMirrorTest is Test {
         assertEq(e1.bracket, BAD);
     }
 
+    function test_addEntry_duplicateSlugReverts() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+
+        vm.expectRevert("Entry slug already taken");
+        bm.addEntry(mirrorId, BAD, "alice");
+        vm.stopPrank();
+    }
+
+    function test_getEntryBySlug() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+        vm.stopPrank();
+
+        BracketMirror.MirrorEntry memory e = bm.getEntryBySlug(mirrorId, "alice");
+        assertEq(e.bracket, PERFECT);
+        assertEq(e.slug, "alice");
+
+        BracketMirror.MirrorEntry memory e2 = bm.getEntryBySlug(mirrorId, "bob");
+        assertEq(e2.bracket, BAD);
+    }
+
+    function test_getEntryBySlug_notFound() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.expectRevert("Entry not found");
+        bm.getEntryBySlug(mirrorId, "nope");
+    }
+
     function test_getEntries_batch() public {
         vm.prank(admin);
         uint256 mirrorId = bm.createMirror("pool", "Pool");
@@ -136,6 +173,14 @@ contract BracketMirrorTest is Test {
         assertEq(bm.getEntryCount(mirrorId), 2);
         assertEq(bm.getEntry(mirrorId, 0).slug, "charlie");
         assertEq(bm.getEntry(mirrorId, 1).slug, "bob");
+
+        // Slug lookup should still work after swap
+        BracketMirror.MirrorEntry memory e = bm.getEntryBySlug(mirrorId, "charlie");
+        assertEq(e.bracket, PERFECT);
+
+        // Removed entry's slug should be gone
+        vm.expectRevert("Entry not found");
+        bm.getEntryBySlug(mirrorId, "alice");
     }
 
     function test_removeEntry_lastElement() public {
@@ -150,6 +195,9 @@ contract BracketMirrorTest is Test {
 
         assertEq(bm.getEntryCount(mirrorId), 1);
         assertEq(bm.getEntry(mirrorId, 0).slug, "alice");
+
+        vm.expectRevert("Entry not found");
+        bm.getEntryBySlug(mirrorId, "bob");
     }
 
     function test_updateBracket() public {
@@ -175,6 +223,39 @@ contract BracketMirrorTest is Test {
         bm.updateEntrySlug(mirrorId, 0, "alice-updated");
 
         assertEq(bm.getEntry(mirrorId, 0).slug, "alice-updated");
+
+        // Old slug gone, new slug works
+        vm.expectRevert("Entry not found");
+        bm.getEntryBySlug(mirrorId, "alice");
+
+        BracketMirror.MirrorEntry memory e = bm.getEntryBySlug(mirrorId, "alice-updated");
+        assertEq(e.bracket, PERFECT);
+    }
+
+    function test_updateEntrySlug_duplicateReverts() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+
+        vm.expectRevert("Entry slug already taken");
+        bm.updateEntrySlug(mirrorId, 0, "bob");
+        vm.stopPrank();
+    }
+
+    function test_updateEntrySlug_sameSlugNoOp() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        // Updating to same slug should not revert
+        bm.updateEntrySlug(mirrorId, 0, "alice");
+        vm.stopPrank();
+
+        assertEq(bm.getEntry(mirrorId, 0).slug, "alice");
     }
 
     function test_invalidSentinelReverts() public {

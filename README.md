@@ -66,10 +66,19 @@ Two separate contracts for side pools alongside the main contest:
 | `/leaderboard` | All entries ranked by score with current/max points, champion pick |
 | `/bracket/:address` | Read-only bracket view for any player with tournament status overlay |
 
+## Mirrors & Groups
+
+In addition to the main bracket contest, the platform supports two types of sub-pools:
+
+- **Mirrors** (`BracketMirror.sol`) — Admin-managed pools that mirror external bracket contests (e.g. Yahoo Fantasy). No money, no on-chain scoring. The admin enters brackets + slugs manually; all winner computation is off-chain. Entry slugs are unique within a mirror for URL-friendly lookup.
+- **Groups** (`BracketGroups.sol`) — Linked sub-groups where members join with their main-contract bracket. Optional password protection (`sbytes12`, shielded) and entry fee with winner payout. Scoring delegates to the main contract to avoid double work.
+
+Both contracts are deployed alongside MarchMadness via a unified deploy script. BracketGroups composes with MarchMadness through a minimal `IMarchMadness` interface.
+
 ## Project Structure
 
 ```
-contracts/          — Seismic Solidity smart contracts
+contracts/          — Seismic Solidity smart contracts (MarchMadness, BracketGroups, BracketMirror)
 packages/
   client/           — TypeScript client library (bracket encoding, scoring, contract interaction)
   web/              — React web app (bracket UI, auth, leaderboard, bracket viewer)

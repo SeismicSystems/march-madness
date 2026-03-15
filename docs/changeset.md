@@ -4,14 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-15 — BracketMirror + BracketGroups contracts + unified deploy
-- **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. Stores `MirrorEntry[]` (bracket + slug) per mirror. No money, no scoring, no composition with MarchMadness. Admin sets `prizeDescription` for off-chain bookkeeping (e.g. "$500 Amazon gift card").
-- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Users self-join with main-contract bracket. Optional `sbytes12` password protection (shielded). Optional entry fee → prize pool → winner payout.
-- **New interface** `IMarchMadness.sol` — minimal 5-function interface (`hasEntry`, `results`, `scoringMask`, `resultsPostedAt`, `getBracket`). BracketGroups imports this instead of the full contract for lighter-weight deployment.
-- **Unified deploy**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts in one transaction. `deploy-testnet.sh` updated to parse and write all 3 addresses.
-- **Updated `deployments.json` format**: `{ "2026": { "5124": { "marchMadness": "0x...", "bracketGroups": "0x...", "bracketMirror": "0x..." } } }` — frontend `constants.ts` handles both old (string) and new (object) formats.
-- **Populate script**: `deployContractViaSforge()` now deploys all 3 contracts, passes all addresses to Vite dev server.
-- **Tests**: 19 mirror + 35 group + 57 existing = 111 total passing. No changes to MarchMadness.sol.
+### 2026-03-15 — BracketMirror + BracketGroups contracts
+- **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. Entries have unique slugs within a mirror for URL-friendly lookup (`getEntryBySlug`). Swap-and-pop removal.
+- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Optional `sbytes12` password protection (shielded), optional entry fee with scoring + payout. Group IDs are `uint32`. Scoring delegates to `marchMadness.scoreBracket()` to avoid double work. Group struct uses `creator` (not `admin`). Join/leave gated by submission deadline.
+- **New interface** `IMarchMadness.sol` — minimal 6-function interface (`hasEntry`, `submissionDeadline`, `resultsPostedAt`, `scoreBracket`, `scores`, `isScored`) so BracketGroups only needs the deployed address.
+- **Deploy scripts**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts. `deploy-testnet.sh` parses all 3 addresses and writes to `data/deployments.json`.
+- **Frontend**: `constants.ts` exports `CONTRACT_ADDRESS`, `GROUPS_CONTRACT_ADDRESS`, `MIRROR_CONTRACT_ADDRESS` from `deployments.json` (handles both old string and new object formats).
+- **Tests**: 35 BracketGroups tests (creation, join/leave, password, scoring delegation, payouts, deadline enforcement) + 24 BracketMirror tests (creation, entries, slug lookup, swap-and-pop, access control).
 
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.
