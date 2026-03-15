@@ -109,13 +109,9 @@ pub struct Orderbook {
 #[serde(untagged)]
 pub enum OrderbookResponse {
     /// Legacy format: `{"orderbook": {"yes": [[cents, qty], ...], "no": [...]}}`
-    Legacy {
-        orderbook: OrderbookLegacyInner,
-    },
+    Legacy { orderbook: OrderbookLegacyInner },
     /// New format: `{"orderbook_fp": {"yes_dollars": [["0.24","100.00"], ...], "no_dollars": [...]}}`
-    Fp {
-        orderbook_fp: OrderbookFpInner,
-    },
+    Fp { orderbook_fp: OrderbookFpInner },
 }
 
 #[derive(Debug, Deserialize)]

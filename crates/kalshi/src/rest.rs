@@ -119,20 +119,24 @@ impl KalshiRestClient {
         let (raw_yes, raw_no): (Vec<[u32; 2]>, Vec<[u32; 2]>) = match data {
             OrderbookResponse::Legacy { orderbook } => (orderbook.yes, orderbook.no),
             OrderbookResponse::Fp { orderbook_fp } => {
-                let parse = |entries: &[[String; 2]]| -> Result<Vec<[u32; 2]>, Box<dyn std::error::Error>> {
-                    entries
-                        .iter()
-                        .map(|[price_str, qty_str]| {
-                            let price_dollars: f64 = price_str.parse()?;
-                            let qty_dollars: f64 = qty_str.parse()?;
-                            Ok([
-                                (price_dollars * 100.0).round() as u32,
-                                qty_dollars.round() as u32,
-                            ])
-                        })
-                        .collect()
-                };
-                (parse(&orderbook_fp.yes_dollars)?, parse(&orderbook_fp.no_dollars)?)
+                let parse =
+                    |entries: &[[String; 2]]| -> Result<Vec<[u32; 2]>, Box<dyn std::error::Error>> {
+                        entries
+                            .iter()
+                            .map(|[price_str, qty_str]| {
+                                let price_dollars: f64 = price_str.parse()?;
+                                let qty_dollars: f64 = qty_str.parse()?;
+                                Ok([
+                                    (price_dollars * 100.0).round() as u32,
+                                    qty_dollars.round() as u32,
+                                ])
+                            })
+                            .collect()
+                    };
+                (
+                    parse(&orderbook_fp.yes_dollars)?,
+                    parse(&orderbook_fp.no_dollars)?,
+                )
             }
         };
 
