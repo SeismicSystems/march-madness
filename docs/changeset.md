@@ -13,6 +13,29 @@ All notable changes to this project. Every PR must add an entry here.
 - **New dependency** `bracket-sim` → `kalshi` crate for in-process orderbook fetching (no intermediate CSV).
 - **Deleted** legacy CSV calibration mode (`calibration.rs`), normalization pipeline (`fair_value.rs`, `kalshi` binary fetch/watch commands), and pipeline scripts (`refresh.sh`, `fit_kenpom_model.py`). The `MarketDef` type was trimmed to remove normalization-only fields (`expected_sum`, `floor_prob`).
 
+### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
+- **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1). Strong types: `ContestState` enum (Pre, Live{period,clock}, Final(overtimes), Other(raw)), `Period` enum, `ContestDate`, parsed scores/seeds.
+- **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/2026/tournament-status.json`. Adaptive polling: pre-game (60s), active (configurable, default 1/s), auto-exit on tournament complete.
+- **Game mapping**: Uses `data/2026/mappings/ncaa-names.json` (NCAA nameShort → bracket position). R64 fast path computes game index directly. Later rounds derive matchups from decided game winners.
+- **Atomic writes**: tournament-status.json written via tmp+rename to prevent partial reads.
+- **GameStatus fields**: Added `seconds_remaining: Option<i32>` and `period: Option<u8>` to `GameStatus` in `seismic-march-madness` types (per issue #43 spec for live game conditioning in simulations).
+- **16 new tests**: 9 in ncaa-api (scoreboard parsing, clock/period/overtime parsing, team scores, contest date, sport codes), 7 in ncaa-feed (mapper positions, feeder games, name resolution, feed state, poll intervals, seeding from existing status).
+
+### 2026-03-15 — Use custom errors instead of require strings in all contracts (closes #39)
+- **MarchMadness.sol**: Replaced all ~15 `require(condition, "string")` statements with custom errors (`error ErrorName()` + `if (!condition) revert ErrorName()`). Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketGroups.sol**: Replaced all ~20 `require` statements with custom errors. Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
+- **BracketMirror.sol**: Replaced all ~10 `require` statements with custom errors.
+- **All test files** updated to use `vm.expectRevert(ContractName.ErrorName.selector)` (or `abi.encodeWithSelector` for parameterized errors) instead of revert string matching.
+- Errors defined per-contract (no shared error file) to keep things simple.
+
+### 2026-03-15 — Improve desktop bracket vertical symmetry (closes #31)
+- Replaced hardcoded pixel spacing (`getVerticalSpacing`) with flex-based layout using `justify-around` and `items-stretch`. Each round column now stretches to the same height as the R64 column, and games within each round automatically center between their two feeder games from the previous round.
+- Top and bottom halves now use `items-stretch` for equal-height regions, producing a symmetric layout where the Final Four sits cleanly in the center.
+- Added `gap-2` minimum spacing between games for visual breathing room.
+
+### 2026-03-15 — Upgrade seismic foundry to nightly-94eb5fc (closes #15)
+- Updated `sfoundry` pin in `mise.toml` from `nightly-08913bcc...` to `nightly-94eb5fc1...` (2026-03-14 release).
+
 ### 2026-03-15 — Make `score_base_bb` public in bracket-sim
 - Removed `#[cfg(test)]` and `pub(crate)` gate from `scoring::score_base_bb` so downstream consumers (e.g. the brackets pool-strategy repo) can use it directly instead of duplicating the function.
 

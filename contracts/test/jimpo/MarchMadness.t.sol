@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {MarchMadness} from "../../src/MarchMadness.sol";
+import {IMarchMadness} from "../../src/IMarchMadness.sol";
 
 /// @title MarchMadness tests — ported from jimpo's MarchMadness.js
 /// @dev Adapted for Seismic's direct shielded submission (no commit-reveal).
@@ -48,7 +49,7 @@ contract MarchMadnessJimpoTest is Test {
     function test_submitBracket_rejectsWithoutEntryFee() public {
         bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        vm.expectRevert("Incorrect entry fee");
+        vm.expectRevert(abi.encodeWithSelector(IMarchMadness.IncorrectEntryFee.selector, ENTRY_FEE, 0));
         mm.submitBracket{value: 0}(sbytes8(bracket));
     }
 
@@ -56,7 +57,7 @@ contract MarchMadnessJimpoTest is Test {
         vm.warp(DEADLINE + 1);
         bytes8 bracket = bytes8(0xFFFFFFFFFFFFFFFF);
         vm.prank(alice);
-        vm.expectRevert("Submission deadline passed");
+        vm.expectRevert(IMarchMadness.SubmissionDeadlinePassed.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
@@ -66,7 +67,7 @@ contract MarchMadnessJimpoTest is Test {
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
 
         vm.prank(alice);
-        vm.expectRevert("Already submitted");
+        vm.expectRevert(IMarchMadness.AlreadySubmitted.selector);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(bracket));
     }
 
@@ -76,7 +77,7 @@ contract MarchMadnessJimpoTest is Test {
         _submitEntry(alice, 0xC000000000000000);
         vm.warp(DEADLINE + 1);
 
-        vm.expectRevert("Results not posted");
+        vm.expectRevert(IMarchMadness.ResultsNotPosted.selector);
         mm.scoreBracket(alice);
     }
 
@@ -135,7 +136,7 @@ contract MarchMadnessJimpoTest is Test {
         mm.scoreBracket(bob);
 
         vm.prank(alice);
-        vm.expectRevert("Scoring window still open");
+        vm.expectRevert(IMarchMadness.ScoringWindowStillOpen.selector);
         mm.collectWinnings();
     }
 
@@ -168,7 +169,7 @@ contract MarchMadnessJimpoTest is Test {
 
         // bob is not a winner
         vm.prank(bob);
-        vm.expectRevert("Not a winner");
+        vm.expectRevert(IMarchMadness.NotAWinner.selector);
         mm.collectWinnings();
     }
 

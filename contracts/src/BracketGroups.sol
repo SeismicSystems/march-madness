@@ -8,6 +8,33 @@ import {IMarchMadness} from "./IMarchMadness.sol";
 ///         Members self-join by linking their main-contract bracket. Winners of each group
 ///         split the group's prize pool after the scoring window.
 contract BracketGroups {
+    // ── Errors ───────────────────────────────────────────────────────────
+    error GroupDoesNotExist();
+    error SlugCannotBeEmpty();
+    error SlugTooLong();
+    error SlugAlreadyTaken();
+    error PasswordRequired();
+    error GroupIsNotPasswordProtected();
+    error WrongPassword();
+    error IncorrectEntryFee(uint256 expected, uint256 actual);
+    error AlreadyAMember();
+    error NoBracketInMainContract();
+    error CannotJoinAfterDeadline();
+    error NotAMember();
+    error CannotLeaveAfterDeadline();
+    error RefundFailed();
+    error IndexOutOfBounds();
+    error AlreadyScored();
+    error NoEntryFee();
+    error ResultsNotPosted();
+    error ScoringWindowStillOpen();
+    error NoEntriesScored();
+    error NotScored();
+    error NotAWinner();
+    error AlreadyCollected();
+    error TransferFailed();
+    error GroupNotFound();
+
     // ── References ──────────────────────────────────────────────────────
     IMarchMadness public immutable marchMadness;
 
@@ -70,7 +97,7 @@ contract BracketGroups {
 
     // ── Modifiers ───────────────────────────────────────────────────────
     modifier groupExists(uint32 groupId) {
-        require(_groups[groupId].creator != address(0), "Group does not exist");
+        if (_groups[groupId].creator == address(0)) revert GroupDoesNotExist();
         _;
     }
 
@@ -103,11 +130,11 @@ contract BracketGroups {
         returns (uint32 groupId)
     {
         bytes memory slugBytes = bytes(slug);
-        require(slugBytes.length > 0, "Slug cannot be empty");
-        require(slugBytes.length <= MAX_SLUG_LENGTH, "Slug too long");
+        if (slugBytes.length == 0) revert SlugCannotBeEmpty();
+        if (slugBytes.length > MAX_SLUG_LENGTH) revert SlugTooLong();
 
         bytes32 slugHash = keccak256(slugBytes);
-        require(slugToGroupId[slugHash] == 0, "Slug already taken");
+        if (slugToGroupId[slugHash] != 0) revert SlugAlreadyTaken();
 
         groupId = nextGroupId++;
 
@@ -131,7 +158,7 @@ contract BracketGroups {
 
     /// @notice Join a public group with a display name.
     function joinGroup(uint32 groupId, string calldata name) external payable groupExists(groupId) {
-        require(!_groups[groupId].hasPassword, "Password required");
+        if (_groups[groupId].hasPassword) revert PasswordRequired();
         _joinGroup(groupId, name);
     }
 
@@ -141,17 +168,17 @@ contract BracketGroups {
         payable
         groupExists(groupId)
     {
-        require(_groups[groupId].hasPassword, "Group is not password-protected");
-        require(password == _passwords[groupId], "Wrong password");
+        if (!_groups[groupId].hasPassword) revert GroupIsNotPasswordProtected();
+        if (password != _passwords[groupId]) revert WrongPassword();
         _joinGroup(groupId, name);
     }
 
     function _joinGroup(uint32 groupId, string memory name) internal {
         Group storage g = _groups[groupId];
-        require(msg.value == g.entryFee, "Incorrect entry fee");
-        require(!isMemberOf[groupId][msg.sender], "Already a member");
-        require(marchMadness.hasEntry(msg.sender), "No bracket in main contract");
-        require(block.timestamp < marchMadness.submissionDeadline(), "Cannot join after deadline");
+        if (msg.value != g.entryFee) revert IncorrectEntryFee(g.entryFee, msg.value);
+        if (isMemberOf[groupId][msg.sender]) revert AlreadyAMember();
+        if (!marchMadness.hasEntry(msg.sender)) revert NoBracketInMainContract();
+        if (block.timestamp >= marchMadness.submissionDeadline()) revert CannotJoinAfterDeadline();
 
         uint32 idx = g.entryCount;
         _members[groupId][idx] = Member({addr: msg.sender, name: name, score: 0, isScored: false});
@@ -164,8 +191,8 @@ contract BracketGroups {
 
     /// @notice Leave a group. Only before the submission deadline. Refunds entry fee.
     function leaveGroup(uint32 groupId) external groupExists(groupId) {
-        require(isMemberOf[groupId][msg.sender], "Not a member");
-        require(block.timestamp < marchMadness.submissionDeadline(), "Cannot leave after deadline");
+        if (!isMemberOf[groupId][msg.sender]) revert NotAMember();
+        if (block.timestamp >= marchMadness.submissionDeadline()) revert CannotLeaveAfterDeadline();
 
         Group storage g = _groups[groupId];
         uint32 idx = _memberIndex[groupId][msg.sender];
@@ -187,13 +214,13 @@ contract BracketGroups {
         // Refund entry fee
         if (g.entryFee > 0) {
             (bool success,) = msg.sender.call{value: g.entryFee}("");
-            require(success, "Refund failed");
+            if (!success) revert RefundFailed();
         }
     }
 
     /// @notice Update your display name in a group.
     function editEntryName(uint32 groupId, string calldata name) external groupExists(groupId) {
-        require(isMemberOf[groupId][msg.sender], "Not a member");
+        if (!isMemberOf[groupId][msg.sender]) revert NotAMember();
         uint32 idx = _memberIndex[groupId][msg.sender];
         _members[groupId][idx].name = name;
     }
@@ -206,10 +233,10 @@ contract BracketGroups {
     ///         Delegates scoring to MarchMadness contract if not already scored there.
     function scoreEntry(uint32 groupId, uint32 memberIndex) external groupExists(groupId) {
         Group storage g = _groups[groupId];
-        require(memberIndex < g.entryCount, "Index out of bounds");
+        if (memberIndex >= g.entryCount) revert IndexOutOfBounds();
 
         Member storage member = _members[groupId][memberIndex];
-        require(!member.isScored, "Already scored");
+        if (member.isScored) revert AlreadyScored();
 
         // Score on main contract if not already scored there
         if (!marchMadness.isScored(member.addr)) {
@@ -236,28 +263,28 @@ contract BracketGroups {
     /// @notice Collect winnings. Winners split the group's prize pool equally.
     function collectWinnings(uint32 groupId) external groupExists(groupId) {
         Group storage g = _groups[groupId];
-        require(g.entryFee > 0, "No entry fee");
-        require(isMemberOf[groupId][msg.sender], "Not a member");
+        if (g.entryFee == 0) revert NoEntryFee();
+        if (!isMemberOf[groupId][msg.sender]) revert NotAMember();
 
         uint256 resultsPostedAt = marchMadness.resultsPostedAt();
-        require(resultsPostedAt > 0, "Results not posted");
-        require(block.timestamp >= resultsPostedAt + SCORING_DURATION, "Scoring window still open");
+        if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp < resultsPostedAt + SCORING_DURATION) revert ScoringWindowStillOpen();
 
         GroupPayout storage payout = payouts[groupId];
-        require(payout.numWinners > 0, "No entries scored");
+        if (payout.numWinners == 0) revert NoEntriesScored();
 
         uint32 idx = _memberIndex[groupId][msg.sender];
         Member storage member = _members[groupId][idx];
-        require(member.isScored, "Not scored");
-        require(member.score == payout.winningScore, "Not a winner");
-        require(!hasCollectedWinnings[groupId][msg.sender], "Already collected");
+        if (!member.isScored) revert NotScored();
+        if (member.score != payout.winningScore) revert NotAWinner();
+        if (hasCollectedWinnings[groupId][msg.sender]) revert AlreadyCollected();
 
         hasCollectedWinnings[groupId][msg.sender] = true;
         uint256 amount = (uint256(g.entryCount) * g.entryFee) / payout.numWinners;
 
         (bool success,) = msg.sender.call{value: amount}("");
         emit WinningsCollected(groupId, msg.sender, amount);
-        require(success, "Transfer failed");
+        if (!success) revert TransferFailed();
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -267,7 +294,7 @@ contract BracketGroups {
     function getGroupBySlug(string calldata slug) external view returns (uint32, Group memory) {
         bytes32 slugHash = keccak256(bytes(slug));
         uint32 groupId = slugToGroupId[slugHash];
-        require(groupId != 0, "Group not found");
+        if (groupId == 0) revert GroupNotFound();
         return (groupId, _groups[groupId]);
     }
 
@@ -285,12 +312,12 @@ contract BracketGroups {
     }
 
     function getMember(uint32 groupId, uint32 index) external view groupExists(groupId) returns (Member memory) {
-        require(index < _groups[groupId].entryCount, "Index out of bounds");
+        if (index >= _groups[groupId].entryCount) revert IndexOutOfBounds();
         return _members[groupId][index];
     }
 
     function getMemberScore(uint32 groupId, uint32 index) external view groupExists(groupId) returns (uint8) {
-        require(index < _groups[groupId].entryCount, "Index out of bounds");
+        if (index >= _groups[groupId].entryCount) revert IndexOutOfBounds();
         return _members[groupId][index].score;
     }
 

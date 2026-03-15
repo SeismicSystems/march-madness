@@ -38,27 +38,27 @@ contract BracketMirrorTest is Test {
         bm.createMirror("pool", "Pool");
 
         vm.prank(admin);
-        vm.expectRevert("Slug already taken");
+        vm.expectRevert(BracketMirror.SlugAlreadyTaken.selector);
         bm.createMirror("pool", "Other Pool");
     }
 
     function test_emptySlugReverts() public {
-        vm.expectRevert("Slug cannot be empty");
+        vm.expectRevert(BracketMirror.SlugCannotBeEmpty.selector);
         bm.createMirror("", "Pool");
     }
 
     function test_longSlugReverts() public {
-        vm.expectRevert("Slug too long");
+        vm.expectRevert(BracketMirror.SlugTooLong.selector);
         bm.createMirror("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Pool");
     }
 
     function test_slugLookupNonexistent() public {
-        vm.expectRevert("Mirror not found");
+        vm.expectRevert(BracketMirror.MirrorNotFound.selector);
         bm.getMirrorBySlug("nope");
     }
 
     function test_nonexistentMirrorReverts() public {
-        vm.expectRevert("Mirror does not exist");
+        vm.expectRevert(BracketMirror.MirrorDoesNotExist.selector);
         bm.getMirror(999);
     }
 
@@ -81,7 +81,7 @@ contract BracketMirrorTest is Test {
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
         vm.prank(alice);
-        vm.expectRevert("Not mirror admin");
+        vm.expectRevert(BracketMirror.NotMirrorAdmin.selector);
         bm.setEntryFee(mirrorId, 100, "USD");
     }
 
@@ -114,7 +114,7 @@ contract BracketMirrorTest is Test {
         vm.startPrank(admin);
         bm.addEntry(mirrorId, PERFECT, "alice");
 
-        vm.expectRevert("Entry slug already taken");
+        vm.expectRevert(BracketMirror.EntrySlugAlreadyTaken.selector);
         bm.addEntry(mirrorId, BAD, "alice");
         vm.stopPrank();
     }
@@ -140,7 +140,7 @@ contract BracketMirrorTest is Test {
         vm.prank(admin);
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
-        vm.expectRevert("Entry not found");
+        vm.expectRevert(BracketMirror.EntryNotFound.selector);
         bm.getEntryBySlug(mirrorId, "nope");
     }
 
@@ -181,7 +181,7 @@ contract BracketMirrorTest is Test {
         assertEq(e.bracket, PERFECT);
 
         // Removed entry's slug should be gone
-        vm.expectRevert("Entry not found");
+        vm.expectRevert(BracketMirror.EntryNotFound.selector);
         bm.getEntryBySlug(mirrorId, "alice");
     }
 
@@ -198,7 +198,7 @@ contract BracketMirrorTest is Test {
         assertEq(bm.getEntryCount(mirrorId), 1);
         assertEq(bm.getEntry(mirrorId, 0).slug, "alice");
 
-        vm.expectRevert("Entry not found");
+        vm.expectRevert(BracketMirror.EntryNotFound.selector);
         bm.getEntryBySlug(mirrorId, "bob");
     }
 
@@ -227,7 +227,7 @@ contract BracketMirrorTest is Test {
         assertEq(bm.getEntry(mirrorId, 0).slug, "alice-updated");
 
         // Old slug gone, new slug works
-        vm.expectRevert("Entry not found");
+        vm.expectRevert(BracketMirror.EntryNotFound.selector);
         bm.getEntryBySlug(mirrorId, "alice");
 
         BracketMirror.MirrorEntry memory e = bm.getEntryBySlug(mirrorId, "alice-updated");
@@ -242,7 +242,7 @@ contract BracketMirrorTest is Test {
         bm.addEntry(mirrorId, PERFECT, "alice");
         bm.addEntry(mirrorId, BAD, "bob");
 
-        vm.expectRevert("Entry slug already taken");
+        vm.expectRevert(BracketMirror.EntrySlugAlreadyTaken.selector);
         bm.updateEntrySlug(mirrorId, 0, "bob");
         vm.stopPrank();
     }
@@ -265,7 +265,7 @@ contract BracketMirrorTest is Test {
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
         vm.prank(admin);
-        vm.expectRevert("Invalid sentinel byte");
+        vm.expectRevert(BracketMirror.InvalidSentinelByte.selector);
         bm.addEntry(mirrorId, bytes8(0x0000000000000001), "bad");
     }
 
@@ -279,19 +279,19 @@ contract BracketMirrorTest is Test {
         bm.addEntry(mirrorId, PERFECT, "alice");
 
         vm.prank(alice);
-        vm.expectRevert("Not mirror admin");
+        vm.expectRevert(BracketMirror.NotMirrorAdmin.selector);
         bm.addEntry(mirrorId, BAD, "hack");
 
         vm.prank(alice);
-        vm.expectRevert("Not mirror admin");
+        vm.expectRevert(BracketMirror.NotMirrorAdmin.selector);
         bm.removeEntry(mirrorId, 0);
 
         vm.prank(alice);
-        vm.expectRevert("Not mirror admin");
+        vm.expectRevert(BracketMirror.NotMirrorAdmin.selector);
         bm.updateBracket(mirrorId, 0, BAD);
 
         vm.prank(alice);
-        vm.expectRevert("Not mirror admin");
+        vm.expectRevert(BracketMirror.NotMirrorAdmin.selector);
         bm.updateEntrySlug(mirrorId, 0, "hack");
     }
 
@@ -300,15 +300,15 @@ contract BracketMirrorTest is Test {
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
         vm.prank(admin);
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(BracketMirror.IndexOutOfBounds.selector);
         bm.removeEntry(mirrorId, 0);
 
         vm.prank(admin);
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(BracketMirror.IndexOutOfBounds.selector);
         bm.updateBracket(mirrorId, 0, PERFECT);
 
         vm.prank(admin);
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(BracketMirror.IndexOutOfBounds.selector);
         bm.updateEntrySlug(mirrorId, 0, "name");
     }
 

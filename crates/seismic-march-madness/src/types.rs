@@ -41,6 +41,12 @@ pub struct GameStatus {
     /// current in-game score. Not used for upcoming games (use teamReachProbabilities).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub team1_win_probability: Option<f64>,
+    /// Seconds remaining in the current period (live games only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seconds_remaining: Option<i32>,
+    /// Current period number (1 = 1st half, 2 = 2nd half, 3+ = OT).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period: Option<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,10 +57,25 @@ pub enum GameState {
     Final,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameScore {
     pub team1: u32,
     pub team2: u32,
+}
+
+impl GameStatus {
+    /// Create an upcoming game with no score data.
+    pub fn upcoming(game_index: u8) -> Self {
+        Self {
+            game_index,
+            status: GameState::Upcoming,
+            score: None,
+            winner: None,
+            team1_win_probability: None,
+            seconds_remaining: None,
+            period: None,
+        }
+    }
 }
 
 /// Full tournament status — served by backend, updated via POST.

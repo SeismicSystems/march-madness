@@ -1,0 +1,146 @@
+Implement the following plan:
+
+# NCAA Live Score Feed — Two New Rust Crates
+
+## Context
+
+Issue #43 ("Sim: condition on live game state") needs a live NCAA score feed (issue #42) as a prerequisite. This branch builds that feed: a Rust library for the NCAA API and a binary that polls live basketball scores and writes results to `data/tournament-status.json`.
+
+Reference implementation: [henrygd/ncaa-api](https://github.com/henrygd/ncaa-api) (TypeScript/Bun). We're building a focused Rust version for basketball only (men's + women's).
+
+## Housekeeping
+
+1. **Move stray prompt**: Copy `docs/prompts/cdai__add-bracket-sim/1742058003-live-scores-into-sim.txt` from branch `cdai__stray-prompts` into `docs/prompts/cdai__ncaa-feed/` on this branch
+2. **Save this prompt** to `docs/prompts/cdai__ncaa-feed/`
+3. **Update `GameStatus`** in `crates/seismic-march-madness/src/types.rs` — add `seconds_remaining: Option<i32>` and `period: Option<u8>` (per issue #43's spec)
+
+## Crate 1: `crates/ncaa-api` (Library)
+
+NCAA basketball API client. Basketball-only (MBB/WBB, D1).
+
+### Files
+
+```
+crates/ncaa-api/
+  Cargo.toml
+  src/
+    lib.rs           — re-exports, SportCode enum
+    client.rs        — NcaaClient: rate-limited HTTP with 429 backoff
+    scoreboard.rs    — fetch_scoreboard() → Vec<Contest>
+    schedule.rs      — fetch_schedule() → today's date
+    types.rs         — Contest, Team, ScoreboardResponse (NCAA raw types)
+```
+
+### NCAA API Details
+
+- **Scoreboard**: `https://sdataprod.ncaa.com/?extensions={"persistedQuery":{"version":1,"sha256Hash":"7287cda610a9326931931080cb3a604828febe6fe3c9016a7e4a36db99efdb7c"}}&variables={sportCode,division,seasonYear,contestDate}`
+- **Schedule**: Same host, hash `a25ad021179ce1d97fb951a49954dc98da150089f9766e7e85890e439516ffbf`
+- Sport codes: `MBB` (men's), `WBB` (women's), division `1`
+- Season year: month < 7 → year - 1
+- Game states: `"F"` final, `"P"` pre, `"I"` in-progress
+- Response fields we need: `contestId`, `teams[{nameShort, score, seed, isWinner}]`, `gameState`, `currentPeriod`, `contestClock`, `startTimeEpoch`
+
+### Rate Limiting
+
+- Token-bucket rate limiter, configurable `max_requests_per_sec` (validated < 5.0, default 1.0)
+- On 429: exponential backoff starting 2s, doubling to 60s max, reset on success
+- Track consecutive 429 count, log warnings
+
+### Dependencies
+
+`reqwest` (json), `serde`/`serde_json`, `tokio` (time), `tracing`, `thiserror`
+
+## Crate 2: `crates/ncaa-feed` (Binary)
+
+Polls live games, maps them to bracket game indices, writes `tournament-status.json`.
+
+### Files
+
+```
+crates/ncaa-feed/
+  Cargo.toml
+  src/
+    main.rs          — CLI (clap), main loop
+    mapper.rs        — NCAA contest → game index (0-62) mapping
+    feed.rs          — FeedState: game tracking, state transitions
+    writer.rs        — atomic write to tournament-status.json
+```
+
+### CLI
+
+```
+ncaa-feed [OPTIONS]
+  --tournament-file <PATH>   (default: data/2026/tournament.json)
+  --output-file <PATH>       (default: data/tournament-status.json)
+  --requests-per-sec <FLOAT> (default: 1.0, must be < 5.0)
+  --sport <mbb|wbb>          (default: mbb)
+  --date <YYYY/MM/DD>        (optional, auto-detect from schedule API)
+  --api-url <URL>            (optional, POST results to server)
+  --api-key <KEY>            (optional, env: TOURNAMENT_API_KEY)
+```
+
+### Game Mapping (`mapper.rs`)
+
+Uses `tournament.json` (64 teams in region/seed order) + `get_teams_in_bracket_order()` from `seismic-march-madness`.
+
+- **R64 (games 0-31)**: Game `i` = teams at bracket positions `2i` and `2i+1`. Match NCAA `nameShort` to tournament `name` via alias map.
+- **Later rounds (games 32-62)**: Derive expected teams from decided game winners. Walk bracket tree.
+- **Alias map**: Hardcoded `nameShort` → tournament name mappings (e.g. "Michigan St" → "Michigan St.", "UConn" → "Connecticut"). Built by comparing `tournament.json` names against NCAA API `nameShort` values.
+
+### Polling Algorithm (`feed.rs`)
+
+Adaptive polling based on game state:
+
+| Phase | Condition | Poll interval |
+|-------|-----------|---------------|
+| Idle | No games today / all far away | 30 min (schedule endpoint) |
+| Pre-game | Games today, none started | 60 sec |
+| Active | ≥1 game live | 1/requests_per_sec (default 1s) |
+| Complete | Game 62 final | Exit |
+
+Core loop:
+1. Fetch scoreboard for today's date
+2. For each contest, resolve to game index via mapper
+3. Update `FeedState` — detect transitions (upcoming→live→final)
+4. Game is final when `gameState == "F"` AND scores differ (handles OT)
+5. On any state change: write `tournament-status.json`
+6. Sleep for interval
+
+### On Startup
+
+- Load existing `tournament-status.json` to seed already-decided games
+- Load `tournament.json` for team/bracket data
+- Auto-detect today's date from schedule API (or use `--date` override)
+
+### Dependencies
+
+`ncaa-api` (path), `seismic-march-madness` (workspace), `serde`, `serde_json`, `tokio`, `eyre`, `clap`, `tracing`, `tracing-subscriber`, `chrono`
+
+## Workspace Changes
+
+**`Cargo.toml` (root)**: Add `"crates/ncaa-api", "crates/ncaa-feed"` to members. Add `chrono`, `tracing`, `tracing-subscriber`, `thiserror` to workspace deps.
+
+## Documentation Updates
+
+- `README.md`: Add ncaa-api and ncaa-feed to architecture diagram
+- `CLAUDE.md`: Add ncaa-feed to architecture, add crate descriptions
+- `docs/changeset.md`: Entry for this PR
+- Close or reference issues #42 and #43
+
+## Verification
+
+1. `cargo build` — both crates compile
+2. `cargo test` — all tests pass (fixture-based, no live API in CI)
+3. `cargo clippy --all-targets -- -D warnings` — no warnings
+4. `cargo fmt --all -- --check` — formatted
+5. `./scripts/ci.sh` — full CI passes
+6. Manual: `cargo run --bin ncaa-feed -- --date 2026/03/15` against live NCAA API (not in CI)
+
+## Implementation Order
+
+1. Housekeeping (prompts, GameStatus fields)
+2. `ncaa-api` library (types → client → scoreboard → schedule → tests)
+3. `ncaa-feed` binary (mapper → feed → writer → main → tests)
+4. Workspace integration + CI
+5. Docs (README, CLAUDE.md, changeset)
+6. Run `/checklist`, submit PR
