@@ -3,7 +3,7 @@
 
 mod bracket;
 pub mod bracket_config;
-pub mod calibration;
+pub mod calibration_mm;
 mod game;
 pub mod metrics;
 pub mod scoring;

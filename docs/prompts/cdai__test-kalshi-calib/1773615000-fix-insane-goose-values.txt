@@ -1,0 +1,1 @@
+yo i am running this and getting some insane goose values like 19384... straight up 5 digit numbers. that obviously makes no sense.... i think our parameters are miscalibrated or something else is wrong. run the cmd we've been runnign in RUST_LOG=trace mode and see for yourself..

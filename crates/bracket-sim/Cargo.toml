@@ -16,6 +16,8 @@ name = "score-dist"
 path = "src/bin/score_dist.rs"
 
 [dependencies]
+kalshi = { path = "../kalshi" }
+chrono = "0.4"
 rand = "0.9"
 rand_distr = "0.5"
 csv = "1.2"

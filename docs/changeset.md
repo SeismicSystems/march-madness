@@ -4,6 +4,19 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Fix Kalshi orderbook parsing + calibration sensitivity
+- **Fix** Kalshi API now returns `orderbook_fp` (string dollar format) instead of `orderbook` (integer cents). `OrderbookResponse` is now a `#[serde(untagged)]` enum supporting both legacy and FP formats. FP values converted to integer cents for downstream use.
+- **Fix** Calibration `sensitivity` default changed from `2.0` to `0.001`. The old value was tuned for probability-based edges (small numbers), but real orderbook edges are in the thousands of dollars, causing goose values to slam to ±15 clamp on the first iteration.
+
+### 2026-03-15 — Market-making calibrator (replaces CSV normalization pipeline)
+- **New module** `crates/kalshi/src/orderbook.rs` — market-making edge computation against Kalshi orderbooks. Walks top N orderbook levels to compute buy/sell edge per team/round. Includes trade log printer with Kalshi URLs.
+- **New types** in `crates/kalshi/src/types.rs` — `OrderbookLevel`, `Orderbook`, `TeamOrderbook`, `CachedOrderbooks`, `OrderbookResponse` for orderbook fetching and caching.
+- **New REST methods** in `crates/kalshi/src/rest.rs` — `get_orderbook(ticker, depth)` fetches per-market orderbook (converts NO bids to YES asks), `get_round_orderbooks()` batch fetches, plus orderbook-specific cache (`load_orderbook_cache`/`save_orderbook_cache`).
+- **New module** `crates/bracket-sim/src/calibration_mm.rs` — market-making calibration loop. Adjusts goose values to minimize trading edge against live orderbooks (signed edge as gradient). Converges when total edge < threshold.
+- **Revamped** `calibrate` binary — fetches orderbooks in-process with cache, runs calibration loop, prints edge summary and top trades table. No more CSV normalization pipeline.
+- **New dependency** `bracket-sim` → `kalshi` crate for in-process orderbook fetching (no intermediate CSV).
+- **Deleted** legacy CSV calibration mode (`calibration.rs`), normalization pipeline (`fair_value.rs`, `kalshi` binary fetch/watch commands), and pipeline scripts (`refresh.sh`, `fit_kenpom_model.py`). The `MarketDef` type was trimmed to remove normalization-only fields (`expected_sum`, `floor_prob`).
+
 ### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
 - **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1). Strong types: `ContestState` enum (Pre, Live{period,clock}, Final(overtimes), Other(raw)), `Period` enum, `ContestDate`, parsed scores/seeds.
 - **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/2026/tournament-status.json`. Adaptive polling: pre-game (60s), active (configurable, default 1/s), auto-exit on tournament complete.

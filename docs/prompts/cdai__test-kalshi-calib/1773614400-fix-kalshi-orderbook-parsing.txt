@@ -1,0 +1,8 @@
+i run this kalshi code and get:
+
+     Running `target/release/calibrate --sims-per-iter 1000 --max-iter 5`
+ INFO starting calibration year=2026 output=/home/c/code/.git-trees/march-madness/cdai__test-kalshi-calib/data/2026/kenpom.csv sims_per_iter=1000 max_iter=5 depth=10 edge_threshold=$1.00
+ INFO loaded teams teams=64
+ INFO fetching markets from Kalshi round="R32"
+ INFO fetching orderbooks from Kalshi round="R32" markets=152
+Error: Custom { kind: Other, error: "error decoding response body" }

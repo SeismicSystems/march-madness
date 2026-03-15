@@ -10,9 +10,6 @@ pub struct MarketDef {
     pub event_ticker: &'static str,
     pub round: usize,
     pub label: &'static str,
-    pub expected_sum: f64,
-    /// Floor probability for backfilled (no-bid) teams.
-    pub floor_prob: f64,
 }
 
 pub const MARKETS: &[MarketDef] = &[
@@ -20,43 +17,31 @@ pub const MARKETS: &[MarketDef] = &[
         event_ticker: "KXMARMADROUND-26RO32",
         round: 1,
         label: "R32",
-        expected_sum: 32.0,
-        floor_prob: 1.0 / 128.0,
     },
     MarketDef {
         event_ticker: "KXMARMADROUND-26S16",
         round: 2,
         label: "S16",
-        expected_sum: 16.0,
-        floor_prob: 1.0 / 256.0,
     },
     MarketDef {
         event_ticker: "KXMARMADROUND-26E8",
         round: 3,
         label: "E8",
-        expected_sum: 8.0,
-        floor_prob: 1.0 / 512.0,
     },
     MarketDef {
         event_ticker: "KXMARMADROUND-26F4",
         round: 4,
         label: "F4",
-        expected_sum: 4.0,
-        floor_prob: 1.0 / 1024.0,
     },
     MarketDef {
         event_ticker: "KXMARMADROUND-26T2",
         round: 5,
         label: "ChampGame",
-        expected_sum: 2.0,
-        floor_prob: 1.0 / 2048.0,
     },
     MarketDef {
         event_ticker: "KXMARMAD-26",
         round: 6,
         label: "Champion",
-        expected_sum: 1.0,
-        floor_prob: 1.0 / 4096.0,
     },
 ];
 
@@ -96,6 +81,71 @@ pub struct CachedRound {
     pub event_ticker: String,
     pub round: usize,
     pub markets: Vec<Market>,
+}
+
+// ---------------------------------------------------------------------------
+// Orderbook types
+// ---------------------------------------------------------------------------
+
+/// A single price level in an orderbook (price in cents, quantity in contracts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderbookLevel {
+    pub price: u32,
+    pub quantity: u32,
+}
+
+/// Parsed orderbook for a single market: YES-side bids and asks, sorted by price.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Orderbook {
+    pub ticker: String,
+    /// YES bids sorted descending by price (best bid first).
+    pub yes_bids: Vec<OrderbookLevel>,
+    /// YES asks sorted ascending by price (best ask first).
+    pub yes_asks: Vec<OrderbookLevel>,
+}
+
+/// Raw API response — supports both legacy integer-cents and new string-dollar formats.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum OrderbookResponse {
+    /// Legacy format: `{"orderbook": {"yes": [[cents, qty], ...], "no": [...]}}`
+    Legacy { orderbook: OrderbookLegacyInner },
+    /// New format: `{"orderbook_fp": {"yes_dollars": [["0.24","100.00"], ...], "no_dollars": [...]}}`
+    Fp { orderbook_fp: OrderbookFpInner },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderbookLegacyInner {
+    #[serde(default)]
+    pub yes: Vec<[u32; 2]>,
+    #[serde(default)]
+    pub no: Vec<[u32; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderbookFpInner {
+    #[serde(default)]
+    pub yes_dollars: Vec<[String; 2]>,
+    #[serde(default)]
+    pub no_dollars: Vec<[String; 2]>,
+}
+
+/// Orderbook data for a specific team, round, and ticker.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeamOrderbook {
+    pub team: String,
+    pub round: usize,
+    pub ticker: String,
+    pub orderbook: Orderbook,
+}
+
+/// Cached orderbooks for a round (mirrors CachedRound pattern).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CachedOrderbooks {
+    pub fetched_at: chrono::DateTime<chrono::Utc>,
+    pub event_ticker: String,
+    pub round: usize,
+    pub orderbooks: Vec<Orderbook>,
 }
 
 // ---------------------------------------------------------------------------

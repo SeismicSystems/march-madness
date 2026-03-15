@@ -4,8 +4,11 @@ use tokio_tungstenite::tungstenite::http::Request;
 use tracing::{debug, info, warn};
 
 use crate::auth::KalshiAuth;
-use crate::fair_value::parse_f64;
 use crate::types::{KALSHI_WS_PATH, KALSHI_WS_URL, WsEnvelope, WsTickerMsg};
+
+fn parse_f64(s: Option<&str>) -> f64 {
+    s.and_then(|v| v.parse().ok()).unwrap_or(0.0)
+}
 
 /// Max market tickers per subscription message.
 const SUBSCRIBE_BATCH_SIZE: usize = 100;
