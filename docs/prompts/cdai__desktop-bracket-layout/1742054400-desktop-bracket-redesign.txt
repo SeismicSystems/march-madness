@@ -1,0 +1,7 @@
+next thing we want to do:
+
+desktop appp looks gross. generally speaking the way bracket apps are done is.... regions on the RIGHT side of the screen have their games move leftwards -- so both sides are moving IN to the center, where the champion is crowned. so you should fix desktop mode to make it do that. also other things:
+
+2a) the "picks made" and submit picks thing seems way more optimized for mobile. thing it should be flatter (e.g. less tall and more spread across the screen, in a thin way) or just entirely re-thought. it just looks so out of place right now. we want to focus on the bracket for this view
+
+2b) the scoreboard footer is really offputting. it makes no sense to display "winners" down there. i also don't like "top score" i think remove the entire footer -- we'll think about that later.

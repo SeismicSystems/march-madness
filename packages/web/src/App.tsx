@@ -4,7 +4,6 @@ import { BracketView } from "./components/BracketView";
 import { DeadlineCountdown } from "./components/DeadlineCountdown";
 import { FaucetBanner } from "./components/FaucetBanner";
 import { Header } from "./components/Header";
-import { Scoreboard } from "./components/Scoreboard";
 import { SubmitPanel } from "./components/SubmitPanel";
 import { useBracket } from "./hooks/useBracket";
 import { useContract } from "./hooks/useContract";
@@ -36,36 +35,34 @@ export default function App() {
           <FaucetBanner address={contract.walletAddress!} />
         )}
 
-        {/* Top bar: countdown + submit panel */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-6 sm:mb-8">
-          <div className="flex-1 flex items-start gap-2 sm:gap-4">
-            <DeadlineCountdown />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={bracket.resetPicks}
-                className="px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-              >
-                Reset Picks
-              </button>
-            </div>
-          </div>
-          <div className="w-full lg:w-80">
-            <SubmitPanel
-              isComplete={bracket.isComplete}
-              pickCount={bracket.pickCount}
-              hasSubmitted={contract.hasSubmitted}
-              isLoading={contract.isLoading}
-              isBracketLoading={contract.isBracketLoading}
-              error={contract.error}
-              encodedBracket={bracket.encodedBracket}
-              existingBracket={contract.existingBracket}
-              onSubmit={contract.submitBracket}
-              onUpdate={contract.updateBracket}
-              onSetTag={contract.setTag}
-              onLoadBracket={handleLoadBracket}
-              walletConnected={authenticated}
-            />
-          </div>
+        {/* Top bar: countdown + reset */}
+        <div className="flex items-center gap-2 sm:gap-4 mb-4">
+          <DeadlineCountdown />
+          <button
+            onClick={bracket.resetPicks}
+            className="px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+          >
+            Reset Picks
+          </button>
+        </div>
+
+        {/* Submit panel — full width horizontal bar on desktop */}
+        <div className="mb-6 sm:mb-8">
+          <SubmitPanel
+            isComplete={bracket.isComplete}
+            pickCount={bracket.pickCount}
+            hasSubmitted={contract.hasSubmitted}
+            isLoading={contract.isLoading}
+            isBracketLoading={contract.isBracketLoading}
+            error={contract.error}
+            encodedBracket={bracket.encodedBracket}
+            existingBracket={contract.existingBracket}
+            onSubmit={contract.submitBracket}
+            onUpdate={contract.updateBracket}
+            onSetTag={contract.setTag}
+            onLoadBracket={handleLoadBracket}
+            walletConnected={authenticated}
+          />
         </div>
 
         {/* Bracket */}
@@ -75,11 +72,6 @@ export default function App() {
           onPick={bracket.makePick}
           disabled={isLocked}
         />
-
-        {/* Scoreboard placeholder */}
-        <div className="mt-8 sm:mt-12">
-          <Scoreboard entryCount={contract.entryCount} />
-        </div>
       </main>
     </div>
   );

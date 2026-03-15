@@ -26,10 +26,10 @@ export function BracketRegion({
 
   return (
     <div className="flex flex-col">
-      <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1">
+      <h3 className={`text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1 ${reversed ? "text-right" : ""}`}>
         {regionName}
       </h3>
-      <div className={`flex ${reversed ? "flex-row-reverse" : "flex-row"} items-center gap-1`}>
+      <div className="flex flex-row items-center gap-1">
         {orderedRounds.map((roundGames, displayIdx) => {
           const actualRoundIdx = reversed
             ? rounds.length - 1 - displayIdx

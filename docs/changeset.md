@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Desktop bracket layout redesign
+- **Bracket convergence**: Fixed double-reversal bug in `BracketRegion` — right-side regions (West, Midwest) now correctly flow inward toward the center where the champion is crowned, matching standard bracket app convention.
+- **Submit panel**: Redesigned as a compact horizontal bar on desktop (mobile layout unchanged). Progress, status, entry fee, tag input, and submit button all in one thin row.
+- **Removed scoreboard footer**: Removed the placeholder scoreboard section — will revisit later.
+
 ### 2026-03-15 — Fix Buffer polyfill for Privy signing
 - **Root cause**: Privy's embedded wallet signer calls `Buffer.from()` internally when signing EIP-712 typed data. `Buffer` is a Node.js global not available in browsers.
 - Added `buffer` package as devDependency
