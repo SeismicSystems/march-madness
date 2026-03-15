@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Kalshi odds ingestor crate
+- **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.
+- **CLI binary** (`kalshi`) with two subcommands: `fetch` (one-shot REST fetch with file caching) and `watch` (live WebSocket NBBO streaming with periodic CSV writes).
+- **Fair value computation**: microprice from order book pressure (bid/ask sizes), with fallback to midpoint. Normalizes probabilities per round, backfills missing teams, and enforces cross-round monotonicity.
+- **Team name mapping**: `team_names.toml` maps Kalshi market names to canonical names.
+- **Zero dependencies on other workspace crates** — fully standalone, can be used independently of the bracket simulation or forecaster.
+- Ported from the `brackets` repo with edition 2024 compatibility fixes (removed explicit `ref` in implicitly-borrowing patterns, collapsed `if` blocks per clippy).
+
 ### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
 - **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
 - **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.
