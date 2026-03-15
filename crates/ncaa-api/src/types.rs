@@ -39,8 +39,8 @@ pub enum ContestState {
     Pre,
     /// Game is in progress.
     Live,
-    /// Game is final (bool = went to overtime).
-    Final(bool),
+    /// Game is final. Value = number of overtime periods (0 = regulation).
+    Final(u8),
     /// Unknown state from the API.
     Other,
 }
@@ -182,9 +182,9 @@ impl TryFrom<RawContest> for Contest {
 
         let teams: Vec<Team> = raw.teams.into_iter().map(Team::from).collect();
 
-        let is_overtime = raw.final_message.contains("OT");
+        let overtime_periods = parse_overtime(&raw.final_message);
         let state = match raw.game_state.as_str() {
-            "F" => ContestState::Final(is_overtime),
+            "F" => ContestState::Final(overtime_periods),
             "P" => ContestState::Pre,
             "I" => ContestState::Live,
             _ => ContestState::Other,
@@ -315,6 +315,21 @@ fn parse_period(s: &str) -> Option<Period> {
     None
 }
 
+/// Parse overtime count from NCAA final_message string.
+/// "FINAL" → 0, "FINAL/OT" → 1, "FINAL/2OT" → 2, "FINAL/3OT" → 3, etc.
+fn parse_overtime(final_message: &str) -> u8 {
+    let Some(suffix) = final_message.strip_prefix("FINAL/") else {
+        return 0;
+    };
+    if suffix == "OT" {
+        return 1;
+    }
+    suffix
+        .strip_suffix("OT")
+        .and_then(|n| n.parse::<u8>().ok())
+        .unwrap_or(0)
+}
+
 /// Parse NCAA clock string "MM:SS" into total seconds remaining.
 fn parse_clock(s: &str) -> Option<i32> {
     let clock = s.trim();
@@ -434,7 +449,7 @@ mod tests {
             final_message: "FINAL/OT".into(),
         };
         let contest = Contest::try_from(raw).unwrap();
-        assert_eq!(contest.state, ContestState::Final(true)); // overtime
+        assert_eq!(contest.state, ContestState::Final(1)); // 1 overtime period
         assert_eq!(contest.contest_id, 12345);
         assert_eq!(contest.start_time_epoch, Some(1742000000));
     }
