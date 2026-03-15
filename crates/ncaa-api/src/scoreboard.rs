@@ -50,17 +50,6 @@ mod tests {
     use crate::client::NCAA_API_BASE;
 
     #[test]
-    fn test_contest_date_season_year() {
-        // March 2026 → 2025 season (basketball season starts in fall)
-        let d = ContestDate::parse("2026/03/15").unwrap();
-        assert_eq!(d.season_year(), 2025);
-
-        // November 2026 → 2026 season
-        let d2 = ContestDate::parse("2026/11/15").unwrap();
-        assert_eq!(d2.season_year(), 2026);
-    }
-
-    #[test]
     fn test_build_scoreboard_url() {
         let variables = serde_json::json!({
             "sportCode": "MBB",

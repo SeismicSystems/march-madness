@@ -5,6 +5,7 @@
 //! String fields from the API are parsed into enums, integers, and timestamps
 //! at conversion time — callers never deal with raw strings.
 
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
 use crate::NcaaApiError;
@@ -91,10 +92,6 @@ impl Contest {
 
     pub fn is_live(&self) -> bool {
         self.state == ContestState::Live
-    }
-
-    pub fn is_pre(&self) -> bool {
-        self.state == ContestState::Pre
     }
 
     /// Get scores for both teams. Returns (team0_score, team1_score).
@@ -380,8 +377,6 @@ impl std::fmt::Display for ContestDate {
         write!(f, "{}", self.as_api_str())
     }
 }
-
-use chrono::Datelike;
 
 #[cfg(test)]
 mod tests {

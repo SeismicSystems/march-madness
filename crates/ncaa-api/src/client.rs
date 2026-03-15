@@ -95,11 +95,6 @@ impl NcaaClient {
         })
     }
 
-    /// Get the inner HTTP client (for reuse by other components, e.g. POST requests).
-    pub fn http(&self) -> &reqwest::Client {
-        &self.http
-    }
-
     /// Make a rate-limited GET request. Handles 429 backoff automatically.
     pub async fn get(&self, url: &str) -> Result<String, NcaaApiError> {
         loop {

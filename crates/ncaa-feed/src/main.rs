@@ -20,9 +20,9 @@ use crate::mapper::GameMapper;
     about = "NCAA live score feed → tournament-status.json"
 )]
 struct Cli {
-    /// Path to tournament.json (team/bracket data, read-only input).
-    #[arg(long, default_value = "data/2026/tournament.json")]
-    tournament_file: PathBuf,
+    /// Path to NCAA name mappings JSON (maps nameShort → bracket position).
+    #[arg(long, default_value = "data/2026/mappings/ncaa-names.json")]
+    names_file: PathBuf,
 
     /// Path to write tournament-status.json.
     #[arg(long, default_value = "data/2026/tournament-status.json")]
@@ -53,49 +53,28 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let sport: SportCode = cli.sport.parse().map_err(|e: String| eyre::eyre!(e))?;
-
     let client = NcaaClient::new(cli.requests_per_sec).map_err(|e| eyre::eyre!("{e}"))?;
 
-    // Load tournament data (read-only input — team names and bracket structure).
-    let tournament_json = std::fs::read_to_string(&cli.tournament_file)
-        .wrap_err_with(|| format!("failed to read {}", cli.tournament_file.display()))?;
-    let tournament: seismic_march_madness::tournament::TournamentData =
-        serde_json::from_str(&tournament_json).wrap_err("failed to parse tournament.json")?;
-
-    info!(
-        "loaded tournament: {} ({} teams)",
-        tournament.name,
-        tournament.teams.len()
-    );
-
-    let mut mapper = GameMapper::new(&tournament);
+    // Load NCAA name → bracket position mappings.
+    let mut mapper = GameMapper::load(&cli.names_file)?;
+    info!("loaded name mappings from {}", cli.names_file.display());
 
     // Load existing tournament status to resume from (e.g. after restart).
-    let existing_status = if cli.output_file.exists() {
-        match std::fs::read_to_string(&cli.output_file) {
-            Ok(json) => {
-                match serde_json::from_str::<seismic_march_madness::TournamentStatus>(&json) {
-                    Ok(status) => {
-                        info!(
-                            "resuming from existing status ({})",
-                            cli.output_file.display()
-                        );
-                        Some(status)
-                    }
-                    Err(e) => {
-                        warn!("failed to parse existing status: {e}");
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("failed to read existing status: {e}");
-                None
-            }
-        }
-    } else {
-        None
-    };
+    let existing_status: Option<seismic_march_madness::TournamentStatus> =
+        std::fs::read_to_string(&cli.output_file)
+            .ok()
+            .and_then(|json| {
+                serde_json::from_str(&json)
+                    .inspect_err(|e| warn!("failed to parse existing status: {e}"))
+                    .ok()
+            });
+
+    if existing_status.is_some() {
+        info!(
+            "resuming from existing status ({})",
+            cli.output_file.display()
+        );
+    }
 
     // Seed mapper with existing final results.
     if let Some(ref status) = existing_status {
@@ -119,13 +98,7 @@ async fn main() -> Result<()> {
     loop {
         match fetch_scoreboard(&client, sport, &date).await {
             Ok(contests) => {
-                let tournament_games: Vec<_> = contests
-                    .iter()
-                    .filter(|c| c.teams.iter().any(|t| t.seed.is_some()))
-                    .cloned()
-                    .collect();
-
-                let changes = state.update_from_contests(&tournament_games, &mut mapper);
+                let changes = state.update_from_contests(&contests, &mut mapper);
 
                 if changes > 0 || state.dirty {
                     info!("{changes} game(s) changed");
@@ -158,7 +131,6 @@ async fn main() -> Result<()> {
 /// Write tournament status to file.
 fn publish_status(state: &FeedState, output_file: &Path) {
     let status = state.to_tournament_status();
-
     if let Err(e) = writer::write_tournament_status(output_file, &status) {
         error!("failed to write status: {e}");
     }
@@ -174,13 +146,11 @@ async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<ContestDa
         .await
         .wrap_err("failed to fetch schedule")?;
 
-    // Find today's date in the schedule.
     if dates.contains(&today) {
         info!("auto-detected today's date: {today}");
         return Ok(today);
     }
 
-    // Find the next upcoming date.
     for date in &dates {
         if date.date() >= today.date() {
             info!("no games today, next game date: {date}");
@@ -188,7 +158,6 @@ async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<ContestDa
         }
     }
 
-    // Fall back to today.
     warn!("could not find a game date in schedule, using today: {today}");
     Ok(today)
 }
