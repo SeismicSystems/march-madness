@@ -5,6 +5,24 @@ pragma solidity ^0.8.30;
 /// @notice Defines the full public API for MarchMadness. Implementation details
 ///         (shielded storage, ByteBracket internals) live in the contract itself.
 interface IMarchMadness {
+    // ── Errors ───────────────────────────────────────────────────────────
+    error IncorrectEntryFee(uint256 expected, uint256 actual);
+    error SubmissionDeadlinePassed();
+    error InvalidSentinelByte();
+    error AlreadySubmitted();
+    error NoBracketSubmitted();
+    error CannotReadBracketBeforeDeadline();
+    error OnlyOwner();
+    error ResultsAlreadyPosted();
+    error SubmissionPhaseNotOver();
+    error ResultsNotPosted();
+    error AlreadyScored();
+    error ScoringWindowClosed();
+    error ScoringWindowStillOpen();
+    error NotAWinner();
+    error AlreadyCollected();
+    error TransferFailed();
+
     // ── Events ───────────────────────────────────────────────────────────
     event BracketSubmitted(address indexed account);
     event TagSet(address indexed account, string tag);
