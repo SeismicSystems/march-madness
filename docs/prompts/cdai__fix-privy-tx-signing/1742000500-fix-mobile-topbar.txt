@@ -1,0 +1,1 @@
+oh hm also in a subagent can you fix the top bar on mobile? it looks horrible because text overlaps. probably better to have a dropdown or something like that. i see too much stuff and screen is small

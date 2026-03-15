@@ -29,6 +29,33 @@ export function useContract() {
 
   const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
 
+  // Extract a useful error message from nested/wrapped errors (Privy, viem, etc.)
+  const extractErrorMessage = (err: unknown, fallback: string): string => {
+    if (!err) return fallback;
+    // Walk the cause chain to find the most specific message
+    let current: unknown = err;
+    const messages: string[] = [];
+    for (let i = 0; i < 5 && current; i++) {
+      if (current instanceof Error) {
+        if (current.message) messages.push(current.message);
+        current = (current as Error & { cause?: unknown }).cause;
+      } else if (typeof current === "object" && current !== null) {
+        const obj = current as Record<string, unknown>;
+        if (typeof obj.shortMessage === "string") messages.push(obj.shortMessage);
+        if (typeof obj.message === "string") messages.push(obj.message);
+        current = obj.cause;
+      } else {
+        if (typeof current === "string") messages.push(current);
+        break;
+      }
+    }
+    // Prefer the deepest specific message, skip generic "An error has occurred"
+    const specific = messages.find(
+      (m) => m && !m.includes("An error has occurred") && m.length > 10,
+    );
+    return specific || messages[0] || fallback;
+  };
+
   const walletAddress = walletClient?.account?.address ?? null;
 
   // Construct client library instances from seismic-react wallet/public clients
@@ -105,8 +132,7 @@ export function useContract() {
         return bracketHex;
       }
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to load bracket";
+      const msg = extractErrorMessage(err, "Failed to load bracket");
       setError(msg);
       throw err;
     } finally {
@@ -130,8 +156,7 @@ export function useContract() {
         await fetchBalance();
         return hash;
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to submit bracket";
+        const msg = extractErrorMessage(err, "Failed to submit bracket");
         setError(msg);
         throw err;
       } finally {
@@ -153,8 +178,7 @@ export function useContract() {
         setExistingBracket(bracketHex);
         return hash;
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to update bracket";
+        const msg = extractErrorMessage(err, "Failed to update bracket");
         setError(msg);
         throw err;
       } finally {
@@ -175,8 +199,7 @@ export function useContract() {
         const hash = await mmUser.setTag(tag);
         return hash;
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to set tag";
+        const msg = extractErrorMessage(err, "Failed to set tag");
         setError(msg);
         throw err;
       } finally {

@@ -186,7 +186,7 @@ export function SubmitPanel({
 
       {/* Error display */}
       {error && (
-        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 text-sm text-danger">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 text-sm text-danger max-h-32 overflow-y-auto break-words">
           {error}
         </div>
       )}
