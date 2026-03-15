@@ -1,0 +1,7 @@
+here's what i get in privy console... seems to be the clear problem:
+
+index-DHHf6Zu6.js:594 ReferenceError: Buffer is not defined
+    at d3e (index-DHHf6Zu6.js:103:176761)
+    at js (index-DHHf6Zu6.js:103:177045)
+    at Et (index-DHHf6Zu6.js:576:139201)
+    at async onSign (index-DHHf6Zu6.js:576:19102)

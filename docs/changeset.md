@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Fix Buffer polyfill for Privy signing
+- **Root cause**: Privy's embedded wallet signer calls `Buffer.from()` internally when signing EIP-712 typed data. `Buffer` is a Node.js global not available in browsers.
+- Added `buffer` package as devDependency
+- Added `Buffer` polyfill in `main.tsx` before any other imports
+- Added `global: "globalThis"` to Vite config
+
 ### 2026-03-15 — Fix [object Object] in error display
 - Error extraction now JSON.stringifies all non-string values so object details render as readable JSON instead of `[object Object]`
 - Unrecognized error objects without standard fields are dumped in full

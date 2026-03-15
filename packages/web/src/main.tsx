@@ -1,3 +1,7 @@
+import { Buffer } from "buffer";
+// Privy's embedded wallet signer uses Buffer.from() internally
+(window as any).Buffer = Buffer;
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 

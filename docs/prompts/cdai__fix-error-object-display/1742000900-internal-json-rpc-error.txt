@@ -1,0 +1,1 @@
+we get this: An internal error was received. → details: {"eipCode":-32603,"message":"Internal error","detail":"Internal JSON-RPC error","default":true,"retryable":true} ... i know our network is correct... can we go to ~/code/seismic-workspace/seismic-reth and investigate that errkr?
