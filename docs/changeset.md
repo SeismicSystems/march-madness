@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Bracket simulation library and CLI
+- **New crate** `crates/bracket-sim` — Poisson-based NCAA tournament simulation engine with Bayesian metric updates. Ported from private `brackets` repo with rand 0.8->0.9 migration for edition 2024 compatibility.
+- **Library modules**: team loading/validation, game simulation (Poisson scoring + overtime), tournament orchestration, bracket encoding (ByteBracket u64 format), scoring systems, goose calibration against market odds.
+- **CLI binary** `sim` — runs Monte Carlo tournament simulations and prints round-by-round advancement probabilities for all 64 teams.
+- **CLI binary** `calibrate` — adjusts team "goose" ratings to match target probabilities (e.g. from Kalshi) using iterative Bayesian calibration with Beta posterior convergence checks.
+- **Data files**: `data/2025/tournament.json`, `data/2026/tournament.json`, `data/{year}/kenpom.csv`.
+
 ### 2026-03-15 — BracketMirror + BracketGroups contracts
 - **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. Entries have unique slugs within a mirror for URL-friendly lookup (`getEntryBySlug`). Swap-and-pop removal.
 - **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Optional `sbytes12` password protection (shielded), optional entry fee with scoring + payout. Group IDs are `uint32`. Scoring delegates to `marchMadness.scoreBracket()` to avoid double work. Group struct uses `creator` (not `admin`). Join/leave gated by submission deadline.
