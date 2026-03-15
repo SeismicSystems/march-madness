@@ -8,6 +8,36 @@ All notable changes to this project. Every PR must add an entry here.
 - **New script** `scripts/refresh.sh` — runs the full KenPom/Kalshi ingestion pipeline (scrape KenPom, fetch raw Kalshi futures, fit anchor model, normalize Kalshi futures, calibrate goose values). Supports `--hours N` flag to control cache TTL (default 6 hours).
 - **CI: Python checks** — added `run_python` section to `scripts/ci.sh`: verifies `uv` deps install (`uv sync --frozen`) and runs `scrape_kenpom.py --help` as a smoke test. Wired into `all` and available as `./scripts/ci.sh python`.
 
+### 2026-03-15 — Bracket simulation library and CLI
+- **New crate** `crates/bracket-sim` — Poisson-based NCAA tournament simulation engine with Bayesian metric updates. Ported from private `brackets` repo with rand 0.8->0.9 migration for edition 2024 compatibility.
+- **Library modules**: team loading/validation, game simulation (Poisson scoring + overtime), tournament orchestration, bracket encoding (ByteBracket u64 format), scoring systems, goose calibration against market odds.
+- **CLI binary** `sim` — runs Monte Carlo tournament simulations and prints round-by-round advancement probabilities for all 64 teams.
+- **CLI binary** `calibrate` — adjusts team "goose" ratings to match target probabilities (e.g. from Kalshi) using iterative Bayesian calibration with Beta posterior convergence checks.
+- **Data files**: `data/2025/tournament.json`, `data/2026/tournament.json`, `data/{year}/kenpom.csv`.
+
+### 2026-03-15 — BracketMirror + BracketGroups contracts
+- **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. Entries have unique slugs within a mirror for URL-friendly lookup (`getEntryBySlug`). Swap-and-pop removal.
+- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness via `IMarchMadness` interface. Optional `sbytes12` password protection (shielded), optional entry fee with scoring + payout. Group IDs are `uint32`. Scoring delegates to `marchMadness.scoreBracket()` to avoid double work. Group struct uses `creator` (not `admin`). Join/leave gated by submission deadline.
+- **New interface** `IMarchMadness.sol` — minimal 6-function interface (`hasEntry`, `submissionDeadline`, `resultsPostedAt`, `scoreBracket`, `scores`, `isScored`) so BracketGroups only needs the deployed address.
+- **Deploy scripts**: `DeployAll.s.sol` (production) and `DeployAllLocal.s.sol` (local dev) deploy all 3 contracts. `deploy-testnet.sh` parses all 3 addresses and writes to `data/deployments.json`.
+- **Frontend**: `constants.ts` exports `CONTRACT_ADDRESS`, `GROUPS_CONTRACT_ADDRESS`, `MIRROR_CONTRACT_ADDRESS` from `deployments.json` (handles both old string and new object formats).
+- **Tests**: 35 BracketGroups tests (creation, join/leave, password, scoring delegation, payouts, deadline enforcement) + 24 BracketMirror tests (creation, entries, slug lookup, swap-and-pop, access control).
+- **MarchMadness constructor**: Added `uint16 year` parameter — contracts are now self-describing for which tournament season they belong to. Deploy scripts pass year (production: `2026`, local: `YEAR` env var, default `2026`).
+
+### 2026-03-15 — Kalshi odds ingestor crate
+- **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.
+- **CLI binary** (`kalshi`) with two subcommands: `fetch` (one-shot REST fetch with file caching) and `watch` (live WebSocket NBBO streaming with periodic CSV writes).
+- **Fair value computation**: microprice from order book pressure (bid/ask sizes), with fallback to midpoint. Normalizes probabilities per round, backfills missing teams, and enforces cross-round monotonicity.
+- **Team name mapping**: `team_names.toml` maps Kalshi market names to canonical names.
+- **Zero dependencies on other workspace crates** — fully standalone, can be used independently of the bracket simulation or forecaster.
+- Ported from the `brackets` repo with edition 2024 compatibility fixes (removed explicit `ref` in implicitly-borrowing patterns, collapsed `if` blocks per clippy).
+
+### 2026-03-15 — Python KenPom scripts + UV project
+- **New**: `pyproject.toml` — UV Python project (`march-madness-scripts`) with dependencies for data pipeline scripts (cloudscraper, kenpompy, matplotlib, numpy, pandas, scikit-learn).
+- **New**: `scripts/scrape_kenpom.py` — scrapes KenPom ratings via kenpompy + cloudscraper (Cloudflare bypass), outputs `data/{YEAR}/kenpom.csv` (team, ortg, drtg, pace). Supports `--bracket-only` filtering and `--seeds-from` bracket CSV.
+- **New**: `scripts/fit_kenpom_model.py` — fits per-round logistic regression (degree-2 polynomial features, C=0.1 regularization) from KenPom stats to Kalshi market probabilities. Outputs `data/{YEAR}/kenpom_anchor_model.json` with model coefficients, scaler params, and anchor ranges. Generates fit quality plots to `data/{YEAR}/plots/`.
+- **Updated**: `.gitignore` — added `.venv/`, `data/*/plots/`, `__pycache__/`.
+
 ### 2026-03-15 — Bracket forecaster: forward Monte Carlo win probabilities
 - **New crate** `crates/forecaster` (`march-madness-forecaster`) — reads `data/entries.json` + `data/tournament-status.json` + `data/mens-2026.json`, runs forward Monte Carlo simulations (default 100k) to compute per-bracket win probabilities, writes `data/forecasts.json`.
 - **Forward simulation**: resolves games round-by-round. Decided games use known winner, live games use in-game `team1WinProbability`, upcoming games derive P(A beats B) from `teamReachProbabilities` via Bradley-Terry: `P(A wins) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])`. Later-round matchups depend on who actually advanced in each simulation — no independent coin-flip approximation.

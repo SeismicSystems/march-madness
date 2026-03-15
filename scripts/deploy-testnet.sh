@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploy MarchMadness to testnet and write the address to data/deployments.json.
+# Deploy all contracts (MarchMadness, BracketGroups, BracketMirror) to testnet
+# and write addresses to data/deployments.json.
 #
 # Usage:
-#   ./scripts/deploy-testnet.sh                          # deploy + write address
-#   ./scripts/deploy-testnet.sh --contract-address 0x... # skip deploy, just write address
+#   ./scripts/deploy-testnet.sh                          # deploy all + write addresses
+#   ./scripts/deploy-testnet.sh --contract-address 0x... # skip deploy, just write MM address
+#                                                        # (groups/mirror must be deployed separately)
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOYMENTS="$REPO_ROOT/data/deployments.json"
@@ -39,38 +41,64 @@ if [[ -z "$CONTRACT_ADDRESS" ]]; then
   : "${DEPLOYER_PRIVATE_KEY:?Set DEPLOYER_PRIVATE_KEY in .env}"
   : "${VITE_RPC_URL:?Set VITE_RPC_URL in .env}"
 
-  echo "Deploying MarchMadness to ${VITE_RPC_URL}..."
+  echo "Deploying all contracts to ${VITE_RPC_URL}..."
   OUTPUT=$(cd "$REPO_ROOT/contracts" && mise run sforge -- \
-    script script/MarchMadness.s.sol \
+    script script/DeployAll.s.sol \
     --rpc-url "$VITE_RPC_URL" \
     --broadcast \
     --private-key "$DEPLOYER_PRIVATE_KEY" 2>&1)
 
   echo "$OUTPUT"
 
-  CONTRACT_ADDRESS=$(echo "$OUTPUT" | grep -oP 'deployed at:\s+\K0x[0-9a-fA-F]{40}')
-  if [[ -z "$CONTRACT_ADDRESS" ]]; then
-    echo "ERROR: Could not parse contract address from sforge output" >&2
+  # Parse all 3 addresses from output
+  MM_ADDRESS=$(echo "$OUTPUT" | grep -oP 'MarchMadness deployed at:\s+\K0x[0-9a-fA-F]{40}')
+  BG_ADDRESS=$(echo "$OUTPUT" | grep -oP 'BracketGroups deployed at:\s+\K0x[0-9a-fA-F]{40}')
+  BM_ADDRESS=$(echo "$OUTPUT" | grep -oP 'BracketMirror deployed at:\s+\K0x[0-9a-fA-F]{40}')
+
+  if [[ -z "$MM_ADDRESS" ]]; then
+    echo "ERROR: Could not parse MarchMadness address from sforge output" >&2
     exit 1
   fi
+
+  echo ""
+  echo "MarchMadness: $MM_ADDRESS"
+  echo "BracketGroups: $BG_ADDRESS"
+  echo "BracketMirror: $BM_ADDRESS"
+
+  # ── Write to deployments.json ───────────────────────────
+  bun -e "
+    const fs = require('fs');
+    const d = JSON.parse(fs.readFileSync('$DEPLOYMENTS', 'utf-8'));
+    d['$YEAR'] = d['$YEAR'] || {};
+    d['$YEAR']['$CHAIN_ID'] = {
+      marchMadness: '$MM_ADDRESS',
+      bracketGroups: '${BG_ADDRESS:-}',
+      bracketMirror: '${BM_ADDRESS:-}'
+    };
+    fs.writeFileSync('$DEPLOYMENTS', JSON.stringify(d, null, 2) + '\n');
+  "
+else
+  echo "Contract address: $CONTRACT_ADDRESS"
+
+  # Legacy mode: just write MM address (backwards compat)
+  bun -e "
+    const fs = require('fs');
+    const d = JSON.parse(fs.readFileSync('$DEPLOYMENTS', 'utf-8'));
+    d['$YEAR'] = d['$YEAR'] || {};
+    const existing = d['$YEAR']['$CHAIN_ID'];
+    if (typeof existing === 'object' && existing !== null) {
+      existing.marchMadness = '$CONTRACT_ADDRESS';
+    } else {
+      d['$YEAR']['$CHAIN_ID'] = { marchMadness: '$CONTRACT_ADDRESS' };
+    }
+    fs.writeFileSync('$DEPLOYMENTS', JSON.stringify(d, null, 2) + '\n');
+  "
 fi
 
 echo ""
-echo "Contract address: $CONTRACT_ADDRESS"
-
-# ── Write to deployments.json ─────────────────────────────
-# Use bun to update JSON (no jq dependency)
-bun -e "
-  const fs = require('fs');
-  const d = JSON.parse(fs.readFileSync('$DEPLOYMENTS', 'utf-8'));
-  d['$YEAR'] = d['$YEAR'] || {};
-  d['$YEAR']['$CHAIN_ID'] = '$CONTRACT_ADDRESS';
-  fs.writeFileSync('$DEPLOYMENTS', JSON.stringify(d, null, 2) + '\n');
-"
-
 echo "Updated $DEPLOYMENTS"
 cat "$DEPLOYMENTS"
 echo ""
 echo "Next steps:"
-echo "  1. git add $DEPLOYMENTS && git commit -m 'Deploy to testnet: $CONTRACT_ADDRESS'"
+echo "  1. git add $DEPLOYMENTS && git commit -m 'Deploy to testnet'"
 echo "  2. git push"

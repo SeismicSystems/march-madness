@@ -1,0 +1,6 @@
+# Kalshi team name -> KenPom team name mappings.
+# Only entries where the names differ need to be listed.
+# Keys = Kalshi names, values = KenPom names.
+
+[names]
+"Mississippi State" = "Mississippi St."

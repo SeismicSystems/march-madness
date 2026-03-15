@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {MarchMadness} from "../src/MarchMadness.sol";
@@ -16,7 +16,9 @@ contract MarchMadnessLocalScript is Script {
 
         vm.startBroadcast();
 
-        MarchMadness mm = new MarchMadness(1 ether, block.timestamp + deadlineOffset);
+        uint16 year = uint16(vm.envOr("YEAR", uint256(2026)));
+
+        MarchMadness mm = new MarchMadness(year, 1 ether, block.timestamp + deadlineOffset);
 
         console.log("MarchMadness (local) deployed at:", address(mm));
         console.log("Submission deadline:", mm.submissionDeadline());

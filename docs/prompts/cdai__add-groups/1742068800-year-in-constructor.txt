@@ -1,0 +1,2 @@
+oh i also think when we deploy the marchmadness contract the first time, there should be a way to reference what year we're working with
+yeah i thikn we should put year as uint16 inside the constructor.

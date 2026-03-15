@@ -1,0 +1,10 @@
+Implement the following plan:
+
+# Plan: BracketGroups Contract
+
+[Full plan provided in plan mode — see transcript]
+
+Additional user feedback during implementation:
+- "in admin manual mode, admin should be able to insert brackets via slug... no address needed"
+- "also admin should be able to set the $ value that users will win off chain... like use it as a bookkeeping tool"
+- "gotta make sure that we dont pay out real money to admin manual groups ... only linked groups can get real $ which is actually stored in the contract."
