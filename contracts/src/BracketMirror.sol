@@ -10,7 +10,8 @@ contract BracketMirror {
     struct Mirror {
         string slug;
         string displayName;
-        string prizeDescription; // off-chain prize info (e.g. "$500 Amazon gift card")
+        uint256 entryFee; // off-chain entry fee amount (display only, e.g. 25 for "$25 USD")
+        string entryCurrency; // currency label (e.g. "USD", "ETH")
         address admin;
     }
 
@@ -65,16 +66,18 @@ contract BracketMirror {
 
         mirrorId = nextMirrorId++;
 
-        _mirrors[mirrorId] = Mirror({slug: slug, displayName: displayName, prizeDescription: "", admin: msg.sender});
+        _mirrors[mirrorId] =
+            Mirror({slug: slug, displayName: displayName, entryFee: 0, entryCurrency: "", admin: msg.sender});
 
         slugToMirrorId[slugHash] = mirrorId;
 
         emit MirrorCreated(mirrorId, slug, displayName, msg.sender);
     }
 
-    /// @notice Set or update the prize description. Admin only.
-    function setPrizeDescription(uint256 mirrorId, string calldata description) external onlyAdmin(mirrorId) {
-        _mirrors[mirrorId].prizeDescription = description;
+    /// @notice Set or update the entry fee display info. Admin only.
+    function setEntryFee(uint256 mirrorId, uint256 fee, string calldata currency) external onlyAdmin(mirrorId) {
+        _mirrors[mirrorId].entryFee = fee;
+        _mirrors[mirrorId].entryCurrency = currency;
     }
 
     // ════════════════════════════════════════════════════════════════════

@@ -62,25 +62,27 @@ contract BracketMirrorTest is Test {
         bm.getMirror(999);
     }
 
-    // ── Prize description ───────────────────────────────────────────────
+    // ── Entry fee ─────────────────────────────────────────────────────────
 
-    function test_setPrizeDescription() public {
+    function test_setEntryFee() public {
         vm.prank(admin);
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
         vm.prank(admin);
-        bm.setPrizeDescription(mirrorId, "$500 Amazon gift card");
+        bm.setEntryFee(mirrorId, 25, "USD");
 
-        assertEq(bm.getMirror(mirrorId).prizeDescription, "$500 Amazon gift card");
+        BracketMirror.Mirror memory m = bm.getMirror(mirrorId);
+        assertEq(m.entryFee, 25);
+        assertEq(m.entryCurrency, "USD");
     }
 
-    function test_setPrizeDescription_onlyAdmin() public {
+    function test_setEntryFee_onlyAdmin() public {
         vm.prank(admin);
         uint256 mirrorId = bm.createMirror("pool", "Pool");
 
         vm.prank(alice);
         vm.expectRevert("Not mirror admin");
-        bm.setPrizeDescription(mirrorId, "hack");
+        bm.setEntryFee(mirrorId, 100, "USD");
     }
 
     // ── Entry management ────────────────────────────────────────────────
