@@ -1,0 +1,1 @@
+remove legacy CSV mode -- we don't want the notion of mode any more. also delete any csv artifacts relevant to this. AND also delete any scripts/crates that handle bullshit like normalizing since we no longer need to do it

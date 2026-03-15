@@ -1,11 +1,10 @@
 use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
-use bracket_sim::calibration::{self, CalibrationConfig};
 use bracket_sim::calibration_mm::{self, MmCalibrationConfig};
 use bracket_sim::{data_dir, load_teams_for_year};
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use std::io;
 use std::path::PathBuf;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, warn};
 
 use kalshi::orderbook;
 use kalshi::rest::{self, KalshiRestClient};
@@ -20,23 +19,11 @@ fn parse_nonzero_usize(s: &str) -> Result<usize, String> {
     Ok(n)
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum Mode {
-    /// Legacy mode: calibrate against a target odds CSV
-    Csv,
-    /// Market-making mode: calibrate against live Kalshi orderbooks
-    Mm,
-}
-
 #[derive(Parser, Debug)]
 #[command(name = "calibrate")]
-#[command(version = "0.2.0")]
-#[command(about = "Calibrate goose values to match target probabilities")]
+#[command(version = "1.0.0")]
+#[command(about = "Calibrate goose values against Kalshi orderbooks")]
 struct CalibrateArgs {
-    /// Calibration mode: csv (legacy) or mm (market-making)
-    #[arg(long, default_value = "csv")]
-    mode: Mode,
-
     /// Tournament year (determines bracket structure / Final Four pairings)
     #[arg(short = 'y', long, default_value_t = DEFAULT_YEAR)]
     year: u16,
@@ -44,10 +31,6 @@ struct CalibrateArgs {
     /// Path to combined teams CSV (overrides default JSON+KenPom loading)
     #[arg(short, long)]
     input: Option<PathBuf>,
-
-    /// Path to target odds CSV (default: data/{year}/targets_kalshi.csv) [csv mode only]
-    #[arg(short, long)]
-    targets: Option<PathBuf>,
 
     /// Output path for calibrated teams CSV (default: overwrite kenpom.csv)
     #[arg(short, long)]
@@ -61,10 +44,6 @@ struct CalibrateArgs {
     #[arg(short = 'm', long, default_value_t = 100)]
     max_iter: usize,
 
-    /// Credible interval level for convergence (e.g. 0.99 = 99% CI) [csv mode only]
-    #[arg(short = 'c', long, default_value_t = 0.99)]
-    credible_level: f64,
-
     /// Initial learning rate for goose adjustments
     #[arg(short = 'l', long, default_value_t = 1.0)]
     learning_rate: f64,
@@ -73,28 +52,23 @@ struct CalibrateArgs {
     #[arg(short = 'd', long, default_value_t = 0.3)]
     decay: f64,
 
-    /// Renormalize target probabilities per bracket group [csv mode only]
-    #[arg(long, num_args = 0..=1, default_missing_value = "100")]
-    renorm: Option<f64>,
-
-    // --- MM mode options ---
-    /// Orderbook depth (levels per side) [mm mode]
+    /// Orderbook depth (levels per side)
     #[arg(long, default_value_t = 10)]
     depth: usize,
 
-    /// Cache TTL in seconds [mm mode]
+    /// Cache TTL in seconds
     #[arg(long, default_value_t = 21600)]
     cache_ttl: u64,
 
-    /// Convergence threshold in dollars of total edge [mm mode]
+    /// Convergence threshold in dollars of total edge
     #[arg(long, default_value_t = 1.0)]
     edge_threshold: f64,
 
-    /// Sleep between API requests in milliseconds [mm mode]
+    /// Sleep between API requests in milliseconds
     #[arg(long, default_value_t = 300)]
     sleep_ms: u64,
 
-    /// Number of top trades to display [mm mode]
+    /// Number of top trades to display
     #[arg(long, default_value_t = 20)]
     top_trades: usize,
 }
@@ -111,114 +85,6 @@ fn main() -> io::Result<()> {
         .init();
 
     let args = CalibrateArgs::parse();
-
-    match args.mode {
-        Mode::Csv => run_csv_mode(&args),
-        Mode::Mm => run_mm_mode(&args),
-    }
-}
-
-fn run_csv_mode(args: &CalibrateArgs) -> io::Result<()> {
-    let bracket_config = BracketConfig::for_year(args.year);
-    let season_dir = data_dir().join(args.year.to_string());
-    let targets_path = args
-        .targets
-        .clone()
-        .unwrap_or_else(|| season_dir.join("targets_kalshi.csv"));
-    let output = args
-        .output
-        .clone()
-        .unwrap_or_else(|| season_dir.join("kenpom.csv"));
-
-    info!(
-        year = args.year,
-        targets = %targets_path.display(),
-        output = %output.display(),
-        sims_per_iter = args.sims_per_iter,
-        max_iter = args.max_iter,
-        credible_level = format_args!("{:.0}%", args.credible_level * 100.0),
-        "starting CSV calibration"
-    );
-
-    let mut teams = load_teams_for_year(args.input.as_deref(), args.year)?;
-    let mut targets =
-        calibration::load_targets_from_csv(targets_path.to_str().expect("Invalid targets path"))?;
-
-    if let Some(tolerance) = args.renorm {
-        info!(tolerance, "renormalizing targets to bracket groups");
-        calibration::renormalize_targets(&mut targets, &teams, &bracket_config, tolerance / 100.0);
-    }
-
-    if args.renorm.is_none() {
-        let (errors, warnings) = calibration::validate_targets(&targets, &teams, &bracket_config);
-        for w in &warnings {
-            warn!("{}", w);
-        }
-        if !errors.is_empty() {
-            for e in &errors {
-                tracing::error!("{}", e);
-            }
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Target validation failed with {} error(s)", errors.len()),
-            ));
-        }
-    }
-
-    debug!(teams = teams.len(), targets = targets.len(), "loaded data");
-    for t in &targets {
-        trace!(
-            team = %t.team,
-            round = t.round,
-            probability = format_args!("{:.1}%", t.probability * 100.0),
-        );
-    }
-
-    let config = CalibrationConfig {
-        max_iterations: args.max_iter,
-        sims_per_iteration: args.sims_per_iter,
-        credible_level: args.credible_level,
-        base_learning_rate: args.learning_rate,
-        decay_factor: args.decay,
-        ..Default::default()
-    };
-
-    let result = calibration::calibrate(&mut teams, &targets, &config, &bracket_config);
-
-    calibration::print_calibration_table(&result.final_errors);
-
-    if result.converged {
-        info!(iterations = result.iterations, "converged");
-    } else {
-        warn!(iterations = result.iterations, "did not converge");
-    }
-
-    if !result.goose_values.is_empty() {
-        let mut sorted: Vec<_> = result.goose_values.iter().collect();
-        sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-        for (team, goose) in sorted {
-            debug!(team, goose = format_args!("{:+.2}", goose));
-        }
-    }
-
-    for (team, round, target, observed) in &result.final_errors {
-        trace!(
-            team = %team,
-            round,
-            target = format_args!("{:.1}%", target * 100.0),
-            observed = format_args!("{:.1}%", observed * 100.0),
-            error = format_args!("{:+.1}%", (target - observed) * 100.0),
-            "final error"
-        );
-    }
-
-    bracket_sim::team::save_kenpom_csv(&teams, output.to_str().expect("Invalid output path"))?;
-    info!(output = %output.display(), "saved calibrated teams");
-
-    Ok(())
-}
-
-fn run_mm_mode(args: &CalibrateArgs) -> io::Result<()> {
     let bracket_config = BracketConfig::for_year(args.year);
     let season_dir = data_dir().join(args.year.to_string());
     let output = args
@@ -233,7 +99,7 @@ fn run_mm_mode(args: &CalibrateArgs) -> io::Result<()> {
         max_iter = args.max_iter,
         depth = args.depth,
         edge_threshold = format_args!("${:.2}", args.edge_threshold),
-        "starting market-making calibration"
+        "starting calibration"
     );
 
     // 1. Load teams
@@ -323,7 +189,7 @@ fn run_mm_mode(args: &CalibrateArgs) -> io::Result<()> {
         "loaded team orderbooks"
     );
 
-    // 4. Run market-making calibration
+    // 4. Run calibration
     let config = MmCalibrationConfig {
         max_iterations: args.max_iter,
         sims_per_iteration: args.sims_per_iter,

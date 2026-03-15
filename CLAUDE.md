@@ -45,7 +45,7 @@ packages/
 crates/
   seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers
   kalshi/           — Kalshi odds ingestor (REST + WS + orderbook fetching + edge computation)
-  bracket-sim/      — Tournament simulation, calibration (CSV mode + market-making mode)
+  bracket-sim/      — Tournament simulation, goose calibration against Kalshi orderbooks
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
   forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
