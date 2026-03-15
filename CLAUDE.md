@@ -69,6 +69,29 @@ Key functions:
 Events:
 - `BracketSubmitted(address indexed account)` — emitted on submit AND update
 
+## BracketGroups Contract (BracketGroups.sol)
+
+Composable side-group contract that reads from MarchMadness. Two group types:
+
+**Manual groups** — admin-managed, no money:
+- `createManualGroup(slug, displayName)` → groupId
+- `addManualEntry(groupId, bracket, name)` — admin adds external bracket by name (no address)
+- `removeManualEntry(groupId, entryIndex)` — swap-and-pop removal
+- `updateManualBracket(groupId, entryIndex, bracket)` — blocked after results
+- `updateEntryName(groupId, entryIndex, name)`
+- `setPrizeDescription(groupId, description)` — off-chain prize bookkeeping (e.g. "$500 gift card")
+- `getManualEntryScore(groupId, index)` → uint8 — computed on-the-fly via ByteBracket
+- `getManualGroupScores(groupId)` → uint8[] — batch scores
+
+**Linked groups** — self-join with main-contract bracket, optional side-bet:
+- `createLinkedGroup(slug, displayName, entryFee)` → groupId
+- `joinGroup(groupId)` / `joinGroupWithName(groupId, name)` — payable, requires main contract bracket
+- `leaveGroup(groupId)` — refund before results
+- `scoreGroupEntry(groupId, memberIndex)` — anyone triggers, reads bracket from main contract
+- `collectGroupWinnings(groupId)` — winners split group prize pool after scoring window
+
+Key design: Manual groups can never hold or pay out ETH. Linked group scoring mirrors main contract pattern.
+
 ## Bracket Encoding
 
 - 64 bits (bytes8): bit 63 = MSB (sentinel, must be 1), bits 62-0 = 63 game outcomes

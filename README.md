@@ -39,6 +39,13 @@ A later-round pick only scores if the feeder games were also picked correctly.
 - **Deadline**: Wednesday, March 18, 2026 at 12:00 PM EST
 - One entry per address. You can update your bracket before the deadline.
 
+### Groups
+
+Side groups let you compete within smaller pools alongside the main contest:
+
+- **Manual groups**: An admin enters external brackets (name + bytes8) from off-chain pools (e.g. Yahoo Fantasy). Scores are computed on-the-fly. No money — admin can set a prize description for bookkeeping.
+- **Linked groups**: Users self-join with their main-contract bracket. Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
+
 ## Tech Stack
 
 | Layer | Technology |

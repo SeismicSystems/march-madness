@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — BracketGroups contract (side groups)
+- **New contract** `contracts/src/BracketGroups.sol` — composable side-group contract that reads from the main MarchMadness contract. Two group types:
+  - **Manual groups**: Admin enters external brackets (name + bytes8) for off-chain pools (e.g. Yahoo Fantasy). Scores computed on-the-fly via ByteBracket. No money flows — purely bookkeeping. Admin can set a `prizeDescription` string for off-chain prize tracking.
+  - **Linked groups**: Users self-join with their main-contract bracket. Optional entry fee creates a side-bet prize pool. Scoring mirrors main contract pattern (`scoreGroupEntry` → `collectGroupWinnings`). Members can leave (with refund) before results are posted.
+- **Key design**: Manual entries are identified by name only (no address needed). Linked entries read brackets from the main contract post-deadline. Two group types are fully separated — manual groups can never hold or pay out ETH.
+- **Admin features**: `setPrizeDescription(groupId, description)` for off-chain bookkeeping (e.g. "$500 Amazon gift card"). Slug-based group lookup. Add/remove/update manual entries.
+- **Tests** `contracts/test/BracketGroups.t.sol` — 47 tests covering manual groups, linked groups, scoring, payouts, access control, edge cases. No changes to MarchMadness.sol.
+
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.
 - **CLI binary** (`kalshi`) with two subcommands: `fetch` (one-shot REST fetch with file caching) and `watch` (live WebSocket NBBO streaming with periodic CSV writes).
