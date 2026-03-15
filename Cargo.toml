@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/seismic-march-madness", "crates/indexer", "crates/server", "crates/forecaster", "crates/bracket-sim", "crates/kalshi"]
+members = ["crates/seismic-march-madness", "crates/indexer", "crates/server", "crates/forecaster", "crates/bracket-sim", "crates/kalshi", "crates/ncaa-api", "crates/ncaa-feed"]
 
 [workspace.package]
 edition = "2024"
@@ -16,7 +16,12 @@ hex = "0.4"
 fs2 = "0.4"
 url = "2.5"
 reqwest = { version = "0.12", default-features = false }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
 seismic-march-madness = { path = "crates/seismic-march-madness" }
+ncaa-api = { path = "crates/ncaa-api" }
 
 # Alloy
 alloy-consensus = { version = "=1.1.0", default-features = false }

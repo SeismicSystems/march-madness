@@ -33,6 +33,8 @@
 ### Rust (Crates)
 - **indexer**: Listens for on-chain events, writes entrant data to JSON
 - **server**: Serves indexed data to frontend via HTTP
+- **ncaa-api**: NCAA basketball API client (scoreboard + schedule, rate-limited)
+- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament-status.json
 
 ## Architecture
 
@@ -47,6 +49,8 @@ crates/
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
   forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
+  ncaa-api/         — NCAA basketball API client (scoreboard + schedule)
+  ncaa-feed/        — NCAA live score feed → tournament-status.json
 data/               — Tournament data (teams, brackets, configs, tournament-status.json)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
@@ -193,6 +197,10 @@ Tests cover the full contract lifecycle (submit, update, deadline enforcement, s
 - **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1773853200 unix)
 - **No-contest deadline**: 28 days after results posted
 - **Entry fee**: 1 ETH (testnet)
+
+## Error Handling
+- **Use rich error types** — don't swallow errors to `String`. Use `#[from]` with `thiserror` to preserve original error types (e.g. `reqwest::Error`, `serde_json::Error`). Structured error variants (e.g. `HttpStatus { status, url }`) are better than `Http(String)`.
+- **Propagate errors** — prefer `?` and `Result` over `unwrap_or_default()` when missing data indicates a real problem. If the NCAA API returns empty data, that's an error worth surfacing.
 
 ## Seismic RPC Quirks
 - **Block timestamps**: Seismic RPC returns **millisecond** timestamps (e.g. via `eth_getBlockByNumber`), but Solidity's `block.timestamp` is still in **seconds**. If you read block timestamps from JS via the RPC, divide by 1000.

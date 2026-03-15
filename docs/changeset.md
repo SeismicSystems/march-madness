@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
+- **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1). Strong types: `ContestState` enum (Pre, Live{period,clock}, Final(overtimes), Other(raw)), `Period` enum, `ContestDate`, parsed scores/seeds.
+- **New crate** `crates/ncaa-feed` (`ncaa-feed` binary) — polls NCAA scoreboard, maps contests to bracket game indices (0-62), writes `data/2026/tournament-status.json`. Adaptive polling: pre-game (60s), active (configurable, default 1/s), auto-exit on tournament complete.
+- **Game mapping**: Uses `data/2026/mappings/ncaa-names.json` (NCAA nameShort → bracket position). R64 fast path computes game index directly. Later rounds derive matchups from decided game winners.
+- **Atomic writes**: tournament-status.json written via tmp+rename to prevent partial reads.
+- **GameStatus fields**: Added `seconds_remaining: Option<i32>` and `period: Option<u8>` to `GameStatus` in `seismic-march-madness` types (per issue #43 spec for live game conditioning in simulations).
+- **16 new tests**: 9 in ncaa-api (scoreboard parsing, clock/period/overtime parsing, team scores, contest date, sport codes), 7 in ncaa-feed (mapper positions, feeder games, name resolution, feed state, poll intervals, seeding from existing status).
+
 ### 2026-03-15 — Use custom errors instead of require strings in all contracts (closes #39)
 - **MarchMadness.sol**: Replaced all ~15 `require(condition, "string")` statements with custom errors (`error ErrorName()` + `if (!condition) revert ErrorName()`). Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.
 - **BracketGroups.sol**: Replaced all ~20 `require` statements with custom errors. Errors with parameters: `IncorrectEntryFee(uint256 expected, uint256 actual)`.

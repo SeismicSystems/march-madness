@@ -1,0 +1,18 @@
+[package]
+name = "ncaa-api"
+edition.workspace = true
+version.workspace = true
+description = "NCAA basketball API client (scoreboard + schedule)"
+
+[dependencies]
+reqwest = { workspace = true, features = ["json"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["time"] }
+tracing.workspace = true
+thiserror.workspace = true
+url.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }

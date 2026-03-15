@@ -163,15 +163,7 @@ mod tests {
     use crate::types::{GameScore, GameState, GameStatus, TournamentStatus};
 
     fn make_status(decided: &[(u8, bool)], live: &[(u8, f64)]) -> TournamentStatus {
-        let mut games: Vec<GameStatus> = (0..63)
-            .map(|i| GameStatus {
-                game_index: i,
-                status: GameState::Upcoming,
-                score: None,
-                winner: None,
-                team1_win_probability: None,
-            })
-            .collect();
+        let mut games: Vec<GameStatus> = (0..63).map(GameStatus::upcoming).collect();
 
         for &(idx, winner) in decided {
             games[idx as usize].status = GameState::Final;
