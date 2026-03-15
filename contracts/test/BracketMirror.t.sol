@@ -1,0 +1,249 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import {Test} from "forge-std/Test.sol";
+import {BracketMirror} from "../src/BracketMirror.sol";
+
+/// @title BracketMirror tests — admin-managed off-chain bracket pool mirror
+contract BracketMirrorTest is Test {
+    BracketMirror bm;
+
+    address admin = address(0xAD);
+    address alice = address(0xA11CE);
+
+    bytes8 constant PERFECT = bytes8(0xFFFFFFFFFFFFFFFF);
+    bytes8 constant BAD = bytes8(0x8000000000000000);
+
+    function setUp() public {
+        bm = new BracketMirror();
+    }
+
+    // ── Mirror creation ─────────────────────────────────────────────────
+
+    function test_createMirror() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("yahoo-pool", "Yahoo Fantasy Pool");
+
+        assertEq(mirrorId, 1);
+        assertEq(bm.getMirrorBySlug("yahoo-pool"), 1);
+
+        BracketMirror.Mirror memory m = bm.getMirror(mirrorId);
+        assertEq(m.slug, "yahoo-pool");
+        assertEq(m.displayName, "Yahoo Fantasy Pool");
+        assertEq(m.admin, admin);
+    }
+
+    function test_duplicateSlugReverts() public {
+        vm.prank(admin);
+        bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        vm.expectRevert("Slug already taken");
+        bm.createMirror("pool", "Other Pool");
+    }
+
+    function test_emptySlugReverts() public {
+        vm.expectRevert("Slug cannot be empty");
+        bm.createMirror("", "Pool");
+    }
+
+    function test_longSlugReverts() public {
+        vm.expectRevert("Slug too long");
+        bm.createMirror("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Pool");
+    }
+
+    function test_slugLookupNonexistent() public {
+        vm.expectRevert("Mirror not found");
+        bm.getMirrorBySlug("nope");
+    }
+
+    function test_nonexistentMirrorReverts() public {
+        vm.expectRevert("Mirror does not exist");
+        bm.getMirror(999);
+    }
+
+    // ── Prize description ───────────────────────────────────────────────
+
+    function test_setPrizeDescription() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        bm.setPrizeDescription(mirrorId, "$500 Amazon gift card");
+
+        assertEq(bm.getMirror(mirrorId).prizeDescription, "$500 Amazon gift card");
+    }
+
+    function test_setPrizeDescription_onlyAdmin() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(alice);
+        vm.expectRevert("Not mirror admin");
+        bm.setPrizeDescription(mirrorId, "hack");
+    }
+
+    // ── Entry management ────────────────────────────────────────────────
+
+    function test_addEntries() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+        vm.stopPrank();
+
+        assertEq(bm.getEntryCount(mirrorId), 2);
+
+        BracketMirror.MirrorEntry memory e0 = bm.getEntry(mirrorId, 0);
+        assertEq(e0.slug, "alice");
+        assertEq(e0.bracket, PERFECT);
+
+        BracketMirror.MirrorEntry memory e1 = bm.getEntry(mirrorId, 1);
+        assertEq(e1.slug, "bob");
+        assertEq(e1.bracket, BAD);
+    }
+
+    function test_getEntries_batch() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+        vm.stopPrank();
+
+        BracketMirror.MirrorEntry[] memory entries = bm.getEntries(mirrorId);
+        assertEq(entries.length, 2);
+        assertEq(entries[0].slug, "alice");
+        assertEq(entries[1].slug, "bob");
+    }
+
+    function test_removeEntry_swapAndPop() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+        bm.addEntry(mirrorId, PERFECT, "charlie");
+
+        // Remove index 0 (alice) — charlie moves to 0
+        bm.removeEntry(mirrorId, 0);
+        vm.stopPrank();
+
+        assertEq(bm.getEntryCount(mirrorId), 2);
+        assertEq(bm.getEntry(mirrorId, 0).slug, "charlie");
+        assertEq(bm.getEntry(mirrorId, 1).slug, "bob");
+    }
+
+    function test_removeEntry_lastElement() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.addEntry(mirrorId, BAD, "bob");
+        bm.removeEntry(mirrorId, 1);
+        vm.stopPrank();
+
+        assertEq(bm.getEntryCount(mirrorId), 1);
+        assertEq(bm.getEntry(mirrorId, 0).slug, "alice");
+    }
+
+    function test_updateBracket() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.startPrank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+        bm.updateBracket(mirrorId, 0, BAD);
+        vm.stopPrank();
+
+        assertEq(bm.getEntry(mirrorId, 0).bracket, BAD);
+    }
+
+    function test_updateEntrySlug() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+
+        vm.prank(admin);
+        bm.updateEntrySlug(mirrorId, 0, "alice-updated");
+
+        assertEq(bm.getEntry(mirrorId, 0).slug, "alice-updated");
+    }
+
+    function test_invalidSentinelReverts() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        vm.expectRevert("Invalid sentinel byte");
+        bm.addEntry(mirrorId, bytes8(0x0000000000000001), "bad");
+    }
+
+    // ── Access control ──────────────────────────────────────────────────
+
+    function test_nonAdminCannotModify() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        bm.addEntry(mirrorId, PERFECT, "alice");
+
+        vm.prank(alice);
+        vm.expectRevert("Not mirror admin");
+        bm.addEntry(mirrorId, BAD, "hack");
+
+        vm.prank(alice);
+        vm.expectRevert("Not mirror admin");
+        bm.removeEntry(mirrorId, 0);
+
+        vm.prank(alice);
+        vm.expectRevert("Not mirror admin");
+        bm.updateBracket(mirrorId, 0, BAD);
+
+        vm.prank(alice);
+        vm.expectRevert("Not mirror admin");
+        bm.updateEntrySlug(mirrorId, 0, "hack");
+    }
+
+    function test_indexOutOfBounds() public {
+        vm.prank(admin);
+        uint256 mirrorId = bm.createMirror("pool", "Pool");
+
+        vm.prank(admin);
+        vm.expectRevert("Index out of bounds");
+        bm.removeEntry(mirrorId, 0);
+
+        vm.prank(admin);
+        vm.expectRevert("Index out of bounds");
+        bm.updateBracket(mirrorId, 0, PERFECT);
+
+        vm.prank(admin);
+        vm.expectRevert("Index out of bounds");
+        bm.updateEntrySlug(mirrorId, 0, "name");
+    }
+
+    function test_multipleMirrors() public {
+        vm.prank(admin);
+        uint256 m1 = bm.createMirror("pool1", "Pool 1");
+        vm.prank(alice);
+        uint256 m2 = bm.createMirror("pool2", "Pool 2");
+
+        assertEq(m1, 1);
+        assertEq(m2, 2);
+        assertEq(bm.getMirror(m2).admin, alice);
+    }
+
+    function test_noPayableFunctions() public {
+        vm.prank(admin);
+        bm.createMirror("pool", "Pool");
+
+        assertEq(address(bm).balance, 0);
+    }
+}

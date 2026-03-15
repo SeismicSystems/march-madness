@@ -69,28 +69,29 @@ Key functions:
 Events:
 - `BracketSubmitted(address indexed account)` — emitted on submit AND update
 
+## BracketMirror Contract (BracketMirror.sol)
+
+Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no composition with MarchMadness. All winner computation happens off-chain.
+
+- `createMirror(slug, displayName)` → mirrorId
+- `addEntry(mirrorId, bracket, slug)` — admin adds `MirrorEntry { bracket, slug }`
+- `removeEntry(mirrorId, index)` — swap-and-pop
+- `updateBracket(mirrorId, index, bracket)` / `updateEntrySlug(mirrorId, index, slug)`
+- `setPrizeDescription(mirrorId, description)` — off-chain prize bookkeeping
+- Entries stored as `MirrorEntry[]` array per mirror
+
 ## BracketGroups Contract (BracketGroups.sol)
 
-Composable side-group contract that reads from MarchMadness. Two group types:
+Linked sub-groups composing with MarchMadness. Optional password + entry fee.
 
-**Manual groups** — admin-managed, no money:
-- `createManualGroup(slug, displayName)` → groupId
-- `addManualEntry(groupId, bracket, name)` — admin adds external bracket by name (no address)
-- `removeManualEntry(groupId, entryIndex)` — swap-and-pop removal
-- `updateManualBracket(groupId, entryIndex, bracket)` — blocked after results
-- `updateEntryName(groupId, entryIndex, name)`
-- `setPrizeDescription(groupId, description)` — off-chain prize bookkeeping (e.g. "$500 gift card")
-- `getManualEntryScore(groupId, index)` → uint8 — computed on-the-fly via ByteBracket
-- `getManualGroupScores(groupId)` → uint8[] — batch scores
-
-**Linked groups** — self-join with main-contract bracket, optional side-bet:
-- `createLinkedGroup(slug, displayName, entryFee)` → groupId
-- `joinGroup(groupId)` / `joinGroupWithName(groupId, name)` — payable, requires main contract bracket
+- `createGroup(slug, displayName, entryFee)` → groupId (public)
+- `createGroupWithPassword(slug, displayName, entryFee, sbytes32 password)` → groupId (private)
+- `joinGroup(groupId)` / `joinGroupWithPassword(groupId, sbytes32 password)` — payable
 - `leaveGroup(groupId)` — refund before results
-- `scoreGroupEntry(groupId, memberIndex)` — anyone triggers, reads bracket from main contract
-- `collectGroupWinnings(groupId)` — winners split group prize pool after scoring window
+- `scoreEntry(groupId, memberIndex)` — anyone triggers, reads bracket from main contract
+- `collectWinnings(groupId)` — winners split group prize pool after scoring window
 
-Key design: Manual groups can never hold or pay out ETH. Linked group scoring mirrors main contract pattern.
+Password stored as `sbytes32` (shielded). Public groups reject password joins and vice versa.
 
 ## Bracket Encoding
 

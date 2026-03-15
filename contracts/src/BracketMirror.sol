@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+/// @title BracketMirror — admin-managed off-chain bracket pool mirror
+/// @notice Stores brackets + slugs from external pools (e.g. Yahoo Fantasy) on-chain
+///         for display purposes. No money, no scoring, no composition with MarchMadness.
+///         All winner computation happens off-chain.
+contract BracketMirror {
+    // ── Types ───────────────────────────────────────────────────────────
+    struct Mirror {
+        string slug;
+        string displayName;
+        string prizeDescription; // off-chain prize info (e.g. "$500 Amazon gift card")
+        address admin;
+        bool exists;
+    }
+
+    struct MirrorEntry {
+        bytes8 bracket;
+        string slug; // display identifier for this entry (e.g. player name)
+    }
+
+    // ── State ───────────────────────────────────────────────────────────
+    uint256 public nextMirrorId = 1;
+
+    mapping(uint256 => Mirror) internal _mirrors;
+    mapping(bytes32 => uint256) public slugToMirrorId;
+    mapping(uint256 => MirrorEntry[]) internal _entries;
+
+    // ── Constants ───────────────────────────────────────────────────────
+    uint256 public constant MAX_SLUG_LENGTH = 32;
+
+    // ── Events ──────────────────────────────────────────────────────────
+    event MirrorCreated(uint256 indexed mirrorId, string slug, string displayName, address admin);
+    event EntryAdded(uint256 indexed mirrorId, uint256 entryIndex, string slug);
+    event EntryRemoved(uint256 indexed mirrorId, uint256 entryIndex);
+    event BracketUpdated(uint256 indexed mirrorId, uint256 entryIndex);
+
+    // ── Modifiers ───────────────────────────────────────────────────────
+    modifier onlyAdmin(uint256 mirrorId) {
+        require(_mirrors[mirrorId].exists, "Mirror does not exist");
+        require(msg.sender == _mirrors[mirrorId].admin, "Not mirror admin");
+        _;
+    }
+
+    modifier mirrorExists(uint256 mirrorId) {
+        require(_mirrors[mirrorId].exists, "Mirror does not exist");
+        _;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  MIRROR LIFECYCLE
+    // ════════════════════════════════════════════════════════════════════
+
+    /// @notice Create a new mirror pool. Caller becomes admin.
+    function createMirror(string calldata slug, string calldata displayName) external returns (uint256 mirrorId) {
+        bytes memory slugBytes = bytes(slug);
+        require(slugBytes.length > 0, "Slug cannot be empty");
+        require(slugBytes.length <= MAX_SLUG_LENGTH, "Slug too long");
+
+        bytes32 slugHash = keccak256(slugBytes);
+        require(slugToMirrorId[slugHash] == 0, "Slug already taken");
+
+        mirrorId = nextMirrorId++;
+
+        _mirrors[mirrorId] =
+            Mirror({slug: slug, displayName: displayName, prizeDescription: "", admin: msg.sender, exists: true});
+
+        slugToMirrorId[slugHash] = mirrorId;
+
+        emit MirrorCreated(mirrorId, slug, displayName, msg.sender);
+    }
+
+    /// @notice Set or update the prize description. Admin only.
+    function setPrizeDescription(uint256 mirrorId, string calldata description) external onlyAdmin(mirrorId) {
+        _mirrors[mirrorId].prizeDescription = description;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  ENTRY MANAGEMENT — admin only
+    // ════════════════════════════════════════════════════════════════════
+
+    /// @notice Add a bracket entry (bracket + slug). Admin only.
+    function addEntry(uint256 mirrorId, bytes8 bracket, string calldata slug) external onlyAdmin(mirrorId) {
+        require(bracket[0] & 0x80 != 0, "Invalid sentinel byte");
+
+        _entries[mirrorId].push(MirrorEntry({bracket: bracket, slug: slug}));
+
+        emit EntryAdded(mirrorId, _entries[mirrorId].length - 1, slug);
+    }
+
+    /// @notice Remove an entry (swap-and-pop). Admin only.
+    function removeEntry(uint256 mirrorId, uint256 entryIndex) external onlyAdmin(mirrorId) {
+        MirrorEntry[] storage entries = _entries[mirrorId];
+        require(entryIndex < entries.length, "Index out of bounds");
+
+        uint256 lastIndex = entries.length - 1;
+        if (entryIndex != lastIndex) {
+            entries[entryIndex] = entries[lastIndex];
+        }
+        entries.pop();
+
+        emit EntryRemoved(mirrorId, entryIndex);
+    }
+
+    /// @notice Update the bracket for an entry. Admin only.
+    function updateBracket(uint256 mirrorId, uint256 entryIndex, bytes8 bracket) external onlyAdmin(mirrorId) {
+        require(entryIndex < _entries[mirrorId].length, "Index out of bounds");
+        require(bracket[0] & 0x80 != 0, "Invalid sentinel byte");
+
+        _entries[mirrorId][entryIndex].bracket = bracket;
+
+        emit BracketUpdated(mirrorId, entryIndex);
+    }
+
+    /// @notice Update the slug for an entry. Admin only.
+    function updateEntrySlug(uint256 mirrorId, uint256 entryIndex, string calldata slug) external onlyAdmin(mirrorId) {
+        require(entryIndex < _entries[mirrorId].length, "Index out of bounds");
+
+        _entries[mirrorId][entryIndex].slug = slug;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  VIEW FUNCTIONS
+    // ════════════════════════════════════════════════════════════════════
+
+    function getMirrorBySlug(string calldata slug) external view returns (uint256) {
+        bytes32 slugHash = keccak256(bytes(slug));
+        uint256 mirrorId = slugToMirrorId[slugHash];
+        require(mirrorId != 0, "Mirror not found");
+        return mirrorId;
+    }
+
+    function getMirror(uint256 mirrorId) external view mirrorExists(mirrorId) returns (Mirror memory) {
+        return _mirrors[mirrorId];
+    }
+
+    function getEntryCount(uint256 mirrorId) external view mirrorExists(mirrorId) returns (uint256) {
+        return _entries[mirrorId].length;
+    }
+
+    function getEntry(uint256 mirrorId, uint256 index)
+        external
+        view
+        mirrorExists(mirrorId)
+        returns (MirrorEntry memory)
+    {
+        require(index < _entries[mirrorId].length, "Index out of bounds");
+        return _entries[mirrorId][index];
+    }
+
+    function getEntries(uint256 mirrorId) external view mirrorExists(mirrorId) returns (MirrorEntry[] memory) {
+        return _entries[mirrorId];
+    }
+}

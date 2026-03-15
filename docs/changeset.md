@@ -4,13 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-15 — BracketGroups contract (side groups)
-- **New contract** `contracts/src/BracketGroups.sol` — composable side-group contract that reads from the main MarchMadness contract. Two group types:
-  - **Manual groups**: Admin enters external brackets (name + bytes8) for off-chain pools (e.g. Yahoo Fantasy). Scores computed on-the-fly via ByteBracket. No money flows — purely bookkeeping. Admin can set a `prizeDescription` string for off-chain prize tracking.
-  - **Linked groups**: Users self-join with their main-contract bracket. Optional entry fee creates a side-bet prize pool. Scoring mirrors main contract pattern (`scoreGroupEntry` → `collectGroupWinnings`). Members can leave (with refund) before results are posted.
-- **Key design**: Manual entries are identified by name only (no address needed). Linked entries read brackets from the main contract post-deadline. Two group types are fully separated — manual groups can never hold or pay out ETH.
-- **Admin features**: `setPrizeDescription(groupId, description)` for off-chain bookkeeping (e.g. "$500 Amazon gift card"). Slug-based group lookup. Add/remove/update manual entries.
-- **Tests** `contracts/test/BracketGroups.t.sol` — 47 tests covering manual groups, linked groups, scoring, payouts, access control, edge cases. No changes to MarchMadness.sol.
+### 2026-03-15 — BracketMirror + BracketGroups contracts
+- **New contract** `BracketMirror.sol` — standalone admin-managed off-chain bracket pool mirror. Stores `MirrorEntry[]` (bracket + slug) per mirror. No money, no scoring, no composition with MarchMadness. Admin sets `prizeDescription` for off-chain bookkeeping (e.g. "$500 Amazon gift card").
+- **New contract** `BracketGroups.sol` — linked sub-groups composing with MarchMadness. Users self-join with main-contract bracket. Optional `sbytes32` password protection (shielded). Optional entry fee → prize pool → winner payout. Scoring + payout mirrors main contract pattern.
+- **Three separate contracts**: MarchMadness (main), BracketGroups (linked sub-groups), BracketMirror (off-chain mirror) — clean separation of concerns.
+- **Tests**: 19 mirror tests (`BracketMirror.t.sol`), 35 group tests (`BracketGroups.t.sol`), 111 total passing. No changes to MarchMadness.sol.
 
 ### 2026-03-15 — Kalshi odds ingestor crate
 - **New crate** `crates/kalshi` — standalone Kalshi prediction market odds ingestor for March Madness futures. Fetches round-by-round win probabilities from Kalshi's REST API and WebSocket stream.
