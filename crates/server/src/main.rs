@@ -18,7 +18,7 @@ use crate::state::AppState;
 #[command(name = "march-madness-server", about = "Serve bracket index data")]
 struct Cli {
     /// Port to listen on.
-    #[arg(long, default_value = "3001")]
+    #[arg(long, default_value = "3000")]
     port: u16,
 
     /// Path to the JSON index file written by the indexer.
@@ -28,6 +28,10 @@ struct Cli {
     /// Path to the tournament status JSON file.
     #[arg(long, default_value = "data/tournament-status.json")]
     tournament_status_file: PathBuf,
+
+    /// Path to the forecasts JSON file (from forecaster crate).
+    #[arg(long, default_value = "data/forecasts.json")]
+    forecasts_file: PathBuf,
 
     /// API key for POST /api/tournament-status. Read from TOURNAMENT_API_KEY env var if not set.
     #[arg(long, env = "TOURNAMENT_API_KEY")]
@@ -44,6 +48,7 @@ async fn main() -> eyre::Result<()> {
         cli.index_file.clone(),
         Duration::from_secs(5),
         cli.tournament_status_file.clone(),
+        cli.forecasts_file.clone(),
         cli.api_key.clone(),
     );
 
@@ -61,6 +66,7 @@ async fn main() -> eyre::Result<()> {
             "/api/tournament-status",
             get(routes::get_tournament_status).post(routes::post_tournament_status),
         )
+        .route("/api/forecasts", get(routes::get_forecasts))
         .layer(cors)
         .with_state(state);
 

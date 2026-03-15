@@ -1,5 +1,5 @@
 use eyre::Result;
-use march_madness_common::EntryIndex;
+use seismic_march_madness::EntryIndex;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -17,6 +17,8 @@ struct Inner {
     ttl: Duration,
     tournament_status_path: PathBuf,
     tournament_status_cache: RwLock<CachedJson>,
+    forecasts_path: PathBuf,
+    forecasts_cache: RwLock<CachedJson>,
     /// API key for POST /api/tournament-status.
     api_key: Option<String>,
 }
@@ -36,6 +38,7 @@ impl AppState {
         index_path: PathBuf,
         ttl: Duration,
         tournament_status_path: PathBuf,
+        forecasts_path: PathBuf,
         api_key: Option<String>,
     ) -> Self {
         let expired = Instant::now() - ttl - Duration::from_secs(1);
@@ -49,6 +52,11 @@ impl AppState {
                 ttl,
                 tournament_status_path,
                 tournament_status_cache: RwLock::new(CachedJson {
+                    data: serde_json::Value::Null,
+                    fetched_at: expired,
+                }),
+                forecasts_path,
+                forecasts_cache: RwLock::new(CachedJson {
                     data: serde_json::Value::Null,
                     fetched_at: expired,
                 }),
@@ -135,6 +143,34 @@ impl AppState {
         cache.fetched_at = Instant::now();
 
         Ok(())
+    }
+
+    /// Get the forecasts JSON, with TTL cache.
+    pub async fn get_forecasts(&self) -> Result<serde_json::Value> {
+        {
+            let cache = self.inner.forecasts_cache.read().await;
+            if cache.fetched_at.elapsed() < self.inner.ttl && !cache.data.is_null() {
+                return Ok(cache.data.clone());
+            }
+        }
+
+        let path = self.inner.forecasts_path.clone();
+        let data = tokio::task::spawn_blocking(move || -> Result<serde_json::Value> {
+            if !path.exists() {
+                return Ok(serde_json::Value::Null);
+            }
+            let file = std::fs::File::open(&path)?;
+            let reader = std::io::BufReader::new(&file);
+            let value: serde_json::Value = serde_json::from_reader(reader)?;
+            Ok(value)
+        })
+        .await??;
+
+        let mut cache = self.inner.forecasts_cache.write().await;
+        cache.data = data.clone();
+        cache.fetched_at = Instant::now();
+
+        Ok(data)
     }
 
     /// Check if the provided API key is valid.

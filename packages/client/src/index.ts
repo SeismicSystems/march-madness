@@ -47,4 +47,6 @@ export type {
   EntryRecord,
   EntryIndex,
   PartialScore,
+  BracketForecast,
+  ForecastIndex,
 } from "./types.ts";

@@ -1,0 +1,1 @@
+wait as far as i'm concerned, the testnet deploy *is* the production deploy -- seismic doesn't even have a mainnet yet.

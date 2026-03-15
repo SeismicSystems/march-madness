@@ -1,0 +1,1 @@
+this common crate... can you: name it "seismic-march-madness".... and try to put as much in the lib as possible including /simplify it

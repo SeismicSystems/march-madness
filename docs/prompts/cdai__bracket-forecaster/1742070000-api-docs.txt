@@ -1,0 +1,1 @@
+can you make sure theres good docs for llms to post it to? api will be at https://brackets.seismictest.net/api/<whereevrr server has this endpoint> <== my nginx config sends the first part, thru api/ to port 3000... so make nice comments and write instructions to me on how to make these posts

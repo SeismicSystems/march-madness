@@ -43,3 +43,16 @@ export interface PartialScore {
   /** Maximum possible points if all remaining picks are correct. */
   maxPossible: number;
 }
+
+/** Forecast for a single bracket entry (from forecaster crate). */
+export interface BracketForecast {
+  currentScore: number;
+  maxPossibleScore: number;
+  expectedScore: number;
+  /** Probability of finishing with the highest score (winning the pool). 0-1. */
+  winProbability: number;
+  name?: string;
+}
+
+/** The full forecast index — address → BracketForecast. */
+export type ForecastIndex = Record<string, BracketForecast>;
