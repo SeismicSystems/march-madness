@@ -1,0 +1,13 @@
+[project]
+name = "march-madness-scripts"
+version = "0.1.0"
+description = "Data pipeline scripts for March Madness bracket simulation"
+requires-python = ">=3.11"
+dependencies = [
+    "cloudscraper>=1.2",
+    "kenpompy>=0.5",
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scikit-learn>=1.4",
+]
