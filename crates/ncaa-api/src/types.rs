@@ -33,16 +33,19 @@ pub struct Team {
 }
 
 /// State of an NCAA contest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ContestState {
     /// Game hasn't started yet.
     Pre,
-    /// Game is in progress.
-    Live,
+    /// Game is in progress: current period + seconds remaining on clock.
+    Live {
+        period: Option<Period>,
+        clock_seconds: Option<i32>,
+    },
     /// Game is final. Value = number of overtime periods (0 = regulation).
     Final(u8),
-    /// Unknown state from the API.
-    Other,
+    /// Unknown/unmapped game state string from the API (for debugging).
+    Other(String),
 }
 
 /// Current period of play.
@@ -71,12 +74,8 @@ pub struct Contest {
     pub contest_id: i64,
     /// The two teams.
     pub teams: Vec<Team>,
-    /// Parsed game state.
+    /// Parsed game state (includes live clock/period data when applicable).
     pub state: ContestState,
-    /// Current period (None for pre-game or unknown).
-    pub period: Option<Period>,
-    /// Seconds remaining on the game clock (None for pre-game or halftime).
-    pub clock_seconds: Option<i32>,
     /// Start time as Unix epoch seconds (None if unparseable).
     pub start_time_epoch: Option<i64>,
     /// Start date string (passed through from API).
@@ -91,7 +90,7 @@ impl Contest {
     }
 
     pub fn is_live(&self) -> bool {
-        self.state == ContestState::Live
+        matches!(self.state, ContestState::Live { .. })
     }
 
     /// Get scores for both teams. Returns (team0_score, team1_score).
@@ -182,16 +181,15 @@ impl TryFrom<RawContest> for Contest {
 
         let teams: Vec<Team> = raw.teams.into_iter().map(Team::from).collect();
 
-        let overtime_periods = parse_overtime(&raw.final_message);
         let state = match raw.game_state.as_str() {
-            "F" => ContestState::Final(overtime_periods),
+            "F" => ContestState::Final(parse_overtime(&raw.final_message)),
             "P" => ContestState::Pre,
-            "I" => ContestState::Live,
-            _ => ContestState::Other,
+            "I" => ContestState::Live {
+                period: parse_period(&raw.current_period),
+                clock_seconds: parse_clock(&raw.contest_clock),
+            },
+            other => ContestState::Other(other.to_string()),
         };
-
-        let period = parse_period(&raw.current_period);
-        let clock_seconds = parse_clock(&raw.contest_clock);
 
         let start_time_epoch = if raw.start_time_epoch.is_empty() {
             None
@@ -208,8 +206,6 @@ impl TryFrom<RawContest> for Contest {
             contest_id,
             teams,
             state,
-            period,
-            clock_seconds,
             start_time_epoch,
             start_date: raw.start_date,
             start_time: raw.start_time,

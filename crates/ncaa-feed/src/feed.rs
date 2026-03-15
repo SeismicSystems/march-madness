@@ -102,10 +102,13 @@ impl FeedState {
 
         let team1_idx = mapper.team1_contest_index(game_index, contest);
 
-        let new_status = match contest.state {
-            ncaa_api::ContestState::Final(_) => GameState::Final,
-            ncaa_api::ContestState::Live => GameState::Live,
-            _ => GameState::Upcoming,
+        let (new_status, seconds_remaining, period) = match &contest.state {
+            ncaa_api::ContestState::Final(_) => (GameState::Final, None, None),
+            ncaa_api::ContestState::Live {
+                period: p,
+                clock_seconds: c,
+            } => (GameState::Live, *c, p.map(|p| p.as_number())),
+            _ => (GameState::Upcoming, None, None),
         };
 
         // Build score with correct team ordering.
@@ -128,12 +131,6 @@ impl FeedState {
             score.as_ref().map(|s| s.team1 > s.team2)
         } else {
             None
-        };
-
-        let (seconds_remaining, period) = if new_status == GameState::Live {
-            (contest.clock_seconds, contest.period.map(|p| p.as_number()))
-        } else {
-            (None, None)
         };
 
         let new_game = GameStatus {

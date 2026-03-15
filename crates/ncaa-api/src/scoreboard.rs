@@ -121,7 +121,15 @@ mod tests {
         // Live game
         assert!(contests[1].is_live());
         assert_eq!(contests[1].scores(), Some((45, 38)));
-        assert_eq!(contests[1].clock_seconds, Some(8 * 60 + 30));
-        assert_eq!(contests[1].period.unwrap().as_number(), 2);
+        match &contests[1].state {
+            crate::ContestState::Live {
+                period,
+                clock_seconds,
+            } => {
+                assert_eq!(*clock_seconds, Some(8 * 60 + 30));
+                assert_eq!(period.unwrap().as_number(), 2);
+            }
+            _ => panic!("expected Live state"),
+        }
     }
 }
