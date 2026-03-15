@@ -184,7 +184,7 @@ impl GameMapper {
         for team in &contest.teams {
             if self.resolve_name(&team.name_short).is_none() {
                 warn!(
-                    "unresolved NCAA team name: '{}' (seed: {})",
+                    "unresolved NCAA team name: '{}' (seed: {:?})",
                     team.name_short, team.seed
                 );
             }

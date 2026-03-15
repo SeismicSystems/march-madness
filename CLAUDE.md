@@ -198,6 +198,10 @@ Tests cover the full contract lifecycle (submit, update, deadline enforcement, s
 - **No-contest deadline**: 28 days after results posted
 - **Entry fee**: 1 ETH (testnet)
 
+## Error Handling
+- **Use rich error types** — don't swallow errors to `String`. Use `#[from]` with `thiserror` to preserve original error types (e.g. `reqwest::Error`, `serde_json::Error`). Structured error variants (e.g. `HttpStatus { status, url }`) are better than `Http(String)`.
+- **Propagate errors** — prefer `?` and `Result` over `unwrap_or_default()` when missing data indicates a real problem. If the NCAA API returns empty data, that's an error worth surfacing.
+
 ## Seismic RPC Quirks
 - **Block timestamps**: Seismic RPC returns **millisecond** timestamps (e.g. via `eth_getBlockByNumber`), but Solidity's `block.timestamp` is still in **seconds**. If you read block timestamps from JS via the RPC, divide by 1000.
 

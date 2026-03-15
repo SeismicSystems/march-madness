@@ -11,17 +11,26 @@ pub mod types;
 pub use client::NcaaClient;
 pub use schedule::fetch_schedule;
 pub use scoreboard::fetch_scoreboard;
-pub use types::{Contest, SportCode, Team};
+pub use types::{Contest, ContestDate, ContestState, Period, SportCode, Team};
 
 /// Errors from the NCAA API client.
 #[derive(Debug, thiserror::Error)]
 pub enum NcaaApiError {
-    #[error("HTTP error: {0}")]
-    Http(String),
+    #[error("HTTP request failed: {0}")]
+    Http(#[from] reqwest::Error),
 
-    #[error("parse error: {0}")]
+    #[error("unexpected HTTP status {status} from {url}")]
+    HttpStatus {
+        status: reqwest::StatusCode,
+        url: String,
+    },
+
+    #[error("failed to parse API response: {0}")]
     Parse(String),
 
-    #[error("config error: {0}")]
+    #[error("JSON deserialization failed: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("invalid configuration: {0}")]
     Config(String),
 }

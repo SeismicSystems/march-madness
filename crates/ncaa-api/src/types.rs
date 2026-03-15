@@ -1,172 +1,153 @@
 //! NCAA API response types.
+//!
+//! Raw NCAA API responses are deserialized into `Scoreboard*`/`Schedule*` types,
+//! then converted via `TryFrom` into strongly-typed `Contest`/`Team` types.
+//! String fields from the API are parsed into enums, integers, and timestamps
+//! at conversion time — callers never deal with raw strings.
 
 use serde::{Deserialize, Serialize};
 
-/// A single team in an NCAA contest.
+use crate::NcaaApiError;
+
+// ── Strongly-typed output types ─────────────────────────────────────
+
+/// A single team in an NCAA contest (strongly typed).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     /// Short display name (e.g. "Duke", "Michigan St").
-    #[serde(default)]
     pub name_short: String,
-
     /// 6-character name (e.g. "DUKE", "MICHST").
-    #[serde(default, rename = "name6Char")]
     pub name_6char: String,
-
     /// SEO-friendly name slug.
-    #[serde(default)]
     pub seoname: String,
-
-    /// Current score (string in API, may be empty for pre-game).
-    #[serde(default)]
-    pub score: String,
-
-    /// Tournament seed (string, may be empty for non-tournament games).
-    #[serde(default)]
-    pub seed: String,
-
+    /// Current score (None for pre-game).
+    pub score: Option<u32>,
+    /// Tournament seed (None for non-tournament games).
+    pub seed: Option<u32>,
     /// Whether this team won (only meaningful for final games).
-    #[serde(default)]
     pub is_winner: bool,
-
     /// Whether this is the home team.
-    #[serde(default)]
     pub is_home: bool,
 }
 
-/// A single contest (game) from the NCAA scoreboard.
+/// State of an NCAA contest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ContestState {
+    /// Game hasn't started yet.
+    Pre,
+    /// Game is in progress.
+    Live,
+    /// Game is final (bool = went to overtime).
+    Final(bool),
+    /// Unknown state from the API.
+    Other,
+}
+
+/// Current period of play.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Period {
+    /// Regular half (1 or 2 for basketball).
+    Half(u8),
+    /// Overtime period (1 = first OT, 2 = second OT, etc.).
+    Overtime(u8),
+}
+
+impl Period {
+    /// Convert to the period number used in GameStatus (1, 2, 3=OT, 4=2OT, etc.).
+    pub fn as_number(&self) -> u8 {
+        match self {
+            Period::Half(n) => *n,
+            Period::Overtime(n) => 2 + n,
+        }
+    }
+}
+
+/// A single contest (game) from the NCAA scoreboard (strongly typed).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Contest {
     /// Unique contest identifier.
-    #[serde(default)]
     pub contest_id: i64,
-
-    /// The two teams. Index 0 = away, index 1 = home (typically).
-    #[serde(default)]
+    /// The two teams.
     pub teams: Vec<Team>,
-
-    /// Game state: "F" = final, "P" = pre-game, "I" = in-progress.
-    #[serde(default)]
-    pub game_state: String,
-
-    /// Current period string (e.g. "1", "2", "OT", "FINAL").
-    #[serde(default)]
-    pub current_period: String,
-
-    /// Game clock string (e.g. "15:42", "FINAL").
-    #[serde(default)]
-    pub contest_clock: String,
-
-    /// Start time as Unix epoch string (seconds? milliseconds? varies).
-    #[serde(default)]
-    pub start_time_epoch: String,
-
-    /// Start date string.
-    #[serde(default)]
+    /// Parsed game state.
+    pub state: ContestState,
+    /// Current period (None for pre-game or unknown).
+    pub period: Option<Period>,
+    /// Seconds remaining on the game clock (None for pre-game or halftime).
+    pub clock_seconds: Option<i32>,
+    /// Start time as Unix epoch seconds (None if unparseable).
+    pub start_time_epoch: Option<i64>,
+    /// Start date string (passed through from API).
     pub start_date: String,
-
-    /// Start time string (e.g. "12:00PM ET").
-    #[serde(default)]
+    /// Start time display string (e.g. "12:00PM ET").
     pub start_time: String,
-
-    /// Final message (e.g. "FINAL", "FINAL/OT").
-    #[serde(default)]
-    pub final_message: String,
 }
 
 impl Contest {
-    /// Whether this game is final.
     pub fn is_final(&self) -> bool {
-        self.game_state == "F"
+        matches!(self.state, ContestState::Final(_))
     }
 
-    /// Whether this game is in progress.
     pub fn is_live(&self) -> bool {
-        self.game_state == "I"
+        self.state == ContestState::Live
     }
 
-    /// Whether this game hasn't started.
     pub fn is_pre(&self) -> bool {
-        self.game_state == "P"
+        self.state == ContestState::Pre
     }
 
-    /// Parse scores for both teams. Returns (team0_score, team1_score).
+    /// Get scores for both teams. Returns (team0_score, team1_score).
     pub fn scores(&self) -> Option<(u32, u32)> {
         if self.teams.len() < 2 {
             return None;
         }
-        let s0 = self.teams[0].score.parse::<u32>().ok()?;
-        let s1 = self.teams[1].score.parse::<u32>().ok()?;
-        Some((s0, s1))
-    }
-
-    /// Parse the contest clock into total seconds remaining.
-    /// Handles "MM:SS" format. Returns None if unparseable.
-    pub fn clock_seconds(&self) -> Option<i32> {
-        let clock = self.contest_clock.trim();
-        if clock.is_empty() || clock == "0:00" {
-            return Some(0);
-        }
-        let parts: Vec<&str> = clock.split(':').collect();
-        if parts.len() == 2 {
-            let mins = parts[0].parse::<i32>().ok()?;
-            let secs = parts[1].parse::<i32>().ok()?;
-            Some(mins * 60 + secs)
-        } else {
-            None
-        }
-    }
-
-    /// Parse the current period as a number.
-    /// "1" → 1, "2" → 2, "OT" → 3, "2OT" → 4, etc.
-    pub fn period_number(&self) -> Option<u8> {
-        let p = self.current_period.trim();
-        if let Ok(n) = p.parse::<u8>() {
-            return Some(n);
-        }
-        if p.eq_ignore_ascii_case("HALF") {
-            return Some(1);
-        }
-        if p.eq_ignore_ascii_case("OT") || p.eq_ignore_ascii_case("1OT") {
-            return Some(3);
-        }
-        // "2OT" → 4, "3OT" → 5, etc.
-        if let Some(num_str) = p.strip_suffix("OT")
-            && let Ok(n) = num_str.parse::<u8>()
-        {
-            return Some(2 + n);
-        }
-        if p.eq_ignore_ascii_case("FINAL") {
-            return None; // not meaningful for final games
-        }
-        None
+        Some((self.teams[0].score?, self.teams[1].score?))
     }
 }
 
-/// Raw scoreboard response from the NCAA GraphQL API.
-/// The actual structure is nested; we extract what we need.
+// ── Raw NCAA API types (deserialization only) ───────────────────────
+
+/// Raw team from the NCAA GraphQL API.
 #[derive(Debug, Clone, Deserialize)]
-pub struct ScoreboardGqlResponse {
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RawTeam {
+    #[serde(default)]
+    pub name_short: String,
+    #[serde(default, rename = "name6Char")]
+    pub name_6char: String,
+    #[serde(default)]
+    pub seoname: String,
+    #[serde(default)]
+    pub score: String,
+    #[serde(default)]
+    pub seed: String,
+    #[serde(default)]
+    pub is_winner: bool,
+    #[serde(default)]
+    pub is_home: bool,
+}
+
+/// Raw scoreboard response from the NCAA GraphQL API.
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ScoreboardGqlResponse {
     pub data: Option<ScoreboardData>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ScoreboardData {
+pub(crate) struct ScoreboardData {
     #[serde(rename = "scoreboard")]
-    pub scoreboard: Option<Vec<ScoreboardContest>>,
+    pub scoreboard: Option<Vec<RawContest>>,
 }
 
-/// A contest entry in the GQL scoreboard response.
-/// This matches the NCAA's GraphQL schema for scoreboard queries.
+/// Raw contest from the NCAA GraphQL scoreboard.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScoreboardContest {
+pub(crate) struct RawContest {
     #[serde(default)]
     pub contest_id: serde_json::Value,
     #[serde(default)]
-    pub teams: Vec<Team>,
+    pub teams: Vec<RawTeam>,
     #[serde(default)]
     pub game_state: String,
     #[serde(default)]
@@ -183,49 +164,98 @@ pub struct ScoreboardContest {
     pub final_message: String,
 }
 
-impl From<ScoreboardContest> for Contest {
-    fn from(sc: ScoreboardContest) -> Self {
-        let contest_id = match &sc.contest_id {
-            serde_json::Value::Number(n) => n.as_i64().unwrap_or(0),
-            serde_json::Value::String(s) => s.parse().unwrap_or(0),
-            _ => 0,
+impl TryFrom<RawContest> for Contest {
+    type Error = NcaaApiError;
+
+    fn try_from(raw: RawContest) -> Result<Self, NcaaApiError> {
+        let contest_id = match &raw.contest_id {
+            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| {
+                NcaaApiError::Parse(format!("contest_id not an i64: {}", raw.contest_id))
+            })?,
+            serde_json::Value::String(s) => s
+                .parse()
+                .map_err(|_| NcaaApiError::Parse(format!("contest_id not parseable: {s}")))?,
+            _ => {
+                return Err(NcaaApiError::Parse(format!(
+                    "unexpected contest_id type: {}",
+                    raw.contest_id
+                )));
+            }
         };
-        Contest {
+
+        let teams: Vec<Team> = raw.teams.into_iter().map(Team::from).collect();
+
+        let is_overtime = raw.final_message.contains("OT");
+        let state = match raw.game_state.as_str() {
+            "F" => ContestState::Final(is_overtime),
+            "P" => ContestState::Pre,
+            "I" => ContestState::Live,
+            _ => ContestState::Other,
+        };
+
+        let period = parse_period(&raw.current_period);
+        let clock_seconds = parse_clock(&raw.contest_clock);
+
+        let start_time_epoch = if raw.start_time_epoch.is_empty() {
+            None
+        } else {
+            Some(raw.start_time_epoch.parse::<i64>().map_err(|_| {
+                NcaaApiError::Parse(format!(
+                    "start_time_epoch not parseable: {}",
+                    raw.start_time_epoch
+                ))
+            })?)
+        };
+
+        Ok(Contest {
             contest_id,
-            teams: sc.teams,
-            game_state: sc.game_state,
-            current_period: sc.current_period,
-            contest_clock: sc.contest_clock,
-            start_time_epoch: sc.start_time_epoch,
-            start_date: sc.start_date,
-            start_time: sc.start_time,
-            final_message: sc.final_message,
+            teams,
+            state,
+            period,
+            clock_seconds,
+            start_time_epoch,
+            start_date: raw.start_date,
+            start_time: raw.start_time,
+        })
+    }
+}
+
+impl From<RawTeam> for Team {
+    fn from(raw: RawTeam) -> Self {
+        Team {
+            name_short: raw.name_short,
+            name_6char: raw.name_6char,
+            seoname: raw.seoname,
+            score: raw.score.parse::<u32>().ok(),
+            seed: raw.seed.parse::<u32>().ok(),
+            is_winner: raw.is_winner,
+            is_home: raw.is_home,
         }
     }
 }
 
 /// Schedule API response — used to get today's contest date.
 #[derive(Debug, Clone, Deserialize)]
-pub struct ScheduleGqlResponse {
+pub(crate) struct ScheduleGqlResponse {
     pub data: Option<ScheduleData>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ScheduleData {
+pub(crate) struct ScheduleData {
     #[serde(rename = "schedule")]
     pub schedule: Option<Vec<ScheduleEntry>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScheduleEntry {
-    /// Date string in "YYYY/MM/DD" format.
+pub(crate) struct ScheduleEntry {
     #[serde(default)]
     pub contest_date: String,
-    /// Number of games on this date.
     #[serde(default)]
     pub number_of_games: i32,
 }
+
+// ── Sport code ──────────────────────────────────────────────────────
 
 /// Sport code for NCAA API queries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,50 +293,115 @@ impl std::str::FromStr for SportCode {
     }
 }
 
+// ── Parsing helpers ─────────────────────────────────────────────────
+
+/// Parse NCAA period string into a Period enum.
+fn parse_period(s: &str) -> Option<Period> {
+    let p = s.trim();
+    if p.is_empty() || p.eq_ignore_ascii_case("FINAL") {
+        return None;
+    }
+    if let Ok(n) = p.parse::<u8>() {
+        return Some(Period::Half(n));
+    }
+    if p.eq_ignore_ascii_case("HALF") {
+        return Some(Period::Half(1));
+    }
+    if p.eq_ignore_ascii_case("OT") || p.eq_ignore_ascii_case("1OT") {
+        return Some(Period::Overtime(1));
+    }
+    if let Some(num_str) = p.strip_suffix("OT")
+        && let Ok(n) = num_str.parse::<u8>()
+    {
+        return Some(Period::Overtime(n));
+    }
+    None
+}
+
+/// Parse NCAA clock string "MM:SS" into total seconds remaining.
+fn parse_clock(s: &str) -> Option<i32> {
+    let clock = s.trim();
+    if clock.is_empty() {
+        return None;
+    }
+    if clock == "0:00" {
+        return Some(0);
+    }
+    let (mins, secs) = clock.split_once(':')?;
+    let mins = mins.parse::<i32>().ok()?;
+    let secs = secs.parse::<i32>().ok()?;
+    Some(mins * 60 + secs)
+}
+
+// ── NCAA contest date type ──────────────────────────────────────────
+
+/// A date in NCAA API format (YYYY/MM/DD). Ensures valid format at construction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContestDate {
+    date: chrono::NaiveDate,
+}
+
+impl ContestDate {
+    /// Parse from "YYYY/MM/DD" format.
+    pub fn parse(s: &str) -> Result<Self, NcaaApiError> {
+        let date = chrono::NaiveDate::parse_from_str(s, "%Y/%m/%d")
+            .map_err(|e| NcaaApiError::Parse(format!("invalid contest date '{s}': {e}")))?;
+        Ok(Self { date })
+    }
+
+    /// Create from a chrono NaiveDate.
+    pub fn from_naive(date: chrono::NaiveDate) -> Self {
+        Self { date }
+    }
+
+    /// Format as "YYYY/MM/DD" for the NCAA API.
+    pub fn as_api_str(&self) -> String {
+        self.date.format("%Y/%m/%d").to_string()
+    }
+
+    /// Get the underlying date.
+    pub fn date(&self) -> chrono::NaiveDate {
+        self.date
+    }
+
+    /// Compute NCAA season year for this date.
+    /// NCAA season year = calendar year for dates Aug-Dec, calendar year - 1 for Jan-Jul.
+    /// This means the 2025-2026 basketball season (including March Madness 2026) has
+    /// season_year = 2025. The NCAA API expects this value.
+    pub fn season_year(&self) -> i32 {
+        let year = self.date.year();
+        let month = self.date.month();
+        if month < 7 { year - 1 } else { year }
+    }
+}
+
+impl std::fmt::Display for ContestDate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_api_str())
+    }
+}
+
+use chrono::Datelike;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_contest_clock_parsing() {
-        let mut c = Contest {
-            contest_id: 0,
-            teams: vec![],
-            game_state: "I".into(),
-            current_period: "1".into(),
-            contest_clock: "15:42".into(),
-            start_time_epoch: String::new(),
-            start_date: String::new(),
-            start_time: String::new(),
-            final_message: String::new(),
-        };
-        assert_eq!(c.clock_seconds(), Some(15 * 60 + 42));
-
-        c.contest_clock = "0:00".into();
-        assert_eq!(c.clock_seconds(), Some(0));
-
-        c.contest_clock = String::new();
-        assert_eq!(c.clock_seconds(), Some(0));
+    fn test_parse_clock() {
+        assert_eq!(parse_clock("15:42"), Some(15 * 60 + 42));
+        assert_eq!(parse_clock("0:00"), Some(0));
+        assert_eq!(parse_clock(""), None);
     }
 
     #[test]
-    fn test_period_number() {
-        let make = |period: &str| Contest {
-            contest_id: 0,
-            teams: vec![],
-            game_state: "I".into(),
-            current_period: period.into(),
-            contest_clock: String::new(),
-            start_time_epoch: String::new(),
-            start_date: String::new(),
-            start_time: String::new(),
-            final_message: String::new(),
-        };
-        assert_eq!(make("1").period_number(), Some(1));
-        assert_eq!(make("2").period_number(), Some(2));
-        assert_eq!(make("OT").period_number(), Some(3));
-        assert_eq!(make("2OT").period_number(), Some(4));
-        assert_eq!(make("FINAL").period_number(), None);
+    fn test_parse_period() {
+        assert_eq!(parse_period("1"), Some(Period::Half(1)));
+        assert_eq!(parse_period("2"), Some(Period::Half(2)));
+        assert_eq!(parse_period("OT"), Some(Period::Overtime(1)));
+        assert_eq!(parse_period("2OT"), Some(Period::Overtime(2)));
+        assert_eq!(parse_period("FINAL"), None);
+        assert_eq!(parse_period(""), None);
     }
 
     #[test]
@@ -314,5 +409,68 @@ mod tests {
         assert_eq!("mbb".parse::<SportCode>().unwrap(), SportCode::Mbb);
         assert_eq!("WBB".parse::<SportCode>().unwrap(), SportCode::Wbb);
         assert_eq!(SportCode::Mbb.as_str(), "MBB");
+    }
+
+    #[test]
+    fn test_contest_date() {
+        let d = ContestDate::parse("2026/03/15").unwrap();
+        assert_eq!(d.as_api_str(), "2026/03/15");
+        // March 2026 → 2025 season (season starts in fall)
+        assert_eq!(d.season_year(), 2025);
+
+        let d2 = ContestDate::parse("2026/11/15").unwrap();
+        assert_eq!(d2.season_year(), 2026);
+
+        assert!(ContestDate::parse("not-a-date").is_err());
+    }
+
+    #[test]
+    fn test_contest_state_from_raw() {
+        // Test the parsing through a minimal RawContest
+        let raw = RawContest {
+            contest_id: serde_json::json!(12345),
+            teams: vec![],
+            game_state: "F".into(),
+            current_period: "FINAL".into(),
+            contest_clock: "0:00".into(),
+            start_time_epoch: "1742000000".into(),
+            start_date: "2026-03-15".into(),
+            start_time: "12:00PM ET".into(),
+            final_message: "FINAL/OT".into(),
+        };
+        let contest = Contest::try_from(raw).unwrap();
+        assert_eq!(contest.state, ContestState::Final(true)); // overtime
+        assert_eq!(contest.contest_id, 12345);
+        assert_eq!(contest.start_time_epoch, Some(1742000000));
+    }
+
+    #[test]
+    fn test_team_score_parsing() {
+        let raw = RawTeam {
+            name_short: "Duke".into(),
+            name_6char: "DUKE".into(),
+            seoname: "duke".into(),
+            score: "82".into(),
+            seed: "1".into(),
+            is_winner: true,
+            is_home: false,
+        };
+        let team = Team::from(raw);
+        assert_eq!(team.score, Some(82));
+        assert_eq!(team.seed, Some(1));
+
+        // Pre-game: empty score/seed
+        let raw_pre = RawTeam {
+            name_short: "Duke".into(),
+            name_6char: "DUKE".into(),
+            seoname: "duke".into(),
+            score: String::new(),
+            seed: String::new(),
+            is_winner: false,
+            is_home: true,
+        };
+        let team_pre = Team::from(raw_pre);
+        assert_eq!(team_pre.score, None);
+        assert_eq!(team_pre.seed, None);
     }
 }

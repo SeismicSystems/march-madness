@@ -74,7 +74,7 @@ impl FeedState {
         for contest in contests {
             let Some(game_index) = mapper.match_contest(contest) else {
                 // Only warn if this looks like a tournament game (has seeds).
-                if contest.teams.iter().any(|t| !t.seed.is_empty()) {
+                if contest.teams.iter().any(|t| t.seed.is_some()) {
                     mapper.warn_unmatched(contest);
                 }
                 continue;
@@ -107,12 +107,10 @@ impl FeedState {
 
         let team1_idx = mapper.team1_contest_index(game_index, contest);
 
-        let new_status = if contest.is_final() {
-            GameState::Final
-        } else if contest.is_live() {
-            GameState::Live
-        } else {
-            GameState::Upcoming
+        let new_status = match contest.state {
+            ncaa_api::ContestState::Final(_) => GameState::Final,
+            ncaa_api::ContestState::Live => GameState::Live,
+            _ => GameState::Upcoming,
         };
 
         // Build score with correct team ordering.
@@ -140,7 +138,7 @@ impl FeedState {
 
         // Clock and period for live games.
         let (seconds_remaining, period) = if new_status == GameState::Live {
-            (contest.clock_seconds(), contest.period_number())
+            (contest.clock_seconds, contest.period.map(|p| p.as_number()))
         } else {
             (None, None)
         };

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use eyre::{Context, Result};
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Atomically write tournament status JSON to a file.
 ///
@@ -29,30 +29,5 @@ pub fn write_tournament_status(
     })?;
 
     debug!("wrote tournament status to {}", path.display());
-    Ok(())
-}
-
-/// POST tournament status to the server API.
-pub async fn post_tournament_status(
-    http: &reqwest::Client,
-    api_url: &str,
-    api_key: &str,
-    status: &seismic_march_madness::TournamentStatus,
-) -> Result<()> {
-    let resp = http
-        .post(api_url)
-        .header("Authorization", format!("Bearer {api_key}"))
-        .json(status)
-        .send()
-        .await
-        .wrap_err("failed to POST tournament status")?;
-
-    if !resp.status().is_success() {
-        let status_code = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        eyre::bail!("POST tournament status failed: HTTP {status_code}: {body}");
-    }
-
-    info!("posted tournament status to {api_url}");
     Ok(())
 }

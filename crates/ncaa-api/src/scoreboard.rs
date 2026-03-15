@@ -4,61 +4,42 @@ use tracing::debug;
 
 use crate::NcaaApiError;
 use crate::client::{NcaaClient, build_gql_url};
-use crate::types::{Contest, ScoreboardGqlResponse, SportCode};
+use crate::types::{Contest, ContestDate, ScoreboardGqlResponse, SportCode};
 
-/// Persisted query hash for the scoreboard endpoint.
+/// Persisted query hash for the NCAA scoreboard GraphQL endpoint.
+/// Shared across all sports (MBB, WBB, etc.) — the sport is specified in the variables.
+/// Source: <https://github.com/henrygd/ncaa-api>
 const SCOREBOARD_HASH: &str = "7287cda610a9326931931080cb3a604828febe6fe3c9016a7e4a36db99efdb7c";
 
-/// Compute NCAA season year from a date.
-/// Convention: months Jan-Jun → year - 1, Jul-Dec → year.
-pub fn season_year(year: i32, month: u32) -> i32 {
-    if month < 7 { year - 1 } else { year }
-}
-
 /// Fetch the scoreboard for a given date.
-///
-/// `date` should be in "YYYY/MM/DD" format (e.g. "2026/03/15").
 pub async fn fetch_scoreboard(
     client: &NcaaClient,
     sport: SportCode,
-    date: &str,
+    date: &ContestDate,
 ) -> Result<Vec<Contest>, NcaaApiError> {
-    // Parse year/month from date string
-    let parts: Vec<&str> = date.split('/').collect();
-    if parts.len() != 3 {
-        return Err(NcaaApiError::Config(format!(
-            "invalid date format: {date} (expected YYYY/MM/DD)"
-        )));
-    }
-    let year: i32 = parts[0]
-        .parse()
-        .map_err(|_| NcaaApiError::Config(format!("invalid year in date: {date}")))?;
-    let month: u32 = parts[1]
-        .parse()
-        .map_err(|_| NcaaApiError::Config(format!("invalid month in date: {date}")))?;
-
-    let sy = season_year(year, month);
+    let sy = date.season_year();
     let variables = serde_json::json!({
         "sportCode": sport.as_str(),
         "division": 1,
         "seasonYear": sy,
-        "contestDate": date
+        "contestDate": date.as_api_str()
     });
     let url = build_gql_url(SCOREBOARD_HASH, &variables);
 
     debug!("fetching scoreboard for {sport} on {date} (season {sy})");
     let body = client.get(&url).await?;
 
-    let gql: ScoreboardGqlResponse =
-        serde_json::from_str(&body).map_err(|e| NcaaApiError::Parse(e.to_string()))?;
+    let gql: ScoreboardGqlResponse = serde_json::from_str(&body)?;
 
-    let contests = gql
+    let raw_contests = gql
         .data
         .and_then(|d| d.scoreboard)
-        .unwrap_or_default()
-        .into_iter()
-        .map(Contest::from)
-        .collect();
+        .ok_or_else(|| NcaaApiError::Parse("scoreboard response missing data".into()))?;
+
+    let mut contests = Vec::with_capacity(raw_contests.len());
+    for raw in raw_contests {
+        contests.push(Contest::try_from(raw)?);
+    }
 
     Ok(contests)
 }
@@ -69,11 +50,14 @@ mod tests {
     use crate::client::NCAA_API_BASE;
 
     #[test]
-    fn test_season_year() {
-        assert_eq!(season_year(2026, 3), 2025); // March 2026 → 2025 season
-        assert_eq!(season_year(2026, 11), 2026); // Nov 2026 → 2026 season
-        assert_eq!(season_year(2025, 6), 2024); // June 2025 → 2024 season
-        assert_eq!(season_year(2025, 7), 2025); // July 2025 → 2025 season
+    fn test_contest_date_season_year() {
+        // March 2026 → 2025 season (basketball season starts in fall)
+        let d = ContestDate::parse("2026/03/15").unwrap();
+        assert_eq!(d.season_year(), 2025);
+
+        // November 2026 → 2026 season
+        let d2 = ContestDate::parse("2026/11/15").unwrap();
+        assert_eq!(d2.season_year(), 2026);
     }
 
     #[test]
@@ -135,7 +119,7 @@ mod tests {
             .scoreboard
             .unwrap()
             .into_iter()
-            .map(Contest::from)
+            .map(|r| Contest::try_from(r).unwrap())
             .collect();
 
         assert_eq!(contests.len(), 2);
@@ -148,7 +132,7 @@ mod tests {
         // Live game
         assert!(contests[1].is_live());
         assert_eq!(contests[1].scores(), Some((45, 38)));
-        assert_eq!(contests[1].clock_seconds(), Some(8 * 60 + 30));
-        assert_eq!(contests[1].period_number(), Some(2));
+        assert_eq!(contests[1].clock_seconds, Some(8 * 60 + 30));
+        assert_eq!(contests[1].period.unwrap().as_number(), 2);
     }
 }

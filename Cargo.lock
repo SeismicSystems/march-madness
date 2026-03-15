@@ -3331,6 +3331,7 @@ dependencies = [
 name = "ncaa-api"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "reqwest",
  "serde",
  "serde_json",
@@ -3348,7 +3349,6 @@ dependencies = [
  "clap",
  "eyre",
  "ncaa-api",
- "reqwest",
  "seismic-march-madness",
  "serde",
  "serde_json",

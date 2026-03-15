@@ -85,8 +85,7 @@ impl NcaaClient {
         Ok(Self {
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
-                .build()
-                .map_err(|e| NcaaApiError::Http(e.to_string()))?,
+                .build()?,
             state: Arc::new(Mutex::new(RateLimitState {
                 last_request: Instant::now() - min_interval,
                 backoff: Duration::ZERO,
@@ -107,12 +106,7 @@ impl NcaaClient {
             self.wait_for_rate_limit().await;
 
             debug!("GET {url}");
-            let resp = self
-                .http
-                .get(url)
-                .send()
-                .await
-                .map_err(|e| NcaaApiError::Http(e.to_string()))?;
+            let resp = self.http.get(url).send().await?;
 
             let status = resp.status();
 
@@ -124,17 +118,17 @@ impl NcaaClient {
             self.state.lock().await.record_success();
 
             if !status.is_success() {
-                return Err(NcaaApiError::Http(format!("HTTP {status} from {url}")));
+                return Err(NcaaApiError::HttpStatus {
+                    status,
+                    url: url.to_string(),
+                });
             }
 
-            return resp
-                .text()
-                .await
-                .map_err(|e| NcaaApiError::Http(e.to_string()));
+            return Ok(resp.text().await?);
         }
     }
 
-    /// Wait for rate limit, then stamp the request time (single lock acquisition).
+    /// Wait for rate limit, then stamp the request time.
     async fn wait_for_rate_limit(&self) {
         let wait = self.state.lock().await.wait_duration(self.min_interval);
         if wait > Duration::ZERO {
