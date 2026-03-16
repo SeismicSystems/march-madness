@@ -194,15 +194,17 @@ export function useGroups() {
     [groupsUser, trackGroup, refreshGroups],
   );
 
-  /** Create a public group. Tracks as admin. */
+  /** Create a public group. Creator is auto-joined. Tracks as admin. */
   const createGroup = useCallback(
     async (slug: string, displayName: string, entryFee: bigint) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.createGroup(slug, displayName, entryFee);
-        // TODO: parse groupId from event logs once available
+        // Look up group by slug to get the ID and track it
+        const result = await groupsPublic.getGroupBySlug(slug);
+        trackGroup(result[0], { admin: true, slug, displayName, entryFee: entryFee.toString() });
         await refreshGroups();
         return hash;
       } catch (err) {
@@ -213,19 +215,21 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, groupsPublic, trackGroup, refreshGroups],
   );
 
-  /** Create a password-protected group. Takes a human-readable passphrase. */
+  /** Create a password-protected group. Takes a human-readable passphrase. Creator is auto-joined. */
   const createGroupWithPassword = useCallback(
     async (slug: string, displayName: string, entryFee: bigint, passphrase: string) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const password = passphraseToBytes12(passphrase);
         const hash = await groupsUser.createGroupWithPassword(slug, displayName, entryFee, password);
-        // TODO: parse groupId from event logs to trackGroup(groupId, { admin: true, password })
+        // Look up group by slug to get the ID and track it
+        const result = await groupsPublic.getGroupBySlug(slug);
+        trackGroup(result[0], { admin: true, passphrase, password, slug, displayName, entryFee: entryFee.toString() });
         await refreshGroups();
         return { hash, password };
       } catch (err) {
@@ -236,7 +240,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, groupsPublic, trackGroup, refreshGroups],
   );
 
   /** Leave a group. */

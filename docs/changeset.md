@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Auto-join creator when creating a BracketGroups group
+- **Contract**: `createGroup` and `createGroupWithPassword` now auto-join the creator as the first member with default name "CREATOR". Both functions are now `payable` — creator sends the group entry fee (if any) with the transaction. Creator can update their name via `editEntryName`.
+- **Client**: `createGroup` / `createGroupWithPassword` in `BracketGroupsUserClient` now automatically send `value: entryFee`.
+- **Frontend**: `useGroups` hook now tracks the newly created group in localStorage immediately after creation (looks up group ID by slug).
+- **Tests**: Updated all BracketGroups tests for auto-join behavior. Added tests for creator auto-join, name editing, and creation validation (no bracket, wrong fee, after deadline).
+
 ### 2026-03-16 — Prevent post-window BracketGroups scoring and add groups-only redeploy script
 - **Bug fix**: `BracketGroups.scoreEntry()` now reverts once the main scoring window has closed, even if the member was already scored on `MarchMadness`. This prevents group winner state from changing after claims are live.
 - **Tests**: Updated `BracketGroups.t.sol` to expect the closed-window revert for post-window group scoring.
