@@ -47,7 +47,8 @@ export function GroupsSection({
     initialPassphrase ? true : null,
   );
   // Track by ID form
-  const [trackIdInput, setTrackIdInput] = useState("");
+  const [trackSlugInput, setTrackSlugInput] = useState("");
+  const [trackError, setTrackError] = useState("");
 
   /** Resolve a slug to [groupId, GroupData]. Returns null if not found. */
   const resolveGroup = async (input: string) => {
@@ -108,11 +109,17 @@ export function GroupsSection({
     }
   };
 
-  const handleTrackById = () => {
-    const id = parseInt(trackIdInput, 10);
-    if (!isNaN(id)) {
-      groups.trackGroup(id);
-      setTrackIdInput("");
+  const handleTrackBySlug = async () => {
+    const slug = trackSlugInput.trim();
+    if (!slug) return;
+    setTrackError("");
+    const result = await groups.lookupGroupBySlug(slug);
+    if (result) {
+      const [groupId] = result;
+      groups.trackGroup(groupId);
+      setTrackSlugInput("");
+    } else {
+      setTrackError(`No group found with slug "${slug}"`);
     }
   };
 
@@ -306,25 +313,26 @@ export function GroupsSection({
             <p className="text-xs text-red-400">{joinError}</p>
           )}
 
-          {/* Track by ID (separate, small) */}
+          {/* Track by slug (separate, small) */}
           <div className="pt-2 border-t border-border">
-            <h4 className="text-xs text-text-tertiary mb-1">Already a member? Track by group ID</h4>
+            <h4 className="text-xs text-text-tertiary mb-1">Already a member? Track by slug</h4>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={trackIdInput}
-                onChange={(e) => setTrackIdInput(e.target.value)}
-                placeholder="Group ID"
-                className="w-28 px-3 py-1 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+                value={trackSlugInput}
+                onChange={(e) => { setTrackSlugInput(e.target.value); setTrackError(""); }}
+                placeholder="group-slug"
+                className="flex-1 px-3 py-1 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
               />
               <button
-                onClick={handleTrackById}
-                disabled={!trackIdInput.trim()}
+                onClick={handleTrackBySlug}
+                disabled={!trackSlugInput.trim()}
                 className="px-3 py-1 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
               >
                 Track
               </button>
             </div>
+            {trackError && <p className="text-xs text-red-400 mt-1">{trackError}</p>}
           </div>
         </div>
       )}
