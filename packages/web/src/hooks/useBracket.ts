@@ -74,7 +74,9 @@ function savePicks(addr: string, picks: (boolean | null)[]) {
     const hex = encodeBracket(picks as boolean[]);
     localStorage.setItem(storageKey(addr), hex);
   } else {
-    const pickStr = picks.map((p) => (p === true ? "1" : p === false ? "0" : "-")).join("");
+    const pickStr = picks
+      .map((p) => (p === true ? "1" : p === false ? "0" : "-"))
+      .join("");
     localStorage.setItem(storageKey(addr), PARTIAL_PREFIX + pickStr);
   }
 }
@@ -197,8 +199,11 @@ export function useBracket(walletAddress?: string | null) {
 
         next[gameIndex] = pickTeam1;
 
-        // Clear downstream picks that might have used the old winner
-        clearDownstream(next, gameIndex);
+        // Clear downstream picks that depended on the old winner.
+        // Skip when oldPick is null — no prior winner to invalidate.
+        if (oldPick !== null) {
+          clearDownstream(next, gameIndex);
+        }
 
         savePicks(effectiveAddr, next);
         return next;
@@ -233,9 +238,7 @@ export function useBracket(walletAddress?: string | null) {
       const bits = BigInt(hex);
       const newPicks: (boolean | null)[] = [];
       for (let i = 0; i < 63; i++) {
-        newPicks.push(
-          ((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1),
-        );
+        newPicks.push(((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1));
       }
       setPicks(newPicks);
       savePicks(effectiveAddr, newPicks);
@@ -272,10 +275,7 @@ export type UseBracketReturn = ReturnType<typeof useBracket>;
  * When a pick changes, clear any downstream games whose outcome
  * may have depended on the old winner.
  */
-function clearDownstream(
-  picks: (boolean | null)[],
-  changedGameIndex: number,
-) {
+function clearDownstream(picks: (boolean | null)[], changedGameIndex: number) {
   let idx = 0;
   let round = 0;
   let roundSize = 32;
