@@ -1,0 +1,5 @@
+the "Already a member? Track by slug" is too wide. make it narrower. should be the same font size and width as "Group slug" section of join-a group
+
+but i do like the placeholder is "group-slug" and not "Group slug"
+
+those two should use a common component targeting different state variables...
