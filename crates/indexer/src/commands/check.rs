@@ -1,28 +1,28 @@
-//! Sanity check: compare local index entry count with on-chain getEntryCount().
+//! Sanity check: compare Redis entry count with on-chain getEntryCount().
 
-use crate::indexer::load_index;
 use crate::provider::IndexerProvider;
+use crate::redis_store;
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
-use std::path::Path;
+use redis::aio::MultiplexedConnection;
+use tracing::info;
 
-pub async fn run(p: &IndexerProvider, contract: &str, index_path: &Path) -> Result<()> {
+pub async fn run(
+    p: &IndexerProvider,
+    redis: &mut MultiplexedConnection,
+    contract: &str,
+) -> Result<()> {
     let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
-    let index = load_index(index_path)?;
 
     let on_chain = p.get_entry_count(contract_addr).await?;
-    let local = index.len() as u32;
+    let local = redis_store::get_entry_count(redis).await? as u32;
 
-    println!("Local index entries:   {}", local);
-    println!("On-chain entry count:  {}", on_chain);
+    info!(local, on_chain, "entry counts");
 
     if local == on_chain {
-        println!("OK — counts match.");
+        info!("OK — counts match");
     } else {
-        println!(
-            "MISMATCH — local has {} entries, on-chain has {}. Consider running backfill.",
-            local, on_chain
-        );
+        info!(local, on_chain, "MISMATCH — consider running backfill");
     }
 
     Ok(())

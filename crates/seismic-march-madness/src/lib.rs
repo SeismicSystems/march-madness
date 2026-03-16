@@ -5,6 +5,7 @@
 //! and external 3rd-party data providers.
 
 pub mod data;
+pub mod redis_keys;
 pub mod scoring;
 pub mod simulate;
 pub mod tournament;

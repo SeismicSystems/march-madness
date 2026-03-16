@@ -11,13 +11,13 @@ pub async fn health() -> &'static str {
     "OK"
 }
 
-/// GET /entries — return the full entry index.
+/// GET /entries — return the full entry index from Redis.
 pub async fn get_entries(State(state): State<AppState>) -> impl IntoResponse {
-    match state.get_index().await {
-        Ok(index) => Json(index).into_response(),
+    match state.get_entries().await {
+        Ok(entries) => Json(entries).into_response(),
         Err(e) => {
-            tracing::error!("failed to read index: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read index").into_response()
+            tracing::error!("failed to read entries: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read entries").into_response()
         }
     }
 }
@@ -27,19 +27,12 @@ pub async fn get_entry(
     State(state): State<AppState>,
     Path(address): Path<String>,
 ) -> impl IntoResponse {
-    match state.get_index().await {
-        Ok(index) => {
-            // Try both the raw address and lowercased version.
-            let key = address.to_lowercase();
-            if let Some(entry) = index.get(&key).or_else(|| index.get(&address)) {
-                Json(entry.clone()).into_response()
-            } else {
-                (StatusCode::NOT_FOUND, "entry not found").into_response()
-            }
-        }
+    match state.get_entry(&address).await {
+        Ok(Some(entry)) => Json(entry).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "entry not found").into_response(),
         Err(e) => {
-            tracing::error!("failed to read index: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read index").into_response()
+            tracing::error!("failed to read entry: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read entry").into_response()
         }
     }
 }
@@ -50,28 +43,22 @@ pub struct Stats {
     pub scored: usize,
 }
 
-/// GET /stats — basic stats derived from the index.
+/// GET /stats — basic stats from Redis.
 pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
-    match state.get_index().await {
-        Ok(index) => {
-            let total_entries = index.len();
-            // Currently EntryRecord doesn't have a score field, so scored = 0.
-            // This will be updated when the indexer tracks scoring events.
-            let scored = 0;
-            Json(Stats {
-                total_entries,
-                scored,
-            })
-            .into_response()
-        }
+    match state.get_entry_count().await {
+        Ok(total_entries) => Json(Stats {
+            total_entries,
+            scored: 0,
+        })
+        .into_response(),
         Err(e) => {
-            tracing::error!("failed to read index: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read index").into_response()
+            tracing::error!("failed to read stats: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read stats").into_response()
         }
     }
 }
 
-/// GET /tournament-status — serve tournament status JSON.
+/// GET /tournament-status — serve tournament status JSON (file-based).
 pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_tournament_status().await {
         Ok(data) => {
@@ -92,7 +79,7 @@ pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoRe
     }
 }
 
-/// GET /forecasts — serve forecasts JSON (from forecaster crate output).
+/// GET /forecasts — serve forecasts JSON (file-based).
 pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_forecasts().await {
         Ok(data) => {
@@ -113,19 +100,12 @@ pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// GET /groups — stub endpoint returning an empty list of public groups.
-/// Placeholder for a future registry of public groups.
-pub async fn get_groups() -> impl IntoResponse {
-    Json(serde_json::json!([])).into_response()
-}
-
 /// POST /tournament-status — update tournament status JSON (requires API key).
 pub async fn post_tournament_status(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    // Check API key from Authorization header
     let auth = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
@@ -143,6 +123,100 @@ pub async fn post_tournament_status(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "failed to write tournament status",
+            )
+                .into_response()
+        }
+    }
+}
+
+// ── Group routes ─────────────────────────────────────────────────────
+
+/// GET /groups — list all groups from Redis.
+pub async fn get_groups(State(state): State<AppState>) -> impl IntoResponse {
+    match state.get_groups().await {
+        Ok(groups) => Json(groups).into_response(),
+        Err(e) => {
+            tracing::error!("failed to read groups: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read groups").into_response()
+        }
+    }
+}
+
+/// GET /groups/:slug — get a group by slug.
+pub async fn get_group(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_group_by_slug(&slug).await {
+        Ok(Some(group)) => Json(group).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "group not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read group: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read group").into_response()
+        }
+    }
+}
+
+/// GET /groups/:slug/members — get members of a group.
+pub async fn get_group_members(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_group_members(&slug).await {
+        Ok(Some(members)) => Json(members).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "group not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read group members: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read group members",
+            )
+                .into_response()
+        }
+    }
+}
+
+// ── Mirror routes ────────────────────────────────────────────────────
+
+/// GET /mirrors — list all mirrors from Redis.
+pub async fn get_mirrors(State(state): State<AppState>) -> impl IntoResponse {
+    match state.get_mirrors().await {
+        Ok(mirrors) => Json(mirrors).into_response(),
+        Err(e) => {
+            tracing::error!("failed to read mirrors: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read mirrors").into_response()
+        }
+    }
+}
+
+/// GET /mirrors/:slug — get a mirror by slug.
+pub async fn get_mirror(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_by_slug(&slug).await {
+        Ok(Some(mirror)) => Json(mirror).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "mirror not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read mirror: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read mirror").into_response()
+        }
+    }
+}
+
+/// GET /mirrors/:slug/entries — get all entries in a mirror.
+pub async fn get_mirror_entries(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_entries(&slug).await {
+        Ok(Some(entries)) => Json(entries).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "mirror not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read mirror entries: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read mirror entries",
             )
                 .into_response()
         }

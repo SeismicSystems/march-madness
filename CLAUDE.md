@@ -31,8 +31,8 @@
 - **UI**: React + Tailwind CSS
 
 ### Rust (Crates)
-- **indexer**: Listens for on-chain events, writes entrant data to JSON
-- **server**: Serves indexed data to frontend via HTTP
+- **indexer**: Listens for on-chain events (MarchMadness, BracketGroups, BracketMirror), writes to Redis
+- **server**: Serves indexed data from Redis + file-based tournament status/forecasts via HTTP
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
 - **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes `data/{year}/men/status.json`. Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
 
@@ -151,15 +151,22 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 
 ## Server API
 
-Rust HTTP server (`crates/server`, default port 3000). Routes have NO `/api` prefix — nginx adds that in production.
-- `GET /entries` — full entry index (from indexer)
+Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from Redis; tournament status and forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
+- `GET /entries` — full entry index (from Redis)
 - `GET /entries/:address` — single entry by address
 - `GET /stats` — total entries + scored count
+- `GET /groups` — list all groups (from Redis)
+- `GET /groups/:slug` — group details by slug
+- `GET /groups/:slug/members` — group member addresses
+- `GET /mirrors` — list all mirrors (from Redis)
+- `GET /mirrors/:slug` — mirror details by slug
+- `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
 - `GET /tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
 - `POST /tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
 - `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
-- `GET /groups` — stub endpoint returning empty list of public groups (placeholder for future registry)
 - `GET /health` — health check
+
+Requires Redis (`REDIS_URL` env var, default `redis://127.0.0.1:6379`).
 
 Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3000`).
 
@@ -189,6 +196,7 @@ Single `.env` file at repo root — see `.env.example` for all variables. Never 
 - **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL`, deploys via sforge, and writes the contract address to `data/deployments.json`
 - **Contract address resolution**: `VITE_CONTRACT_ADDRESS` CLI override → `data/deployments.json` (checked-in, keyed by year + chain ID) → zero address fallback
 - **Local dev** (populate script) uses hardcoded anvil accounts from `data/anvil-accounts.json` — does not need `DEPLOYER_PRIVATE_KEY`
+- **Redis**: `REDIS_URL` env var (default `redis://127.0.0.1:6379`). Used by indexer and server for chain metadata storage.
 
 ## Local Development
 

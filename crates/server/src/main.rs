@@ -21,10 +21,6 @@ struct Cli {
     #[arg(long, default_value = "3000")]
     port: u16,
 
-    /// Path to the JSON index file written by the indexer.
-    #[arg(long, default_value = "data/entries.json")]
-    index_file: PathBuf,
-
     /// Path to the tournament status JSON file.
     #[arg(long, default_value = "data/2026/men/status.json")]
     tournament_status_file: PathBuf,
@@ -45,12 +41,12 @@ async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
 
     let state = AppState::new(
-        cli.index_file.clone(),
-        Duration::from_secs(5),
         cli.tournament_status_file.clone(),
         cli.forecasts_file.clone(),
+        Duration::from_secs(5),
         cli.api_key.clone(),
-    );
+    )
+    .await?;
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -67,17 +63,20 @@ async fn main() -> eyre::Result<()> {
             get(routes::get_tournament_status).post(routes::post_tournament_status),
         )
         .route("/forecasts", get(routes::get_forecasts))
+        // Group routes
         .route("/groups", get(routes::get_groups))
+        .route("/groups/{slug}", get(routes::get_group))
+        .route("/groups/{slug}/members", get(routes::get_group_members))
+        // Mirror routes
+        .route("/mirrors", get(routes::get_mirrors))
+        .route("/mirrors/{slug}", get(routes::get_mirror))
+        .route("/mirrors/{slug}/entries", get(routes::get_mirror_entries))
         .layer(cors)
         .with_state(state);
 
     let addr = format!("0.0.0.0:{}", cli.port);
     let listener = TcpListener::bind(&addr).await?;
-    info!(
-        port = cli.port,
-        index_file = %cli.index_file.display(),
-        "server listening"
-    );
+    info!(port = cli.port, "server listening");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

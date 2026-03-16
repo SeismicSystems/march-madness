@@ -4,9 +4,16 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-16 — Simplify BracketMirror events to use slug instead of index
-- **Contract**: BracketMirror events (`EntryAdded`, `EntryRemoved`, `BracketUpdated`) now emit `slug` (string) instead of `entryIndex` (uint256). Slug is the stable identifier; array index is an implementation detail that changes on swap-and-pop.
-- **Deploy**: Added `DeployMirror.s.sol` forge script and `scripts/redeploy-mirror.sh` for redeploying only BracketMirror without touching MarchMadness or BracketGroups.
+### 2026-03-16 — Redis integration for chain metadata
+- **Infra**: Replace flat JSON file storage with Redis for indexer and server.
+- **Indexer**: Writes all chain events (entries, tags, groups, mirrors) to Redis instead of `data/entries.json`.
+- **Indexer**: Contract addresses default to `data/deployments.json` if not specified via CLI.
+- **Indexer**: Added event ABIs for BracketGroups (`GroupCreated`, `MemberJoined`, `MemberLeft`) and BracketMirror (`MirrorCreated`, `EntryAdded`, `EntryRemoved`).
+- **Server**: Reads entries, groups, and mirrors from Redis. Removed file locking / TTL cache for chain data.
+- **Server**: New endpoints: `GET /groups/:slug`, `GET /groups/:slug/members`, `GET /mirrors`, `GET /mirrors/:slug`, `GET /mirrors/:slug/entries`.
+- **CI**: Added Redis service to GitHub Actions workflow and local `ci.sh`.
+- **Config**: Added `REDIS_URL` to `.env.example` (default: `redis://127.0.0.1:6379`).
+- **Deps**: Added `redis` 0.27 with `tokio-comp` + `aio` features to workspace.
 
 ### 2026-03-16 — Fix submission deadline, reduce entry fee, redeploy contracts
 - **Bug fix**: Submission deadline was March 18 at Noon — corrected to **March 19 at 12:15 PM EST** (1773940500).
