@@ -12,6 +12,9 @@ All notable changes to this project. Every PR must add an entry here.
 - **Contracts**: Added `hasCollectedEntryFee` mapping and `ResultsWindowStillOpen` error.
 - **Tests**: Added `ResultsDeadline.t.sol` with 7 tests covering the deadline guard and refund mechanism.
 
+### 2026-03-16 — Fix scoreboard null data for future dates
+- **ncaa-api**: Treat missing `data`/`scoreboard` in NCAA API response as empty list instead of error. The API returns null for dates without game data (e.g. future dates), which is not an error condition.
+
 ### 2026-03-16 — Apply Seismic brand colors
 
 - **UI**: Replaced generic indigo/dark-blue theme with Seismic brand palette (mauve `#825A6D`, dark purple `#523542`, warm grays, muted gold `#A6924D`).
