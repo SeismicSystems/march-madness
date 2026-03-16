@@ -1,0 +1,25 @@
+You're working on the march-madness project. The kalshi calibrator has a bug with First Four teams:
+
+1. It fails on First Four teams
+2. The Kalshi URLs it outputs are nonsense for First Four teams (e.g., "Buy Texas/NC State" links that don't make sense)
+3. The root cause: Kalshi has SEPARATE markets (not joint markets) for First Four teams. The calibrator is trying to treat them as joint, producing URLs like combined team names that don't exist on Kalshi.
+
+The fix should:
+- Have a conservative calibration technique for First Four teams. Since Kalshi has separate individual markets for each First Four team (not a combined market for the slot), the calibrator should handle these differently.
+- Stop outputting nonsense combined URLs
+- Be conservative — First Four teams are edge cases and shouldn't break the calibration
+
+First, explore the codebase to understand how the kalshi calibrator works. Look in `crates/bracket-sim/` and `crates/kalshi/` for the calibration logic, especially how it handles First Four teams and generates Kalshi URLs.
+
+Look at data files like `data/2026/men/tournament.json` to understand the First Four structure.
+
+Fix the issue, then run `./scripts/ci.sh` before finishing to verify nothing is broken.
+
+IMPORTANT project rules:
+- All git branches must be prefixed with `cdai__`
+- Update README.md and CLAUDE.md if behavior changes
+- Add entry to docs/changeset.md
+- Save this prompt to docs/prompts/<branch-name>/ as a .txt file
+- End with a PR
+
+Branch off main.

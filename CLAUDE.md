@@ -67,6 +67,7 @@ docs/               — Technical docs, changeset, prompts
 - **Columns**: `team,ortg,drtg,pace[,goose]` — goose is optional (defaults to 0.0)
 - **First Four handling**: `load_teams_from_json` (in `bracket-sim/src/team.rs`) looks up each individual FF team in the kenpom map and averages their metrics for the 64-team bracket slot. This is the only place averaging happens.
 - **Calibration round-trip**: `save_kenpom_csv_with_goose` reads the original kenpom.csv, updates only goose values (using `ff_to_slot` mapping from tournament.json to apply slot goose to both FF teams), and preserves individual metrics.
+- **Kalshi calibration**: First Four teams are **excluded** from Kalshi market-making calibration. Kalshi has separate individual markets per FF team, not a joint market for the bracket slot. Including them would produce nonsense combined-name URLs and incorrect edge signals. FF teams conservatively keep goose=0.
 - **Re-scraping**: `python scripts/scrape_kenpom.py --bracket-only` outputs individual rows. Name mappings in `data/mappings.toml`.
 
 ## Embedded Data

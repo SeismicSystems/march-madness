@@ -112,8 +112,9 @@ fn main() -> io::Result<()> {
         "loaded teams"
     );
 
-    // Build team name lookup: includes both slot names and individual FF team names.
-    // Individual FF names map to their slot name for Kalshi market matching.
+    // Build team name lookup: maps canonical names to bracket slot names.
+    // Individual FF names map to their slot name, but FF slots are excluded
+    // from calibration (see below).
     let team_names: Vec<String> = teams.iter().map(|t| t.team.clone()).collect();
     let mut name_to_slot: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -123,6 +124,11 @@ fn main() -> io::Result<()> {
     for (individual, slot) in &ff_to_slot {
         name_to_slot.insert(individual.clone(), slot.clone());
     }
+
+    // First Four slot names (e.g. "Texas/NC State"). Kalshi has separate markets
+    // for each individual FF team, not a joint market for the slot. Including them
+    // would produce nonsense URLs and incorrect edge signals, so we skip them.
+    let ff_slot_names: std::collections::HashSet<String> = ff_to_slot.values().cloned().collect();
 
     // 2. Load team name map for Kalshi → canonical name resolution
     let name_map = load_team_name_map();
@@ -153,21 +159,33 @@ fn main() -> io::Result<()> {
             }
         };
 
-        // Filter to only tournament teams before fetching orderbooks
+        // Filter to only tournament teams before fetching orderbooks.
+        // Also exclude First Four teams — Kalshi has separate individual markets
+        // for each FF team, not a joint market for the bracket slot.
         let total_markets = markets.len();
+        let mut ff_skipped = 0usize;
         let markets: Vec<_> = markets
             .into_iter()
             .filter(|m| {
                 let raw_name = extract_team_name(m);
                 let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name);
-                name_to_slot.contains_key(&canonical)
+                match name_to_slot.get(&canonical) {
+                    Some(slot) if ff_slot_names.contains(slot) => {
+                        ff_skipped += 1;
+                        false
+                    }
+                    Some(_) => true,
+                    None => false,
+                }
             })
             .collect();
+        let non_tournament = total_markets - markets.len() - ff_skipped;
         info!(
             round = market_def.label,
             kept = markets.len(),
-            skipped = total_markets - markets.len(),
-            "filtered to tournament teams"
+            ff_skipped,
+            non_tournament,
+            "filtered markets"
         );
 
         // Build ticker set for filtered markets
@@ -183,7 +201,11 @@ fn main() -> io::Result<()> {
                     .into_iter()
                     .filter(|ob| market_tickers.contains(&ob.ticker))
                     .collect();
-                info!(round = market_def.label, count = obs.len(), "using cached orderbooks (filtered)");
+                info!(
+                    round = market_def.label,
+                    count = obs.len(),
+                    "using cached orderbooks (filtered)"
+                );
                 obs
             }
             None => {
@@ -211,12 +233,16 @@ fn main() -> io::Result<()> {
             .collect();
 
         // Resolve team names and build TeamOrderbook entries.
-        // For First Four teams (e.g. "Texas"), resolve to the slot name ("Texas/NC State")
-        // so calibration adjusts the correct bracket entry.
+        // FF teams were already filtered out above, but guard here too for safety.
         for market in &markets {
             let raw_name = extract_team_name(market);
             let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name.clone());
             let slot_name = name_to_slot[&canonical].clone();
+
+            if ff_slot_names.contains(&slot_name) {
+                // Should not happen (filtered above), but guard anyway.
+                continue;
+            }
 
             let ob = match ob_by_ticker.get(&market.ticker) {
                 Some(ob) => ob.clone(),
