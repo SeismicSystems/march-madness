@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Redeploy BracketGroups with auto-join
+- **Deploy**: Redeployed BracketGroups to testnet (`0xaDddc1fB51b771276B77c059a053153B7255280B`) with auto-join-on-create feature. MarchMadness and BracketMirror unchanged.
+
 ### 2026-03-16 — Auto-join creator when creating a BracketGroups group
 - **Contract**: `createGroup` and `createGroupWithPassword` now auto-join the creator as the first member with default name "CREATOR". Both functions are now `payable` — creator sends the group entry fee (if any) with the transaction. Creator can update their name via `editEntryName`.
 - **Client**: `createGroup` / `createGroupWithPassword` in `BracketGroupsUserClient` now automatically send `value: entryFee`.
