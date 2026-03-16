@@ -1,0 +1,6 @@
+two things...
+
+1) when i create a private group, i'm not automaticaly added as a member... maaaybe that's fine but
+2) i can't join a private group at all -- you need to give us an option on the "Join a group" UI to type in a password if it's a private group
+
+Also: i think it would be nice if i could paste someone a URL and it would automatically populate all of the fields to join the private group -- meaning password and slug. for example, seismic-team as slug, and pssword = Quake100.

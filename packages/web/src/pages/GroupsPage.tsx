@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useSearchParams } from "react-router-dom";
 
 import { GroupsSection } from "../components/GroupsSection";
 import { useContract } from "../hooks/useContract";
@@ -17,6 +18,11 @@ export function GroupsPage() {
   const { authenticated } = usePrivy();
   const contract = useContract();
   const groups = useGroups();
+  const [searchParams] = useSearchParams();
+
+  // Read invite link params (e.g., /groups?slug=seismic-team&password=Quake100)
+  const initialSlug = useMemo(() => searchParams.get("slug") ?? "", [searchParams]);
+  const initialPassphrase = useMemo(() => searchParams.get("password") ?? "", [searchParams]);
 
   // Create group form state
   const [displayName, setDisplayName] = useState("");
@@ -174,10 +180,13 @@ export function GroupsPage() {
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           onJoinGroup={groups.joinGroup}
+          onJoinGroupWithPassword={groups.joinGroupWithPassword}
           onLeaveGroup={groups.leaveGroup}
           onEditEntryName={groups.editEntryName}
           onLookupBySlug={groups.lookupGroupBySlug}
           onTrackGroup={groups.trackGroup}
+          initialSlug={initialSlug}
+          initialPassphrase={initialPassphrase}
         />
       )}
 
