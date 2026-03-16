@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix bracket picker clearing out-of-order picks (#121)
+- **UI fix**: `clearDownstream` in `useBracket` now only clears downstream picks that chose the team from the changed game's side of the bracket. Picks for the other feeder team are preserved, allowing users to fill in brackets out of order without losing later-round selections.
+
 ### 2026-03-16 — Redis integration for chain metadata
 - **Infra**: Replace flat JSON file storage with Redis for indexer and server.
 - **Indexer**: Writes all chain events (entries, tags, groups, mirrors) to Redis instead of `data/entries.json`.
