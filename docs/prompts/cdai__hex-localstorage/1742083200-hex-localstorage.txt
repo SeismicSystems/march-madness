@@ -1,0 +1,1 @@
+Spawn parallel agents to solve each of these issues. they should all make PRs targeting main: https://github.com/SeismicSystems/march-madness/issues/64

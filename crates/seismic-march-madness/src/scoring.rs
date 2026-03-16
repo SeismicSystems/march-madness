@@ -115,4 +115,119 @@ mod tests {
         );
         assert_eq!(parse_bracket_hex("nope"), None);
     }
+
+    // ── Golden vector tests (cross-language consistency) ────────────────
+
+    /// Load golden test vectors from data/test-vectors/bracket-vectors.json.
+    /// These vectors are the source of truth, shared with TypeScript and Solidity.
+    fn load_vectors() -> serde_json::Value {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/test-vectors/bracket-vectors.json"
+        );
+        let data = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("Failed to read test vectors at {}: {}", path, e));
+        serde_json::from_str(&data).expect("Failed to parse test vectors JSON")
+    }
+
+    #[test]
+    fn golden_vectors_encoding_roundtrip() {
+        let vectors = load_vectors();
+        let brackets = vectors["brackets"].as_array().unwrap();
+
+        for v in brackets {
+            let name = v["name"].as_str().unwrap();
+            let expected_hex = v["hex"].as_str().unwrap();
+            let picks = v["picks"].as_array().unwrap();
+
+            // Encode picks to u64
+            let mut bits: u64 = 1u64 << 63; // sentinel
+            for (i, pick) in picks.iter().enumerate() {
+                if pick.as_bool().unwrap() {
+                    bits |= 1u64 << (62 - i);
+                }
+            }
+
+            let actual_hex = format!("0x{:016x}", bits);
+            assert_eq!(
+                actual_hex, expected_hex,
+                "Encoding mismatch for vector '{}'",
+                name
+            );
+
+            // Verify parse roundtrip
+            let parsed = parse_bracket_hex(expected_hex).unwrap();
+            assert_eq!(parsed, bits, "Parse roundtrip failed for vector '{}'", name);
+        }
+    }
+
+    #[test]
+    fn golden_vectors_scoring() {
+        let vectors = load_vectors();
+        let scoring_tests = vectors["scoringTests"].as_array().unwrap();
+
+        for st in scoring_tests {
+            let description = st["description"].as_str().unwrap();
+            let bracket_hex = st["bracket"].as_str().unwrap();
+            let results_hex = st["results"].as_str().unwrap();
+            let expected_score = st["expectedScore"].as_u64().unwrap() as u32;
+
+            let bracket = parse_bracket_hex(bracket_hex).unwrap();
+            let results = parse_bracket_hex(results_hex).unwrap();
+            let actual_score = score_bracket(bracket, results);
+
+            assert_eq!(
+                actual_score, expected_score,
+                "Scoring mismatch for '{}': bracket={}, results={}",
+                description, bracket_hex, results_hex
+            );
+        }
+    }
+
+    #[test]
+    fn golden_vectors_self_score_192() {
+        let vectors = load_vectors();
+        let brackets = vectors["brackets"].as_array().unwrap();
+
+        for v in brackets {
+            let name = v["name"].as_str().unwrap();
+            let hex = v["hex"].as_str().unwrap();
+            let bits = parse_bracket_hex(hex).unwrap();
+            let score = score_bracket(bits, bits);
+            assert_eq!(
+                score, 192,
+                "Self-score should be 192 for vector '{}' (hex={})",
+                name, hex
+            );
+        }
+    }
+
+    #[test]
+    fn golden_vectors_validation() {
+        let vectors = load_vectors();
+        let validation_tests = vectors["validationTests"].as_array().unwrap();
+
+        for vt in validation_tests {
+            let hex = vt["hex"].as_str().unwrap();
+            let expected_valid = vt["valid"].as_bool().unwrap();
+            let reason = vt["reason"].as_str().unwrap();
+
+            if let Some(bits) = parse_bracket_hex(hex) {
+                // Check sentinel: MSB must be set
+                let has_sentinel = (bits >> 63) & 1 == 1;
+                assert_eq!(
+                    has_sentinel, expected_valid,
+                    "Validation mismatch for '{}' ({}): expected valid={}",
+                    hex, reason, expected_valid
+                );
+            } else {
+                // Parse failure = invalid
+                assert!(
+                    !expected_valid,
+                    "Parse failed for '{}' but expected valid",
+                    hex
+                );
+            }
+        }
+    }
 }
