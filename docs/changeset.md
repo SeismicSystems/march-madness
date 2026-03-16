@@ -9,6 +9,21 @@ All notable changes to this project. Every PR must add an entry here.
 - **Bug fix**: `Qty` column width was hardcoded to 4 but quantities can be 6+ digits; now computed dynamically via `log10`.
 - **Change**: Removed `¢` symbols from Price/Model/Edge columns and `$` from EV column — values are plain numbers, units are in the header.
 
+### 2026-03-16 — Redeploy BracketGroups with auto-join
+- **Deploy**: Redeployed BracketGroups to testnet (`0xaDddc1fB51b771276B77c059a053153B7255280B`) with auto-join-on-create feature. MarchMadness and BracketMirror unchanged.
+
+### 2026-03-16 — Auto-join creator when creating a BracketGroups group
+- **Contract**: `createGroup` and `createGroupWithPassword` now auto-join the creator as the first member with default name "CREATOR". Both functions are now `payable` — creator sends the group entry fee (if any) with the transaction. Creator can update their name via `editEntryName`.
+- **Client**: `createGroup` / `createGroupWithPassword` in `BracketGroupsUserClient` now automatically send `value: entryFee`.
+- **Frontend**: `useGroups` hook now tracks the newly created group in localStorage immediately after creation (looks up group ID by slug).
+- **Tests**: Updated all BracketGroups tests for auto-join behavior. Added tests for creator auto-join, name editing, and creation validation (no bracket, wrong fee, after deadline).
+
+### 2026-03-16 — Prevent post-window BracketGroups scoring and add groups-only redeploy script
+- **Bug fix**: `BracketGroups.scoreEntry()` now reverts once the main scoring window has closed, even if the member was already scored on `MarchMadness`. This prevents group winner state from changing after claims are live.
+- **Tests**: Updated `BracketGroups.t.sol` to expect the closed-window revert for post-window group scoring.
+- **Deploy**: Added `DeployBracketGroups.s.sol` plus `scripts/redeploy-bracket-groups.sh` to deploy only a new `BracketGroups` contract against an existing `MarchMadness` address and update only the `bracketGroups` field in `data/deployments.json`.
+- **Tooling**: Added `bun run gen:abis`, backed by `scripts/generate-abis.ts`, to regenerate the checked-in client ABI snapshots directly from `ssolc` for `MarchMadness`, `BracketGroups`, and `BracketMirror`.
+
 ### 2026-03-16 — Simplify BracketMirror events to use slug instead of index
 - **Contract**: BracketMirror events (`EntryAdded`, `EntryRemoved`, `BracketUpdated`) now emit `slug` (string) instead of `entryIndex` (uint256). Slug is the stable identifier; array index is an implementation detail that changes on swap-and-pop.
 - **Deploy**: Added `DeployMirror.s.sol` forge script and `scripts/redeploy-mirror.sh` for redeploying only BracketMirror without touching MarchMadness or BracketGroups.

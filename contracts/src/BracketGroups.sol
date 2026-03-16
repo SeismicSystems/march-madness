@@ -27,6 +27,7 @@ contract BracketGroups {
     error AlreadyScored();
     error NoEntryFee();
     error ResultsNotPosted();
+    error ScoringWindowClosed();
     error ScoringWindowStillOpen();
     error NoEntriesScored();
     error NotScored();
@@ -105,22 +106,26 @@ contract BracketGroups {
     //  GROUP LIFECYCLE
     // ════════════════════════════════════════════════════════════════════
 
-    /// @notice Create a public group (no password).
+    /// @notice Create a public group (no password). Creator is auto-joined with name "CREATOR".
+    ///         Send entry fee as msg.value (0 for free groups).
     function createGroup(string calldata slug, string calldata displayName, uint256 entryFee)
         external
+        payable
         returns (uint32 groupId)
     {
         groupId = _createGroup(slug, displayName, entryFee, false);
     }
 
-    /// @notice Create a password-protected group. Password is stored shielded (sbytes12).
+    /// @notice Create a password-protected group. Creator is auto-joined with name "CREATOR".
+    ///         Password is stored shielded (sbytes12).
     ///         Frontend converts user's string password to bytes12 (e.g. keccak256 truncated) before sending.
+    ///         Send entry fee as msg.value (0 for free groups).
     function createGroupWithPassword(
         string calldata slug,
         string calldata displayName,
         uint256 entryFee,
         sbytes12 password
-    ) external returns (uint32 groupId) {
+    ) external payable returns (uint32 groupId) {
         groupId = _createGroup(slug, displayName, entryFee, true);
         _passwords[groupId] = password;
     }
@@ -150,6 +155,9 @@ contract BracketGroups {
         slugToGroupId[slugHash] = groupId;
 
         emit GroupCreated(groupId, slug, displayName, msg.sender, hasPassword);
+
+        // Auto-join the creator with default name "CREATOR" (editable via editEntryName)
+        _joinGroup(groupId, "CREATOR");
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -235,6 +243,11 @@ contract BracketGroups {
         Group storage g = _groups[groupId];
         if (memberIndex >= g.entryCount) revert IndexOutOfBounds();
 
+        uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        uint256 scoringDuration = marchMadness.SCORING_DURATION();
+        if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp >= resultsPostedAt + scoringDuration) revert ScoringWindowClosed();
+
         Member storage member = _members[groupId][memberIndex];
         if (member.isScored) revert AlreadyScored();
 
@@ -267,8 +280,9 @@ contract BracketGroups {
         if (!isMemberOf[groupId][msg.sender]) revert NotAMember();
 
         uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        uint256 scoringDuration = marchMadness.SCORING_DURATION();
         if (resultsPostedAt == 0) revert ResultsNotPosted();
-        if (block.timestamp < resultsPostedAt + SCORING_DURATION) revert ScoringWindowStillOpen();
+        if (block.timestamp < resultsPostedAt + scoringDuration) revert ScoringWindowStillOpen();
 
         GroupPayout storage payout = payouts[groupId];
         if (payout.numWinners == 0) revert NoEntriesScored();
