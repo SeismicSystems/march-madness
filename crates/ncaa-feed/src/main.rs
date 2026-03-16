@@ -21,8 +21,9 @@ use crate::mapper::GameMapper;
 )]
 struct Cli {
     /// Path to tournament.json (team names → bracket positions derived from array index).
-    #[arg(long, default_value = "data/2026/men/tournament.json")]
-    tournament_file: PathBuf,
+    /// If not specified, uses embedded 2026 tournament data.
+    #[arg(long)]
+    tournament_file: Option<PathBuf>,
 
     /// Path to write tournament status JSON.
     #[arg(long, default_value = "data/2026/men/status.json")]
@@ -56,11 +57,16 @@ async fn main() -> Result<()> {
     let client = NcaaClient::new(cli.requests_per_sec).map_err(|e| eyre::eyre!("{e}"))?;
 
     // Load NCAA name → bracket position mappings.
-    let mut mapper = GameMapper::load(&cli.tournament_file)?;
-    info!(
-        "loaded name mappings from {}",
-        cli.tournament_file.display()
-    );
+    let mut mapper = match &cli.tournament_file {
+        Some(path) => {
+            info!("loading name mappings from {}", path.display());
+            GameMapper::load(path)?
+        }
+        None => {
+            info!("using embedded 2026 tournament data");
+            GameMapper::load_embedded(2026)
+        }
+    };
 
     // Load existing tournament status to resume from (e.g. after restart).
     let existing_status: Option<seismic_march_madness::TournamentStatus> =

@@ -45,7 +45,7 @@ packages/
   web/              — React frontend (bracket UI, Privy auth, leaderboard, bracket viewer)
   localdev/         — Local dev tools (populate script) + integration tests
 crates/
-  seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers
+  seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers, embedded data
   kalshi/           — Kalshi API client (REST + orderbook fetching + edge computation, no CLI binary)
   bracket-sim/      — Tournament simulation, market-making calibration against Kalshi orderbooks
   indexer/          — Rust event listener + backfill
@@ -59,6 +59,15 @@ data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canoni
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
+
+## Embedded Data
+
+The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). This is primarily for **external consumers** who import the crate without access to the repo's data files. Internal crates like `bracket-sim` continue reading from the filesystem. `forecaster` and `ncaa-feed` use embedded data as a convenience (they already depend on the crate). CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
+
+Key accessors (year-parameterized, no defaults):
+- `TournamentData::embedded(year)` — parse embedded tournament JSON for the given year
+- `KenpomRatings::embedded(year)` — parse embedded KenPom CSV for the given year
+- `tournament_json(year)` / `kenpom_csv(year)` — raw `Option<&'static str>` accessors
 
 ## Contract Interface (MarchMadness.sol)
 
