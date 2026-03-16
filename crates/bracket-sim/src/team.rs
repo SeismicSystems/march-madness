@@ -63,9 +63,19 @@ struct BracketEntry {
 fn load_kenpom_map(kenpom_path: &str) -> io::Result<HashMap<String, (Metrics, f64)>> {
     let kenpom_file = File::open(kenpom_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", kenpom_path, e)))?;
+    load_kenpom_map_from_reader(kenpom_file)
+}
+
+fn load_kenpom_map_from_str(csv_content: &str) -> io::Result<HashMap<String, (Metrics, f64)>> {
+    load_kenpom_map_from_reader(csv_content.as_bytes())
+}
+
+fn load_kenpom_map_from_reader<R: io::Read>(
+    reader: R,
+) -> io::Result<HashMap<String, (Metrics, f64)>> {
     let mut kenpom_reader = csv::ReaderBuilder::new()
         .has_headers(true)
-        .from_reader(kenpom_file);
+        .from_reader(reader);
     let mut kenpom_map: HashMap<String, (Metrics, f64)> = HashMap::new();
     for row in kenpom_reader.deserialize() {
         let r: KenpomRow = row?;
@@ -196,6 +206,81 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
              Fix the team name mapping or update the KenPom data.",
             missing.len(),
             kenpom_path,
+            missing.join("\n  ")
+        );
+    }
+
+    validate_bracket_structure(&teams);
+    Ok(teams)
+}
+
+/// Load teams by joining tournament JSON and KenPom CSV from in-memory strings.
+///
+/// Same logic as [`load_teams_from_json`] but works with embedded data — no filesystem
+/// access required.
+pub fn load_teams_from_json_str(json_content: &str, kenpom_csv: &str) -> io::Result<Vec<Team>> {
+    let tournament: TournamentJson = serde_json::from_str(json_content).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("tournament JSON parse error: {}", e),
+        )
+    })?;
+
+    let kenpom_map = load_kenpom_map_from_str(kenpom_csv)?;
+    let mut teams = Vec::new();
+    let mut missing = Vec::new();
+
+    for t in tournament.teams {
+        if let Some(ref ff_names) = t.first_four {
+            let mut found_metrics = Vec::new();
+            let mut found_goose = Vec::new();
+            for ff_name in ff_names {
+                match kenpom_map.get(ff_name) {
+                    Some((metrics, goose)) => {
+                        found_metrics.push(*metrics);
+                        found_goose.push(*goose);
+                    }
+                    None => missing.push(ff_name.clone()),
+                }
+            }
+            if found_metrics.is_empty() {
+                continue;
+            }
+            let n = found_metrics.len() as f64;
+            let avg_metrics = Metrics {
+                ortg: found_metrics.iter().map(|m| m.ortg).sum::<f64>() / n,
+                drtg: found_metrics.iter().map(|m| m.drtg).sum::<f64>() / n,
+                pace: found_metrics.iter().map(|m| m.pace).sum::<f64>() / n,
+            };
+            let avg_goose = found_goose.iter().sum::<f64>() / n;
+            teams.push(Team {
+                team: t.name,
+                seed: t.seed,
+                region: t.region,
+                metrics: avg_metrics,
+                goose: avg_goose,
+            });
+        } else {
+            match kenpom_map.get(&t.name) {
+                Some((metrics, goose)) => {
+                    teams.push(Team {
+                        team: t.name,
+                        seed: t.seed,
+                        region: t.region,
+                        metrics: *metrics,
+                        goose: *goose,
+                    });
+                }
+                None => missing.push(t.name),
+            }
+        }
+    }
+
+    if !missing.is_empty() {
+        panic!(
+            "FATAL: {} bracket team(s) not found in KenPom data:\n  {}\n\
+             Fix the team name mapping or update the KenPom data.",
+            missing.len(),
             missing.join("\n  ")
         );
     }

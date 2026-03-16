@@ -40,8 +40,20 @@ impl GameMapper {
     pub fn load(path: &Path) -> Result<Self> {
         let json = std::fs::read_to_string(path)
             .wrap_err_with(|| format!("failed to read {}", path.display()))?;
+        Self::from_json(&json)
+    }
+
+    /// Load mapper from the embedded 2026 tournament data.
+    /// No filesystem access required.
+    pub fn load_embedded() -> Self {
+        Self::from_json(seismic_march_madness::TOURNAMENT_JSON)
+            .expect("embedded tournament.json should always parse correctly")
+    }
+
+    /// Parse mapper from a JSON string.
+    fn from_json(json: &str) -> Result<Self> {
         let tournament: TournamentJson =
-            serde_json::from_str(&json).wrap_err("failed to parse tournament JSON")?;
+            serde_json::from_str(json).wrap_err("failed to parse tournament JSON")?;
 
         let mut name_to_position = HashMap::new();
         for (i, team) in tournament.teams.iter().enumerate() {
@@ -191,11 +203,7 @@ mod tests {
     use super::*;
 
     fn test_mapper() -> GameMapper {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../data/2026/men/tournament.json"
-        );
-        GameMapper::load(Path::new(path)).expect("failed to load tournament.json")
+        GameMapper::load_embedded()
     }
 
     #[test]

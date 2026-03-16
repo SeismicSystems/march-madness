@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Embed tournament.json and kenpom.csv in Rust lib via include_str! (closes #62)
+- **New module** `crates/seismic-march-madness/src/data.rs` — embeds `data/2026/men/tournament.json` and `data/2026/men/kenpom.csv` at compile time via `include_str!`. Exports `TOURNAMENT_JSON` and `KENPOM_CSV` raw string constants, plus parsed accessors: `TournamentData::load()` and `KenpomRatings::load()`.
+- **Updated `bracket-sim`** — `load_teams_for_year()` and `BracketConfig::for_year()` now use embedded data for 2026 (no filesystem access). Falls back to filesystem for other years or when CLI override is provided.
+- **Updated `forecaster`** — `--tournament-file` is now optional; defaults to embedded `TournamentData::load()`.
+- **Updated `ncaa-feed`** — `--tournament-file` is now optional; defaults to embedded data via `GameMapper::load_embedded()`. Mapper tests also use embedded data.
+- **New dependency** `csv` on `seismic-march-madness` for KenPom CSV parsing.
+- **New dependency** `seismic-march-madness` on `bracket-sim` for embedded data access.
+
 ### 2026-03-15 — Restructure data directory + centralized name mappings + First Four handling
 - **Data directory restructure**: Moved from `data/{year}/` to `data/{year}/men/` and `data/{year}/women/`. All per-gender data (tournament.json, kenpom.csv, status.json, mappings/) now lives under a gender subdirectory. Renamed `tournament-status.json` → `status.json`. Updated all CLI defaults, path helpers, frontend imports, and test references.
 - **New file** `data/mappings.toml` — centralized name mapping from sources (KenPom, Kalshi) to NCAA canonical names. Single source of truth for team name normalization.

@@ -76,6 +76,10 @@ pub fn season_dir(year: u16) -> std::path::PathBuf {
 /// Load teams from the default data paths for a given year:
 /// `data/{year}/men/tournament.json` + `data/{year}/men/kenpom.csv`.
 /// If `input` is Some, loads from that combined CSV instead.
+///
+/// For the default year (2026), uses compile-time-embedded data from the
+/// `seismic-march-madness` crate — no filesystem access required.
+/// Falls back to filesystem for other years or when `input` is provided.
 pub fn load_teams_for_year(
     input: Option<&std::path::Path>,
     year: u16,
@@ -86,6 +90,15 @@ pub fn load_teams_for_year(
         })?;
         return team::load_teams_from_combined_csv(p);
     }
+
+    // For 2026, use embedded data — no filesystem needed.
+    if year == 2026 {
+        return team::load_teams_from_json_str(
+            seismic_march_madness::TOURNAMENT_JSON,
+            seismic_march_madness::KENPOM_CSV,
+        );
+    }
+
     let dir = season_dir(year);
     let tournament_json = dir.join("tournament.json");
     let kenpom = dir.join("kenpom.csv");

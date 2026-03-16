@@ -1143,6 +1143,7 @@ dependencies = [
  "rand 0.9.2",
  "rand_distr 0.5.1",
  "rayon",
+ "seismic-march-madness",
  "serde",
  "serde_json",
  "statrs",
@@ -4554,6 +4555,7 @@ dependencies = [
 name = "seismic-march-madness"
 version = "0.1.0"
 dependencies = [
+ "csv",
  "eyre",
  "rand 0.9.2",
  "serde",
