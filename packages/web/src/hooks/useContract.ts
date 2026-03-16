@@ -10,6 +10,34 @@ import {
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 
 /**
+ * Fetch the on-chain submission deadline once, falling back to the
+ * hardcoded constant if the contract read fails (e.g. no wallet / not deployed).
+ */
+function useSubmissionDeadline(
+  mmPublic: MarchMadnessPublicClient | null,
+): number {
+  const [deadline, setDeadline] = useState<number>(SUBMISSION_DEADLINE);
+
+  useEffect(() => {
+    if (!mmPublic) return;
+    let cancelled = false;
+    mmPublic
+      .getSubmissionDeadline()
+      .then((val) => {
+        if (!cancelled) setDeadline(Number(val));
+      })
+      .catch(() => {
+        // Contract might not be deployed yet — keep hardcoded fallback
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mmPublic]);
+
+  return deadline;
+}
+
+/**
  * Hook for interacting with the MarchMadness contract.
  *
  * On login, checks hasEntry(address) via a public read (no signing).
@@ -28,8 +56,6 @@ export function useContract() {
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
-
-  const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -84,6 +110,17 @@ export function useContract() {
       CONTRACT_ADDRESS,
     );
   }, [publicClient, walletClient]);
+
+  // On-chain deadline (seconds), with hardcoded fallback
+  const submissionDeadline = useSubmissionDeadline(mmPublic);
+
+  // Reactive: recalculate every second so the UI transitions at the right moment
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const isBeforeDeadline = now / 1000 < submissionDeadline;
 
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {
@@ -241,6 +278,7 @@ export function useContract() {
     isBracketLoading,
     error,
     isBeforeDeadline,
+    submissionDeadline,
     balance,
     entryFeeDisplay,
     submitBracket,

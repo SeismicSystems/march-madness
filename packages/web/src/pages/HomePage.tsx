@@ -113,7 +113,7 @@ export function HomePage() {
       {showFaucetBanner && <FaucetBanner address={contract.walletAddress!} />}
 
       <div className="flex items-center gap-2 sm:gap-4 mb-4">
-        <DeadlineCountdown />
+        <DeadlineCountdown deadline={contract.submissionDeadline} />
         {!isLocked && (
           <>
             <button
