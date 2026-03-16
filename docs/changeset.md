@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Bracket hex input easter egg
+- **Frontend**: Added a hidden hex input next to the Reset Picks button. A faint `0x` hint is visible but not editable — double-click it to unlock the input field. Type or paste a valid bytes8 bracket hex string to auto-fill all 63 picks instantly. Input closes on blur (if empty) or on successful load. Only visible before the deadline.
+
 ### 2026-03-16 — Skip First Four teams in Kalshi calibration
 - **Calibrate binary**: First Four teams (e.g. Texas, NC State) are now excluded from Kalshi market-making calibration. Kalshi has separate individual markets for each FF team, not a joint market for the bracket slot. Including them produced nonsense combined-name URLs and incorrect calibration signals. FF teams conservatively keep goose=0.
 - **Filtering**: FF teams are filtered out at the market-selection step (before orderbook fetching), avoiding wasted API calls. A safety guard in the orderbook-to-TeamOrderbook loop catches any that slip through.
