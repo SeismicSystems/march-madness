@@ -10,56 +10,12 @@ pub enum ScoringSystem {
 
 /// Score a bracket against results using Base scoring, both in ByteBracket (u64) format.
 ///
-/// Bit encoding follows jimpo's ByteBracket Solidity contract (he's our boy):
-/// https://github.com/jimpo/march-madness-dapp/blob/master/contracts/ByteBracket.sol
+/// Delegates to `seismic_march_madness::scoring::score_bracket` which is a direct
+/// port of the on-chain `ByteBracket.sol` scoring logic (MSB-first encoding).
 ///
-/// Each bit represents a game outcome: 1 = team1 (top) wins, 0 = team2 (bottom) wins.
-/// Bits 0-31 = Round 1 (32 games), 32-47 = Round 2, ..., 62 = Championship.
-///
-/// A pick is correct only if the bit matches AND (for rounds 1+) the feeder game
-/// that produced the picked team was also correctly picked. This ensures we don't
-/// award points when the same bit value corresponds to different teams due to
-/// earlier-round disagreements.
-///
-/// Returns total points under Base scoring (1, 2, 4, 8, 16, 32 per round).
+/// Returns total points under Base scoring (1, 2, 4, 8, 16, 32 per round). Max 192.
 pub fn score_base_bb(bracket: u64, results: u64) -> u32 {
-    // Strip sentinel bit so it doesn't contribute to scoring.
-    let bracket = crate::strip_sentinel(bracket);
-    let results = crate::strip_sentinel(results);
-    let matching = !(bracket ^ results); // bit i set iff bracket[i] == results[i]
-
-    // Round 0 (bits 0-31): no feeder check needed
-    let mut correct: u64 = matching & 0xFFFF_FFFF;
-    let mut score = (correct as u32).count_ones(); // x 1
-
-    let round_sizes: [u32; 6] = [32, 16, 8, 4, 2, 1];
-    let mut prev_offset: u32 = 0;
-
-    for round in 1..6u32 {
-        let offset = prev_offset + round_sizes[round as usize - 1];
-        let n_games = round_sizes[round as usize];
-        let points = 1u32 << round;
-
-        for g in 0..n_games {
-            let bit_pos = offset + g;
-            let match_bit = (matching >> bit_pos) & 1;
-
-            // The result bit tells us which feeder produced the winner:
-            // 1 -> left feeder (game 2g at prev round), 0 -> right feeder (game 2g+1)
-            let result_bit = (results >> bit_pos) & 1;
-            let feeder_pos = prev_offset + 2 * g + (1 - result_bit as u32);
-            let feeder_ok = (correct >> feeder_pos) & 1;
-
-            if match_bit & feeder_ok == 1 {
-                correct |= 1u64 << bit_pos;
-                score += points;
-            }
-        }
-
-        prev_offset = offset;
-    }
-
-    score
+    seismic_march_madness::scoring::score_bracket(bracket, results)
 }
 
 impl ScoringSystem {
@@ -77,32 +33,19 @@ impl ScoringSystem {
 
     fn bonus(&self, round_num: usize, team_seed: u8, opponent_seed: u8) -> u32 {
         match self {
-            ScoringSystem::Base => {
-                // Just return base points
-                0
-            }
+            ScoringSystem::Base => 0,
             ScoringSystem::SeedDifference => {
-                // Add seed difference bonus for upset picks
                 if team_seed > opponent_seed {
-                    // Upset bonus (higher seed beats lower seed)
                     (team_seed - opponent_seed) as u32
                 } else {
-                    // No upset bonus
                     0
                 }
             }
-            ScoringSystem::SeedTimesRound => {
-                // Add bonus based on seed times round number
-                team_seed as u32 * (round_num as u32 + 1)
-            }
-            ScoringSystem::SeedPlusRound => {
-                // Add bonus based on seed plus round number
-                team_seed as u32 + round_num as u32
-            }
+            ScoringSystem::SeedTimesRound => team_seed as u32 * (round_num as u32 + 1),
+            ScoringSystem::SeedPlusRound => team_seed as u32 + round_num as u32,
         }
     }
 
-    // Helper function to get a descriptive name
     pub fn name(&self) -> &'static str {
         match self {
             ScoringSystem::Base => "Base Scoring",

@@ -1,5 +1,5 @@
 use crate::game::Game;
-use crate::{assert_sentinel, set_sentinel, strip_sentinel};
+use crate::{SENTINEL_BIT, assert_sentinel, game_bit, strip_sentinel};
 
 #[derive(Debug, Clone)]
 pub struct Bracket {
@@ -12,17 +12,16 @@ impl Bracket {
         Bracket { picks, score: 0 }
     }
 
-    /// Encode this bracket as a ByteBracket u64 with the sentinel bit (bit 63) set.
+    /// Encode this bracket as a ByteBracket u64 with sentinel.
     ///
-    /// Bit encoding follows jimpo's ByteBracket Solidity contract (he's our boy):
-    /// https://github.com/jimpo/march-madness-dapp/blob/master/contracts/ByteBracket.sol
+    /// Contract encoding (MSB-first, matching ByteBracket.sol):
+    ///   Bit 63 = sentinel (always 1)
+    ///   Bit 62 = game 0 (first R64 game), ..., bit 0 = game 62 (championship)
     ///
-    /// Bits 0-62: 63 game outcomes (1 = team1/top wins, 0 = team2/bottom wins).
-    /// Bit 63: sentinel (always 1).
-    /// Games are ordered round-by-round, top-to-bottom.
+    /// 1 = team1 (top/higher seed) wins, 0 = team2 (bottom/lower seed) wins.
     pub fn to_byte_bracket_bb(&self, first_round_games: &[Game]) -> u64 {
-        let mut bits: u64 = 0;
-        let mut bit_idx = 0usize;
+        let mut bits: u64 = SENTINEL_BIT;
+        let mut game_idx = 0usize;
 
         let mut current_teams: Vec<(&str, &str)> = first_round_games
             .iter()
@@ -37,10 +36,10 @@ impl Bracket {
             for &(t1, _t2) in &current_teams {
                 let pick = &self.picks[pick_idx];
                 if pick == t1 {
-                    bits |= 1 << bit_idx;
+                    bits |= game_bit(game_idx);
                 }
                 next_round_winners.push(pick.as_str());
-                bit_idx += 1;
+                game_idx += 1;
                 pick_idx += 1;
             }
 
@@ -51,7 +50,7 @@ impl Bracket {
                 .collect();
         }
 
-        set_sentinel(bits)
+        bits
     }
 
     /// Encode this bracket as a `0x`-prefixed lowercase hex string with sentinel.
@@ -66,7 +65,7 @@ impl Bracket {
         let bits = strip_sentinel(bb);
 
         let mut picks = Vec::with_capacity(63);
-        let mut bit_idx = 0usize;
+        let mut game_idx = 0usize;
 
         let mut current_teams: Vec<(String, String)> = first_round_games
             .iter()
@@ -77,14 +76,14 @@ impl Bracket {
             let mut next_round_winners = Vec::new();
 
             for (t1, t2) in &current_teams {
-                let winner = if (bits >> bit_idx) & 1 == 1 {
+                let winner = if bits & (1u64 << (62 - game_idx)) != 0 {
                     t1.clone()
                 } else {
                     t2.clone()
                 };
                 picks.push(winner.clone());
                 next_round_winners.push(winner);
-                bit_idx += 1;
+                game_idx += 1;
             }
 
             current_teams = next_round_winners
@@ -97,17 +96,10 @@ impl Bracket {
         Bracket::new(picks)
     }
 
-    /// Decode a hex string (with `0x` prefix and sentinel) into a Bracket.
+    /// Decode a hex string (with optional `0x` prefix) into a Bracket.
     /// Panics if the sentinel bit is not set.
     pub fn from_byte_bracket(hex: &str, first_round_games: &[Game]) -> Self {
-        let stripped = hex.strip_prefix("0x").unwrap_or(hex);
-        assert!(
-            stripped.len() == 16,
-            "ByteBracket hex must be 16 hex digits, got '{}'",
-            hex
-        );
-        let bb = u64::from_str_radix(stripped, 16).expect("Invalid hex in ByteBracket string");
-        Self::from_byte_bracket_bb(bb, first_round_games)
+        Self::from_byte_bracket_bb(crate::parse_bb(hex), first_round_games)
     }
 }
 
@@ -139,7 +131,7 @@ mod tests {
             Game::new(make_team("C"), make_team("D")),
         ];
 
-        // A beats B (bit 0 = 1), D beats C (bit 1 = 0), A beats D (bit 2 = 1)
+        // A beats B (game 0), D beats C (game 1), A beats D (game 2)
         let bracket = Bracket::new(vec!["A".into(), "D".into(), "A".into()]);
         let hex = bracket.to_byte_bracket(&games);
         let decoded = Bracket::from_byte_bracket(&hex, &games);
@@ -152,11 +144,12 @@ mod tests {
             Game::new(make_team("A"), make_team("B")),
             Game::new(make_team("C"), make_team("D")),
         ];
-        // All top seeds win: A, C, A
+        // All top seeds win: A, C, A — games 0,1,2 all team1 wins
+        // MSB-first: sentinel(bit63) | game0(bit62) | game1(bit61) | game2(bit60)
+        // = 0xF000000000000000
         let bracket = Bracket::new(vec!["A".into(), "C".into(), "A".into()]);
         let hex = bracket.to_byte_bracket(&games);
-        // bits 0,1,2 set = 0b111 = 7, plus sentinel bit 63
-        assert_eq!(hex, "0x8000000000000007");
+        assert_eq!(hex, "0xf000000000000000");
         let decoded = Bracket::from_byte_bracket(&hex, &games);
         assert_eq!(bracket.picks, decoded.picks);
     }
@@ -167,11 +160,12 @@ mod tests {
             Game::new(make_team("A"), make_team("B")),
             Game::new(make_team("C"), make_team("D")),
         ];
-        // All bottom seeds win R1: B, D. Championship: B vs D, B is team1 -> bit 2 = 1
+        // All bottom seeds win R1: B, D. Championship: B vs D, B is team1 -> game2=1
+        // MSB-first: sentinel(bit63) | game0=0 | game1=0 | game2=1(bit60)
+        // = 0x9000000000000000
         let bracket = Bracket::new(vec!["B".into(), "D".into(), "B".into()]);
         let hex = bracket.to_byte_bracket(&games);
-        // bits: 0,0,1 = 4, plus sentinel bit 63
-        assert_eq!(hex, "0x8000000000000004");
+        assert_eq!(hex, "0x9000000000000000");
         let decoded = Bracket::from_byte_bracket(&hex, &games);
         assert_eq!(bracket.picks, decoded.picks);
     }
@@ -184,7 +178,7 @@ mod tests {
         ];
         let bracket = Bracket::new(vec!["A".into(), "D".into(), "A".into()]);
         let bb = bracket.to_byte_bracket_bb(&games);
-        assert!(bb & crate::SENTINEL_BIT != 0, "sentinel must be set");
+        assert!(bb & SENTINEL_BIT != 0, "sentinel must be set");
         let decoded = Bracket::from_byte_bracket_bb(bb, &games);
         assert_eq!(bracket.picks, decoded.picks);
     }
@@ -196,7 +190,6 @@ mod tests {
             Game::new(make_team("A"), make_team("B")),
             Game::new(make_team("C"), make_team("D")),
         ];
-        // Raw bits without sentinel — should panic
-        Bracket::from_byte_bracket_bb(0x0000000000000007, &games);
+        Bracket::from_byte_bracket_bb(0x7000000000000000, &games);
     }
 }

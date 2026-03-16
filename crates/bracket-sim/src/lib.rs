@@ -52,6 +52,26 @@ pub fn format_bb(bb: u64) -> String {
     assert_sentinel(bb);
     format!("0x{:016x}", bb)
 }
+
+/// Convert a game index (0-62) to its bit position in ByteBracket format.
+///
+/// Contract encoding (MSB-first): game 0 → bit 62, game 62 → bit 0.
+/// Bit 63 is the sentinel.
+#[inline]
+pub fn game_bit(game_index: usize) -> u64 {
+    1u64 << (62 - game_index)
+}
+
+/// Parse a hex string (0x-prefixed or bare) into a ByteBracket u64.
+/// Panics if sentinel bit is not set.
+pub fn parse_bb(hex: &str) -> u64 {
+    let stripped = hex.strip_prefix("0x").unwrap_or(hex);
+    let bb = u64::from_str_radix(stripped, 16)
+        .unwrap_or_else(|e| panic!("Invalid ByteBracket hex '{}': {}", hex, e));
+    assert_sentinel(bb);
+    bb
+}
+
 pub const NUM_ROUNDS: usize = 6; // log2(64)
 
 /// Cumulative game counts per round: R64 ends at 32, R32 at 48, S16 at 56, E8 at 60, F4 at 62, Championship at 63.
