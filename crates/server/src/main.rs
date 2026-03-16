@@ -28,14 +28,11 @@ struct Cli {
     /// Path to the forecasts JSON file (from forecaster crate).
     #[arg(long, default_value = "data/2026/men/forecasts.json")]
     forecasts_file: PathBuf,
-
-    /// API key for POST /tournament-status. Read from TOURNAMENT_API_KEY env var if not set.
-    #[arg(long, env = "TOURNAMENT_API_KEY")]
-    api_key: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
@@ -44,7 +41,6 @@ async fn main() -> eyre::Result<()> {
         cli.tournament_status_file.clone(),
         cli.forecasts_file.clone(),
         Duration::from_secs(5),
-        cli.api_key.clone(),
     )
     .await?;
 
@@ -58,10 +54,7 @@ async fn main() -> eyre::Result<()> {
         .route("/entries", get(routes::get_entries))
         .route("/entries/{address}", get(routes::get_entry))
         .route("/stats", get(routes::get_stats))
-        .route(
-            "/tournament-status",
-            get(routes::get_tournament_status).post(routes::post_tournament_status),
-        )
+        .route("/tournament-status", get(routes::get_tournament_status))
         .route("/forecasts", get(routes::get_forecasts))
         // Group routes
         .route("/groups", get(routes::get_groups))

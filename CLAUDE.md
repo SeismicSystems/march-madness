@@ -56,6 +56,7 @@ crates/
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, status.json, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
+deploy/             — Production deploy configs (nginx, supervisor, README)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
@@ -162,7 +163,6 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
 - `GET /tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
-- `POST /tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
 - `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 

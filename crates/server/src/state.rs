@@ -23,7 +23,6 @@ struct Inner {
     forecasts_path: PathBuf,
     forecasts_cache: RwLock<CachedJson>,
     ttl: Duration,
-    api_key: Option<String>,
 }
 
 struct CachedJson {
@@ -75,7 +74,6 @@ impl AppState {
         tournament_status_path: PathBuf,
         forecasts_path: PathBuf,
         ttl: Duration,
-        api_key: Option<String>,
     ) -> Result<Self> {
         let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
         let client = redis::Client::open(url.as_str())
@@ -100,7 +98,6 @@ impl AppState {
                     fetched_at: expired,
                 }),
                 ttl,
-                api_key,
             }),
         })
     }
@@ -310,23 +307,6 @@ impl AppState {
         Ok(data)
     }
 
-    pub async fn set_tournament_status(&self, value: serde_json::Value) -> Result<()> {
-        let path = self.inner.tournament_status_path.clone();
-        let data = value.clone();
-        tokio::task::spawn_blocking(move || -> Result<()> {
-            let contents = serde_json::to_string_pretty(&data)?;
-            std::fs::write(&path, contents)?;
-            Ok(())
-        })
-        .await??;
-
-        let mut cache = self.inner.tournament_status_cache.write().await;
-        cache.data = value;
-        cache.fetched_at = Instant::now();
-
-        Ok(())
-    }
-
     pub async fn get_forecasts(&self) -> Result<serde_json::Value> {
         {
             let cache = self.inner.forecasts_cache.read().await;
@@ -352,13 +332,6 @@ impl AppState {
         cache.fetched_at = Instant::now();
 
         Ok(data)
-    }
-
-    pub fn check_api_key(&self, key: &str) -> bool {
-        match &self.inner.api_key {
-            Some(expected) => key == expected,
-            None => false,
-        }
     }
 }
 

@@ -140,6 +140,10 @@ bun deploy:testnet
 
 All environment variables live in a single `.env` file at the repo root. See `.env.example` for the full list. Vite loads from there via `envDir`, and the testnet deploy script sources it directly. The local populate script uses hardcoded anvil accounts — it does not need `DEPLOYER_PRIVATE_KEY`.
 
+## Deployment
+
+Production deployment docs, nginx config, and supervisor config live in `deploy/`. See [`deploy/README.md`](deploy/README.md) for full setup instructions.
+
 ## License
 
 MIT

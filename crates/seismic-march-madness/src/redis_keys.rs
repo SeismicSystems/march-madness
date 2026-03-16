@@ -11,25 +11,25 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_REDIS_URL: &str = "redis://127.0.0.1:6379";
 
 /// Indexer cursor: last fully processed block number (STRING).
-pub const KEY_LAST_BLOCK: &str = "indexer:last_block";
+pub const KEY_LAST_BLOCK: &str = "mm:indexer:last_block";
 
 /// Entries: addr → JSON({ name?, bracket?, block, ts }) (HASH).
-pub const KEY_ENTRIES: &str = "entries";
+pub const KEY_ENTRIES: &str = "mm:entries";
 
 /// Groups: groupId → JSON({ slug, display_name, creator, has_password, members }) (HASH).
-pub const KEY_GROUPS: &str = "groups";
+pub const KEY_GROUPS: &str = "mm:groups";
 
 /// Group slug reverse lookup: slug → groupId (HASH).
-pub const KEY_GROUP_SLUGS: &str = "group:slugs";
+pub const KEY_GROUP_SLUGS: &str = "mm:group:slugs";
 
 /// Mirrors: mirrorId → JSON({ slug, display_name, admin }) (HASH).
-pub const KEY_MIRRORS: &str = "mirrors";
+pub const KEY_MIRRORS: &str = "mm:mirrors";
 
 /// Mirror slug reverse lookup: slug → mirrorId (HASH).
-pub const KEY_MIRROR_SLUGS: &str = "mirror:slugs";
+pub const KEY_MIRROR_SLUGS: &str = "mm:mirror:slugs";
 
 /// Mirror entries: "mirrorId:entrySlug" → bracket_hex (HASH).
-pub const KEY_MIRROR_ENTRIES: &str = "mirror:entries";
+pub const KEY_MIRROR_ENTRIES: &str = "mm:mirror:entries";
 
 /// Build a composite key for mirror entries: "mirrorId:entrySlug".
 pub fn mirror_entry_field(mirror_id: u64, slug: &str) -> String {

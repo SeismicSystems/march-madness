@@ -86,15 +86,15 @@ impl ContractAddresses {
 enum Command {
     /// Listen for live events and update Redis in real time
     Listen {
-        /// JSON-RPC endpoint URL
-        #[arg(long)]
+        /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
+        #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
     },
 
     /// Backfill historical events and rebuild the index in Redis
     Backfill {
-        /// JSON-RPC endpoint URL
-        #[arg(long)]
+        /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
+        #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
 
         /// Block number to start scanning from
@@ -104,16 +104,16 @@ enum Command {
 
     /// Reveal brackets for all indexed addresses (post-deadline only)
     Reveal {
-        /// JSON-RPC endpoint URL
-        #[arg(long)]
+        /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
+        #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
     },
 
     /// Sanity check: compare Redis entry count with on-chain getEntryCount()
     #[command(name = "check")]
     SanityCheck {
-        /// JSON-RPC endpoint URL
-        #[arg(long)]
+        /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
+        #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
     },
 }
@@ -173,6 +173,7 @@ fn resolve_addresses(cli: &Cli) -> Result<ContractAddresses> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();

@@ -3215,6 +3215,7 @@ dependencies = [
  "alloy-transport",
  "alloy-transport-http",
  "clap",
+ "dotenvy",
  "eyre",
  "fs2",
  "hex",
@@ -3239,6 +3240,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "clap",
+ "dotenvy",
  "eyre",
  "redis",
  "seismic-march-madness",
@@ -3364,6 +3366,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "dotenvy",
  "eyre",
  "ncaa-api",
  "seismic-march-madness",

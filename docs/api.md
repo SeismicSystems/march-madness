@@ -10,25 +10,6 @@ The server proxies `/api/*` to the Rust server on port 3000.
 
 Returns the current tournament status. No auth required.
 
-### `POST /api/tournament-status`
-
-Update the tournament status. **Requires API key.**
-
-```
-POST https://brackets.seismictest.net/api/tournament-status
-Authorization: Bearer <TOURNAMENT_API_KEY>
-Content-Type: application/json
-```
-
-#### curl example
-
-```bash
-curl -X POST https://brackets.seismictest.net/api/tournament-status \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d @tournament-status.json
-```
-
 ### `GET /api/entries`
 
 Returns all bracket entries (address → bracket hex + name). No auth required.
@@ -73,7 +54,7 @@ Returns per-bracket win probabilities (written by the forecaster crate). No auth
 
 ## Tournament Status Schema
 
-The POST body must be a JSON object with this shape:
+The tournament status JSON file (`data/{year}/men/status.json`, written by `ncaa-feed`) has this shape:
 
 ```jsonc
 {
@@ -221,9 +202,6 @@ cargo run --bin march-madness-server
 
 # Custom port
 cargo run --bin march-madness-server -- --port 3000
-
-# With API key for POST endpoint
-TOURNAMENT_API_KEY=your-secret cargo run --bin march-madness-server
 ```
 
 ## Running the Forecaster
@@ -244,36 +222,3 @@ cargo run --release --bin march-madness-forecaster -- \
 
 The forecaster reads `entries.json` + `data/2026/men/status.json` + `data/2026/men/tournament.json`, runs 100k Monte Carlo forward simulations, and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
 
-## Using the Rust Library
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-seismic-march-madness = { git = "https://github.com/SeismicSystems/march-madness.git", path = "crates/seismic-march-madness" }
-serde_json = "1"
-```
-
-Then construct and POST the `TournamentStatus`:
-
-```rust
-use seismic_march_madness::{TournamentStatus, GameStatus, GameState, GameScore};
-
-let status = TournamentStatus {
-    games: vec![
-        GameStatus {
-            game_index: 0,
-            status: GameState::Final,
-            score: Some(GameScore { team1: 82, team2: 55 }),
-            winner: Some(true),
-            team1_win_probability: None,
-        },
-        // ... 62 more
-    ],
-    team_reach_probabilities: Some(reach_map),
-    updated_at: Some("2026-03-20T18:30:00Z".to_string()),
-};
-
-let json = serde_json::to_string_pretty(&status).unwrap();
-// POST json to https://brackets.seismictest.net/api/tournament-status
-```
