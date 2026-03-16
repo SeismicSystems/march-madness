@@ -47,9 +47,9 @@ contract BracketMirror {
 
     // ── Events ──────────────────────────────────────────────────────────
     event MirrorCreated(uint256 indexed mirrorId, string slug, string displayName, address admin);
-    event EntryAdded(uint256 indexed mirrorId, uint256 entryIndex, string slug);
-    event EntryRemoved(uint256 indexed mirrorId, uint256 entryIndex);
-    event BracketUpdated(uint256 indexed mirrorId, uint256 entryIndex);
+    event EntryAdded(uint256 indexed mirrorId, string slug);
+    event EntryRemoved(uint256 indexed mirrorId, string slug);
+    event BracketUpdated(uint256 indexed mirrorId, string slug);
 
     // ── Modifiers ───────────────────────────────────────────────────────
     modifier onlyAdmin(uint256 mirrorId) {
@@ -106,7 +106,7 @@ contract BracketMirror {
         _entries[mirrorId].push(MirrorEntry({bracket: bracket, slug: slug}));
         _entrySlugIndex[mirrorId][entrySlugHash] = _entries[mirrorId].length; // index + 1
 
-        emit EntryAdded(mirrorId, _entries[mirrorId].length - 1, slug);
+        emit EntryAdded(mirrorId, slug);
     }
 
     /// @notice Remove an entry (swap-and-pop). Admin only.
@@ -116,8 +116,11 @@ contract BracketMirror {
 
         uint256 lastIndex = entries.length - 1;
 
+        // Capture slug before swap-and-pop
+        string memory removedSlug = entries[entryIndex].slug;
+
         // Update slug mappings before swap
-        bytes32 removedSlugHash = keccak256(bytes(entries[entryIndex].slug));
+        bytes32 removedSlugHash = keccak256(bytes(removedSlug));
         delete _entrySlugIndex[mirrorId][removedSlugHash];
 
         if (entryIndex != lastIndex) {
@@ -127,7 +130,7 @@ contract BracketMirror {
         }
         entries.pop();
 
-        emit EntryRemoved(mirrorId, entryIndex);
+        emit EntryRemoved(mirrorId, removedSlug);
     }
 
     /// @notice Update the bracket for an entry. Admin only.
@@ -137,7 +140,7 @@ contract BracketMirror {
 
         _entries[mirrorId][entryIndex].bracket = bracket;
 
-        emit BracketUpdated(mirrorId, entryIndex);
+        emit BracketUpdated(mirrorId, _entries[mirrorId][entryIndex].slug);
     }
 
     /// @notice Update the slug for an entry. Admin only. New slug must be unique within mirror.
