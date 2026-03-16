@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix Kalshi trade log table alignment
+- **Bug fix**: `Side` column (`BUY`/`SELL`) wasn't respecting formatter width — `write!(f, "BUY")` bypasses padding; switched to `f.pad(s)`.
+- **Bug fix**: `Qty` column width was hardcoded to 4 but quantities can be 6+ digits; now computed dynamically via `log10`.
+- **Change**: Removed `¢` symbols from Price/Model/Edge columns and `$` from EV column — values are plain numbers, units are in the header.
+
 ### 2026-03-16 — Simplify BracketMirror events to use slug instead of index
 - **Contract**: BracketMirror events (`EntryAdded`, `EntryRemoved`, `BracketUpdated`) now emit `slug` (string) instead of `entryIndex` (uint256). Slug is the stable identifier; array index is an implementation detail that changes on swap-and-pop.
 - **Deploy**: Added `DeployMirror.s.sol` forge script and `scripts/redeploy-mirror.sh` for redeploying only BracketMirror without touching MarchMadness or BracketGroups.
