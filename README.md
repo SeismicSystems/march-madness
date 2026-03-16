@@ -6,8 +6,6 @@ A private, on-chain NCAA March Madness bracket contest built on the [Seismic Net
 
 Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
 
-The bracket pool smart contract was also inspired by the work of the [Ethereum March Madness](https://github.com/EthereumMarchMadness) team.
-
 ## How It Works
 
 1. **Connect** — Sign in with your Twitter, Discord, or other social account via Privy

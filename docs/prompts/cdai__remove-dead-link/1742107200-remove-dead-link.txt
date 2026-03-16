@@ -1,0 +1,5 @@
+ok great. finally, theres a section in here:
+
+"The bracket pool smart contract was also inspired by the work of the Ethereum March Madness team."
+
+this is a dead link. you can remove it.

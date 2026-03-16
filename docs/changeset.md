@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Remove dead Ethereum March Madness link from README
+- **Docs**: Remove dead link to `github.com/EthereumMarchMadness` from Credits section.
+
 ### 2026-03-16 — Shared SlugInput component, fix track-by-slug width
 - **Refactor**: Extract shared `SlugInput` component used by both join form and track-by-slug inputs — consistent sizing (`max-w-md`, `text-sm`, `py-1.5`).
 - **UX**: Track-by-slug input now matches join form width instead of stretching full-width.
