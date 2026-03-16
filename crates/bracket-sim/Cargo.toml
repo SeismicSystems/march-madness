@@ -17,7 +17,6 @@ path = "src/bin/score_dist.rs"
 
 [dependencies]
 kalshi = { path = "../kalshi" }
-seismic-march-madness = { path = "../seismic-march-madness" }
 chrono = "0.4"
 rand = "0.9"
 rand_distr = "0.5"

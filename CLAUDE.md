@@ -62,7 +62,7 @@ docs/               — Technical docs, changeset, prompts
 
 ## Embedded Data
 
-The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). Downstream crates (`bracket-sim`, `forecaster`, `ncaa-feed`) use embedded data when available — no filesystem access required. CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
+The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). This is primarily for **external consumers** who import the crate without access to the repo's data files. Internal crates like `bracket-sim` continue reading from the filesystem. `forecaster` and `ncaa-feed` use embedded data as a convenience (they already depend on the crate). CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
 
 Key accessors (year-parameterized, no defaults):
 - `TournamentData::embedded(year)` — parse embedded tournament JSON for the given year

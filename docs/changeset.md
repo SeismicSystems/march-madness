@@ -6,11 +6,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ### 2026-03-16 — Embed tournament data in Rust lib via include_str! (closes #62)
 - **New module** `crates/seismic-march-madness/src/data.rs` — embeds tournament.json and kenpom.csv for all available years (2025, 2026 men's) at compile time via `include_str!`. Year-parameterized API: `TournamentData::embedded(year)`, `KenpomRatings::embedded(year)`, `tournament_json(year)`, `kenpom_csv(year)`. No default year — callers must be explicit.
-- **Updated `bracket-sim`** — `load_teams_for_year()` and `BracketConfig::for_year()` use embedded data when available for the requested year. Falls back to filesystem for years without embedded data or when CLI override is provided.
 - **Updated `forecaster`** — `--tournament-file` is now optional; defaults to `TournamentData::embedded(2026)`.
 - **Updated `ncaa-feed`** — `--tournament-file` is now optional; defaults to `GameMapper::load_embedded(2026)`. Mapper takes year parameter.
 - **New dependency** `csv` on `seismic-march-madness` for KenPom CSV parsing.
-- **New dependency** `seismic-march-madness` on `bracket-sim` for embedded data access.
+- **Note**: `bracket-sim` is NOT updated — it continues reading from the filesystem. The embedded data is for external consumers who import `seismic-march-madness` without access to the repo's data files.
 
 ### 2026-03-16 — Cross-language golden test vectors for bracket encoding/scoring (closes #63)
 - **New file** `data/test-vectors/bracket-vectors.json` — 8 golden bracket vectors (all-chalk, all-upsets, mostly-chalk, cinderella run, alternating, split regions, single-bit-flip, region boundary), 16 scoring tests against two result sets, and 6 validation tests. Shared source of truth for TypeScript, Rust, and Solidity.
