@@ -23,6 +23,9 @@ pub enum ScoringSystem {
 ///
 /// Returns total points under Base scoring (1, 2, 4, 8, 16, 32 per round).
 pub fn score_base_bb(bracket: u64, results: u64) -> u32 {
+    // Strip sentinel bit so it doesn't contribute to scoring.
+    let bracket = crate::strip_sentinel(bracket);
+    let results = crate::strip_sentinel(results);
     let matching = !(bracket ^ results); // bit i set iff bracket[i] == results[i]
 
     // Round 0 (bits 0-31): no feeder check needed
