@@ -1,0 +1,5 @@
+hey a few things, fix in parallel agents on isolated worktrees where they do not pollute each other's git history:
+1) in my bracket hex display, there's no way for me to copy the value. i think the nicest thing would be: if i double click it, it should fan out a copy icon, to copy the current value (even if that isn't displayed)
+2) "Reset Picks" button on the UI should require a "are you sure" check. use a nice UI library for this alert
+3) everyone only has one entry -- so showing "1 entry" on the top is redundant
+4) it's inclear to me how i would create a group. i think you should fix that, in tandem with this: https://github.com/SeismicSystems/march-madness/issues/82... maybe a little "groups" dropdown on desktop, or a "groups" tab on mobile? do your best here.
