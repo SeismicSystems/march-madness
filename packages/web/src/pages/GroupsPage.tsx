@@ -185,7 +185,6 @@ export function GroupsPage() {
           onLeaveGroup={groups.leaveGroup}
           onEditEntryName={groups.editEntryName}
           onLookupBySlug={groups.lookupGroupBySlug}
-          onLookupById={groups.lookupGroupById}
           onTrackGroup={groups.trackGroup}
           initialSlug={initialSlug}
           initialPassphrase={initialPassphrase}

@@ -15,7 +15,6 @@ interface GroupsSectionProps {
   onLeaveGroup: (groupId: number) => Promise<unknown>;
   onEditEntryName: (groupId: number, name: string) => Promise<unknown>;
   onLookupBySlug: (slug: string) => Promise<[number, GroupData] | null>;
-  onLookupById: (groupId: number) => Promise<GroupData | null>;
   onTrackGroup: (groupId: number) => void;
   initialSlug?: string;
   initialPassphrase?: string;
@@ -51,7 +50,6 @@ export function GroupsSection({
   onLeaveGroup,
   onEditEntryName,
   onLookupBySlug,
-  onLookupById,
   onTrackGroup,
   initialSlug = "",
   initialPassphrase = "",
@@ -72,19 +70,7 @@ export function GroupsSection({
   const resolveGroup = async (input: string): Promise<[number, GroupData] | null> => {
     const trimmed = input.trim();
     if (!trimmed) return null;
-
-    // Try slug lookup first (always unambiguous)
-    const bySlug = await onLookupBySlug(trimmed);
-    if (bySlug) return bySlug;
-
-    // If input looks numeric, also try by ID as fallback
-    const asNumber = parseInt(trimmed, 10);
-    if (!isNaN(asNumber) && String(asNumber) === trimmed) {
-      const byId = await onLookupById(asNumber);
-      if (byId) return [asNumber, byId];
-    }
-
-    return null;
+    return await onLookupBySlug(trimmed);
   };
 
   const handleJoin = async () => {
