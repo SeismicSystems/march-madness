@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Refresh ratings wrapper script
+- **New script** `scripts/refresh-ratings.sh` — convenience wrapper that scrapes KenPom ratings then runs Kalshi calibration in sequence. Defaults to 2-hour Kalshi cache TTL. Flags: `--cache-ttl` (seconds), `--no-kalshi` (kenpom only), `--no-kenpom` (calibrate only). Everything after `--` passes through to the calibrate binary. Step indicators `[1/2]`/`[2/2]` show progress; kenpom failure aborts before calibration.
+
 ### 2026-03-16 — Unsquish First Four teams in KenPom CSV
 - **Data**: `data/2026/men/kenpom.csv` now has one row per team (68 rows) instead of squishing First Four pairs into single rows with averaged metrics. Re-scraped from KenPom to get real individual ratings.
 - **Calibration**: New `save_kenpom_csv_with_goose()` in `bracket-sim/src/team.rs` preserves individual team metrics when writing calibrated goose values. For First Four teams, the slot's calibrated goose is applied to both individual team rows.

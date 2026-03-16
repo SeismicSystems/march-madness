@@ -1,0 +1,15 @@
+hey can you write a ./scripts/FILE.sh that lets me run the kenpom update and then run the kalshi calibrator? ideally the command would let me pass thru kalshi ttl as well, and it should default to say 2 hours.
+
+basically this is a workflow i will run a lot so i want a nice wrapper script for it
+
+---
+
+also make sure that if kenpom fails, we fail in our wrapper script. it should also say what step i'm on
+
+and also you should let me pass thru calibrate args
+
+(i feel like it makes no sense to put in a different year to this script, remove that option)
+
+---
+
+don't call it --bracket-only... call it --kenpom-only or --no-kalshi
