@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShieldedWallet } from "seismic-react";
+import { formatEther } from "viem";
 
 import {
   MarchMadnessPublicClient,
@@ -54,6 +55,7 @@ export function useContract() {
   const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
+  const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -142,6 +144,17 @@ export function useContract() {
     }
   }, [mmPublic, walletAddress]);
 
+  // Fetch entry fee from contract
+  const fetchEntryFee = useCallback(async () => {
+    if (!mmPublic) return;
+    try {
+      const fee = await mmPublic.getEntryFee();
+      setEntryFeeDisplay(`${formatEther(fee)} testnet ETH`);
+    } catch {
+      // Contract might not be deployed yet
+    }
+  }, [mmPublic]);
+
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
     if (!publicClient || !walletAddress) return;
@@ -157,7 +170,8 @@ export function useContract() {
     fetchEntryCount();
     checkHasEntry();
     fetchBalance();
-  }, [fetchEntryCount, checkHasEntry, fetchBalance]);
+    fetchEntryFee();
+  }, [fetchEntryCount, checkHasEntry, fetchBalance, fetchEntryFee]);
 
   /**
    * Load user's bracket via signed read (before deadline) or transparent read (after).
@@ -266,6 +280,7 @@ export function useContract() {
     isBeforeDeadline,
     submissionDeadline,
     balance,
+    entryFeeDisplay,
     submitBracket,
     updateBracket,
     setTag,
