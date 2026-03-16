@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Simplify BracketMirror events to use slug instead of index
+- **Contract**: BracketMirror events (`EntryAdded`, `EntryRemoved`, `BracketUpdated`) now emit `slug` (string) instead of `entryIndex` (uint256). Slug is the stable identifier; array index is an implementation detail that changes on swap-and-pop.
+- **Deploy**: Added `DeployMirror.s.sol` forge script and `scripts/redeploy-mirror.sh` for redeploying only BracketMirror without touching MarchMadness or BracketGroups.
+
 ### 2026-03-16 — Fix submission deadline, reduce entry fee, redeploy contracts
 - **Bug fix**: Submission deadline was March 18 at Noon — corrected to **March 19 at 12:15 PM EST** (1773940500).
 - **Change**: Entry fee reduced from 1 ETH to **0.1 ETH** (testnet).

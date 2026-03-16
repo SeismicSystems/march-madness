@@ -1,0 +1,49 @@
+You need to update BracketMirror.sol to simplify its events, then create a one-off redeploy script, and push a PR.
+
+## Context
+
+The BracketMirror contract needs its events simplified to use slug (the stable identifier) instead of array index (an implementation detail). This is needed for a Redis-based indexer that will process these events.
+
+## What to change in BracketMirror.sol
+
+Look at contracts/src/BracketMirror.sol. Make these changes:
+
+1. **Events** — change to use slug instead of index:
+   - `EntryAdded(uint256 indexed mirrorId, string slug)` ← drop `entryIndex`
+   - `EntryRemoved(uint256 indexed mirrorId, string slug)` ← replace `entryIndex` with `slug`
+   - `BracketUpdated(uint256 indexed mirrorId, string slug)` ← replace `entryIndex` with `slug`
+
+2. **In `removeEntry()`**: capture slug before swap-and-pop, emit it
+3. **In `updateBracket()`**: emit slug instead of index
+4. **In `addEntry()`**: emit slug instead of index (if it currently emits index)
+
+## Create redeploy script
+
+Create `scripts/redeploy-mirror.sh` that:
+- Sources `.env` from repo root for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL`
+- Uses sforge to deploy ONLY BracketMirror (not the other contracts)
+- Updates the `bracketMirror` address in `data/deployments.json` (use jq or similar)
+- The deploy script pattern can be found in `contracts/script/DeployAll.s.sol` and `scripts/deploy-testnet.sh`
+- You may need to create a small forge script like `contracts/script/DeployMirror.s.sol` for deploying just the mirror
+
+Look at the existing deploy scripts and testnet deploy script to understand the pattern. The chain ID for testnet is 5124. Year is 2026.
+
+## IMPORTANT rules from CLAUDE.md:
+- All git branches must be prefixed with `cdai__`
+- Run `./scripts/ci.sh` locally before pushing (but if CI requires infrastructure like sanvil that isn't available, note that)
+- Every PR must include an entry in `docs/changeset.md`
+- Save the user prompt to `docs/prompts/<branch-name>/` as a `.txt` file
+- Update README.md and CLAUDE.md if the change affects documented behavior
+
+## Steps:
+1. Read the current BracketMirror.sol, deploy scripts, and deployments.json
+2. Create branch `cdai__redeploy-mirror-events`
+3. Update BracketMirror.sol events
+4. Create DeployMirror.s.sol forge script
+5. Create scripts/redeploy-mirror.sh
+6. Update docs/changeset.md
+7. Save prompt file
+8. Try running CI (./scripts/ci.sh) — if it fails due to missing infra, note it
+9. Push and open PR
+
+Working directory: /home/c/code/seismic-workspace/apps/march-madness
