@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix Kalshi trade log table alignment
+- **Bug fix**: `Side` column (`BUY`/`SELL`) wasn't respecting formatter width — `write!(f, "BUY")` bypasses padding; switched to `f.pad(s)`.
+- **Bug fix**: `Qty` column width was hardcoded to 4 but quantities can be 6+ digits; now computed dynamically via `log10`.
+- **Change**: Removed `¢` symbols from Price/Model/Edge columns and `$` from EV column — values are plain numbers, units are in the header.
+
 ### 2026-03-16 — Redeploy BracketGroups with auto-join
 - **Deploy**: Redeployed BracketGroups to testnet (`0xaDddc1fB51b771276B77c059a053153B7255280B`) with auto-join-on-create feature. MarchMadness and BracketMirror unchanged.
 
