@@ -193,7 +193,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
     return this.walletClient.account.address;
   }
 
-  /** Create a public group (no password). */
+  /** Create a public group (no password). Creator is auto-joined (sends entry fee as value). */
   async createGroup(
     slug: string,
     displayName: string,
@@ -202,11 +202,11 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
   ): Promise<Hash> {
     return this.shieldedContract.twrite.createGroup(
       [slug, displayName, entryFee],
-      opts,
+      { value: entryFee, ...opts },
     );
   }
 
-  /** Create a password-protected group. Password is sbytes12 (shielded write). */
+  /** Create a password-protected group. Password is sbytes12 (shielded write). Creator is auto-joined. */
   async createGroupWithPassword(
     slug: string,
     displayName: string,
@@ -216,7 +216,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
   ): Promise<Hash> {
     return this.shieldedContract.write.createGroupWithPassword(
       [slug, displayName, entryFee, password],
-      opts,
+      { value: entryFee, ...opts },
     );
   }
 
