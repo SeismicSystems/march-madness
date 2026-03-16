@@ -67,6 +67,7 @@ async fn main() -> eyre::Result<()> {
             get(routes::get_tournament_status).post(routes::post_tournament_status),
         )
         .route("/api/forecasts", get(routes::get_forecasts))
+        .route("/api/groups", get(routes::get_groups))
         .layer(cors)
         .with_state(state);
 

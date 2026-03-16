@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Multi-contract support: Groups, Mirrors across client, UI, and server (closes #65)
+- **Client library** (`packages/client`): Added ABIs (`abi-groups.ts`, `abi-mirror.ts`) and typed client wrappers for BracketGroups (`BracketGroupsPublicClient`, `BracketGroupsUserClient`) and BracketMirror (`BracketMirrorPublicClient`, `BracketMirrorAdminClient`). All group lifecycle methods exposed: createGroup, joinGroup, joinGroupWithPassword, leaveGroup, editEntryName, scoreEntry, collectWinnings, getGroupBySlug. Mirror methods: createMirror, addEntry, removeEntry, getEntryBySlug, etc. Updated barrel exports in `index.ts`.
+- **Server** (`crates/server`): Added `GET /api/groups` stub endpoint returning an empty list (placeholder for future public group registry).
+- **Web UI** (`packages/web`): Added `useGroups` hook with localStorage tracking of joined group IDs, group data refresh, and all group lifecycle methods. Added `GroupsSection` component displayed prominently on the home page for both pre- and post-lock states. Supports joining groups by ID or slug, leaving, editing display names, and tracking groups without on-chain join.
+
 ### 2026-03-15 — Restructure data directory + centralized name mappings + First Four handling
 - **Data directory restructure**: Moved from `data/{year}/` to `data/{year}/men/` and `data/{year}/women/`. All per-gender data (tournament.json, kenpom.csv, status.json, mappings/) now lives under a gender subdirectory. Renamed `tournament-status.json` → `status.json`. Updated all CLI defaults, path helpers, frontend imports, and test references.
 - **New file** `data/mappings.toml` — centralized name mapping from sources (KenPom, Kalshi) to NCAA canonical names. Single source of truth for team name normalization.

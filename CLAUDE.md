@@ -137,6 +137,7 @@ Rust HTTP server (`crates/server`, default port 3000):
 - `GET /api/tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
 - `POST /api/tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
 - `GET /api/forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
+- `GET /api/groups` — stub endpoint returning empty list of public groups (placeholder for future registry)
 - `GET /health` — health check
 
 Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3000`).

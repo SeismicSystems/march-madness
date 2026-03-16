@@ -113,6 +113,12 @@ pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
+/// GET /api/groups — stub endpoint returning an empty list of public groups.
+/// Placeholder for a future registry of public groups.
+pub async fn get_groups() -> impl IntoResponse {
+    Json(serde_json::json!([])).into_response()
+}
+
 /// POST /api/tournament-status — update tournament status JSON (requires API key).
 pub async fn post_tournament_status(
     State(state): State<AppState>,
