@@ -7,6 +7,7 @@
     "p:post": "bun run --filter @march-madness/localdev populate -- --phase post-submission",
     "p:grading": "bun run --filter @march-madness/localdev populate -- --phase post-grading",
     "deploy:testnet": "./scripts/deploy-testnet.sh",
-    "build:web": "bun run --filter @march-madness/web build"
+    "build:web": "bun run --filter @march-madness/web build",
+    "gen:abis": "bun run scripts/generate-abis.ts"
   }
 }

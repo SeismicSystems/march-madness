@@ -33,6 +33,38 @@ curl -X POST https://brackets.seismictest.net/api/tournament-status \
 
 Returns all bracket entries (address → bracket hex + name). No auth required.
 
+### `GET /api/entries/:address`
+
+Returns a single entry by address. 404 if not found.
+
+### `GET /api/stats`
+
+Returns `{ total_entries, scored }`. `scored` is currently always 0.
+
+### `GET /api/groups`
+
+Returns all groups (from Redis). Each group has: `id`, `slug`, `display_name`, `creator`, `has_password`, `member_count`.
+
+### `GET /api/groups/:slug`
+
+Returns a single group by slug. 404 if not found.
+
+### `GET /api/groups/:slug/members`
+
+Returns an array of member addresses for the group. 404 if group not found.
+
+### `GET /api/mirrors`
+
+Returns all mirrors (from Redis). Each mirror has: `id`, `slug`, `display_name`, `admin`, `entry_count`.
+
+### `GET /api/mirrors/:slug`
+
+Returns a single mirror by slug. 404 if not found.
+
+### `GET /api/mirrors/:slug/entries`
+
+Returns an array of entries in the mirror. Each entry has: `slug`, `bracket`.
+
 ### `GET /api/forecasts`
 
 Returns per-bracket win probabilities (written by the forecaster crate). No auth required.

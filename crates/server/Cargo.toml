@@ -12,6 +12,6 @@ eyre.workspace = true
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors"] }
 clap = { version = "4", features = ["derive", "env"] }
-fs2 = "0.4"
+redis.workspace = true
 tracing = "0.1"
 tracing-subscriber = "0.3"

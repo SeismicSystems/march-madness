@@ -46,7 +46,7 @@ A later-round pick only scores if the feeder games were also picked correctly.
 Two separate contracts for side pools alongside the main contest:
 
 - **Mirrors** (`BracketMirror`): Admin enters external brackets (bracket + slug) from off-chain pools (e.g. Yahoo Fantasy). No money, no scoring on-chain — purely for display. Admin sets a prize description for bookkeeping.
-- **Groups** (`BracketGroups`): Users self-join with their main-contract bracket. Optional password protection (`sbytes12(keccak256("your-password"))`). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
+- **Groups** (`BracketGroups`): Creating a group auto-joins the creator (default name "CREATOR", editable). Other users self-join with their main-contract bracket. Optional password protection (`sbytes12(keccak256("your-password"))`). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
 
 ## Tech Stack
 
