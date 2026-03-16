@@ -17,6 +17,7 @@ reqwest.workspace = true
 redis.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+dotenvy.workspace = true
 
 # Alloy
 alloy-provider.workspace = true

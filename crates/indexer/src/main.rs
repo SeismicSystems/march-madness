@@ -173,6 +173,7 @@ fn resolve_addresses(cli: &Cli) -> Result<ContractAddresses> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();

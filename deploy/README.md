@@ -110,23 +110,14 @@ bun run --filter @march-madness/web build
 
 ## Environment Variables
 
-Beyond what's in `.env.example`, the following are needed for production:
+All Rust binaries load `.env` from the repo root at startup (via `dotenvy`). Just fill in the root `.env` file per `.env.example` — no need to configure environment variables in supervisor.
+
+Key variables for production:
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `VITE_RPC_URL` | `indexer` (supervisor) | Seismic RPC endpoint (e.g. `https://rpc.seismictest.net`). The indexer falls back to this env var when `--rpc-url` is not passed. Already in `.env.example`. |
-| `REDIS_URL` | `server`, `indexer` | Redis connection string. Defaults to `redis://127.0.0.1:6379` — only set if using non-default. |
-
-These are referenced in `deploy/supervisor.conf` via `%(ENV_VAR)s` syntax. Either export them in the shell before running `supervisorctl`, or set them in `/etc/supervisor/supervisord.conf` under `[supervisord]` → `environment=`.
-
-To make env vars available to supervisor globally, add to `/etc/supervisor/supervisord.conf`:
-
-```ini
-[supervisord]
-environment=VITE_RPC_URL="https://rpc.seismictest.net"
-```
-
-Then `sudo supervisorctl reload`.
+| `VITE_RPC_URL` | indexer | Seismic RPC endpoint (e.g. `https://rpc.seismictest.net`). Indexer uses this as default `--rpc-url`. |
+| `REDIS_URL` | server, indexer | Redis connection string. Defaults to `redis://127.0.0.1:6379`. |
 
 ## Deploy Aliases
 
