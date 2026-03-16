@@ -1,0 +1,1 @@
+in my bracket hex display, there's no way for me to copy the value. i think the nicest thing would be: if i double click it, it should fan out a copy icon, to copy the current value (even if that isn't displayed)
