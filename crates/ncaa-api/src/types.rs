@@ -228,6 +228,8 @@ impl From<RawTeam> for Team {
 }
 
 /// Schedule API response — used to get today's contest date.
+///
+/// NCAA API format: `{ "data": { "schedules": { "games": [ { "contestDate": "MM/DD/YYYY", "count": N }, ... ] } } }`
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ScheduleGqlResponse {
     pub data: Option<ScheduleData>,
@@ -235,8 +237,12 @@ pub(crate) struct ScheduleGqlResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ScheduleData {
-    #[serde(rename = "schedule")]
-    pub schedule: Option<Vec<ScheduleEntry>>,
+    pub schedules: Option<ScheduleWrapper>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ScheduleWrapper {
+    pub games: Option<Vec<ScheduleEntry>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -245,7 +251,7 @@ pub(crate) struct ScheduleEntry {
     #[serde(default)]
     pub contest_date: String,
     #[serde(default)]
-    pub number_of_games: i32,
+    pub count: i32,
 }
 
 // ── Sport code ──────────────────────────────────────────────────────
@@ -350,9 +356,10 @@ pub struct ContestDate {
 }
 
 impl ContestDate {
-    /// Parse from "YYYY/MM/DD" format.
+    /// Parse from "YYYY/MM/DD" or "MM/DD/YYYY" format (NCAA API uses both).
     pub fn parse(s: &str) -> Result<Self, NcaaApiError> {
         let date = chrono::NaiveDate::parse_from_str(s, "%Y/%m/%d")
+            .or_else(|_| chrono::NaiveDate::parse_from_str(s, "%m/%d/%Y"))
             .map_err(|e| NcaaApiError::Parse(format!("invalid contest date '{s}': {e}")))?;
         Ok(Self { date })
     }

@@ -33,12 +33,13 @@ pub async fn fetch_schedule(
 
     let entries = gql
         .data
-        .and_then(|d| d.schedule)
+        .and_then(|d| d.schedules)
+        .and_then(|s| s.games)
         .ok_or_else(|| NcaaApiError::Parse("schedule response missing data".into()))?;
 
     let mut dates = Vec::new();
     for entry in entries {
-        if entry.number_of_games > 0 {
+        if entry.count > 0 {
             dates.push(ContestDate::parse(&entry.contest_date)?);
         }
     }
@@ -54,19 +55,21 @@ mod tests {
     fn test_parse_schedule_response() {
         let json = r#"{
             "data": {
-                "schedule": [
-                    {"contestDate": "2026/03/15", "numberOfGames": 8},
-                    {"contestDate": "2026/03/16", "numberOfGames": 8},
-                    {"contestDate": "2026/03/17", "numberOfGames": 0}
-                ]
+                "schedules": {
+                    "games": [
+                        {"contestDate": "03/15/2026", "count": 8},
+                        {"contestDate": "03/16/2026", "count": 8},
+                        {"contestDate": "03/17/2026", "count": 0}
+                    ]
+                }
             }
         }"#;
 
         let gql: ScheduleGqlResponse = serde_json::from_str(json).unwrap();
-        let entries = gql.data.unwrap().schedule.unwrap();
+        let entries = gql.data.unwrap().schedules.unwrap().games.unwrap();
         let dates: Vec<ContestDate> = entries
             .into_iter()
-            .filter(|e| e.number_of_games > 0)
+            .filter(|e| e.count > 0)
             .map(|e| ContestDate::parse(&e.contest_date).unwrap())
             .collect();
 
