@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Move Groups before Leaderboard in nav, track by slug
+- **UX**: Reordered nav bar so Groups appears before Leaderboard (both desktop and mobile).
+- **UX**: Replaced "Track by group ID" with "Track by slug" — looks up groups on-chain by slug instead of numeric ID, with error feedback.
+
 ### 2026-03-16 — Fix group join flow: entry fees, slug-first lookup, layout
 - **Bug fix**: Joining a group with a non-zero entry fee now correctly populates the transaction value. Previously always sent 0.
 - **UX**: Join flow now fetches group metadata before submitting the tx — validates group exists, checks wallet balance vs entry fee, and surfaces clear error messages.

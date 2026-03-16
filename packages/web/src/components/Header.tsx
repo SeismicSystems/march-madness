@@ -61,11 +61,11 @@ export function Header() {
               <Link to="/" className={navLinkClass("/")}>
                 Bracket
               </Link>
-              <Link to="/leaderboard" className={navLinkClass("/leaderboard")}>
-                Leaderboard
-              </Link>
               <Link to="/groups" className={navLinkClass("/groups")}>
                 Groups
+              </Link>
+              <Link to="/leaderboard" className={navLinkClass("/leaderboard")}>
+                Leaderboard
               </Link>
             </nav>
           )}
@@ -152,18 +152,18 @@ export function Header() {
                   Bracket
                 </Link>
                 <Link
-                  to="/leaderboard"
-                  onClick={() => setMenuOpen(false)}
-                  className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
-                >
-                  Leaderboard
-                </Link>
-                <Link
                   to="/groups"
                   onClick={() => setMenuOpen(false)}
                   className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
                 >
                   Groups
+                </Link>
+                <Link
+                  to="/leaderboard"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+                >
+                  Leaderboard
                 </Link>
                 {authenticated && address && (
                   <button
