@@ -130,16 +130,20 @@ environment=VITE_RPC_URL="https://rpc.seismictest.net"
 
 Then `sudo supervisorctl reload`.
 
-## Full Deploy Workflow
+## Deploy Aliases
+
+Add these to `~/.bashrc` or `~/.bash_aliases` on the server:
 
 ```bash
-cd /home/ubuntu/march-madness
-git pull origin main
+# Deploy frontend (static rebuild)
+alias dbrackets='cd ~/march-madness && git pull && bun install && bun build:web'
 
-# Build
-cargo build --release
-bun install && bun run --filter @march-madness/web build
+# Deploy backend (rebuild Rust binaries + restart services)
+alias dbrackets-backend='cd ~/march-madness && git pull && cargo build --release && sudo supervisorctl restart all'
 
-# Restart services
-sudo supervisorctl restart all
+# Deploy everything
+alias dbrackets-all='cd ~/march-madness && git pull && bun install && bun build:web && cargo build --release && sudo supervisorctl restart all'
+
+# Check service health after deploy
+alias dbrackets-status='sudo supervisorctl status && curl -sf http://localhost:3000/health && echo " OK"'
 ```
