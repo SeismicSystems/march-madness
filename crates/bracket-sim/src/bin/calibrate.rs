@@ -4,12 +4,12 @@ use bracket_sim::load_teams_for_year;
 use clap::Parser;
 use std::io;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use kalshi::orderbook;
 use kalshi::rest::{self, KalshiRestClient};
 use kalshi::team_names::{extract_team_name, load_team_name_map};
-use kalshi::types::{MARKETS, TeamOrderbook};
+use kalshi::types::{MARKETS, Orderbook, TeamOrderbook};
 
 fn parse_nonzero_usize(s: &str) -> Result<usize, String> {
     let n: usize = s.parse().map_err(|e| format!("{e}"))?;
@@ -153,11 +153,38 @@ fn main() -> io::Result<()> {
             }
         };
 
-        // Try orderbook cache
+        // Filter to only tournament teams before fetching orderbooks
+        let total_markets = markets.len();
+        let markets: Vec<_> = markets
+            .into_iter()
+            .filter(|m| {
+                let raw_name = extract_team_name(m);
+                let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name);
+                name_to_slot.contains_key(&canonical)
+            })
+            .collect();
+        info!(
+            round = market_def.label,
+            kept = markets.len(),
+            skipped = total_markets - markets.len(),
+            "filtered to tournament teams"
+        );
+
+        // Build ticker set for filtered markets
+        let market_tickers: std::collections::HashSet<String> =
+            markets.iter().map(|m| m.ticker.clone()).collect();
+
+        // Try orderbook cache, filtering to tournament teams
         let orderbooks = match rest::load_orderbook_cache(market_def, ttl) {
             Some(cached) => {
-                info!(round = market_def.label, "using cached orderbooks");
-                cached.orderbooks
+                // Cache may contain all teams — filter to only tournament tickers
+                let obs: Vec<_> = cached
+                    .orderbooks
+                    .into_iter()
+                    .filter(|ob| market_tickers.contains(&ob.ticker))
+                    .collect();
+                info!(round = market_def.label, count = obs.len(), "using cached orderbooks (filtered)");
+                obs
             }
             None => {
                 let c = client.get_or_insert_with(|| {
@@ -177,22 +204,24 @@ fn main() -> io::Result<()> {
             }
         };
 
+        // Build ticker → orderbook lookup for matching (handles both cached and fresh)
+        let ob_by_ticker: std::collections::HashMap<String, Orderbook> = orderbooks
+            .into_iter()
+            .map(|ob| (ob.ticker.clone(), ob))
+            .collect();
+
         // Resolve team names and build TeamOrderbook entries.
         // For First Four teams (e.g. "Texas"), resolve to the slot name ("Texas/NC State")
         // so calibration adjusts the correct bracket entry.
-        for (market, ob) in markets.iter().zip(orderbooks.into_iter()) {
+        for market in &markets {
             let raw_name = extract_team_name(market);
             let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name.clone());
+            let slot_name = name_to_slot[&canonical].clone();
 
-            // Resolve to bracket slot name (handles both direct and FF team names).
-            let slot_name = match name_to_slot.get(&canonical) {
-                Some(slot) => slot.clone(),
+            let ob = match ob_by_ticker.get(&market.ticker) {
+                Some(ob) => ob.clone(),
                 None => {
-                    debug!(
-                        raw_name = %raw_name,
-                        canonical = %canonical,
-                        "skipping unknown team"
-                    );
+                    warn!(ticker = %market.ticker, "missing orderbook");
                     continue;
                 }
             };
