@@ -215,40 +215,66 @@ pub fn print_trade_log(trades: &[Trade]) {
         .unwrap_or(4)
         .max(4);
 
+    // Pre-format value cells so alignment accounts for ¢/$ characters.
+    let rows: Vec<_> = trades
+        .iter()
+        .map(|t| {
+            (
+                format!("{}\u{00a2}", t.price_cents),
+                format!("{:.0}\u{00a2}", t.model_prob_cents),
+                format!("{:.1}\u{00a2}", t.edge_cents),
+                format!("${:.2}", t.ev_dollars),
+            )
+        })
+        .collect();
+
+    // Column widths (content only, separators added below).
+    let w_side = 4; // "SELL" is longest
+    let w_rnd = 3;
+    let w_price = rows.iter().map(|r| r.0.len()).max().unwrap_or(5).max(5);
+    let w_model = rows.iter().map(|r| r.1.len()).max().unwrap_or(5).max(5);
+    let w_edge = rows.iter().map(|r| r.2.len()).max().unwrap_or(6).max(4);
+    let w_qty = 4;
+    let w_ev = rows.iter().map(|r| r.3.len()).max().unwrap_or(5).max(5);
+
     println!();
     println!(
-        " {:<max_team$}   {:<4}   {:>3}   {:>5}   {:>5}   {:>6}   {:>4}   {:>8}   URL",
+        " {:<max_team$}  {:>w_side$}  {:>w_rnd$}  {:>w_price$}  {:>w_model$}  {:>w_edge$}  {:>w_qty$}  {:>w_ev$}  URL",
         "Team", "Side", "Rnd", "Price", "Model", "Edge", "Qty", "EV($)"
     );
-    println!("{}", "-".repeat(max_team + 74));
+    let line_width =
+        1 + max_team + 2 + w_side + 2 + w_rnd + 2 + w_price + 2 + w_model + 2 + w_edge + 2
+            + w_qty + 2 + w_ev + 2 + 3;
+    println!("{}", "-".repeat(line_width));
 
-    for t in trades {
+    for (t, fmts) in trades.iter().zip(&rows) {
         println!(
-            " {:<max_team$}   {:<4}   {:>3}   {:>4}\u{00a2}   {:>4.0}\u{00a2}   {:>5.1}\u{00a2}   {:>4}   ${:>7.2}   {}",
+            " {:<max_team$}  {:>w_side$}  {:>w_rnd$}  {:>w_price$}  {:>w_model$}  {:>w_edge$}  {:>w_qty$}  {:>w_ev$}  {}",
             t.team,
             t.side,
             round_label(t.round),
-            t.price_cents,
-            t.model_prob_cents,
-            t.edge_cents,
+            fmts.0,
+            fmts.1,
+            fmts.2,
             t.quantity,
-            t.ev_dollars,
+            fmts.3,
             kalshi_url(&t.ticker),
         );
     }
 
     let total_ev: f64 = trades.iter().map(|t| t.ev_dollars).sum();
-    println!("{}", "-".repeat(max_team + 74));
+    let total_ev_fmt = format!("${:.2}", total_ev);
+    println!("{}", "-".repeat(line_width));
     println!(
-        " {:<max_team$}   {:>4}   {:>3}   {:>5}   {:>5}   {:>6}   {:>4}   ${:>7.2}",
-        "", "", "", "", "", "", "", total_ev
+        " {:<max_team$}  {:>w_side$}  {:>w_rnd$}  {:>w_price$}  {:>w_model$}  {:>w_edge$}  {:>w_qty$}  {:>w_ev$}",
+        "", "", "", "", "", "", "", total_ev_fmt
     );
 }
 
 /// Print a summary of edge breakdown by round.
 pub fn print_edge_summary(edges: &[MarketEdge], total_edge: f64) {
-    println!();
-    println!("Edge summary:");
+    // Collect round data so we can right-align the dollar amounts.
+    let mut round_data: Vec<(String, f64, usize, usize)> = Vec::new();
     for round in 1..=6 {
         let round_edges: Vec<_> = edges.iter().filter(|e| e.round == round).collect();
         if round_edges.is_empty() {
@@ -256,15 +282,38 @@ pub fn print_edge_summary(edges: &[MarketEdge], total_edge: f64) {
         }
         let round_total: f64 = round_edges.iter().map(|e| e.edge.abs()).sum();
         let markets_with_edge = round_edges.iter().filter(|e| e.edge.abs() > 0.001).count();
-        println!(
-            "  {} : ${:.2} across {} markets ({} with edge)",
-            round_label(round),
+        round_data.push((
+            round_label(round).to_string(),
             round_total,
             round_edges.len(),
             markets_with_edge,
+        ));
+    }
+
+    // Determine widths for aligned output.
+    let w_amt = round_data
+        .iter()
+        .map(|(_, v, _, _)| format!("${:.2}", v).len())
+        .max()
+        .unwrap_or(5)
+        .max(format!("${:.2}", total_edge).len());
+    let w_markets = round_data
+        .iter()
+        .map(|(_, _, n, _)| n.to_string().len())
+        .max()
+        .unwrap_or(1);
+
+    println!();
+    println!("Edge summary:");
+    for (label, total, num_markets, with_edge) in &round_data {
+        let amt = format!("${:.2}", total);
+        println!(
+            "  {:>3} : {:>w_amt$} across {:>w_markets$} markets ({} with edge)",
+            label, amt, num_markets, with_edge
         );
     }
-    println!("  Total: ${:.2}", total_edge);
+    let total_fmt = format!("${:.2}", total_edge);
+    println!("  Tot : {:>w_amt$}", total_fmt);
 }
 
 /// Build a Kalshi market URL from a ticker.
