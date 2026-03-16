@@ -37,7 +37,10 @@ type MarchMadnessContract = ShieldedContract<
   ShieldedWalletClient<Transport, Chain, Account>
 >;
 
-// ── Entry fee constant ──────────────────────────────────────────────
+// ── Entry fee constant (DEPRECATED) ─────────────────────────────────
+// Prefer reading the entry fee from the contract at runtime via
+// MarchMadnessPublicClient.getEntryFee(). This hardcoded value is kept
+// only for backward compatibility but may not match the deployed contract.
 export const ENTRY_FEE = parseEther("0.1");
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -190,14 +193,17 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
 
   /**
    * Submit a shielded bracket with entry fee.
+   * Reads the entry fee from the contract at runtime so the value always
+   * matches what the deployed contract expects.
    * Uses shielded write (encrypted calldata) via contract.write.
    */
   async submitBracket(
     bracket: `0x${string}`,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    const entryFee = await this.getEntryFee();
     return this.shieldedContract.write.submitBracket([bracket], {
-      value: ENTRY_FEE,
+      value: entryFee,
       ...opts,
     });
   }

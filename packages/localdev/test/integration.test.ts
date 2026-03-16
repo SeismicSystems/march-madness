@@ -142,8 +142,8 @@ describe("MarchMadness Integration", () => {
     });
 
     test("rejects submission without correct entry fee", async () => {
-      // Raw wallet call needed: client library hardcodes ENTRY_FEE,
-      // so we must use raw writeContract to test wrong fee.
+      // Raw wallet call needed: we need to send the wrong fee amount
+      // to verify the contract rejects it.
       const bracket = randomBracket();
       const abi = getAbi();
       await expect(

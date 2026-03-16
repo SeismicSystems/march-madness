@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { ENTRY_FEE_DISPLAY, SUBMISSION_DEADLINE } from "../lib/constants";
+import { SUBMISSION_DEADLINE } from "../lib/constants";
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
 import type { UseBracketReturn } from "../hooks/useBracket";
@@ -24,7 +24,9 @@ export function SubmitPanel({
     isBracketLoading,
     error,
     existingBracket,
+    entryFeeDisplay,
   } = contract;
+  const feeDisplay = entryFeeDisplay ?? "...";
   const { isComplete, pickCount, encodedBracket } = bracket;
   const [tag, setTag] = useState("");
   const [tagSaved, setTagSaved] = useState(false);
@@ -75,6 +77,7 @@ export function SubmitPanel({
         tag={tag}
         tagSaved={tagSaved}
         walletConnected={walletConnected}
+        entryFeeDisplay={entryFeeDisplay}
         onSubmit={handleSubmit}
         onLoadBracket={onLoadBracket}
         onSetTag={handleSetTag}
@@ -116,7 +119,7 @@ export function SubmitPanel({
         {/* Entry fee (before first submission) */}
         {!hasSubmitted && !isLocked && (
           <span className="text-xs text-text-muted whitespace-nowrap">
-            Entry: <span className="font-semibold text-text-primary">{ENTRY_FEE_DISPLAY}</span>
+            Entry: <span className="font-semibold text-text-primary">{feeDisplay}</span>
           </span>
         )}
 
@@ -188,7 +191,7 @@ export function SubmitPanel({
                     ? `${63 - pickCount} picks left`
                     : hasSubmitted
                       ? "Update Bracket"
-                      : `Submit (${ENTRY_FEE_DISPLAY})`}
+                      : `Submit (${feeDisplay})`}
           </button>
         )}
       </div>
@@ -222,6 +225,7 @@ function MobileSubmitPanel({
   tag,
   tagSaved,
   walletConnected,
+  entryFeeDisplay,
   onSubmit,
   onLoadBracket,
   onSetTag,
@@ -240,11 +244,13 @@ function MobileSubmitPanel({
   tag: string;
   tagSaved: boolean;
   walletConnected: boolean;
+  entryFeeDisplay: string | null;
   onSubmit: () => Promise<void>;
   onLoadBracket: () => Promise<void>;
   onSetTag: () => Promise<void>;
   onTagChange: (v: string) => void;
 }) {
+  const feeDisplay = entryFeeDisplay ?? "...";
   return (
     <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-4">
       {/* Progress */}
@@ -296,7 +302,7 @@ function MobileSubmitPanel({
       {!hasSubmitted && !isLocked && (
         <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
           <div className="text-xs text-text-muted mb-1">Entry fee</div>
-          <div className="text-lg font-bold text-text-primary">{ENTRY_FEE_DISPLAY}</div>
+          <div className="text-lg font-bold text-text-primary">{feeDisplay}</div>
           <div className="text-xs text-text-muted mt-1">
             Prize pool split equally among highest-scoring brackets
           </div>
@@ -328,7 +334,7 @@ function MobileSubmitPanel({
                   ? `Complete your bracket (${63 - pickCount} picks remaining)`
                   : hasSubmitted
                     ? "Update Bracket"
-                    : `Submit Bracket (${ENTRY_FEE_DISPLAY})`}
+                    : `Submit Bracket (${feeDisplay})`}
         </button>
       )}
 
