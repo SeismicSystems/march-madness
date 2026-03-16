@@ -8,6 +8,9 @@ All notable changes to this project. Every PR must add an entry here.
 - **Cleanup**: Removed the "1 entry" / entry count badge from both desktop and mobile Header since each user only has one entry, making the display redundant.
 - Removed `entryCount` prop from `Header` component and removed the `useContract` hook from `App.tsx`.
 
+### 2026-03-16 — Add copy/edit fan-out icons on hex display double-click
+- **Frontend**: Double-clicking the bracket hex value now fans out a copy icon and an edit (pencil) icon instead of immediately opening the hex input. Copy writes `bracket.encodedBracket` to clipboard with "Copied!" feedback; edit opens the existing hex input easter egg. Icons auto-collapse after 3 seconds or on click outside. Smooth `max-w` + opacity transition for the fan-out animation.
+
 ### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
 - **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
 - **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
