@@ -1,0 +1,13 @@
+Remove the `POST /tournament-status` endpoint entirely from the codebase. This includes:
+
+1. The route registration in `crates/server/src/main.rs`
+2. The handler function `post_tournament_status` in `crates/server/src/routes.rs`
+3. The `set_tournament_status` method in `crates/server/src/state.rs`
+4. The `api_key` field from the CLI struct in `crates/server/src/main.rs` (and remove passing it to AppState if applicable)
+5. The `api_key` field from AppState/inner state struct
+6. Any documentation referencing this endpoint in `docs/api.md`, `CLAUDE.md`
+7. Remove the `TOURNAMENT_API_KEY` env var reference from the server CLI
+
+After removing, run `./scripts/ci.sh crates` to verify everything compiles and passes.
+
+Then stage all changed files, commit with message "Remove POST /tournament-status endpoint (ncaa-feed writes directly)", and push to the current branch.
