@@ -238,6 +238,7 @@ export function HomePage() {
             isBeforeDeadline={contract.isBeforeDeadline}
             walletConnected={authenticated}
             onJoinGroup={groups.joinGroup}
+            onJoinGroupWithPassword={groups.joinGroupWithPassword}
             onLeaveGroup={groups.leaveGroup}
             onEditEntryName={groups.editEntryName}
             onLookupBySlug={groups.lookupGroupBySlug}

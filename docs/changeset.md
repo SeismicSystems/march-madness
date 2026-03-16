@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add passphrase field and invite links for private group joining
+- **Fix**: Private groups were impossible to join from the UI — no passphrase input existed. Added a passphrase field to the "Join a Group" form.
+- **UX**: When a slug resolves to a password-protected group, the passphrase field highlights and an error message prompts the user to enter the passphrase.
+- **Feature**: Shareable invite links for private groups (e.g., `/groups?slug=seismic-team&password=Quake100`). URL query params auto-populate the slug and passphrase fields. Invite link shown with copy button in the joined groups list for private groups.
+
 ### 2026-03-16 — Auto-fix sentinel bit on pasted hex brackets
 - **Behavior change**: When a user pastes a bracket hex with a missing sentinel bit (bit 63), the UI now automatically flips the bit to make it valid instead of loading the invalid hex as-is.
 - **UX**: Warning message now shows both the original pasted hex and the corrected hex so the user knows exactly what changed.
