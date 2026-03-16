@@ -420,7 +420,7 @@ mod tests {
     use super::*;
     use crate::Bracket;
     use crate::bracket_config::BracketConfig;
-    use crate::scoring::score_base_bb;
+    use seismic_march_madness::scoring::score_bracket;
 
     /// Build a minimal 4-team tournament (2 R1 games -> 1 championship = 3 total games).
     fn make_4team_tournament() -> (Tournament, Vec<Game>) {
@@ -622,7 +622,7 @@ mod tests {
             let name = v["name"].as_str().unwrap();
             let hex = v["hex"].as_str().unwrap();
             let bb = crate::parse_bb(hex);
-            let score = score_base_bb(bb, bb);
+            let score = score_bracket(bb, bb);
             assert_eq!(
                 score, 192,
                 "Self-score should be 192 for '{}' (hex={})",
@@ -644,7 +644,7 @@ mod tests {
 
             let bracket = crate::parse_bb(bracket_hex);
             let results = crate::parse_bb(results_hex);
-            let actual_score = score_base_bb(bracket, results);
+            let actual_score = score_bracket(bracket, results);
 
             assert_eq!(
                 actual_score, expected_score,

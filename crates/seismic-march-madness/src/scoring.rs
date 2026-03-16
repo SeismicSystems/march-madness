@@ -45,6 +45,26 @@ pub fn get_scoring_mask(results: u64) -> u64 {
 }
 
 /// Score a bracket against results (full tournament). Max 192.
+///
+/// Rust port of `ByteBracket.getBracketScore` from `contracts/src/ByteBracket.sol`.
+///
+/// # Bit encoding (bytes8 / u64)
+///
+/// ```text
+/// Bit 63        = sentinel (must be 1, ignored by scoring)
+/// Bit 62        = game 0  (first R64 game)
+/// Bit 61        = game 1  (second R64 game)
+///   ...
+/// Bit 31        = game 31 (last R64 game)
+/// Bits 30-15    = games 32-47  (R32, 16 games)
+/// Bits 14-7     = games 48-55  (Sweet 16, 8 games)
+/// Bits 6-3      = games 56-59  (Elite 8, 4 games)
+/// Bits 2-1      = games 60-61  (Final Four, 2 games)
+/// Bit 0         = game 62      (Championship)
+/// ```
+///
+/// Each bit: 1 = team1 (top/higher seed) wins, 0 = team2 (bottom/lower seed) wins.
+/// Points per round: 1, 2, 4, 8, 16, 32. Credit requires feeder correctness.
 pub fn score_bracket(bracket: u64, results: u64) -> u32 {
     let filter = get_scoring_mask(results);
     score_bracket_with_mask(bracket, results, filter)

@@ -8,16 +8,6 @@ pub enum ScoringSystem {
     SeedPlusRound,
 }
 
-/// Score a bracket against results using Base scoring, both in ByteBracket (u64) format.
-///
-/// Delegates to `seismic_march_madness::scoring::score_bracket` which is a direct
-/// port of the on-chain `ByteBracket.sol` scoring logic (MSB-first encoding).
-///
-/// Returns total points under Base scoring (1, 2, 4, 8, 16, 32 per round). Max 192.
-pub fn score_base_bb(bracket: u64, results: u64) -> u32 {
-    seismic_march_madness::scoring::score_bracket(bracket, results)
-}
-
 impl ScoringSystem {
     // Calculate points for a correctly picked game
     pub fn calculate_points(
