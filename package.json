@@ -2,6 +2,9 @@
   "name": "march-madness",
   "private": true,
   "workspaces": ["packages/*"],
+  "overrides": {
+    "lucide-react": "0.469.0"
+  },
   "scripts": {
     "p:pre": "bun run --filter @march-madness/localdev populate",
     "p:post": "bun run --filter @march-madness/localdev populate -- --phase post-submission",
