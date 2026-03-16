@@ -235,6 +235,10 @@ contract BracketGroups {
         Group storage g = _groups[groupId];
         if (memberIndex >= g.entryCount) revert IndexOutOfBounds();
 
+        uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp >= resultsPostedAt + SCORING_DURATION) revert IMarchMadness.ScoringWindowClosed();
+
         Member storage member = _members[groupId][memberIndex];
         if (member.isScored) revert AlreadyScored();
 

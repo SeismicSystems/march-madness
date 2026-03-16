@@ -389,9 +389,8 @@ contract BracketGroupsTest is Test {
         // Fast-forward past scoring window
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
-        // Group scoring should still work since bracket was already scored on main
+        vm.expectRevert(IMarchMadness.ScoringWindowClosed.selector);
         bg.scoreEntry(groupId, 0);
-        assertEq(bg.getMemberScore(groupId, 0), 192);
     }
 
     function test_scoreEntry_revertsBeforeResults() public {
