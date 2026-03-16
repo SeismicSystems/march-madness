@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Reset picks dialog hints about reloading on-chain bracket
+- **UX**: When user has an on-chain submission, the reset picks confirmation tells them they can reload it via "Load bracket" instead of "can't be undone".
+
 ### 2026-03-16 — Move Groups before Leaderboard in nav, track by slug
 - **UX**: Reordered nav bar so Groups appears before Leaderboard (both desktop and mobile).
 - **UX**: Replaced "Track by group ID" with "Track by slug" — looks up groups on-chain by slug instead of numeric ID, with error feedback.

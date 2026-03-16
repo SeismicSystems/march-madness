@@ -127,7 +127,11 @@ export function HomePage() {
               onClose={() => setResetOpen(false)}
               onConfirm={bracket.resetPicks}
               title="Reset Picks?"
-              description="This will clear all 63 picks. This can't be undone."
+              description={
+                contract.hasSubmitted
+                  ? "This will clear all 63 picks. You can re-load your on-chain submission by clicking \"Load bracket\"."
+                  : "This will clear all 63 picks. This can't be undone."
+              }
               confirmLabel="Reset"
               cancelLabel="Cancel"
               danger
