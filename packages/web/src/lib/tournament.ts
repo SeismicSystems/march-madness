@@ -5,7 +5,7 @@ export interface Team {
   name: string;
   seed: number;
   region: string;
-  abbrev: string;
+  abbrev?: string;
 }
 
 export interface TournamentData {

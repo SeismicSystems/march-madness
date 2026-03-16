@@ -182,7 +182,7 @@ function TeamSlot({
         <span className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}>
           {team.seed}
         </span>
-        <span>{team.abbrev}</span>
+        <span>{team.abbrev ?? team.name}</span>
         {pickCorrect && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}
