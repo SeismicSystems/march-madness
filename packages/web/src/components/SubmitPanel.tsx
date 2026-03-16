@@ -154,7 +154,7 @@ export function SubmitPanel({
               onChange={(e) => setTag(e.target.value)}
               placeholder="Display name"
               maxLength={32}
-              className="w-32 px-2 py-1.5 text-xs rounded-lg bg-bg-tertiary border border-border text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+              className="w-52 px-2 py-1.5 text-xs rounded-lg bg-bg-tertiary border border-border text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
             />
             <button
               onClick={handleSetTag}
@@ -166,19 +166,24 @@ export function SubmitPanel({
           </div>
         )}
 
+        {/* Divider between tag and submit */}
+        {hasSubmitted && !isLocked && (
+          <div className="w-px h-6 bg-border" />
+        )}
+
         {/* Submit / Update button */}
         {!isLocked && (
           <button
             onClick={handleSubmit}
             disabled={!isComplete || isLoading || !walletConnected}
-            className={`px-5 py-1.5 rounded-lg font-semibold text-xs transition-all whitespace-nowrap ${
+            className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
               !isComplete || !walletConnected
                 ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
                 : isLoading
                   ? "bg-accent/50 text-white cursor-wait"
                   : submitSuccess
-                    ? "bg-success text-white"
-                    : "bg-accent text-white hover:bg-accent-hover"
+                    ? "bg-success text-white ring-2 ring-success/30"
+                    : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30"
             }`}
           >
             {isLoading

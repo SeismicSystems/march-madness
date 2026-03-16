@@ -1,0 +1,1 @@
+everyone only has one entry -- so showing '1 entry' on the top is redundant

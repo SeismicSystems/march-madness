@@ -66,6 +66,7 @@ Two separate contracts for side pools alongside the main contest:
 |-------|-------------|
 | `/` | Bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline) |
 | `/leaderboard` | All entries ranked by score with current/max points, champion pick |
+| `/groups` | Create and join bracket groups (public or private with passphrase) |
 | `/bracket/:address` | Read-only bracket view for any player with tournament status overlay |
 
 ## Mirrors & Groups

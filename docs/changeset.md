@@ -8,6 +8,29 @@ All notable changes to this project. Every PR must add an entry here.
 - **Problem**: MirrorsSection was completely invisible — it only rendered when `mirrorIds.length > 0`, and the only way to add mirror IDs was programmatically via localStorage. No input, no form, no way for users to discover or use mirrors.
 - **Fix**: Always show MirrorsSection when a mirror contract is deployed. Added a "Track Mirror" form (accepts mirror ID or slug, validated on-chain) that saves to localStorage. Added "Untrack" button on each tracked mirror. Made `mirrorIds` state reactive so tracking/untracking updates the UI immediately.
 
+### 2026-03-16 — Improve tag input width and submit button prominence on desktop
+- **UX**: Widened desktop tag input from `w-32` (8rem) to `w-52` (13rem) so longer display names like "DRAPPIS LOVELY CHALK" are fully visible.
+- **UX**: Added a vertical divider between the tag section and the submit/update button to visually separate the two actions.
+- **UX**: Made the submit/update button more prominent: larger padding (`px-6 py-2`), bigger text (`text-sm`), and a subtle accent ring (`ring-2 ring-accent/30`) so it's harder to miss.
+
+### 2026-03-16 — Add Groups page, nav link, and create-group UI (Fixes #82)
+- **New page**: `/groups` route with dedicated `GroupsPage` — create groups (public or private with passphrase), set entry fee, auto-generated slug from display name.
+- **Navigation**: Added "Groups" link to both desktop nav bar and mobile hamburger menu in `Header.tsx`.
+- **Layout fix**: Constrained the join-group form in `GroupsSection` to `max-w-lg` with compact inline inputs on desktop, fixing the too-wide layout from issue #82.
+- **Discoverability**: Empty-state text now links to the Groups page so users know where to create groups.
+
+### 2026-03-16 — Add confirmation dialog to Reset Picks button
+- **Frontend**: Clicking "Reset Picks" now shows a confirmation dialog ("This will clear all 63 picks. This can't be undone.") before clearing the bracket.
+- Added `@headlessui/react` for accessible, headless dialog/modal components styled with Tailwind.
+- New reusable `ConfirmDialog` component supports title, description, danger styling, and backdrop dismiss.
+
+### 2026-03-16 — Remove redundant entry count from Header
+- **Cleanup**: Removed the "1 entry" / entry count badge from both desktop and mobile Header since each user only has one entry, making the display redundant.
+- Removed `entryCount` prop from `Header` component and removed the `useContract` hook from `App.tsx`.
+
+### 2026-03-16 — Add copy/edit fan-out icons on hex display double-click
+- **Frontend**: Double-clicking the bracket hex value now fans out a copy icon and an edit (pencil) icon instead of immediately opening the hex input. Copy writes `bracket.encodedBracket` to clipboard with "Copied!" feedback; edit opens the existing hex input easter egg. Icons auto-collapse after 3 seconds or on click outside. Smooth `max-w` + opacity transition for the fan-out animation.
+
 ### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
 - **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
 - **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
