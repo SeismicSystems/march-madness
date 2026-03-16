@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Cross-language golden test vectors for bracket encoding/scoring (closes #63)
+- **New file** `data/test-vectors/bracket-vectors.json` — 8 golden bracket vectors (all-chalk, all-upsets, mostly-chalk, cinderella run, alternating, split regions, single-bit-flip, region boundary), 16 scoring tests against two result sets, and 6 validation tests. Shared source of truth for TypeScript, Rust, and Solidity.
+- **Solidity tests** (`contracts/test/BracketVectors.t.sol`) — 30+ tests: self-score (192) for all 8 vectors, scoring against all-chalk and cinderella results (16 cross-checks), sentinel validation, e2e through MarchMadness contract (submit → results → score → payout), tied-winner pool splitting.
+- **TypeScript tests** — extended `bracket.test.ts` with golden vector encoding, roundtrip, and validation tests. Extended `scoring.test.ts` with golden vector scoring and self-score tests.
+- **Rust tests** — extended `crates/seismic-march-madness/src/scoring.rs` with golden vector encoding roundtrip, scoring, self-score, and validation tests.
+
 ### 2026-03-16 — Add @data/ TypeScript path alias for cleaner imports (closes #61)
 - Added `@data/*` path alias in `packages/web/tsconfig.json` (paths) and `packages/web/vite.config.ts` (resolve.alias) pointing to the repo-root `data/` directory.
 - Updated all `../../../../data/` relative imports in the web package to use `@data/` (constants.ts, tournament.ts).
