@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Make MirrorsSection discoverable with track/untrack UI
+- **Problem**: MirrorsSection was completely invisible — it only rendered when `mirrorIds.length > 0`, and the only way to add mirror IDs was programmatically via localStorage. No input, no form, no way for users to discover or use mirrors.
+- **Fix**: Always show MirrorsSection when a mirror contract is deployed. Added a "Track Mirror" form (accepts mirror ID or slug, validated on-chain) that saves to localStorage. Added "Untrack" button on each tracked mirror. Made `mirrorIds` state reactive so tracking/untracking updates the UI immediately.
+
 ### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
 - **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
 - **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
