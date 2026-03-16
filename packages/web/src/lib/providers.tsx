@@ -42,7 +42,7 @@ export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
         },
         appearance: {
           theme: "dark",
-          accentColor: "#6366f1",
+          accentColor: "#825A6D",
         },
       }}
     >
