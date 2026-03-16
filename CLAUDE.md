@@ -56,6 +56,7 @@ crates/
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, status.json, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
+deploy/             — Production deploy configs (nginx, supervisor, README)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```

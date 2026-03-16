@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add deploy configuration
+- **Deploy**: Added `deploy/` directory with nginx, supervisor, and Redis setup for production.
+- **nginx.conf**: Static frontend serving + reverse proxy `/api/*` to Rust server on port 3000.
+- **supervisor.conf**: Process management for `mm-server`, `mm-indexer`, and `mm-ncaa-feed`.
+- **deploy/README.md**: Full deployment guide covering nginx + certbot SSL, supervisor, Redis (systemd), env vars, and build steps.
+
 ### 2026-03-16 — Fix bracket picker clearing out-of-order picks (#121)
 - **UI fix**: `clearDownstream` in `useBracket` now only clears downstream picks that chose the team from the changed game's side of the bracket. Picks for the other feeder team are preserved, allowing users to fill in brackets out of order without losing later-round selections.
 
