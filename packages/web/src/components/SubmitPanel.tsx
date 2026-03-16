@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { ENTRY_FEE_DISPLAY, SUBMISSION_DEADLINE } from "../lib/constants";
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
 import type { UseBracketReturn } from "../hooks/useBracket";
