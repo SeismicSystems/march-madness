@@ -357,8 +357,8 @@ impl Tournament {
     /// Same NB/Poisson simulation + Bayesian metric updates as `simulate_tournament`,
     /// but sets bits instead of collecting string pairs.
     pub fn simulate_tournament_bb(&mut self, rng: &mut impl Rng) -> u64 {
-        let mut bits: u64 = 0;
-        let mut bit_idx: u32 = 0;
+        let mut bits: u64 = crate::SENTINEL_BIT;
+        let mut game_idx: usize = 0;
         let mut current_round_games = self.games.clone();
 
         while !current_round_games.is_empty() {
@@ -373,7 +373,7 @@ impl Tournament {
                     let winner_is_t1 = winner.team == game.team1.team;
 
                     if winner_is_t1 {
-                        bits |= 1u64 << bit_idx;
+                        bits |= crate::game_bit(game_idx);
                     }
 
                     let t1_observed = Metrics {
@@ -391,7 +391,7 @@ impl Tournament {
                     winners_for_next_round.push(winner_team);
                 }
 
-                bit_idx += 1;
+                game_idx += 1;
             }
 
             current_round_games = self.create_next_round_matchups(winners_for_next_round);
@@ -420,7 +420,7 @@ mod tests {
     use super::*;
     use crate::Bracket;
     use crate::bracket_config::BracketConfig;
-    use crate::scoring::score_base_bb;
+    use seismic_march_madness::scoring::score_bracket;
 
     /// Build a minimal 4-team tournament (2 R1 games -> 1 championship = 3 total games).
     fn make_4team_tournament() -> (Tournament, Vec<Game>) {
@@ -601,74 +601,87 @@ mod tests {
         tournament.setup_tournament(teams, &config);
     }
 
-    #[test]
-    fn score_base_bb_identical() {
-        let results: u64 = 0x5A5A_5A5A_5A5A_5A5A & ((1u64 << 63) - 1);
-        let score = score_base_bb(results, results);
-        assert_eq!(score, 192);
+    // ── Golden vector tests (cross-language consistency with contract) ──
+
+    fn load_vectors() -> serde_json::Value {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/test-vectors/bracket-vectors.json"
+        );
+        let data = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("Failed to read test vectors at {}: {}", path, e));
+        serde_json::from_str(&data).expect("Failed to parse test vectors JSON")
     }
 
     #[test]
-    fn score_base_bb_all_different() {
-        let bracket: u64 = 0;
-        let results: u64 = (1u64 << 63) - 1;
-        let score = score_base_bb(bracket, results);
-        assert_eq!(score, 0);
-    }
+    fn golden_vectors_self_score_192() {
+        let vectors = load_vectors();
+        let brackets = vectors["brackets"].as_array().unwrap();
 
-    #[test]
-    fn score_base_bb_r0_only() {
-        let bracket: u64 = 0xFFFF_FFFF;
-        let results: u64 = 0x7FFF_FFFF_FFFF_FFFF;
-        let score = score_base_bb(bracket, results);
-        assert_eq!(score, 32);
-    }
-
-    #[test]
-    fn score_base_bb_cross_validate_with_string_scoring() {
-        let config = BracketConfig::for_year(2026);
-        let kenpom_path = crate::data_dir().join("2026/men/kenpom.csv");
-
-        if !kenpom_path.exists() {
-            return;
+        for v in brackets {
+            let name = v["name"].as_str().unwrap();
+            let hex = v["hex"].as_str().unwrap();
+            let bb = crate::parse_bb(hex);
+            let score = score_bracket(bb, bb);
+            assert_eq!(
+                score, 192,
+                "Self-score should be 192 for '{}' (hex={})",
+                name, hex
+            );
         }
+    }
 
-        let teams = match std::panic::catch_unwind(|| crate::load_teams_for_year(None, 2026)) {
-            Ok(Ok(t)) => t,
-            _ => return, // kenpom data stale or missing
-        };
-        let mut tournament = Tournament::new();
-        tournament.setup_tournament(teams, &config);
+    #[test]
+    fn golden_vectors_scoring() {
+        let vectors = load_vectors();
+        let scoring_tests = vectors["scoringTests"].as_array().unwrap();
 
-        let mut rng = rand::rng();
+        for st in scoring_tests {
+            let description = st["description"].as_str().unwrap();
+            let bracket_hex = st["bracket"].as_str().unwrap();
+            let results_hex = st["results"].as_str().unwrap();
+            let expected_score = st["expectedScore"].as_u64().unwrap() as u32;
 
-        for _ in 0..20 {
-            let bracket = tournament.generate_bracket(&mut rng);
-            let mut tourn_clone = tournament.clone();
-            let actual_results = tourn_clone.simulate_tournament(&mut rng);
-
-            let string_score =
-                tournament.score_bracket(&bracket, &actual_results, ScoringSystem::Base);
-
-            let first_round_games = tournament.get_games();
-            let bracket_bb =
-                u64::from_str_radix(&bracket.to_byte_bracket(first_round_games), 16).unwrap();
-
-            let results_bracket = {
-                let picks: Vec<String> = actual_results.iter().map(|(w, _)| w.clone()).collect();
-                Bracket::new(picks)
-            };
-            let results_bb =
-                u64::from_str_radix(&results_bracket.to_byte_bracket(first_round_games), 16)
-                    .unwrap();
-
-            let bb_score = score_base_bb(bracket_bb, results_bb);
+            let bracket = crate::parse_bb(bracket_hex);
+            let results = crate::parse_bb(results_hex);
+            let actual_score = score_bracket(bracket, results);
 
             assert_eq!(
-                string_score, bb_score,
-                "String score {} != BB score {} for bracket {:016X} vs results {:016X}",
-                string_score, bb_score, bracket_bb, results_bb
+                actual_score, expected_score,
+                "Scoring mismatch for '{}': bracket={}, results={}",
+                description, bracket_hex, results_hex
             );
+        }
+    }
+
+    #[test]
+    fn golden_vectors_encoding() {
+        let vectors = load_vectors();
+        let brackets = vectors["brackets"].as_array().unwrap();
+
+        for v in brackets {
+            let name = v["name"].as_str().unwrap();
+            let expected_hex = v["hex"].as_str().unwrap();
+            let picks = v["picks"].as_array().unwrap();
+
+            // Encode picks to u64 using game_bit (same logic as TS client)
+            let mut bits: u64 = crate::SENTINEL_BIT;
+            for (i, pick) in picks.iter().enumerate() {
+                if pick.as_bool().unwrap() {
+                    bits |= crate::game_bit(i);
+                }
+            }
+
+            let actual_hex = crate::format_bb(bits);
+            assert_eq!(
+                actual_hex, expected_hex,
+                "Encoding mismatch for '{}': game_bit encoding differs from golden vector",
+                name
+            );
+
+            // Verify parse roundtrip
+            let parsed = crate::parse_bb(expected_hex);
+            assert_eq!(parsed, bits, "Parse roundtrip failed for '{}'", name);
         }
     }
 }

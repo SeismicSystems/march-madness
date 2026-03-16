@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
+- **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
+- **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
+- **Fix**: Rewrote `to_byte_bracket_bb`, `from_byte_bracket_bb`, and `simulate_tournament_bb` to use MSB-first bit ordering via new `game_bit(i) = 1 << (62-i)` helper. `score_base_bb` now delegates to `seismic_march_madness::scoring::score_bracket` (direct port of on-chain `getBracketScore`). Added sentinel bit helpers (`set_sentinel`, `strip_sentinel`, `assert_sentinel`, `format_bb`, `parse_bb`). Added golden vector tests for encoding, scoring, and self-score to bracket-sim.
+- **Breaking**: All hex strings from bracket-sim are now `0x`-prefixed lowercase with sentinel bit set. Downstream consumers parsing bare uppercase hex must update.
+
 ### 2026-03-16 — Show encoded bracket hex when picks are complete
 - **Frontend**: The faint `0x` easter egg placeholder now shows the full encoded bracket hex (e.g. `0xad551133fffdfdff`) once all 63 picks are made. Slightly more visible than the empty `0x` hint. Still double-clickable to open the hex input for loading a different bracket.
 
