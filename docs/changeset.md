@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Improve tag input width and submit button prominence on desktop
+- **UX**: Widened desktop tag input from `w-32` (8rem) to `w-52` (13rem) so longer display names like "DRAPPIS LOVELY CHALK" are fully visible.
+- **UX**: Added a vertical divider between the tag section and the submit/update button to visually separate the two actions.
+- **UX**: Made the submit/update button more prominent: larger padding (`px-6 py-2`), bigger text (`text-sm`), and a subtle accent ring (`ring-2 ring-accent/30`) so it's harder to miss.
+
 ### 2026-03-16 — Add Groups page, nav link, and create-group UI (Fixes #82)
 - **New page**: `/groups` route with dedicated `GroupsPage` — create groups (public or private with passphrase), set entry fee, auto-generated slug from display name.
 - **Navigation**: Added "Groups" link to both desktop nav bar and mobile hamburger menu in `Header.tsx`.
