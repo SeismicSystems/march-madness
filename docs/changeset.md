@@ -4,9 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-16 — Fix submission deadline, redeploy, clarify testnet ETH
+### 2026-03-16 — Fix submission deadline, reduce entry fee, redeploy contracts
 - **Bug fix**: Submission deadline was March 18 at Noon — corrected to **March 19 at 12:15 PM EST** (1773940500).
-- **Deploy**: Redeployed all contracts (MarchMadness, BracketGroups, BracketMirror) to testnet with corrected deadline.
+- **Change**: Entry fee reduced from 1 ETH to **0.1 ETH** (testnet).
+- **Deploy**: Redeployed all contracts (MarchMadness, BracketGroups, BracketMirror) to testnet.
 - **Cleanup**: Deleted old broadcast artifacts from repo.
 - **UX**: Entry fee display now says "testnet ETH" instead of just "ETH" to avoid confusion.
 

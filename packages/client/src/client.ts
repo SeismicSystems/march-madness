@@ -38,7 +38,7 @@ type MarchMadnessContract = ShieldedContract<
 >;
 
 // ── Entry fee constant ──────────────────────────────────────────────
-export const ENTRY_FEE = parseEther("1");
+export const ENTRY_FEE = parseEther("0.1");
 
 // ── Types ───────────────────────────────────────────────────────────
 

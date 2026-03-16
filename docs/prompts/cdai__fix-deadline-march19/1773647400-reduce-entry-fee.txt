@@ -1,0 +1,1 @@
+oh man. we need to redeploy one final time. change the entry fee to 0.1 eth (not 1)

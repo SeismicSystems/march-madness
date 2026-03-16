@@ -221,7 +221,7 @@ Tests cover the full contract lifecycle (submit, update, deadline enforcement, s
 ## Key Dates
 - **Bracket lock**: Thursday March 19, 2026 at 12:15 PM EST (1773940500 unix)
 - **No-contest deadline**: 28 days after results posted
-- **Entry fee**: 1 ETH (testnet)
+- **Entry fee**: 0.1 ETH (testnet)
 
 ## Error Handling
 - **Use rich error types** — don't swallow errors to `String`. Use `#[from]` with `thiserror` to preserve original error types (e.g. `reqwest::Error`, `serde_json::Error`). Structured error variants (e.g. `HttpStatus { status, url }`) are better than `Http(String)`.
