@@ -1,8 +1,11 @@
-//! Core indexer logic: reading/writing the index file with file locking.
+//! Legacy file-based index I/O.
+//!
+//! Retained for potential migration/export tooling. The indexer now uses Redis
+//! via `redis_store` for all storage operations.
 
 use eyre::{Result, WrapErr};
 use fs2::FileExt;
-use seismic_march_madness::{EntryIndex, EntryRecord, UpdateInfo};
+use seismic_march_madness::EntryIndex;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -30,7 +33,6 @@ pub fn load_index(path: &Path) -> Result<EntryIndex> {
 
 /// Write the index to disk with an exclusive file lock.
 pub fn save_index(path: &Path, index: &EntryIndex) -> Result<()> {
-    // Ensure parent directory exists
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).wrap_err("failed to create index directory")?;
     }
@@ -54,37 +56,4 @@ pub fn save_index(path: &Path, index: &EntryIndex) -> Result<()> {
 
     file.unlock().ok();
     Ok(())
-}
-
-/// Insert or update an entry for a BracketSubmitted event.
-pub fn upsert_bracket_submitted(index: &mut EntryIndex, address: &str, block: u64, timestamp: u64) {
-    let key = address.to_lowercase();
-    let entry = index.entry(key).or_insert_with(|| EntryRecord {
-        name: None,
-        updated: UpdateInfo { block: 0, ts: 0 },
-        bracket: None,
-    });
-    entry.updated = UpdateInfo {
-        block,
-        ts: timestamp,
-    };
-}
-
-/// Update the tag/name for an address.
-pub fn update_tag(index: &mut EntryIndex, address: &str, tag: String) {
-    let key = address.to_lowercase();
-    let entry = index.entry(key).or_insert_with(|| EntryRecord {
-        name: None,
-        updated: UpdateInfo { block: 0, ts: 0 },
-        bracket: None,
-    });
-    entry.name = Some(tag);
-}
-
-/// Set the bracket hex for an address (after reveal).
-pub fn set_bracket(index: &mut EntryIndex, address: &str, bracket_hex: String) {
-    let key = address.to_lowercase();
-    if let Some(entry) = index.get_mut(&key) {
-        entry.bracket = Some(bracket_hex);
-    }
 }

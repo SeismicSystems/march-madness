@@ -14,7 +14,10 @@ use seismic_alloy_network::foundry::SeismicFoundry;
 use seismic_alloy_provider::{SeismicProviderBuilder, SeismicUnsignedProvider};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
-use crate::contract::{BracketSubmitted, TagSet, getBracketCall, getEntryCountCall};
+use crate::contract::{
+    BracketSubmitted, EntryAdded, EntryRemoved, GroupCreated, MemberJoined, MemberLeft,
+    MirrorCreated, TagSet, getBracketCall, getEntryBySlugCall, getEntryCountCall,
+};
 
 /// Network-agnostic indexer provider that wraps either a SeismicReth or SeismicFoundry
 /// unsigned provider. Use `--network reth` (default) for production/testnet or
@@ -73,49 +76,136 @@ impl IndexerProvider {
         Ok(timestamp)
     }
 
-    /// Fetch BracketSubmitted event logs in a block range.
+    // ── Log fetchers (generic by event signature) ────────────────────
+
+    async fn get_logs_for_event(
+        &self,
+        contract: Address,
+        event_sig: FixedBytes<32>,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        let filter = Filter::new()
+            .address(contract)
+            .event_signature(event_sig)
+            .from_block(from_block)
+            .to_block(to_block);
+
+        let logs = match self {
+            Self::Reth(p) => p.get_logs(&filter).await,
+            Self::Foundry(p) => p.get_logs(&filter).await,
+        }
+        .wrap_err("failed to fetch logs")?;
+        Ok(logs)
+    }
+
+    // ── MarchMadness logs ────────────────────────────────────────────
+
     pub async fn get_bracket_submitted_logs(
         &self,
         contract: Address,
         from_block: u64,
         to_block: u64,
     ) -> Result<Vec<Log>> {
-        let filter = Filter::new()
-            .address(contract)
-            .event_signature(BracketSubmitted::SIGNATURE_HASH)
-            .from_block(from_block)
-            .to_block(to_block);
-
-        let logs = match self {
-            Self::Reth(p) => p.get_logs(&filter).await,
-            Self::Foundry(p) => p.get_logs(&filter).await,
-        }
-        .wrap_err("failed to fetch BracketSubmitted logs")?;
-        Ok(logs)
+        self.get_logs_for_event(
+            contract,
+            BracketSubmitted::SIGNATURE_HASH,
+            from_block,
+            to_block,
+        )
+        .await
+        .wrap_err("failed to fetch BracketSubmitted logs")
     }
 
-    /// Fetch TagSet event logs in a block range.
     pub async fn get_tag_set_logs(
         &self,
         contract: Address,
         from_block: u64,
         to_block: u64,
     ) -> Result<Vec<Log>> {
-        let filter = Filter::new()
-            .address(contract)
-            .event_signature(TagSet::SIGNATURE_HASH)
-            .from_block(from_block)
-            .to_block(to_block);
-
-        let logs = match self {
-            Self::Reth(p) => p.get_logs(&filter).await,
-            Self::Foundry(p) => p.get_logs(&filter).await,
-        }
-        .wrap_err("failed to fetch TagSet logs")?;
-        Ok(logs)
+        self.get_logs_for_event(contract, TagSet::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch TagSet logs")
     }
 
-    /// Call `getEntryCount()` on the contract.
+    // ── BracketGroups logs ───────────────────────────────────────────
+
+    pub async fn get_group_created_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(contract, GroupCreated::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch GroupCreated logs")
+    }
+
+    pub async fn get_member_joined_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(contract, MemberJoined::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch MemberJoined logs")
+    }
+
+    pub async fn get_member_left_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(contract, MemberLeft::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch MemberLeft logs")
+    }
+
+    // ── BracketMirror logs ───────────────────────────────────────────
+
+    pub async fn get_mirror_created_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(
+            contract,
+            MirrorCreated::SIGNATURE_HASH,
+            from_block,
+            to_block,
+        )
+        .await
+        .wrap_err("failed to fetch MirrorCreated logs")
+    }
+
+    pub async fn get_entry_added_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(contract, EntryAdded::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch EntryAdded logs")
+    }
+
+    pub async fn get_entry_removed_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(contract, EntryRemoved::SIGNATURE_HASH, from_block, to_block)
+            .await
+            .wrap_err("failed to fetch EntryRemoved logs")
+    }
+
+    // ── Contract calls ───────────────────────────────────────────────
+
+    /// Call `getEntryCount()` on the MarchMadness contract.
     pub async fn get_entry_count(&self, contract: Address) -> Result<u32> {
         let calldata = getEntryCountCall {}.abi_encode();
         let response = match self {
@@ -134,7 +224,7 @@ impl IndexerProvider {
         Ok(count)
     }
 
-    /// Call `getBracket(address)` on the contract.
+    /// Call `getBracket(address)` on the MarchMadness contract.
     pub async fn get_bracket(&self, contract: Address, account: Address) -> Result<FixedBytes<8>> {
         let calldata = getBracketCall { account }.abi_encode();
         let response = match self {
@@ -156,6 +246,34 @@ impl IndexerProvider {
         }
         Ok(bracket)
     }
+
+    /// Call `getEntryBySlug(mirrorId, slug)` on the BracketMirror contract.
+    pub async fn get_mirror_entry_bracket(
+        &self,
+        contract: Address,
+        mirror_id: alloy_primitives::U256,
+        slug: String,
+    ) -> Result<FixedBytes<8>> {
+        let calldata = getEntryBySlugCall {
+            mirrorId: mirror_id,
+            slug,
+        }
+        .abi_encode();
+        let response = match self {
+            Self::Reth(p) => {
+                let tx = build_reth_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+            Self::Foundry(p) => {
+                let tx = build_foundry_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+        }
+        .wrap_err("getEntryBySlug call failed")?;
+        let decoded = getEntryBySlugCall::abi_decode_returns(&response)
+            .wrap_err("failed to decode getEntryBySlug result")?;
+        Ok(decoded.bracket)
+    }
 }
 
 /// Extract the address from a BracketSubmitted log.
@@ -170,6 +288,72 @@ pub fn parse_tag_set(log: &Log) -> Result<(Address, String)> {
     let decoded =
         TagSet::decode_log(log.inner.as_ref()).wrap_err("failed to decode TagSet event")?;
     Ok((decoded.account, decoded.tag.clone()))
+}
+
+/// Parse a GroupCreated log.
+pub fn parse_group_created(log: &Log) -> Result<(u32, String, String, Address, bool)> {
+    let decoded = GroupCreated::decode_log(log.inner.as_ref())
+        .wrap_err("failed to decode GroupCreated event")?;
+    Ok((
+        decoded.groupId,
+        decoded.slug.clone(),
+        decoded.displayName.clone(),
+        decoded.creator,
+        decoded.hasPassword,
+    ))
+}
+
+/// Parse a MemberJoined log.
+pub fn parse_member_joined(log: &Log) -> Result<(u32, Address)> {
+    let decoded = MemberJoined::decode_log(log.inner.as_ref())
+        .wrap_err("failed to decode MemberJoined event")?;
+    Ok((decoded.groupId, decoded.addr))
+}
+
+/// Parse a MemberLeft log.
+pub fn parse_member_left(log: &Log) -> Result<(u32, Address)> {
+    let decoded =
+        MemberLeft::decode_log(log.inner.as_ref()).wrap_err("failed to decode MemberLeft event")?;
+    Ok((decoded.groupId, decoded.addr))
+}
+
+/// Parse a MirrorCreated log.
+pub fn parse_mirror_created(log: &Log) -> Result<(u64, String, String, Address)> {
+    let decoded = MirrorCreated::decode_log(log.inner.as_ref())
+        .wrap_err("failed to decode MirrorCreated event")?;
+    // mirrorId is U256, but we know it fits in u64
+    let id: u64 = decoded
+        .mirrorId
+        .try_into()
+        .wrap_err("mirrorId exceeds u64")?;
+    Ok((
+        id,
+        decoded.slug.clone(),
+        decoded.displayName.clone(),
+        decoded.admin,
+    ))
+}
+
+/// Parse an EntryAdded log (slug-based).
+pub fn parse_entry_added(log: &Log) -> Result<(u64, String)> {
+    let decoded =
+        EntryAdded::decode_log(log.inner.as_ref()).wrap_err("failed to decode EntryAdded event")?;
+    let id: u64 = decoded
+        .mirrorId
+        .try_into()
+        .wrap_err("mirrorId exceeds u64")?;
+    Ok((id, decoded.slug.clone()))
+}
+
+/// Parse an EntryRemoved log (slug-based).
+pub fn parse_entry_removed(log: &Log) -> Result<(u64, String)> {
+    let decoded = EntryRemoved::decode_log(log.inner.as_ref())
+        .wrap_err("failed to decode EntryRemoved event")?;
+    let id: u64 = decoded
+        .mirrorId
+        .try_into()
+        .wrap_err("mirrorId exceeds u64")?;
+    Ok((id, decoded.slug.clone()))
 }
 
 /// Build a SeismicReth transaction request for eth_call.

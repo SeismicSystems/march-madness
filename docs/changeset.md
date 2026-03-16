@@ -4,6 +4,17 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Redis integration for chain metadata
+- **Infra**: Replace flat JSON file storage with Redis for indexer and server.
+- **Indexer**: Writes all chain events (entries, tags, groups, mirrors) to Redis instead of `data/entries.json`.
+- **Indexer**: Contract addresses default to `data/deployments.json` if not specified via CLI.
+- **Indexer**: Added event ABIs for BracketGroups (`GroupCreated`, `MemberJoined`, `MemberLeft`) and BracketMirror (`MirrorCreated`, `EntryAdded`, `EntryRemoved`).
+- **Server**: Reads entries, groups, and mirrors from Redis. Removed file locking / TTL cache for chain data.
+- **Server**: New endpoints: `GET /groups/:slug`, `GET /groups/:slug/members`, `GET /mirrors`, `GET /mirrors/:slug`, `GET /mirrors/:slug/entries`.
+- **CI**: Added Redis service to GitHub Actions workflow and local `ci.sh`.
+- **Config**: Added `REDIS_URL` to `.env.example` (default: `redis://127.0.0.1:6379`).
+- **Deps**: Added `redis` 0.27 with `tokio-comp` + `aio` features to workspace.
+
 ### 2026-03-16 — Gitignore broadcast directory
 - **Repo hygiene**: Removed committed `contracts/broadcast/` files and gitignored the entire directory. Broadcast logs are deployment artifacts that shouldn't be tracked.
 
