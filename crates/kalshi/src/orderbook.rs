@@ -217,16 +217,16 @@ pub fn print_trade_log(trades: &[Trade]) {
 
     println!();
     println!(
-        " {:<4} {:<max_team$}  {:>3}  {:>5}  {:>5}  {:>6}  {:>4}  {:>8}  URL",
-        "Side", "Team", "Rnd", "Price", "Model", "Edge", "Qty", "EV($)"
+        " {:<max_team$}   {:<4}   {:>3}   {:>5}   {:>5}   {:>6}   {:>4}   {:>8}   URL",
+        "Team", "Side", "Rnd", "Price", "Model", "Edge", "Qty", "EV($)"
     );
-    println!("{}", "-".repeat(max_team + 65));
+    println!("{}", "-".repeat(max_team + 74));
 
     for t in trades {
         println!(
-            " {:<4} {:<max_team$}  {:>3}  {:>4}\u{00a2}  {:>4.0}\u{00a2}  {:>5.1}\u{00a2}  {:>4}  ${:>7.2}  {}",
-            t.side,
+            " {:<max_team$}   {:<4}   {:>3}   {:>4}\u{00a2}   {:>4.0}\u{00a2}   {:>5.1}\u{00a2}   {:>4}   ${:>7.2}   {}",
             t.team,
+            t.side,
             round_label(t.round),
             t.price_cents,
             t.model_prob_cents,
@@ -238,10 +238,10 @@ pub fn print_trade_log(trades: &[Trade]) {
     }
 
     let total_ev: f64 = trades.iter().map(|t| t.ev_dollars).sum();
-    println!("{}", "-".repeat(max_team + 65));
+    println!("{}", "-".repeat(max_team + 74));
     println!(
-        " {:>max_team$}  {:>3}  {:>5}  {:>5}  {:>6}  {:>4}  ${:>7.2}",
-        "", "", "", "", "", "", total_ev
+        " {:<max_team$}   {:>4}   {:>3}   {:>5}   {:>5}   {:>6}   {:>4}   ${:>7.2}",
+        "", "", "", "", "", "", "", total_ev
     );
 }
 

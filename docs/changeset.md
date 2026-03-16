@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Improve calibrator trade table alignment
+- **Trade log table**: Moved "Team" to the first column and "Side" to the second column for better readability. Added extra spacing between all columns so the table is less cramped.
+- **Rust fmt**: Fixed a pre-existing `rustfmt` issue in `calibrate.rs`.
+
 ### 2026-03-16 — Filter Kalshi calibration to tournament teams only
 - **Calibrate binary**: Markets are now filtered to only tournament teams (68) before fetching orderbooks, instead of fetching all ~150 markets per round. Cached orderbooks are also filtered by ticker on load.
 - **Mappings**: Added 6 missing Kalshi → NCAA name mappings to `data/mappings.toml` `[kalshi]` section: California Baptist, Hawai'i, LIU, Miami (OH), North Carolina St., Queens University.

@@ -183,7 +183,11 @@ fn main() -> io::Result<()> {
                     .into_iter()
                     .filter(|ob| market_tickers.contains(&ob.ticker))
                     .collect();
-                info!(round = market_def.label, count = obs.len(), "using cached orderbooks (filtered)");
+                info!(
+                    round = market_def.label,
+                    count = obs.len(),
+                    "using cached orderbooks (filtered)"
+                );
                 obs
             }
             None => {
