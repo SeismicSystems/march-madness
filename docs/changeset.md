@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Auto-fix sentinel bit on pasted hex brackets
+- **Behavior change**: When a user pastes a bracket hex with a missing sentinel bit (bit 63), the UI now automatically flips the bit to make it valid instead of loading the invalid hex as-is.
+- **UX**: Warning message now shows both the original pasted hex and the corrected hex so the user knows exactly what changed.
+
 ### 2026-03-16 — Make MirrorsSection discoverable with track/untrack UI
 - **Problem**: MirrorsSection was completely invisible — it only rendered when `mirrorIds.length > 0`, and the only way to add mirror IDs was programmatically via localStorage. No input, no form, no way for users to discover or use mirrors.
 - **Fix**: Always show MirrorsSection when a mirror contract is deployed. Added a "Track Mirror" form (accepts mirror ID or slug, validated on-chain) that saves to localStorage. Added "Untrack" button on each tracked mirror. Made `mirrorIds` state reactive so tracking/untracking updates the UI immediately.

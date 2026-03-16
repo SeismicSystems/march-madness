@@ -1,0 +1,3 @@
+you know how we give a warning if they paste in hex with invalid sentinel byte, and say it's invalid on chain but we filled in their picks? why don't we change the behaviour to:
+1) if they paste an invalid hex string, edit it to be valid (flip sentinel bit to 1)
+2) in the warning message say "you pasted in invalid hex {X}, we updated it to {Y} which is the same bracket with sentinel bit on" <- something like that, that's a little verbose, we should definitely print out X and Y though

@@ -73,14 +73,17 @@ export function HomePage() {
       setHexError(null); // Not a complete hex yet, no error
       return false;
     }
-    // Check sentinel bit — warn but still load
+    // Check sentinel bit — if missing, fix it by setting bit 63 (MSB)
     const firstNibble = parseInt(cleaned[2], 16);
     if (firstNibble < 8) {
-      setHexError("Missing sentinel bit — picks loaded but bracket is invalid for on-chain submission");
+      const fixedNibble = (firstNibble | 0x8).toString(16);
+      const fixed = `0x${fixedNibble}${cleaned.slice(3)}` as `0x${string}`;
+      setHexError(`Pasted ${cleaned} — missing sentinel bit. Loaded ${fixed} (same picks, valid for submission).`);
+      bracket.loadFromHex(fixed);
     } else {
       setHexError(null);
+      bracket.loadFromHex(cleaned as `0x${string}`);
     }
-    bracket.loadFromHex(cleaned as `0x${string}`);
     setHexInput("");
     setHexOpen(false);
     return true;
