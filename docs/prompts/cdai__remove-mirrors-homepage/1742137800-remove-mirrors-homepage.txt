@@ -1,0 +1,6 @@
+on a sepaate branch: i also have no way to create a mirror in the UI. not to mention, the UI for Groups and Mirrors is still on the home page. I think you should ONLY have it on the /groups and /mirrors page. there's no mirrors page currently, but there should be a UI for it. i guess it's less important now (maybe don't display mirrors at all on the frontend for now -- just get rid of that initial section. we'll add the feature later).. so make a pr that removes "mirrors" from the homepage, and then put up an issue saying we should create a UI for mirrors:
+
+in the mirrors UI, we should be able to:
+1) create a mirror
+2) include a link so people can include the mirror in their frontend (much like you're building for groups with ?slug=seismic-team&password=Quake100
+3) allow the admin to easily punch in mirrors. they can either: (1) paste in hex codes (2) manually fill in brackets for each mirror entry they are adding. UI should look the same as it does for users submitting brackets

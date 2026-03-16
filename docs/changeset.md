@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Remove Groups and Mirrors sections from homepage
+- **Cleanup**: Removed GroupsSection and MirrorsSection from the homepage. Groups already have a dedicated `/groups` page. Mirrors will get a dedicated `/mirrors` page later (see issue).
+- **No functional change**: MirrorsSection component is kept in the codebase for future use.
+
 ### 2026-03-16 — Add passphrase field and invite links for private group joining
 - **Fix**: Private groups were impossible to join from the UI — no passphrase input existed. Added a passphrase field to the "Join a Group" form.
 - **UX**: When a slug resolves to a password-protected group, the passphrase field highlights and an error message prompts the user to enter the passphrase.
