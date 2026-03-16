@@ -60,7 +60,9 @@ export function MirrorsSection() {
         mirrorIds.map(async (mirrorId) => {
           try {
             const mirror = await mirrorPublic.getMirror(BigInt(mirrorId));
-            const entryCount = await mirrorPublic.getEntryCount(BigInt(mirrorId));
+            const entryCount = await mirrorPublic.getEntryCount(
+              BigInt(mirrorId),
+            );
             return { mirrorId, mirror, entryCount: Number(entryCount) };
           } catch {
             return null;
@@ -120,7 +122,9 @@ export function MirrorsSection() {
         setMirrorIds(updated);
         setTrackInput("");
       } catch (err) {
-        setTrackError(err instanceof Error ? err.message : "Failed to track mirror");
+        setTrackError(
+          err instanceof Error ? err.message : "Failed to track mirror",
+        );
       } finally {
         setIsTracking(false);
       }
@@ -153,8 +157,12 @@ export function MirrorsSection() {
               className="flex items-center justify-between rounded-lg bg-bg-tertiary border border-border/50 px-3 py-2"
             >
               <div>
-                <span className="text-sm text-text-primary">{mirror.displayName}</span>
-                <span className="ml-2 text-xs text-text-tertiary">/{mirror.slug}</span>
+                <span className="text-sm text-text-primary">
+                  {mirror.displayName}
+                </span>
+                <span className="ml-2 text-xs text-text-tertiary">
+                  /{mirror.slug}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-secondary">
@@ -195,14 +203,12 @@ export function MirrorsSection() {
         <button
           onClick={() => trackMirror(trackInput)}
           disabled={isTracking || !trackInput.trim()}
-          className="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
         >
           {isTracking ? "..." : "Track"}
         </button>
       </div>
-      {trackError && (
-        <p className="mt-1 text-xs text-red-400">{trackError}</p>
-      )}
+      {trackError && <p className="mt-1 text-xs text-red-400">{trackError}</p>}
     </div>
   );
 }

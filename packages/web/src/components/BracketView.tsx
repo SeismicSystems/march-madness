@@ -67,54 +67,50 @@ export function BracketView({
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex flex-col gap-12 min-w-[1400px]">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 min-w-[1400px] items-stretch">
         {/* Top half: East (left) + Final Four + West (right) */}
-        <div className="flex items-stretch justify-center gap-4">
-          <BracketRegion
-            regionName={regions[0]}
-            rounds={getRegionGames(0)}
-            onPick={onPick}
-            disabled={disabled}
-            tournamentStatus={tournamentStatus}
-          />
-          <FinalFour
-            semifinal1={f4Games[0] ?? null}
-            semifinal2={f4Games[1] ?? null}
-            championship={champGame[0] ?? null}
-            onPick={onPick}
-            disabled={disabled}
-            tournamentStatus={tournamentStatus}
-          />
-          <BracketRegion
-            regionName={regions[1]}
-            rounds={getRegionGames(1)}
-            onPick={onPick}
-            disabled={disabled}
-            reversed
-            tournamentStatus={tournamentStatus}
-          />
-        </div>
+        <BracketRegion
+          regionName={regions[0]}
+          rounds={getRegionGames(0)}
+          onPick={onPick}
+          disabled={disabled}
+          tournamentStatus={tournamentStatus}
+        />
+        <FinalFour
+          semifinal1={f4Games[0] ?? null}
+          semifinal2={f4Games[1] ?? null}
+          championship={champGame[0] ?? null}
+          onPick={onPick}
+          disabled={disabled}
+          tournamentStatus={tournamentStatus}
+        />
+        <BracketRegion
+          regionName={regions[1]}
+          rounds={getRegionGames(1)}
+          onPick={onPick}
+          disabled={disabled}
+          reversed
+          tournamentStatus={tournamentStatus}
+        />
 
         {/* Bottom half: South (left) + spacer + Midwest (right) */}
-        <div className="flex items-stretch justify-center gap-4">
-          <BracketRegion
-            regionName={regions[2]}
-            rounds={getRegionGames(2)}
-            onPick={onPick}
-            disabled={disabled}
-            tournamentStatus={tournamentStatus}
-          />
-          {/* Spacer for alignment with Final Four column */}
-          <div className="min-w-[200px]" />
-          <BracketRegion
-            regionName={regions[3]}
-            rounds={getRegionGames(3)}
-            onPick={onPick}
-            disabled={disabled}
-            reversed
-            tournamentStatus={tournamentStatus}
-          />
-        </div>
+        <BracketRegion
+          regionName={regions[2]}
+          rounds={getRegionGames(2)}
+          onPick={onPick}
+          disabled={disabled}
+          tournamentStatus={tournamentStatus}
+        />
+        {/* Empty cell — grid keeps it aligned with FinalFour column */}
+        <div />
+        <BracketRegion
+          regionName={regions[3]}
+          rounds={getRegionGames(3)}
+          onPick={onPick}
+          disabled={disabled}
+          reversed
+          tournamentStatus={tournamentStatus}
+        />
       </div>
     </div>
   );
