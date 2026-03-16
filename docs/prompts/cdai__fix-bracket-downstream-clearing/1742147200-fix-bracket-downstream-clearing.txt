@@ -1,0 +1,48 @@
+Implement the following plan:
+
+# Fix: Bracket picker clears later-round picks when filling earlier rounds
+
+## Context
+
+When a user selects a team (e.g., Duke) to win the tournament by clicking through later rounds first, then goes back to fill in earlier-round games, the later-round picks (including the championship) get deleted. The bracket only works if filled in strict sequential order.
+
+**Root cause**: `makePick` in `useBracket.ts` calls `clearDownstream()` unconditionally — even when the user is making a **first pick** (oldPick is `null`). Since `clearDownstream` traces from the changed game all the way up to the championship, filling in any empty R64 game clears the championship pick.
+
+When `oldPick` is `null`, there was no previous winner to invalidate, so clearing downstream is unnecessary.
+
+## Fix
+
+**One-line change** in `packages/web/src/hooks/useBracket.ts`, line ~201:
+
+```typescript
+// Before:
+clearDownstream(next, gameIndex);
+
+// After:
+if (oldPick !== null) {
+  clearDownstream(next, gameIndex);
+}
+```
+
+Only clear downstream when the user is **changing** an existing pick, not making one for the first time.
+
+### Files to modify
+
+- `packages/web/src/hooks/useBracket.ts` — add `oldPick !== null` guard (line ~201)
+- `docs/changeset.md` — add changeset entry
+- `docs/prompts/cdai__fix-bracket-downstream-clearing/` — save prompt
+
+### Files unchanged (verified correct)
+
+- `packages/client/src/bracket.ts` — encoding/decoding is correct
+- `packages/web/src/components/BracketGame.tsx` — click handlers are correct
+
+## Verification
+
+Manual test scenarios:
+
+1. Pick Duke to win championship first, then fill in R64 games → Duke stays as champion
+2. Fill bracket normally, change an R64 pick → downstream clears correctly
+3. Pick champion top-down, fill rest bottom-up → champion persists
+4. Partial bracket save/load (refresh page) → state consistent
+5. Run `./scripts/ci.sh` to verify no regressions
