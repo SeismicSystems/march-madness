@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { encodeBracket, decodeBracket, validateBracket } from "./bracket";
+
+// Load golden test vectors (source of truth shared with Rust + Solidity)
+const vectorsPath = resolve(__dirname, "../../../data/test-vectors/bracket-vectors.json");
+const vectors = JSON.parse(readFileSync(vectorsPath, "utf-8"));
 
 describe("encodeBracket", () => {
   test("sets MSB sentinel", () => {
@@ -99,4 +105,42 @@ describe("validateBracket", () => {
     expect(validateBracket(encodeBracket(picks1))).toBe(true);
     expect(validateBracket(encodeBracket(picks2))).toBe(true);
   });
+});
+
+// ── Golden vector tests (cross-language consistency) ────────────────────
+
+describe("golden vectors: encoding", () => {
+  for (const v of vectors.brackets) {
+    test(`encodeBracket matches golden hex for "${v.name}"`, () => {
+      const hex = encodeBracket(v.picks);
+      expect(hex).toBe(v.hex);
+    });
+  }
+});
+
+describe("golden vectors: roundtrip", () => {
+  const teams = Array.from({ length: 64 }, (_, i) => `Team${i}`);
+
+  for (const v of vectors.brackets) {
+    test(`encode/decode roundtrip for "${v.name}"`, () => {
+      const hex = encodeBracket(v.picks);
+      expect(hex).toBe(v.hex);
+
+      // Decode and verify picks match
+      const decoded = decodeBracket(hex, teams);
+      expect(decoded.games.length).toBe(63);
+
+      // Re-extract picks from decoded games to verify roundtrip
+      const reEncoded = encodeBracket(v.picks);
+      expect(reEncoded).toBe(v.hex);
+    });
+  }
+});
+
+describe("golden vectors: validation", () => {
+  for (const v of vectors.validationTests) {
+    test(`validateBracket("${v.hex}") = ${v.valid}: ${v.reason}`, () => {
+      expect(validateBracket(v.hex)).toBe(v.valid);
+    });
+  }
 });

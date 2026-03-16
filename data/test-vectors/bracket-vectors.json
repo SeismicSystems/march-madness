@@ -1,0 +1,168 @@
+{
+  "description": "Golden test vectors for ByteBracket 64-bit encoding/decoding. Source of truth for cross-language consistency (TypeScript, Rust, Solidity).",
+  "encoding": {
+    "bits": 64,
+    "sentinel": "bit 63 (MSB) must be 1",
+    "games": "bits 62-0 = 63 game outcomes (1 = team1/higher seed wins, 0 = team2/lower seed wins)",
+    "bitOrder": "bit 62 = first R64 game (game index 0), bit 0 = championship (game index 62)",
+    "maxScore": 192,
+    "roundPoints": [1, 2, 4, 8, 16, 32],
+    "gamesPerRound": [32, 16, 8, 4, 2, 1]
+  },
+  "brackets": [
+    {
+      "name": "all_chalk",
+      "description": "Every higher seed wins every game. Perfect chalk bracket.",
+      "hex": "0xffffffffffffffff",
+      "picks": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]
+    },
+    {
+      "name": "all_upsets",
+      "description": "Every lower seed wins every game. Maximum chaos.",
+      "hex": "0x8000000000000000",
+      "picks": [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
+    },
+    {
+      "name": "mostly_chalk_few_upsets",
+      "description": "Chalk bracket with 5 upsets: one per region in R64 (games 3,11,19,27) plus one in R32 (game 33).",
+      "hex": "0xf7f7f7f7dfffffff",
+      "picks": [true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]
+    },
+    {
+      "name": "cinderella_run",
+      "description": "One underdog (team2 of game 0) wins through R64, R32, S16, E8, F4, and Championship. All other games chalk.",
+      "hex": "0xbfffffffbfffbfba",
+      "picks": [false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,false,true,false]
+    },
+    {
+      "name": "alternating_picks",
+      "description": "Alternating team1/team2 wins: even-indexed games = team1, odd-indexed = team2.",
+      "hex": "0xd555555555555555",
+      "picks": [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false,true]
+    },
+    {
+      "name": "split_regions",
+      "description": "Top two regions (games 0-15) all chalk, bottom two regions (games 16-31) all upsets. Later rounds follow region winners.",
+      "hex": "0xffff80007f807865",
+      "picks": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true,true,true,true,true,true,true,true,false,false,false,false,false,false,false,false,true,true,true,true,false,false,false,false,true,true,false,false,true,false,true]
+    },
+    {
+      "name": "single_bit_flip_championship",
+      "description": "All chalk except championship game (game 62) is an upset. Tests single-bit impact on scoring.",
+      "hex": "0xfffffffffffffffe",
+      "picks": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false]
+    },
+    {
+      "name": "region_boundary_upsets",
+      "description": "All chalk except the last R64 game in each region (games 7,15,23,31). Tests region boundary handling.",
+      "hex": "0xff7f7f7f7fffffff",
+      "picks": [true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]
+    }
+  ],
+  "scoringTests": [
+    {
+      "description": "Perfect bracket scores max 192",
+      "bracket": "0xffffffffffffffff",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 192
+    },
+    {
+      "description": "Completely inverted bracket scores 0",
+      "bracket": "0x8000000000000000",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 0
+    },
+    {
+      "description": "All chalk vs cinderella results",
+      "bracket": "0xffffffffffffffff",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 117
+    },
+    {
+      "description": "All upsets vs cinderella results",
+      "bracket": "0x8000000000000000",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 5
+    },
+    {
+      "description": "Mostly chalk vs all chalk results",
+      "bracket": "0xf7f7f7f7dfffffff",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 175
+    },
+    {
+      "description": "Mostly chalk vs cinderella results",
+      "bracket": "0xf7f7f7f7dfffffff",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 102
+    },
+    {
+      "description": "Cinderella bracket is perfect against cinderella results",
+      "bracket": "0xbfffffffbfffbfba",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 192
+    },
+    {
+      "description": "Cinderella bracket vs all chalk results",
+      "bracket": "0xbfffffffbfffbfba",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 117
+    },
+    {
+      "description": "Alternating picks vs all chalk results",
+      "bracket": "0xd555555555555555",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 112
+    },
+    {
+      "description": "Alternating picks vs cinderella results",
+      "bracket": "0xd555555555555555",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 45
+    },
+    {
+      "description": "Split regions vs all chalk results",
+      "bracket": "0xffff80007f807865",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 18
+    },
+    {
+      "description": "Split regions vs cinderella results",
+      "bracket": "0xffff80007f807865",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 11
+    },
+    {
+      "description": "Single bit flip (championship) vs all chalk — loses 63 points from championship cascade",
+      "bracket": "0xfffffffffffffffe",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 129
+    },
+    {
+      "description": "Single bit flip (championship) vs cinderella results",
+      "bracket": "0xfffffffffffffffe",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 148
+    },
+    {
+      "description": "Region boundary upsets vs all chalk results",
+      "bracket": "0xff7f7f7f7fffffff",
+      "results": "0xffffffffffffffff",
+      "expectedScore": 183
+    },
+    {
+      "description": "Region boundary upsets vs cinderella results",
+      "bracket": "0xff7f7f7f7fffffff",
+      "results": "0xbfffffffbfffbfba",
+      "expectedScore": 112
+    }
+  ],
+  "validationTests": [
+    { "hex": "0xffffffffffffffff", "valid": true, "reason": "all bits set including sentinel" },
+    { "hex": "0x8000000000000000", "valid": true, "reason": "sentinel only, all team2 wins" },
+    { "hex": "0xbfffffffbfffbfba", "valid": true, "reason": "cinderella bracket, sentinel set" },
+    { "hex": "0x7fffffffffffffff", "valid": false, "reason": "MSB not set — missing sentinel" },
+    { "hex": "0x0000000000000000", "valid": false, "reason": "all zeros — no sentinel" },
+    { "hex": "0x1234567890abcdef", "valid": false, "reason": "first nibble 0x1 < 0x8 — no sentinel" }
+  ]
+}

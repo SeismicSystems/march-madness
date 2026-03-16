@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import {
   popcount,
   pairwiseOr,
@@ -7,6 +9,10 @@ import {
   scoreBracketPartial,
 } from "./scoring.ts";
 import type { TournamentStatus } from "./types.ts";
+
+// Load golden test vectors (source of truth shared with Rust + Solidity)
+const vectorsPath = resolve(__dirname, "../../../data/test-vectors/bracket-vectors.json");
+const vectors = JSON.parse(readFileSync(vectorsPath, "utf-8"));
 
 describe("popcount", () => {
   test("0 bits", () => {
@@ -114,5 +120,29 @@ describe("scoreBracketPartial", () => {
     const status: TournamentStatus = { games };
     const result = scoreBracketPartial(bracket, status);
     expect(result.current).toBe(0);
+  });
+});
+
+// ── Golden vector scoring tests (cross-language consistency) ────────────
+
+describe("golden vectors: scoring", () => {
+  for (const st of vectors.scoringTests) {
+    test(`${st.description}`, () => {
+      const score = scoreBracket(
+        st.bracket as `0x${string}`,
+        st.results as `0x${string}`,
+      );
+      expect(score).toBe(st.expectedScore);
+    });
+  }
+
+  test("self-score of every bracket is 192 (perfect)", () => {
+    for (const v of vectors.brackets) {
+      const score = scoreBracket(
+        v.hex as `0x${string}`,
+        v.hex as `0x${string}`,
+      );
+      expect(score).toBe(192);
+    }
   });
 });
