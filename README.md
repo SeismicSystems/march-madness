@@ -8,7 +8,7 @@ Hosted at [brackets.seismictest.net](https://brackets.seismictest.net)
 
 Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
 
-This whole thing was super obviously vibe coded.
+Aside from ripping a bunch of code from Jim: this whole thing was super obviously vibe coded.
 
 ## How It Works
 
