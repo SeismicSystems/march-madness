@@ -82,17 +82,17 @@ sudo supervisorctl start all
 
 | Process | Binary | Description |
 |---------|--------|-------------|
-| `mm-server` | `target/release/server` | HTTP API server (port 3000) |
-| `mm-indexer` | `target/release/indexer listen` | Chain event listener, writes to Redis |
-| `mm-ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes `status.json` |
+| `server` | `target/release/server` | HTTP API server (port 3000) |
+| `indexer` | `target/release/indexer listen` | Chain event listener, writes to Redis |
+| `ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes `status.json` |
 
 ### Common commands
 
 ```bash
 sudo supervisorctl status                  # Check all processes
-sudo supervisorctl restart mm-server       # Restart a specific process
-sudo supervisorctl tail -f mm-server       # Follow stdout logs
-sudo supervisorctl tail -f mm-server stderr  # Follow stderr logs
+sudo supervisorctl restart server       # Restart a specific process
+sudo supervisorctl tail -f server       # Follow stdout logs
+sudo supervisorctl tail -f server stderr  # Follow stderr logs
 ```
 
 ## Building
@@ -114,8 +114,8 @@ Beyond what's in `.env.example`, the following are needed for production:
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `VITE_RPC_URL` | `mm-indexer` (supervisor) | Seismic RPC endpoint (e.g. `https://rpc.seismictest.net`). The indexer falls back to this env var when `--rpc-url` is not passed. Already in `.env.example`. |
-| `REDIS_URL` | `mm-server`, `mm-indexer` | Redis connection string. Defaults to `redis://127.0.0.1:6379` — only set if using non-default. |
+| `VITE_RPC_URL` | `indexer` (supervisor) | Seismic RPC endpoint (e.g. `https://rpc.seismictest.net`). The indexer falls back to this env var when `--rpc-url` is not passed. Already in `.env.example`. |
+| `REDIS_URL` | `server`, `indexer` | Redis connection string. Defaults to `redis://127.0.0.1:6379` — only set if using non-default. |
 
 Note: `TOURNAMENT_API_KEY` is not needed in this setup. The `ncaa-feed` process writes `status.json` directly to disk, and the server reads it from the same file. The `POST /tournament-status` endpoint exists for remote updates but is unnecessary when both processes run on the same machine.
 
