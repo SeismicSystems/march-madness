@@ -1,7 +1,6 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useRef, useState } from "react";
 
-import { validateBracket } from "@march-madness/client";
 
 import { BracketView } from "../components/BracketView";
 import { DeadlineCountdown } from "../components/DeadlineCountdown";
@@ -26,14 +25,36 @@ export function HomePage() {
   // Easter egg: double-click to unlock hex input, type/paste a bracket to auto-fill
   const [hexOpen, setHexOpen] = useState(false);
   const [hexInput, setHexInput] = useState("");
+  const [hexError, setHexError] = useState<string | null>(null);
   const hexRef = useRef<HTMLInputElement>(null);
-  const handleHexInput = (value: string) => {
+  const tryLoadHex = (raw: string) => {
+    // Strip whitespace and any non-hex garbage that might come from copy-paste
+    const cleaned = raw.replace(/[^0-9a-fA-Fx]/g, "");
+    // Need 0x + exactly 16 hex chars
+    if (!/^0x[0-9a-fA-F]{16}$/.test(cleaned)) {
+      setHexError(null); // Not a complete hex yet, no error
+      return false;
+    }
+    // Check sentinel bit — warn but still load
+    const firstNibble = parseInt(cleaned[2], 16);
+    if (firstNibble < 8) {
+      setHexError("Missing sentinel bit — picks loaded but bracket is invalid for on-chain submission");
+    } else {
+      setHexError(null);
+    }
+    bracket.loadFromHex(cleaned as `0x${string}`);
+    setHexInput("");
+    setHexOpen(false);
+    return true;
+  };
+  const handleHexChange = (value: string) => {
     setHexInput(value);
-    const trimmed = value.trim();
-    if (validateBracket(trimmed)) {
-      bracket.loadFromHex(trimmed as `0x${string}`);
-      setHexInput("");
-      setHexOpen(false);
+    tryLoadHex(value);
+  };
+  const handleHexPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData("text");
+    if (tryLoadHex(pasted)) {
+      e.preventDefault();
     }
   };
 
@@ -69,8 +90,12 @@ export function HomePage() {
                 ref={hexRef}
                 type="text"
                 value={hexInput}
-                onChange={(e) => handleHexInput(e.target.value)}
-                onBlur={() => { if (!hexInput) setHexOpen(false); }}
+                onChange={(e) => handleHexChange(e.target.value)}
+                onPaste={handleHexPaste}
+                onBlur={() => {
+                  // Check the DOM value directly to avoid stale closure
+                  if (!hexRef.current?.value) setHexOpen(false);
+                }}
                 placeholder="0x..."
                 spellCheck={false}
                 autoFocus
@@ -87,6 +112,12 @@ export function HomePage() {
           </>
         )}
       </div>
+
+      {hexError && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
+          {hexError}
+        </div>
+      )}
 
       <div className="mb-6 sm:mb-8">
         <SubmitPanel
