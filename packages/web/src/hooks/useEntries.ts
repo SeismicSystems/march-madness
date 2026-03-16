@@ -11,7 +11,7 @@ export function useEntries() {
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/entries`);
+      const res = await fetch(`${API_BASE}/entries`);
       if (res.ok) {
         const data: EntryIndex = await res.json();
         setEntries(data);

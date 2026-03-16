@@ -11,7 +11,7 @@ export function useTournamentStatus() {
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/tournament-status`);
+      const res = await fetch(`${API_BASE}/tournament-status`);
       if (res.ok) {
         const data: TournamentStatus = await res.json();
         setStatus(data);

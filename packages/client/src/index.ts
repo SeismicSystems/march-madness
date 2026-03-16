@@ -1,5 +1,5 @@
 // March Madness client library
-// Abstracts over seismic-viem and the MarchMadness contract ABI.
+// Abstracts over seismic-viem and the MarchMadness, BracketGroups, and BracketMirror contracts.
 
 // ── Bracket encoding/decoding/validation ────────────────────────────
 export {
@@ -9,10 +9,12 @@ export {
 } from "./bracket.ts";
 export type { BracketGame, DecodedBracket } from "./bracket.ts";
 
-// ── Contract ABI ────────────────────────────────────────────────────
+// ── Contract ABIs ─────────────────────────────────────────────────────
 export { MarchMadnessAbi } from "./abi.ts";
+export { BracketGroupsAbi } from "./abi-groups.ts";
+export { BracketMirrorAbi } from "./abi-mirror.ts";
 
-// ── Client classes ──────────────────────────────────────────────────
+// ── MarchMadness client classes ───────────────────────────────────────
 export {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
@@ -20,6 +22,20 @@ export {
   ENTRY_FEE,
 } from "./client.ts";
 export type { ReadOptions, WriteOptions } from "./client.ts";
+
+// ── BracketGroups client classes ──────────────────────────────────────
+export {
+  BracketGroupsPublicClient,
+  BracketGroupsUserClient,
+} from "./groups.ts";
+export type { GroupData, MemberData, GroupPayoutData } from "./groups.ts";
+
+// ── BracketMirror client classes ──────────────────────────────────────
+export {
+  BracketMirrorPublicClient,
+  BracketMirrorAdminClient,
+} from "./mirror.ts";
+export type { MirrorData, MirrorEntryData } from "./mirror.ts";
 
 // ── Human-readable formatting ───────────────────────────────────────
 export {

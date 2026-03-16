@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Multi-contract support: Groups, Mirrors across client, UI, and server (closes #65)
+- **Client library** (`packages/client`): Added ABIs (`abi-groups.ts`, `abi-mirror.ts`) and typed client wrappers for BracketGroups (`BracketGroupsPublicClient`, `BracketGroupsUserClient`) and BracketMirror (`BracketMirrorPublicClient`, `BracketMirrorAdminClient`). All group lifecycle methods exposed: createGroup, joinGroup, joinGroupWithPassword, leaveGroup, editEntryName, scoreEntry, collectWinnings, getGroupBySlug. Mirror methods: createMirror, addEntry, removeEntry, getEntryBySlug, etc. Updated barrel exports in `index.ts`.
+- **Server** (`crates/server`): Added `GET /api/groups` stub endpoint returning an empty list (placeholder for future public group registry).
+- **Web UI** (`packages/web`): Added `useGroups` hook with localStorage tracking of joined group IDs, group data refresh, and all group lifecycle methods. Added `GroupsSection` component displayed prominently on the home page for both pre- and post-lock states. Supports joining groups by ID or slug, leaving, editing display names, and tracking groups without on-chain join.
+
 ### 2026-03-16 — Embed tournament data in Rust lib via include_str! (closes #62)
 - **New module** `crates/seismic-march-madness/src/data.rs` — embeds tournament.json and kenpom.csv for all available years (2025, 2026 men's) at compile time via `include_str!`. Year-parameterized API: `TournamentData::embedded(year)`, `KenpomRatings::embedded(year)`, `tournament_json(year)`, `kenpom_csv(year)`. No default year — callers must be explicit.
 - **Updated `forecaster`** — `--tournament-file` is now optional; defaults to `TournamentData::embedded(2026)`.

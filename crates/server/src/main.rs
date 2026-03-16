@@ -33,7 +33,7 @@ struct Cli {
     #[arg(long, default_value = "data/2026/men/forecasts.json")]
     forecasts_file: PathBuf,
 
-    /// API key for POST /api/tournament-status. Read from TOURNAMENT_API_KEY env var if not set.
+    /// API key for POST /tournament-status. Read from TOURNAMENT_API_KEY env var if not set.
     #[arg(long, env = "TOURNAMENT_API_KEY")]
     api_key: Option<String>,
 }
@@ -59,14 +59,15 @@ async fn main() -> eyre::Result<()> {
 
     let app = Router::new()
         .route("/health", get(routes::health))
-        .route("/api/entries", get(routes::get_entries))
-        .route("/api/entries/{address}", get(routes::get_entry))
-        .route("/api/stats", get(routes::get_stats))
+        .route("/entries", get(routes::get_entries))
+        .route("/entries/{address}", get(routes::get_entry))
+        .route("/stats", get(routes::get_stats))
         .route(
-            "/api/tournament-status",
+            "/tournament-status",
             get(routes::get_tournament_status).post(routes::post_tournament_status),
         )
-        .route("/api/forecasts", get(routes::get_forecasts))
+        .route("/forecasts", get(routes::get_forecasts))
+        .route("/groups", get(routes::get_groups))
         .layer(cors)
         .with_state(state);
 

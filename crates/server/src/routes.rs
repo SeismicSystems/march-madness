@@ -11,7 +11,7 @@ pub async fn health() -> &'static str {
     "OK"
 }
 
-/// GET /api/entries — return the full entry index.
+/// GET /entries — return the full entry index.
 pub async fn get_entries(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_index().await {
         Ok(index) => Json(index).into_response(),
@@ -22,7 +22,7 @@ pub async fn get_entries(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// GET /api/entries/:address — return a single entry by address.
+/// GET /entries/:address — return a single entry by address.
 pub async fn get_entry(
     State(state): State<AppState>,
     Path(address): Path<String>,
@@ -50,7 +50,7 @@ pub struct Stats {
     pub scored: usize,
 }
 
-/// GET /api/stats — basic stats derived from the index.
+/// GET /stats — basic stats derived from the index.
 pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_index().await {
         Ok(index) => {
@@ -71,7 +71,7 @@ pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// GET /api/tournament-status — serve tournament status JSON.
+/// GET /tournament-status — serve tournament status JSON.
 pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_tournament_status().await {
         Ok(data) => {
@@ -92,7 +92,7 @@ pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoRe
     }
 }
 
-/// GET /api/forecasts — serve forecasts JSON (from forecaster crate output).
+/// GET /forecasts — serve forecasts JSON (from forecaster crate output).
 pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_forecasts().await {
         Ok(data) => {
@@ -113,7 +113,13 @@ pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// POST /api/tournament-status — update tournament status JSON (requires API key).
+/// GET /groups — stub endpoint returning an empty list of public groups.
+/// Placeholder for a future registry of public groups.
+pub async fn get_groups() -> impl IntoResponse {
+    Json(serde_json::json!([])).into_response()
+}
+
+/// POST /tournament-status — update tournament status JSON (requires API key).
 pub async fn post_tournament_status(
     State(state): State<AppState>,
     headers: HeaderMap,
