@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add Groups page, nav link, and create-group UI (Fixes #82)
+- **New page**: `/groups` route with dedicated `GroupsPage` — create groups (public or private with passphrase), set entry fee, auto-generated slug from display name.
+- **Navigation**: Added "Groups" link to both desktop nav bar and mobile hamburger menu in `Header.tsx`.
+- **Layout fix**: Constrained the join-group form in `GroupsSection` to `max-w-lg` with compact inline inputs on desktop, fixing the too-wide layout from issue #82.
+- **Discoverability**: Empty-state text now links to the Groups page so users know where to create groups.
+
 ### 2026-03-16 — Add confirmation dialog to Reset Picks button
 - **Frontend**: Clicking "Reset Picks" now shows a confirmation dialog ("This will clear all 63 picks. This can't be undone.") before clearing the bracket.
 - Added `@headlessui/react` for accessible, headless dialog/modal components styled with Tailwind.

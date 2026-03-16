@@ -213,46 +213,48 @@ export function GroupsSection({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-text-tertiary mb-4">
-          No groups joined yet. Join a group by ID or slug below.
+        <p className="text-sm text-text-muted mb-4">
+          No groups joined yet. Join one below, or create a new group from the{" "}
+          <a href="/groups" className="text-accent hover:underline">Groups</a> page.
         </p>
       )}
 
       {/* Join Group Form */}
       {walletConnected && isBeforeDeadline && (
-        <div className="space-y-2">
-          <div className="flex gap-2">
+        <div className="max-w-lg space-y-2">
+          <h3 className="text-sm font-medium text-text-secondary">Join a Group</h3>
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={joinInput}
               onChange={(e) => setJoinInput(e.target.value)}
               placeholder="Group ID or slug"
-              className="flex-1 px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-tertiary"
+              className="sm:w-40 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
             />
             <input
               type="text"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
               placeholder="Your name"
-              className="flex-1 px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-tertiary"
+              className="sm:w-36 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
             />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleJoin}
-              disabled={isLoading || !joinInput.trim() || !nameInput.trim()}
-              className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-            >
-              {isLoading ? "Joining..." : "Join Group"}
-            </button>
-            <button
-              onClick={handleTrackById}
-              disabled={!joinInput.trim()}
-              className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
-              title="Track a group without joining on-chain (e.g. if you already joined)"
-            >
-              Track Only
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleJoin}
+                disabled={isLoading || !joinInput.trim() || !nameInput.trim()}
+                className="px-3 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+              >
+                {isLoading ? "Joining..." : "Join"}
+              </button>
+              <button
+                onClick={handleTrackById}
+                disabled={!joinInput.trim()}
+                className="px-3 py-1.5 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
+                title="Track a group without joining on-chain (e.g. if you already joined)"
+              >
+                Track
+              </button>
+            </div>
           </div>
           {joinError && (
             <p className="text-xs text-red-400">{joinError}</p>
