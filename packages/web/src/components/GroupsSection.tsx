@@ -29,6 +29,26 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function SlugInput({
+  value,
+  onChange,
+  placeholder = "group-slug",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+    />
+  );
+}
+
 export function GroupsSection({
   groups,
   isBeforeDeadline,
@@ -276,13 +296,7 @@ export function GroupsSection({
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-text-secondary">Join a Group</h3>
           <div className="space-y-2">
-            <input
-              type="text"
-              value={slugInput}
-              onChange={(e) => setSlugInput(e.target.value)}
-              placeholder="Group slug"
-              className="w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-            />
+            <SlugInput value={slugInput} onChange={setSlugInput} placeholder="Group slug" />
             <input
               type="text"
               value={nameInput}
@@ -316,18 +330,15 @@ export function GroupsSection({
           {/* Track by slug (separate, small) */}
           <div className="pt-2 border-t border-border">
             <h4 className="text-xs text-text-tertiary mb-1">Already a member? Track by slug</h4>
-            <div className="flex gap-2">
-              <input
-                type="text"
+            <div className="flex gap-2 max-w-md">
+              <SlugInput
                 value={trackSlugInput}
-                onChange={(e) => { setTrackSlugInput(e.target.value); setTrackError(""); }}
-                placeholder="group-slug"
-                className="flex-1 px-3 py-1 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+                onChange={(v) => { setTrackSlugInput(v); setTrackError(""); }}
               />
               <button
                 onClick={handleTrackBySlug}
                 disabled={!trackSlugInput.trim()}
-                className="px-3 py-1 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
+                className="px-3 py-1.5 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors whitespace-nowrap"
               >
                 Track
               </button>

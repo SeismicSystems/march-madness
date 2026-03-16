@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Shared SlugInput component, fix track-by-slug width
+- **Refactor**: Extract shared `SlugInput` component used by both join form and track-by-slug inputs — consistent sizing (`max-w-md`, `text-sm`, `py-1.5`).
+- **UX**: Track-by-slug input now matches join form width instead of stretching full-width.
+
 ### 2026-03-16 — Reset picks dialog hints about reloading on-chain bracket
 - **UX**: When user has an on-chain submission, the reset picks confirmation tells them they can reload it via "Load bracket" instead of "can't be undone".
 
