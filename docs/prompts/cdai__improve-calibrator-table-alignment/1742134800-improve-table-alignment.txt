@@ -1,0 +1,18 @@
+You're working on the march-madness project. The user wants to improve the table alignment of the kalshi calibrator's output at the bottom. Specifically:
+
+1. Move "team" to the very left column
+2. Move "side" to the 2nd column
+3. Give columns more space so the table looks nicer and more readable
+
+First, explore the codebase to find the kalshi calibrator output code. It's likely in `crates/bracket-sim/` or `crates/kalshi/`. Look for where the calibration results table is printed/formatted.
+
+Then fix the alignment to make it look much nicer. Make sure to run `./scripts/ci.sh` before finishing to verify nothing is broken.
+
+IMPORTANT project rules:
+- All git branches must be prefixed with `cdai__`
+- Update README.md and CLAUDE.md if behavior changes
+- Add entry to docs/changeset.md
+- Save this prompt to docs/prompts/<branch-name>/ as a .txt file
+- End with a PR
+
+Branch off main.
