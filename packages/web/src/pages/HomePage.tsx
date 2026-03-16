@@ -5,19 +5,15 @@ import { BracketView } from "../components/BracketView";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DeadlineCountdown } from "../components/DeadlineCountdown";
 import { FaucetBanner } from "../components/FaucetBanner";
-import { GroupsSection } from "../components/GroupsSection";
-import { MirrorsSection } from "../components/MirrorsSection";
 import { SubmitPanel } from "../components/SubmitPanel";
 import { useBracket } from "../hooks/useBracket";
 import { useContract } from "../hooks/useContract";
-import { useGroups } from "../hooks/useGroups";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
 export function HomePage() {
   const { authenticated } = usePrivy();
   const contract = useContract();
   const bracket = useBracket(contract.walletAddress);
-  const groups = useGroups();
   const { status: tournamentStatus } = useTournamentStatus();
 
   const isLocked = !contract.isBeforeDeadline;
@@ -226,30 +222,6 @@ export function HomePage() {
           onLoadBracket={handleLoadBracket}
           walletConnected={authenticated}
         />
-      </div>
-
-      {/* Groups section — prominent for both pre- and post-lock */}
-      {groups.hasContract && (
-        <div className="mb-6 sm:mb-8">
-          <GroupsSection
-            joinedGroups={groups.joinedGroups}
-            isLoading={groups.isLoading}
-            error={groups.error}
-            isBeforeDeadline={contract.isBeforeDeadline}
-            walletConnected={authenticated}
-            onJoinGroup={groups.joinGroup}
-            onJoinGroupWithPassword={groups.joinGroupWithPassword}
-            onLeaveGroup={groups.leaveGroup}
-            onEditEntryName={groups.editEntryName}
-            onLookupBySlug={groups.lookupGroupBySlug}
-            onTrackGroup={groups.trackGroup}
-          />
-        </div>
-      )}
-
-      {/* Mirrors — tucked away, only shows if user has tracked mirrors */}
-      <div className="mb-6 sm:mb-8">
-        <MirrorsSection />
       </div>
 
       <BracketView
