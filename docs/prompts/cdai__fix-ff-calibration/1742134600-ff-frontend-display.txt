@@ -1,0 +1,1 @@
+we'll also have to make sure we update the frontend to display the winning team according to the first 4 results, if we have it. that should be a part of this issue as well.

@@ -1,0 +1,1 @@
+i think we should be resolving it in status.json NOT tournament.json -- reason being, then tournament.json structure changes depending on the time you run the fetch-bracket crate. so it should be a part of status.
