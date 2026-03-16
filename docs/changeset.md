@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Make MirrorsSection discoverable with track/untrack UI
+- **Problem**: MirrorsSection was completely invisible — it only rendered when `mirrorIds.length > 0`, and the only way to add mirror IDs was programmatically via localStorage. No input, no form, no way for users to discover or use mirrors.
+- **Fix**: Always show MirrorsSection when a mirror contract is deployed. Added a "Track Mirror" form (accepts mirror ID or slug, validated on-chain) that saves to localStorage. Added "Untrack" button on each tracked mirror. Made `mirrorIds` state reactive so tracking/untracking updates the UI immediately.
+
 ### 2026-03-16 — Improve tag input width and submit button prominence on desktop
 - **UX**: Widened desktop tag input from `w-32` (8rem) to `w-52` (13rem) so longer display names like "DRAPPIS LOVELY CHALK" are fully visible.
 - **UX**: Added a vertical divider between the tag section and the submit/update button to visually separate the two actions.
