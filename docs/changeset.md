@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix blank team names in bracket UI
+- **Bug**: Team names were blank because `BracketGame` rendered `team.abbrev` but `tournament.json` has no `abbrev` field — only `name`, `seed`, `region`. The value was `undefined`, rendering as empty text with no console error.
+- **Fix**: Made `abbrev` optional in the `Team` interface and added `team.abbrev ?? team.name` fallback in `BracketGame` so team names always display.
+
 ### 2026-03-16 — Bracket hex input easter egg
 - **Frontend**: Added a hidden hex input next to the Reset Picks button. A faint `0x` hint is visible but not editable — double-click it to unlock the input field. Type or paste a valid bytes8 bracket hex string to auto-fill all 63 picks instantly. Input closes on blur (if empty) or on successful load. Only visible before the deadline.
 
