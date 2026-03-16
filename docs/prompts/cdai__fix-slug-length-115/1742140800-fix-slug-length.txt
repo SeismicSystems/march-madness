@@ -1,0 +1,1 @@
+do all of those 4, for each do your work in worktrees off of main branch
