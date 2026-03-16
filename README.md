@@ -38,7 +38,7 @@ A later-round pick only scores if the feeder games were also picked correctly.
 ### Entry
 
 - **Buy-in**: 1 ETH (testnet)
-- **Deadline**: Wednesday, March 18, 2026 at 12:00 PM EST
+- **Deadline**: Thursday, March 19, 2026 at 12:00 PM EST
 - One entry per address. You can update your bracket before the deadline.
 
 ### Mirrors & Groups
