@@ -247,9 +247,24 @@ pub fn print_trade_log(trades: &[Trade]) {
         " {:<max_team$}  {:>w_side$}  {:>w_rnd$}  {:>w_price$}  {:>w_model$}  {:>w_edge$}  {:>w_qty$}  {:>w_ev$}  URL",
         "Team", "Side", "Rnd", "Price", "Model", "Edge", "Qty", "EV($)"
     );
-    let line_width =
-        1 + max_team + 2 + w_side + 2 + w_rnd + 2 + w_price + 2 + w_model + 2 + w_edge + 2
-            + w_qty + 2 + w_ev + 2 + 3;
+    let line_width = 1
+        + max_team
+        + 2
+        + w_side
+        + 2
+        + w_rnd
+        + 2
+        + w_price
+        + 2
+        + w_model
+        + 2
+        + w_edge
+        + 2
+        + w_qty
+        + 2
+        + w_ev
+        + 2
+        + 3;
     println!("{}", "-".repeat(line_width));
 
     for (t, fmts) in trades.iter().zip(&rows) {
