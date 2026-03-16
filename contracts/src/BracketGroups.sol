@@ -27,6 +27,7 @@ contract BracketGroups {
     error AlreadyScored();
     error NoEntryFee();
     error ResultsNotPosted();
+    error ScoringWindowClosed();
     error ScoringWindowStillOpen();
     error NoEntriesScored();
     error NotScored();
@@ -235,6 +236,11 @@ contract BracketGroups {
         Group storage g = _groups[groupId];
         if (memberIndex >= g.entryCount) revert IndexOutOfBounds();
 
+        uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        uint256 scoringDuration = marchMadness.SCORING_DURATION();
+        if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp >= resultsPostedAt + scoringDuration) revert ScoringWindowClosed();
+
         Member storage member = _members[groupId][memberIndex];
         if (member.isScored) revert AlreadyScored();
 
@@ -267,8 +273,9 @@ contract BracketGroups {
         if (!isMemberOf[groupId][msg.sender]) revert NotAMember();
 
         uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        uint256 scoringDuration = marchMadness.SCORING_DURATION();
         if (resultsPostedAt == 0) revert ResultsNotPosted();
-        if (block.timestamp < resultsPostedAt + SCORING_DURATION) revert ScoringWindowStillOpen();
+        if (block.timestamp < resultsPostedAt + scoringDuration) revert ScoringWindowStillOpen();
 
         GroupPayout storage payout = payouts[groupId];
         if (payout.numWinners == 0) revert NoEntriesScored();
