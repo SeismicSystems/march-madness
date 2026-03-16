@@ -9,6 +9,13 @@ All notable changes to this project. Every PR must add an entry here.
 - **Server** (`crates/server`): Added `GET /api/groups` stub endpoint returning an empty list (placeholder for future public group registry).
 - **Web UI** (`packages/web`): Added `useGroups` hook with localStorage tracking of joined group IDs, group data refresh, and all group lifecycle methods. Added `GroupsSection` component displayed prominently on the home page for both pre- and post-lock states. Supports joining groups by ID or slug, leaving, editing display names, and tracking groups without on-chain join.
 
+### 2026-03-16 — Embed tournament data in Rust lib via include_str! (closes #62)
+- **New module** `crates/seismic-march-madness/src/data.rs` — embeds tournament.json and kenpom.csv for all available years (2025, 2026 men's) at compile time via `include_str!`. Year-parameterized API: `TournamentData::embedded(year)`, `KenpomRatings::embedded(year)`, `tournament_json(year)`, `kenpom_csv(year)`. No default year — callers must be explicit.
+- **Updated `forecaster`** — `--tournament-file` is now optional; defaults to `TournamentData::embedded(2026)`.
+- **Updated `ncaa-feed`** — `--tournament-file` is now optional; defaults to `GameMapper::load_embedded(2026)`. Mapper takes year parameter.
+- **New dependency** `csv` on `seismic-march-madness` for KenPom CSV parsing.
+- **Note**: `bracket-sim` is NOT updated — it continues reading from the filesystem. The embedded data is for external consumers who import `seismic-march-madness` without access to the repo's data files.
+
 ### 2026-03-16 — Cross-language golden test vectors for bracket encoding/scoring (closes #63)
 - **New file** `data/test-vectors/bracket-vectors.json` — 8 golden bracket vectors (all-chalk, all-upsets, mostly-chalk, cinderella run, alternating, split regions, single-bit-flip, region boundary), 16 scoring tests against two result sets, and 6 validation tests. Shared source of truth for TypeScript, Rust, and Solidity.
 - **Solidity tests** (`contracts/test/BracketVectors.t.sol`) — 30+ tests: self-score (192) for all 8 vectors, scoring against all-chalk and cinderella results (16 cross-checks), sentinel validation, e2e through MarchMadness contract (submit → results → score → payout), tied-winner pool splitting.
