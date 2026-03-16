@@ -1,0 +1,1 @@
+in practice, if we have first four, in simulation crate we'll want to average their kenpom ratings for the real thing. BUT my point is that kenpom actual CSV shouldn't be flattened and averaged -- it should happen on consumer crates

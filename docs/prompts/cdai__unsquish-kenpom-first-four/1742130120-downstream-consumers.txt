@@ -1,0 +1,1 @@
+ok but i do think that you need to make sure we handle this DOWNSTREAM as well. for example, kalshi calibrator needs to be able to deal with this, as well as any other downstream consumers. e.g. ncaa live data-feed, forecast binary, etc

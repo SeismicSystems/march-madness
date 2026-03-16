@@ -435,6 +435,106 @@ pub fn save_kenpom_csv(teams: &[Team], path: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Build a map from individual First Four team names to their slot's display name.
+///
+/// Uses tournament.json as the source of truth. For example, if a slot has
+/// `firstFour: ["Texas", "NC State"]` and `name: "Texas/NC State"`, returns
+/// `{"Texas" => "Texas/NC State", "NC State" => "Texas/NC State"}`.
+pub fn build_first_four_map_from_json(json_content: &str) -> io::Result<HashMap<String, String>> {
+    let tournament: TournamentJson = serde_json::from_str(json_content).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("tournament JSON parse error: {}", e),
+        )
+    })?;
+
+    let mut ff_map = HashMap::new();
+    for t in tournament.teams {
+        if let Some(ff_names) = t.first_four {
+            for ff_name in ff_names {
+                ff_map.insert(ff_name, t.name.clone());
+            }
+        }
+    }
+    Ok(ff_map)
+}
+
+/// Build a map from individual First Four team names to their slot's display name,
+/// reading tournament.json from a file path.
+pub fn build_first_four_map(json_path: &Path) -> io::Result<HashMap<String, String>> {
+    let json_content = std::fs::read_to_string(json_path)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
+    build_first_four_map_from_json(&json_content)
+}
+
+/// Save calibrated goose values back to a KenPom CSV while preserving individual team metrics.
+///
+/// After calibration, `teams` contains 64 entries with averaged First Four metrics and
+/// slot names (e.g. "Texas/NC State"). This function reads the original KenPom CSV
+/// (which has individual rows per team), updates only the goose values, and writes back.
+///
+/// `ff_to_slot` maps individual First Four team names to their slot name (from tournament.json).
+/// For First Four teams, the calibrated goose for the slot is applied to both individual rows.
+pub fn save_kenpom_csv_with_goose(
+    teams: &[Team],
+    original_kenpom_path: &str,
+    output_path: &str,
+    ff_to_slot: &HashMap<String, String>,
+) -> io::Result<()> {
+    // 1. Build goose map from calibrated teams (keyed by slot name).
+    let goose_map: HashMap<&str, f64> = teams.iter().map(|t| (t.team.as_str(), t.goose)).collect();
+
+    // 2. Read original kenpom CSV rows (preserving individual metrics).
+    let original_file = File::open(original_kenpom_path)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", original_kenpom_path, e)))?;
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(original_file);
+
+    let mut rows: Vec<KenpomRow> = Vec::new();
+    for row in reader.deserialize() {
+        let r: KenpomRow = row?;
+        rows.push(r);
+    }
+
+    // 3. Update goose values from calibrated teams.
+    //    For FF teams, resolve individual name → slot name → goose.
+    for row in &mut rows {
+        if let Some(&goose) = goose_map.get(row.team.as_str()) {
+            // Direct match (non-FF team).
+            row.goose = goose;
+        } else if let Some(slot_name) = ff_to_slot.get(&row.team) {
+            // FF team: use the slot's calibrated goose.
+            if let Some(&goose) = goose_map.get(slot_name.as_str()) {
+                row.goose = goose;
+            }
+        }
+    }
+
+    // 4. Sort by net rating (best first) and write.
+    rows.sort_by(|a, b| {
+        let net_a = a.ortg - a.drtg;
+        let net_b = b.ortg - b.drtg;
+        net_b
+            .partial_cmp(&net_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut wtr = csv::Writer::from_path(output_path)?;
+    wtr.write_record(["team", "ortg", "drtg", "pace", "goose"])?;
+    for row in &rows {
+        wtr.write_record([
+            &row.team,
+            &format!("{:.1}", row.ortg),
+            &format!("{:.1}", row.drtg),
+            &format!("{:.1}", row.pace),
+            &format!("{:.2}", row.goose),
+        ])?;
+    }
+    wtr.flush()?;
+    Ok(())
+}
+
 impl Team {
     /// Update team metrics based on game performance vs expectations.
     pub fn update_metrics(&mut self, expected: Metrics, observed: Metrics) {

@@ -102,10 +102,27 @@ fn main() -> io::Result<()> {
         "starting calibration"
     );
 
-    // 1. Load teams
+    // 1. Load teams and First Four mapping from tournament.json
     let mut teams = load_teams_for_year(args.input.as_deref(), args.year)?;
+    let tournament_json_path = season_dir.join("tournament.json");
+    let ff_to_slot = bracket_sim::team::build_first_four_map(&tournament_json_path)?;
+    info!(
+        teams = teams.len(),
+        first_four = ff_to_slot.len() / 2,
+        "loaded teams"
+    );
+
+    // Build team name lookup: includes both slot names and individual FF team names.
+    // Individual FF names map to their slot name for Kalshi market matching.
     let team_names: Vec<String> = teams.iter().map(|t| t.team.clone()).collect();
-    info!(teams = teams.len(), "loaded teams");
+    let mut name_to_slot: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for name in &team_names {
+        name_to_slot.insert(name.clone(), name.clone());
+    }
+    for (individual, slot) in &ff_to_slot {
+        name_to_slot.insert(individual.clone(), slot.clone());
+    }
 
     // 2. Load team name map for Kalshi → canonical name resolution
     let name_map = load_team_name_map();
@@ -160,23 +177,28 @@ fn main() -> io::Result<()> {
             }
         };
 
-        // Resolve team names and build TeamOrderbook entries
+        // Resolve team names and build TeamOrderbook entries.
+        // For First Four teams (e.g. "Texas"), resolve to the slot name ("Texas/NC State")
+        // so calibration adjusts the correct bracket entry.
         for (market, ob) in markets.iter().zip(orderbooks.into_iter()) {
             let raw_name = extract_team_name(market);
             let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name.clone());
 
-            // Only include teams that exist in our bracket data
-            if !team_names.contains(&canonical) {
-                debug!(
-                    raw_name = %raw_name,
-                    canonical = %canonical,
-                    "skipping unknown team"
-                );
-                continue;
-            }
+            // Resolve to bracket slot name (handles both direct and FF team names).
+            let slot_name = match name_to_slot.get(&canonical) {
+                Some(slot) => slot.clone(),
+                None => {
+                    debug!(
+                        raw_name = %raw_name,
+                        canonical = %canonical,
+                        "skipping unknown team"
+                    );
+                    continue;
+                }
+            };
 
             all_team_orderbooks.push(TeamOrderbook {
-                team: canonical,
+                team: slot_name,
                 round: market_def.round,
                 ticker: market.ticker.clone(),
                 orderbook: ob,
@@ -238,8 +260,14 @@ fn main() -> io::Result<()> {
         }
     }
 
-    // 6. Save calibrated teams
-    bracket_sim::team::save_kenpom_csv(&teams, output.to_str().expect("Invalid output path"))?;
+    // 6. Save calibrated goose values back to kenpom.csv (preserving individual team metrics)
+    let kenpom_path = season_dir.join("kenpom.csv");
+    bracket_sim::team::save_kenpom_csv_with_goose(
+        &teams,
+        kenpom_path.to_str().expect("Invalid kenpom path"),
+        output.to_str().expect("Invalid output path"),
+        &ff_to_slot,
+    )?;
     info!(output = %output.display(), "saved calibrated teams");
 
     Ok(())
