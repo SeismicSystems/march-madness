@@ -6,12 +6,14 @@ import { GroupsSection } from "../components/GroupsSection";
 import { useContract } from "../hooks/useContract";
 import { useGroups } from "../hooks/useGroups";
 
+const MAX_SLUG_LENGTH = 32; // Must match BracketGroups.sol MAX_SLUG_LENGTH
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+    .slice(0, MAX_SLUG_LENGTH);
 }
 
 export function GroupsPage() {
@@ -44,6 +46,8 @@ export function GroupsPage() {
     setSlugManual(true);
     setSlug(slugify(value));
   };
+
+  const slugAtLimit = slug.length >= MAX_SLUG_LENGTH;
 
   const handleCreate = async () => {
     if (!displayName.trim() || !slug.trim()) return;
@@ -113,6 +117,11 @@ export function GroupsPage() {
                     className="w-full px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors font-mono"
                   />
                 </div>
+                {slugAtLimit && (
+                  <p className="text-xs text-yellow-400 mt-1">
+                    Slug truncated to {MAX_SLUG_LENGTH} characters (contract limit).
+                  </p>
+                )}
               </div>
             </div>
 
