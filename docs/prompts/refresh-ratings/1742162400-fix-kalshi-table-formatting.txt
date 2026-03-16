@@ -1,0 +1,1 @@
+can you edit the output of kalshi calibrator to make sure the table lines up nicely? right now, there needs to be an extra space after "BUY" bc "SELL" is one char longer. there are probably other formatting issues as well. we want all the fields to line up. and for numeric fields, they should line up at the ones digit & decimal point.
