@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add @data/ TypeScript path alias for cleaner imports (closes #61)
+- Added `@data/*` path alias in `packages/web/tsconfig.json` (paths) and `packages/web/vite.config.ts` (resolve.alias) pointing to the repo-root `data/` directory.
+- Updated all `../../../../data/` relative imports in the web package to use `@data/` (constants.ts, tournament.ts).
+
 ### 2026-03-15 — Restructure data directory + centralized name mappings + First Four handling
 - **Data directory restructure**: Moved from `data/{year}/` to `data/{year}/men/` and `data/{year}/women/`. All per-gender data (tournament.json, kenpom.csv, status.json, mappings/) now lives under a gender subdirectory. Renamed `tournament-status.json` → `status.json`. Updated all CLI defaults, path helpers, frontend imports, and test references.
 - **New file** `data/mappings.toml` — centralized name mapping from sources (KenPom, Kalshi) to NCAA canonical names. Single source of truth for team name normalization.
