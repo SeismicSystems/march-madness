@@ -12,11 +12,11 @@ Returns the current tournament status. No auth required.
 
 ### `POST /api/tournament-status`
 
-Update the tournament status. **Requires API key.**
+Update the tournament status. Optional API key auth (rarely needed — `ncaa-feed` writes the file directly on the same machine).
 
 ```
 POST https://brackets.seismictest.net/api/tournament-status
-Authorization: Bearer <TOURNAMENT_API_KEY>
+Authorization: Bearer <key>  (optional, if --api-key is set)
 Content-Type: application/json
 ```
 
@@ -222,8 +222,8 @@ cargo run --bin march-madness-server
 # Custom port
 cargo run --bin march-madness-server -- --port 3000
 
-# With API key for POST endpoint
-TOURNAMENT_API_KEY=your-secret cargo run --bin march-madness-server
+# With optional API key for POST endpoint (not needed if ncaa-feed runs locally)
+cargo run --bin march-madness-server -- --api-key your-secret
 ```
 
 ## Running the Forecaster

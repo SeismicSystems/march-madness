@@ -117,8 +117,6 @@ Beyond what's in `.env.example`, the following are needed for production:
 | `VITE_RPC_URL` | `indexer` (supervisor) | Seismic RPC endpoint (e.g. `https://rpc.seismictest.net`). The indexer falls back to this env var when `--rpc-url` is not passed. Already in `.env.example`. |
 | `REDIS_URL` | `server`, `indexer` | Redis connection string. Defaults to `redis://127.0.0.1:6379` — only set if using non-default. |
 
-Note: `TOURNAMENT_API_KEY` is not needed in this setup. The `ncaa-feed` process writes `status.json` directly to disk, and the server reads it from the same file. The `POST /tournament-status` endpoint exists for remote updates but is unnecessary when both processes run on the same machine.
-
 These are referenced in `deploy/supervisor.conf` via `%(ENV_VAR)s` syntax. Either export them in the shell before running `supervisorctl`, or set them in `/etc/supervisor/supervisord.conf` under `[supervisord]` → `environment=`.
 
 To make env vars available to supervisor globally, add to `/etc/supervisor/supervisord.conf`:
