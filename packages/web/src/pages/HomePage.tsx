@@ -1,4 +1,7 @@
 import { usePrivy } from "@privy-io/react-auth";
+import { useRef, useState } from "react";
+
+import { validateBracket } from "@march-madness/client";
 
 import { BracketView } from "../components/BracketView";
 import { DeadlineCountdown } from "../components/DeadlineCountdown";
@@ -19,6 +22,21 @@ export function HomePage() {
   const { status: tournamentStatus } = useTournamentStatus();
 
   const isLocked = !contract.isBeforeDeadline;
+
+  // Easter egg: double-click to unlock hex input, type/paste a bracket to auto-fill
+  const [hexOpen, setHexOpen] = useState(false);
+  const [hexInput, setHexInput] = useState("");
+  const hexRef = useRef<HTMLInputElement>(null);
+  const handleHexInput = (value: string) => {
+    setHexInput(value);
+    const trimmed = value.trim();
+    if (validateBracket(trimmed)) {
+      bracket.loadFromHex(trimmed as `0x${string}`);
+      setHexInput("");
+      setHexOpen(false);
+    }
+  };
+
   const showFaucetBanner =
     authenticated &&
     contract.walletAddress &&
@@ -39,12 +57,34 @@ export function HomePage() {
       <div className="flex items-center gap-2 sm:gap-4 mb-4">
         <DeadlineCountdown />
         {!isLocked && (
-          <button
-            onClick={bracket.resetPicks}
-            className="px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-          >
-            Reset Picks
-          </button>
+          <>
+            <button
+              onClick={bracket.resetPicks}
+              className="px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+            >
+              Reset Picks
+            </button>
+            {hexOpen ? (
+              <input
+                ref={hexRef}
+                type="text"
+                value={hexInput}
+                onChange={(e) => handleHexInput(e.target.value)}
+                onBlur={() => { if (!hexInput) setHexOpen(false); }}
+                placeholder="0x..."
+                spellCheck={false}
+                autoFocus
+                className="w-40 px-2 py-1.5 text-xs font-mono rounded-lg bg-bg-tertiary border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
+              />
+            ) : (
+              <span
+                onDoubleClick={() => setHexOpen(true)}
+                className="px-2 py-1.5 text-xs font-mono text-text-muted/30 select-none cursor-default"
+              >
+                0x
+              </span>
+            )}
+          </>
         )}
       </div>
 
