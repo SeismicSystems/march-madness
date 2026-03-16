@@ -8,6 +8,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **Bug fix**: `BracketGroups.scoreEntry()` now reverts once the main scoring window has closed, even if the member was already scored on `MarchMadness`. This prevents group winner state from changing after claims are live.
 - **Tests**: Updated `BracketGroups.t.sol` to expect the closed-window revert for post-window group scoring.
 - **Deploy**: Added `DeployBracketGroups.s.sol` plus `scripts/redeploy-bracket-groups.sh` to deploy only a new `BracketGroups` contract against an existing `MarchMadness` address and update only the `bracketGroups` field in `data/deployments.json`.
+- **Tooling**: Added `bun run gen:abis`, backed by `scripts/generate-abis.ts`, to regenerate the checked-in client ABI snapshots directly from `ssolc` for `MarchMadness`, `BracketGroups`, and `BracketMirror`.
 
 ### 2026-03-16 — Simplify BracketMirror events to use slug instead of index
 - **Contract**: BracketMirror events (`EntryAdded`, `EntryRemoved`, `BracketUpdated`) now emit `slug` (string) instead of `entryIndex` (uint256). Slug is the stable identifier; array index is an implementation detail that changes on swap-and-pop.
