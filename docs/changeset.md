@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add confirmation dialog to Reset Picks button
+- **Frontend**: Clicking "Reset Picks" now shows a confirmation dialog ("This will clear all 63 picks. This can't be undone.") before clearing the bracket.
+- Added `@headlessui/react` for accessible, headless dialog/modal components styled with Tailwind.
+- New reusable `ConfirmDialog` component supports title, description, danger styling, and backdrop dismiss.
+
 ### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
 - **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
 - **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
