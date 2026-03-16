@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
+
+- **Web**: Added `useSubmissionDeadline` hook that reads `submissionDeadline()` from the MarchMadness contract, falling back to the hardcoded constant if the contract read fails.
+- **Web**: `useContract` hook now exposes `submissionDeadline` (number, seconds) and a reactive `isBeforeDeadline` that updates every second.
+- **Web**: `DeadlineCountdown` accepts an optional `deadline` prop (defaults to hardcoded constant for backward compat).
+- **Web**: `SubmitPanel` derives lock state from `contract.isBeforeDeadline` instead of re-reading the hardcoded constant.
+- **Web**: Fixes local dev mismatch where the UI deadline could differ from the deployed contract's deadline.
+
 ### 2026-03-16 — Add 90-day results submission deadline
 
 - **Contracts**: Added `RESULTS_DEADLINE = 90 days` constant — owner must post results within 90 days of the submission deadline or the window closes.

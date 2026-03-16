@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { ENTRY_FEE_DISPLAY, SUBMISSION_DEADLINE } from "../lib/constants";
+import { ENTRY_FEE_DISPLAY } from "../lib/constants";
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
 import type { UseBracketReturn } from "../hooks/useBracket";
@@ -31,7 +31,7 @@ export function SubmitPanel({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const isMobile = useIsMobile();
 
-  const isLocked = Date.now() / 1000 >= SUBMISSION_DEADLINE;
+  const isLocked = !contract.isBeforeDeadline;
 
   const handleSubmit = async () => {
     if (!encodedBracket) return;
