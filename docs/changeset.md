@@ -8,6 +8,12 @@ All notable changes to this project. Every PR must add an entry here.
 - Added `@data/*` path alias in `packages/web/tsconfig.json` (paths) and `packages/web/vite.config.ts` (resolve.alias) pointing to the repo-root `data/` directory.
 - Updated all `../../../../data/` relative imports in the web package to use `@data/` (constants.ts, tournament.ts).
 
+### 2026-03-16 — Store bracket picks as hex in localStorage (closes #64)
+- **Changed** `loadPicks` / `savePicks` in `packages/web/src/hooks/useBracket.ts` to use compact storage formats instead of JSON boolean arrays (~300+ chars).
+- **Complete brackets** stored as canonical bytes8 hex string (18 chars, e.g. `0x8000000000000000`), using `encodeBracket` / `validateBracket` from the client library.
+- **Partial brackets** stored as `"partial:"` + 63-char string of `1`/`0`/`-` (71 chars total), preserving in-progress picks across page refreshes.
+- No migration needed — no real users yet; old JSON format is silently discarded on load.
+
 ### 2026-03-15 — Restructure data directory + centralized name mappings + First Four handling
 - **Data directory restructure**: Moved from `data/{year}/` to `data/{year}/men/` and `data/{year}/women/`. All per-gender data (tournament.json, kenpom.csv, status.json, mappings/) now lives under a gender subdirectory. Renamed `tournament-status.json` → `status.json`. Updated all CLI defaults, path helpers, frontend imports, and test references.
 - **New file** `data/mappings.toml` — centralized name mapping from sources (KenPom, Kalshi) to NCAA canonical names. Single source of truth for team name normalization.
