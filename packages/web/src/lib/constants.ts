@@ -1,7 +1,7 @@
 import { ENTRY_FEE } from "@march-madness/client";
 import { type Address, formatEther } from "viem";
 import { sanvil } from "seismic-viem";
-import deployments from "../../../../data/deployments.json";
+import deployments from "@data/deployments.json";
 
 /** Re-export ENTRY_FEE from client library */
 export { ENTRY_FEE } from "@march-madness/client";
