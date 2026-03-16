@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix hex input paste not working
+- **Bug**: Pasting a bracket hex into the easter egg input did nothing — three root causes:
+  1. Used `validateBracket()` which requires the sentinel bit (first nibble >= 8), but bracket hex from simulations/tools often omits it. The sentinel is only needed for on-chain submission, not for loading picks.
+  2. `onBlur` handler captured stale `hexInput` state (always `""` from initial render), so any blur event immediately closed the input
+  3. Only relied on `onChange` for paste detection, which can be unreliable
+- **Fix**: Replaced `validateBracket` with a simple `0x` + 16 hex char regex (no sentinel requirement). Added dedicated `onPaste` handler that reads directly from `clipboardData`. Fixed `onBlur` to check `hexRef.current.value` (DOM truth) instead of stale React state. Strips non-hex characters from pasted text.
+
 ### 2026-03-16 — Fix blank team names in bracket UI
 - **Bug**: Team names were blank because `BracketGame` rendered `team.abbrev` but `tournament.json` has no `abbrev` field — only `name`, `seed`, `region`. The value was `undefined`, rendering as empty text with no console error.
 - **Fix**: Made `abbrev` optional in the `Team` interface and added `team.abbrev ?? team.name` fallback in `BracketGame` so team names always display.
