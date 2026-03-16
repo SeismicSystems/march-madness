@@ -137,18 +137,22 @@ def main():
         else:
             print(f"WARNING: no teams found in {tournament_path}")
 
+    # Filter to bracket teams if requested
+    if args.bracket_only:
+        teams = [t for t in teams if t["team"] in bracket_teams]
+
+    # Sort by net rating (ortg - drtg), best first
+    teams.sort(key=lambda t: t["drtg"] - t["ortg"])
+
     # Write KenPom ratings file (team, ortg, drtg, pace)
     kenpom_path = season_dir / "kenpom.csv"
 
-    count = 0
     with open(kenpom_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["team", "ortg", "drtg", "pace"])
         for t in teams:
-            if args.bracket_only and t["team"] not in bracket_teams:
-                continue
             writer.writerow([t["team"], t["ortg"], t["drtg"], t["pace"]])
-            count += 1
+    count = len(teams)
 
     print(f"Wrote {count} teams to {kenpom_path}")
 

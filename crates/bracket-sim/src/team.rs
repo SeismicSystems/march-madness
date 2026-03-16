@@ -324,11 +324,20 @@ pub fn load_team_names(bracket_path: &str) -> io::Result<Vec<String>> {
     Ok(names)
 }
 
-/// Save teams in KenPom CSV format (team,ortg,drtg,pace,goose).
+/// Save teams in KenPom CSV format (team,ortg,drtg,pace,goose), sorted by net rating (best first).
 pub fn save_kenpom_csv(teams: &[Team], path: &str) -> io::Result<()> {
+    let mut sorted: Vec<&Team> = teams.iter().collect();
+    sorted.sort_by(|a, b| {
+        let net_a = a.metrics.ortg - a.metrics.drtg;
+        let net_b = b.metrics.ortg - b.metrics.drtg;
+        net_b
+            .partial_cmp(&net_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
     let mut wtr = csv::Writer::from_path(path)?;
     wtr.write_record(["team", "ortg", "drtg", "pace", "goose"])?;
-    for team in teams {
+    for team in sorted {
         wtr.write_record([
             &team.team,
             &format!("{:.1}", team.metrics.ortg),
