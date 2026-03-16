@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix submission deadline, redeploy, clarify testnet ETH
+- **Bug fix**: Submission deadline was March 18 at Noon — corrected to **March 19 at 12:15 PM EST** (1773940500).
+- **Deploy**: Redeployed all contracts (MarchMadness, BracketGroups, BracketMirror) to testnet with corrected deadline.
+- **Cleanup**: Deleted old broadcast artifacts from repo.
+- **UX**: Entry fee display now says "testnet ETH" instead of just "ETH" to avoid confusion.
+
 ### 2026-03-16 — Remove dead Ethereum March Madness link from README
 - **Docs**: Remove dead link to `github.com/EthereumMarchMadness` from Credits section.
 

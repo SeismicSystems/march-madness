@@ -1,0 +1,1 @@
+oh shit actually, submission deadline should be 12:15pm (15 minutes later). deploy a new contract with that value. delete the old artifacts. no need to run ci - just push after you deploy

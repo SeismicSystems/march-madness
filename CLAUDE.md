@@ -219,7 +219,7 @@ bun run --filter @march-madness/localdev test
 Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
 
 ## Key Dates
-- **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1773853200 unix)
+- **Bracket lock**: Thursday March 19, 2026 at 12:15 PM EST (1773940500 unix)
 - **No-contest deadline**: 28 days after results posted
 - **Entry fee**: 1 ETH (testnet)
 
