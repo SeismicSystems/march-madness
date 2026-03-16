@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Remove redundant entry count from Header
+- **Cleanup**: Removed the "1 entry" / entry count badge from both desktop and mobile Header since each user only has one entry, making the display redundant.
+- Removed `entryCount` prop from `Header` component and removed the `useContract` hook from `App.tsx`.
+
 ### 2026-03-16 — Add copy/edit fan-out icons on hex display double-click
 - **Frontend**: Double-clicking the bracket hex value now fans out a copy icon and an edit (pencil) icon instead of immediately opening the hex input. Copy writes `bracket.encodedBracket` to clipboard with "Copied!" feedback; edit opens the existing hex input easter egg. Icons auto-collapse after 3 seconds or on click outside. Smooth `max-w` + opacity transition for the fan-out animation.
 
