@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { encodeBracket } from "@march-madness/client";
+import { encodeBracket, validateBracket } from "@march-madness/client";
 
 import { getAllTeamsInBracketOrder, type Team } from "../lib/tournament";
 
@@ -22,20 +22,61 @@ const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const STORAGE_PREFIX = "mm-picks-";
 const storageKey = (addr: string) => `${STORAGE_PREFIX}${addr.toLowerCase()}`;
 
+/** Sentinel prefix for incomplete (partial) brackets in localStorage. */
+const PARTIAL_PREFIX = "partial:";
+
+/**
+ * Load picks from localStorage. Supports two formats:
+ * - Complete bracket: canonical bytes8 hex string (e.g. "0x8000000000000000")
+ * - Partial bracket: "partial:" + 63-char string of '1', '0', or '-' (no pick)
+ */
 function loadPicks(addr: string): (boolean | null)[] | null {
   try {
     const raw = localStorage.getItem(storageKey(addr));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length === 63) return parsed;
+
+    // Complete bracket: canonical bytes8 hex
+    if (validateBracket(raw)) {
+      const bits = BigInt(raw as `0x${string}`);
+      const picks: (boolean | null)[] = [];
+      for (let i = 0; i < 63; i++) {
+        picks.push(((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1));
+      }
+      return picks;
+    }
+
+    // Partial bracket: "partial:" + 63-char pick string
+    if (raw.startsWith(PARTIAL_PREFIX)) {
+      const pickStr = raw.slice(PARTIAL_PREFIX.length);
+      if (pickStr.length !== 63) return null;
+      const picks: (boolean | null)[] = [];
+      for (const ch of pickStr) {
+        if (ch === "1") picks.push(true);
+        else if (ch === "0") picks.push(false);
+        else picks.push(null);
+      }
+      return picks;
+    }
   } catch {
     // corrupt data
   }
   return null;
 }
 
+/**
+ * Save picks to localStorage. Complete brackets are stored as canonical
+ * bytes8 hex (18 chars). Incomplete brackets use a compact "partial:..."
+ * format (71 chars) instead of the old JSON boolean array (~300+ chars).
+ */
 function savePicks(addr: string, picks: (boolean | null)[]) {
-  localStorage.setItem(storageKey(addr), JSON.stringify(picks));
+  const isComplete = picks.every((p) => p !== null);
+  if (isComplete) {
+    const hex = encodeBracket(picks as boolean[]);
+    localStorage.setItem(storageKey(addr), hex);
+  } else {
+    const pickStr = picks.map((p) => (p === true ? "1" : p === false ? "0" : "-")).join("");
+    localStorage.setItem(storageKey(addr), PARTIAL_PREFIX + pickStr);
+  }
 }
 
 /**
