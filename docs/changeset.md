@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Skip First Four teams in Kalshi calibration
+- **Calibrate binary**: First Four teams (e.g. Texas, NC State) are now excluded from Kalshi market-making calibration. Kalshi has separate individual markets for each FF team, not a joint market for the bracket slot. Including them produced nonsense combined-name URLs and incorrect calibration signals. FF teams conservatively keep goose=0.
+- **Filtering**: FF teams are filtered out at the market-selection step (before orderbook fetching), avoiding wasted API calls. A safety guard in the orderbook-to-TeamOrderbook loop catches any that slip through.
+
 ### 2026-03-16 — Improve calibrator trade table alignment
 - **Trade log table**: Moved "Team" to the first column and "Side" to the second column for better readability. Added extra spacing between all columns so the table is less cramped.
 - **Rust fmt**: Fixed a pre-existing `rustfmt` issue in `calibrate.rs`.
