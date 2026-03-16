@@ -86,6 +86,17 @@ sudo supervisorctl start all
 | `indexer` | `target/release/indexer listen` | Chain event listener, writes to Redis |
 | `ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes `status.json` |
 
+### Initial backfill
+
+On first deploy (or after `redis-cli FLUSHDB`), backfill historical events before starting the listener. Contract deploy block is **30749805**.
+
+```bash
+cd /home/ubuntu/march-madness
+./target/release/indexer backfill --from-block 30749805
+```
+
+Then start supervisor — the `indexer listen` process will pick up from where backfill left off via the Redis cursor.
+
 ### Common commands
 
 ```bash
