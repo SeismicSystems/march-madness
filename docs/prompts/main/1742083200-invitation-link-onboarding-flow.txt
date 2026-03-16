@@ -1,0 +1,22 @@
+create an issue for this feature:
+
+if they are sent an invitation link to join a private group, it only works in a narrow range of circumstances:
+1) they are logged in
+2) they have received funds from the faucet
+3) they have submitted a bracket on-chain already
+
+furthermore, i don't think there's a way to join a public group via link
+
+instead we want to make this invitation link flow way more friendly to new users.
+
+it should essentially put them through a tutorial of how to use the site:
+0) store the invitation to local storage, so when they're done with the flow, we can direct them to that page on the site again.
+1) connect
+2) copy your address
+3) go to faucet and get funds
+4) fill out and submit a bracket
+5) once they've submitted, we have them join the group they were initially invited to.
+
+if they've completed partial steps (e.g. they're logged in, but no money, or login+money but no bracket) the flow should not make them re-do those steps. instead it should almost show them crossed off? or like a checklist complete? get creative. but we also wnt the logic very clean here; it shouldn't fuck up the rest of the page.
+
+important for this issue to be very clearly spec'ed out -- you might even want to include the prompt verbatim AFTER you synthesize it
