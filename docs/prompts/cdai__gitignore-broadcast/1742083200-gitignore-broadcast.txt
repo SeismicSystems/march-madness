@@ -1,0 +1,3 @@
+hey i think we should just remove the entire broadcast dir from github... that seems to be standard right?
+
+can you work off a fresh branch from main, remove the files in broadcast committed and then gitignore them in furure
