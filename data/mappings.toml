@@ -1,0 +1,19 @@
+# Centralized name mappings: source name → NCAA canonical name.
+#
+# NCAA names (from the NCAA API's `nameShort`) are the canonical team names
+# used throughout the codebase. When a source (KenPom, Kalshi, etc.) uses a
+# different spelling, add the mapping here.
+#
+# Only entries where the names differ need to be listed.
+
+[kenpom]
+"Connecticut" = "UConn"
+"LIU" = "Long Island"
+"Miami FL" = "Miami (FL)"
+"Miami OH" = "Miami (Ohio)"
+"N.C. State" = "NC State"
+"Queens" = "Queens (N.C.)"
+
+[kalshi]
+"Mississippi State" = "Mississippi St."
+"Connecticut" = "UConn"

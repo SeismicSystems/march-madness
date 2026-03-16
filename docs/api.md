@@ -204,13 +204,13 @@ cargo run --release --bin march-madness-forecaster
 # Custom paths / simulation count
 cargo run --release --bin march-madness-forecaster -- \
   --entries-file data/entries.json \
-  --status-file data/tournament-status.json \
-  --tournament-file data/mens-2026.json \
-  --output-file data/forecasts.json \
+  --status-file data/2026/men/status.json \
+  --tournament-file data/2026/men/tournament.json \
+  --output-file data/2026/men/forecasts.json \
   --simulations 100000
 ```
 
-The forecaster reads `entries.json` + `tournament-status.json` + `mens-2026.json`, runs 100k Monte Carlo forward simulations, and writes `forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
+The forecaster reads `entries.json` + `data/2026/men/status.json` + `data/2026/men/tournament.json`, runs 100k Monte Carlo forward simulations, and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
 
 ## Using the Rust Library
 

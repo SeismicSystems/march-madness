@@ -1,7 +1,7 @@
 //! NCAA contest → bracket game index mapping.
 //!
 //! Maps NCAA scoreboard contests to game indices 0-62 in the bracket encoding.
-//! Uses `ncaa-names.json` to resolve NCAA `nameShort` to bracket positions (0-63).
+//! Derives name → bracket position from `tournament.json` (position = array index).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -11,11 +11,18 @@ use ncaa_api::Contest;
 use seismic_march_madness::types::{GameState, GameStatus};
 use tracing::{debug, warn};
 
-/// Name mappings file format.
+/// Tournament JSON format (just the fields we need).
 #[derive(serde::Deserialize)]
-struct NameMappings {
-    /// NCAA nameShort → bracket position (0-63).
-    teams: HashMap<String, u8>,
+#[serde(rename_all = "camelCase")]
+struct TournamentTeam {
+    name: String,
+    #[serde(default)]
+    first_four: Option<Vec<String>>,
+}
+
+#[derive(serde::Deserialize)]
+struct TournamentJson {
+    teams: Vec<TournamentTeam>,
 }
 
 /// Maps NCAA contests to bracket game indices.
@@ -27,15 +34,30 @@ pub struct GameMapper {
 }
 
 impl GameMapper {
-    /// Load mapper from a name mappings JSON file.
+    /// Load mapper from a tournament.json file.
+    /// Position = index in the teams array. First Four entries map both
+    /// individual team names to the same position.
     pub fn load(path: &Path) -> Result<Self> {
         let json = std::fs::read_to_string(path)
             .wrap_err_with(|| format!("failed to read {}", path.display()))?;
-        let mappings: NameMappings =
-            serde_json::from_str(&json).wrap_err("failed to parse name mappings")?;
+        let tournament: TournamentJson =
+            serde_json::from_str(&json).wrap_err("failed to parse tournament JSON")?;
+
+        let mut name_to_position = HashMap::new();
+        for (i, team) in tournament.teams.iter().enumerate() {
+            let pos = i as u8;
+            if let Some(ref ff_names) = team.first_four {
+                // First Four: map both individual names to this position.
+                for ff_name in ff_names {
+                    name_to_position.insert(ff_name.clone(), pos);
+                }
+            }
+            // Also map the display name (e.g. "Texas/NC State" or normal name).
+            name_to_position.insert(team.name.clone(), pos);
+        }
 
         Ok(Self {
-            name_to_position: mappings.teams,
+            name_to_position,
             winners: HashMap::new(),
         })
     }
@@ -171,19 +193,19 @@ mod tests {
     fn test_mapper() -> GameMapper {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../data/2026/mappings/ncaa-names.json"
+            "/../../data/2026/men/tournament.json"
         );
-        GameMapper::load(Path::new(path)).expect("failed to load ncaa-names.json")
+        GameMapper::load(Path::new(path)).expect("failed to load tournament.json")
     }
 
     #[test]
     fn test_r64_game_positions() {
         let mapper = test_mapper();
 
-        // Game 0: positions 0 and 1 (Duke vs Washington).
+        // Game 0: positions 0 and 1 (Duke vs Siena — East 1 vs 16).
         assert_eq!(mapper.game_team_positions(0), Some((0, 1)));
         assert_eq!(mapper.team_position("Duke"), Some(0));
-        assert_eq!(mapper.team_position("Washington"), Some(1));
+        assert_eq!(mapper.team_position("Siena"), Some(1));
 
         // Game 31: last R64 game (positions 62, 63).
         assert_eq!(mapper.game_team_positions(31), Some((62, 63)));
@@ -204,9 +226,22 @@ mod tests {
         let mapper = test_mapper();
 
         assert_eq!(mapper.team_position("Duke"), Some(0));
-        assert_eq!(mapper.team_position("Michigan St"), Some(14));
-        assert_eq!(mapper.team_position("UConn"), Some(31));
+        assert_eq!(mapper.team_position("Michigan St."), Some(10));
+        assert_eq!(mapper.team_position("UConn"), Some(14));
+        assert_eq!(mapper.team_position("Iowa St."), Some(62));
         assert!(mapper.team_position("NONEXISTENT").is_none());
+    }
+
+    #[test]
+    fn test_first_four_both_names_mapped() {
+        let mapper = test_mapper();
+
+        // "Texas/NC State" is a First Four slot — both individual names
+        // and the combo name should map to the same position.
+        let combo_pos = mapper.team_position("Texas/NC State");
+        assert!(combo_pos.is_some());
+        assert_eq!(mapper.team_position("Texas"), combo_pos);
+        assert_eq!(mapper.team_position("NC State"), combo_pos);
     }
 
     #[test]

@@ -3,11 +3,13 @@
 //! Provides a rate-limited HTTP client for the NCAA's GraphQL API,
 //! focused on basketball (MBB/WBB, Division 1) scoreboard and schedule data.
 
+pub mod bracket;
 pub mod client;
 pub mod schedule;
 pub mod scoreboard;
 pub mod types;
 
+pub use bracket::{BracketGame, BracketRegion, BracketTeam, Championship, fetch_bracket};
 pub use client::NcaaClient;
 pub use schedule::fetch_schedule;
 pub use scoreboard::fetch_scoreboard;

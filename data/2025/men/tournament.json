@@ -1,0 +1,331 @@
+{
+  "name": "2025 DI Men's Basketball Championship",
+  "regions": [
+    "South",
+    "West",
+    "East",
+    "Midwest"
+  ],
+  "teams": [
+    {
+      "name": "Auburn",
+      "seed": 1,
+      "region": "South"
+    },
+    {
+      "name": "Alabama St.",
+      "seed": 16,
+      "region": "South"
+    },
+    {
+      "name": "Louisville",
+      "seed": 8,
+      "region": "South"
+    },
+    {
+      "name": "Creighton",
+      "seed": 9,
+      "region": "South"
+    },
+    {
+      "name": "Michigan",
+      "seed": 5,
+      "region": "South"
+    },
+    {
+      "name": "UC San Diego",
+      "seed": 12,
+      "region": "South"
+    },
+    {
+      "name": "Texas A&M",
+      "seed": 4,
+      "region": "South"
+    },
+    {
+      "name": "Yale",
+      "seed": 13,
+      "region": "South"
+    },
+    {
+      "name": "Ole Miss",
+      "seed": 6,
+      "region": "South"
+    },
+    {
+      "name": "North Carolina",
+      "seed": 11,
+      "region": "South"
+    },
+    {
+      "name": "Iowa St.",
+      "seed": 3,
+      "region": "South"
+    },
+    {
+      "name": "Lipscomb",
+      "seed": 14,
+      "region": "South"
+    },
+    {
+      "name": "Marquette",
+      "seed": 7,
+      "region": "South"
+    },
+    {
+      "name": "New Mexico",
+      "seed": 10,
+      "region": "South"
+    },
+    {
+      "name": "Michigan St.",
+      "seed": 2,
+      "region": "South"
+    },
+    {
+      "name": "Bryant",
+      "seed": 15,
+      "region": "South"
+    },
+    {
+      "name": "Florida",
+      "seed": 1,
+      "region": "West"
+    },
+    {
+      "name": "Norfolk St.",
+      "seed": 16,
+      "region": "West"
+    },
+    {
+      "name": "UConn",
+      "seed": 8,
+      "region": "West"
+    },
+    {
+      "name": "Oklahoma",
+      "seed": 9,
+      "region": "West"
+    },
+    {
+      "name": "Memphis",
+      "seed": 5,
+      "region": "West"
+    },
+    {
+      "name": "Colorado St.",
+      "seed": 12,
+      "region": "West"
+    },
+    {
+      "name": "Maryland",
+      "seed": 4,
+      "region": "West"
+    },
+    {
+      "name": "Grand Canyon",
+      "seed": 13,
+      "region": "West"
+    },
+    {
+      "name": "Missouri",
+      "seed": 6,
+      "region": "West"
+    },
+    {
+      "name": "Drake",
+      "seed": 11,
+      "region": "West"
+    },
+    {
+      "name": "Texas Tech",
+      "seed": 3,
+      "region": "West"
+    },
+    {
+      "name": "UNC Wilmington",
+      "seed": 14,
+      "region": "West"
+    },
+    {
+      "name": "Kansas",
+      "seed": 7,
+      "region": "West"
+    },
+    {
+      "name": "Arkansas",
+      "seed": 10,
+      "region": "West"
+    },
+    {
+      "name": "St. John's",
+      "seed": 2,
+      "region": "West"
+    },
+    {
+      "name": "Omaha",
+      "seed": 15,
+      "region": "West"
+    },
+    {
+      "name": "Duke",
+      "seed": 1,
+      "region": "East"
+    },
+    {
+      "name": "Mount St. Mary's",
+      "seed": 16,
+      "region": "East"
+    },
+    {
+      "name": "Mississippi St.",
+      "seed": 8,
+      "region": "East"
+    },
+    {
+      "name": "Baylor",
+      "seed": 9,
+      "region": "East"
+    },
+    {
+      "name": "Oregon",
+      "seed": 5,
+      "region": "East"
+    },
+    {
+      "name": "Liberty",
+      "seed": 12,
+      "region": "East"
+    },
+    {
+      "name": "Arizona",
+      "seed": 4,
+      "region": "East"
+    },
+    {
+      "name": "Akron",
+      "seed": 13,
+      "region": "East"
+    },
+    {
+      "name": "BYU",
+      "seed": 6,
+      "region": "East"
+    },
+    {
+      "name": "VCU",
+      "seed": 11,
+      "region": "East"
+    },
+    {
+      "name": "Wisconsin",
+      "seed": 3,
+      "region": "East"
+    },
+    {
+      "name": "Montana",
+      "seed": 14,
+      "region": "East"
+    },
+    {
+      "name": "Saint Mary's",
+      "seed": 7,
+      "region": "East"
+    },
+    {
+      "name": "Vanderbilt",
+      "seed": 10,
+      "region": "East"
+    },
+    {
+      "name": "Alabama",
+      "seed": 2,
+      "region": "East"
+    },
+    {
+      "name": "Robert Morris",
+      "seed": 15,
+      "region": "East"
+    },
+    {
+      "name": "Houston",
+      "seed": 1,
+      "region": "Midwest"
+    },
+    {
+      "name": "SIU Edwardsville",
+      "seed": 16,
+      "region": "Midwest"
+    },
+    {
+      "name": "Gonzaga",
+      "seed": 8,
+      "region": "Midwest"
+    },
+    {
+      "name": "Georgia",
+      "seed": 9,
+      "region": "Midwest"
+    },
+    {
+      "name": "Clemson",
+      "seed": 5,
+      "region": "Midwest"
+    },
+    {
+      "name": "McNeese",
+      "seed": 12,
+      "region": "Midwest"
+    },
+    {
+      "name": "Purdue",
+      "seed": 4,
+      "region": "Midwest"
+    },
+    {
+      "name": "High Point",
+      "seed": 13,
+      "region": "Midwest"
+    },
+    {
+      "name": "Illinois",
+      "seed": 6,
+      "region": "Midwest"
+    },
+    {
+      "name": "Xavier",
+      "seed": 11,
+      "region": "Midwest"
+    },
+    {
+      "name": "Kentucky",
+      "seed": 3,
+      "region": "Midwest"
+    },
+    {
+      "name": "Troy",
+      "seed": 14,
+      "region": "Midwest"
+    },
+    {
+      "name": "UCLA",
+      "seed": 7,
+      "region": "Midwest"
+    },
+    {
+      "name": "Utah St.",
+      "seed": 10,
+      "region": "Midwest"
+    },
+    {
+      "name": "Tennessee",
+      "seed": 2,
+      "region": "Midwest"
+    },
+    {
+      "name": "Wofford",
+      "seed": 15,
+      "region": "Midwest"
+    }
+  ]
+}

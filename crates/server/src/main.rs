@@ -26,11 +26,11 @@ struct Cli {
     index_file: PathBuf,
 
     /// Path to the tournament status JSON file.
-    #[arg(long, default_value = "data/tournament-status.json")]
+    #[arg(long, default_value = "data/2026/men/status.json")]
     tournament_status_file: PathBuf,
 
     /// Path to the forecasts JSON file (from forecaster crate).
-    #[arg(long, default_value = "data/forecasts.json")]
+    #[arg(long, default_value = "data/2026/men/forecasts.json")]
     forecasts_file: PathBuf,
 
     /// API key for POST /api/tournament-status. Read from TOURNAMENT_API_KEY env var if not set.

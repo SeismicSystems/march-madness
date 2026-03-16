@@ -43,10 +43,14 @@ struct TournamentJson {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TournamentJsonTeam {
     name: String,
     seed: u8,
     region: String,
+    /// Present when this slot is decided by a First Four game.
+    #[serde(default)]
+    first_four: Option<Vec<String>>,
 }
 
 /// A bracket entry (name, seed, region) before joining with KenPom ratings.
@@ -120,6 +124,9 @@ fn join_with_kenpom(entries: Vec<BracketEntry>, kenpom_path: &str) -> io::Result
 
 /// Load teams by joining a tournament JSON (data/{year}/tournament.json) with a KenPom CSV.
 /// The JSON provides bracket structure (name, seed, region); KenPom provides ratings.
+///
+/// For First Four slots (e.g. "Texas/NC State"), looks up both individual teams in KenPom
+/// and averages their ratings. The combined entry uses the slash-joined name.
 pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<Vec<Team>> {
     let json_content = std::fs::read_to_string(json_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
@@ -130,17 +137,71 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
         )
     })?;
 
-    let entries = tournament
-        .teams
-        .into_iter()
-        .map(|t| BracketEntry {
-            name: t.name,
-            seed: t.seed,
-            region: t.region,
-        })
-        .collect();
+    let kenpom_map = load_kenpom_map(kenpom_path)?;
+    let mut teams = Vec::new();
+    let mut missing = Vec::new();
 
-    join_with_kenpom(entries, kenpom_path)
+    for t in tournament.teams {
+        if let Some(ref ff_names) = t.first_four {
+            // First Four: look up both teams and average their ratings.
+            let mut found_metrics = Vec::new();
+            let mut found_goose = Vec::new();
+            for ff_name in ff_names {
+                match kenpom_map.get(ff_name) {
+                    Some((metrics, goose)) => {
+                        found_metrics.push(*metrics);
+                        found_goose.push(*goose);
+                    }
+                    None => missing.push(ff_name.clone()),
+                }
+            }
+            if found_metrics.is_empty() {
+                // Neither team found — will be reported as missing
+                continue;
+            }
+            let n = found_metrics.len() as f64;
+            let avg_metrics = Metrics {
+                ortg: found_metrics.iter().map(|m| m.ortg).sum::<f64>() / n,
+                drtg: found_metrics.iter().map(|m| m.drtg).sum::<f64>() / n,
+                pace: found_metrics.iter().map(|m| m.pace).sum::<f64>() / n,
+            };
+            let avg_goose = found_goose.iter().sum::<f64>() / n;
+            teams.push(Team {
+                team: t.name,
+                seed: t.seed,
+                region: t.region,
+                metrics: avg_metrics,
+                goose: avg_goose,
+            });
+        } else {
+            // Normal team: direct lookup.
+            match kenpom_map.get(&t.name) {
+                Some((metrics, goose)) => {
+                    teams.push(Team {
+                        team: t.name,
+                        seed: t.seed,
+                        region: t.region,
+                        metrics: *metrics,
+                        goose: *goose,
+                    });
+                }
+                None => missing.push(t.name),
+            }
+        }
+    }
+
+    if !missing.is_empty() {
+        panic!(
+            "FATAL: {} bracket team(s) not found in KenPom file '{}':\n  {}\n\
+             Fix the team name mapping or update the KenPom data.",
+            missing.len(),
+            kenpom_path,
+            missing.join("\n  ")
+        );
+    }
+
+    validate_bracket_structure(&teams);
+    Ok(teams)
 }
 
 /// Load teams by joining a bracket CSV (team,seed,region) with a KenPom CSV (team,ortg,drtg,pace).
@@ -263,11 +324,20 @@ pub fn load_team_names(bracket_path: &str) -> io::Result<Vec<String>> {
     Ok(names)
 }
 
-/// Save teams in KenPom CSV format (team,ortg,drtg,pace,goose).
+/// Save teams in KenPom CSV format (team,ortg,drtg,pace,goose), sorted by net rating (best first).
 pub fn save_kenpom_csv(teams: &[Team], path: &str) -> io::Result<()> {
+    let mut sorted: Vec<&Team> = teams.iter().collect();
+    sorted.sort_by(|a, b| {
+        let net_a = a.metrics.ortg - a.metrics.drtg;
+        let net_b = b.metrics.ortg - b.metrics.drtg;
+        net_b
+            .partial_cmp(&net_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
     let mut wtr = csv::Writer::from_path(path)?;
     wtr.write_record(["team", "ortg", "drtg", "pace", "goose"])?;
-    for team in teams {
+    for team in sorted {
         wtr.write_record([
             &team.team,
             &format!("{:.1}", team.metrics.ortg),

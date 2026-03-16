@@ -33,8 +33,8 @@
 ### Rust (Crates)
 - **indexer**: Listens for on-chain events, writes entrant data to JSON
 - **server**: Serves indexed data to frontend via HTTP
-- **ncaa-api**: NCAA basketball API client (scoreboard + schedule, rate-limited)
-- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament-status.json
+- **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
+- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes `data/{year}/men/status.json`. Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
 
 ## Architecture
 
@@ -46,14 +46,15 @@ packages/
   localdev/         — Local dev tools (populate script) + integration tests
 crates/
   seismic-march-madness/ — Shared library: types, scoring, simulation, tournament helpers
-  kalshi/           — Kalshi odds ingestor (REST + WS + orderbook fetching + edge computation)
-  bracket-sim/      — Tournament simulation, goose calibration against Kalshi orderbooks
+  kalshi/           — Kalshi API client (REST + orderbook fetching + edge computation, no CLI binary)
+  bracket-sim/      — Tournament simulation, market-making calibration against Kalshi orderbooks
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
   forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
-  ncaa-api/         — NCAA basketball API client (scoreboard + schedule)
-  ncaa-feed/        — NCAA live score feed → tournament-status.json
-data/               — Tournament data (teams, brackets, configs, tournament-status.json)
+  ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
+  ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
+data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, status.json, mappings/)
+data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
@@ -133,9 +134,9 @@ Rust HTTP server (`crates/server`, default port 3000):
 - `GET /api/entries` — full entry index (from indexer)
 - `GET /api/entries/:address` — single entry by address
 - `GET /api/stats` — total entries + scored count
-- `GET /api/tournament-status` — tournament status JSON (from `data/tournament-status.json`, TTL cached)
+- `GET /api/tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
 - `POST /api/tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
-- `GET /api/forecasts` — bracket win probabilities (from `data/forecasts.json`, written by forecaster crate)
+- `GET /api/forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 
 Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3000`).

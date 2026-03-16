@@ -22,15 +22,15 @@ struct Cli {
     entries_file: PathBuf,
 
     /// Path to the tournament status JSON file.
-    #[arg(long, default_value = "data/tournament-status.json")]
+    #[arg(long, default_value = "data/2026/men/status.json")]
     status_file: PathBuf,
 
     /// Path to the tournament data JSON (team names in bracket order).
-    #[arg(long, default_value = "data/2026/tournament.json")]
+    #[arg(long, default_value = "data/2026/men/tournament.json")]
     tournament_file: PathBuf,
 
     /// Path to write the forecast output JSON.
-    #[arg(long, default_value = "data/forecasts.json")]
+    #[arg(long, default_value = "data/2026/men/forecasts.json")]
     output_file: PathBuf,
 
     /// Number of Monte Carlo simulations to run.

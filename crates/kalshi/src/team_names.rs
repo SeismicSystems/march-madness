@@ -7,23 +7,22 @@ use crate::auth::workspace_root;
 use crate::types::Market;
 
 #[derive(Debug, Deserialize)]
-struct TeamNamesConfig {
-    names: HashMap<String, String>,
+struct MappingsConfig {
+    #[serde(default)]
+    kalshi: HashMap<String, String>,
 }
 
 pub fn load_team_name_map() -> HashMap<String, String> {
-    let toml_path = workspace_root()
-        .join("crates")
-        .join("kalshi")
-        .join("team_names.toml");
+    // Load from centralized data/mappings.toml
+    let toml_path = workspace_root().join("data").join("mappings.toml");
     match fs::read_to_string(&toml_path) {
         Ok(content) => {
-            let config: TeamNamesConfig = toml::from_str(&content)
+            let config: MappingsConfig = toml::from_str(&content)
                 .unwrap_or_else(|e| panic!("Failed to parse {}: {}", toml_path.display(), e));
-            config.names
+            config.kalshi
         }
         Err(_) => {
-            warn!("team_names.toml not found, using raw Kalshi names");
+            warn!("data/mappings.toml not found, using raw Kalshi names");
             HashMap::new()
         }
     }
