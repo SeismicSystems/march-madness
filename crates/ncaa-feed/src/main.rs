@@ -63,8 +63,8 @@ async fn main() -> Result<()> {
             GameMapper::load(path)?
         }
         None => {
-            info!("using embedded tournament data");
-            GameMapper::load_embedded()
+            info!("using embedded 2026 tournament data");
+            GameMapper::load_embedded(2026)
         }
     };
 

@@ -91,12 +91,12 @@ pub fn load_teams_for_year(
         return team::load_teams_from_combined_csv(p);
     }
 
-    // For 2026, use embedded data — no filesystem needed.
-    if year == 2026 {
-        return team::load_teams_from_json_str(
-            seismic_march_madness::TOURNAMENT_JSON,
-            seismic_march_madness::KENPOM_CSV,
-        );
+    // Use embedded data if available for this year.
+    if let (Some(tj), Some(kp)) = (
+        seismic_march_madness::tournament_json(year),
+        seismic_march_madness::kenpom_csv(year),
+    ) {
+        return team::load_teams_from_json_str(tj, kp);
     }
 
     let dir = season_dir(year);

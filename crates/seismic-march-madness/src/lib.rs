@@ -10,7 +10,7 @@ pub mod simulate;
 pub mod tournament;
 pub mod types;
 
-pub use data::{KENPOM_CSV, KenpomRatings, TOURNAMENT_JSON};
+pub use data::{KenpomRatings, kenpom_csv, tournament_json};
 pub use scoring::*;
 pub use simulate::{ReachProbs, SimulationResults, run_simulations};
 pub use tournament::*;

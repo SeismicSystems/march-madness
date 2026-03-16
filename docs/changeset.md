@@ -4,11 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-16 — Embed tournament.json and kenpom.csv in Rust lib via include_str! (closes #62)
-- **New module** `crates/seismic-march-madness/src/data.rs` — embeds `data/2026/men/tournament.json` and `data/2026/men/kenpom.csv` at compile time via `include_str!`. Exports `TOURNAMENT_JSON` and `KENPOM_CSV` raw string constants, plus parsed accessors: `TournamentData::load()` and `KenpomRatings::load()`.
-- **Updated `bracket-sim`** — `load_teams_for_year()` and `BracketConfig::for_year()` now use embedded data for 2026 (no filesystem access). Falls back to filesystem for other years or when CLI override is provided.
-- **Updated `forecaster`** — `--tournament-file` is now optional; defaults to embedded `TournamentData::load()`.
-- **Updated `ncaa-feed`** — `--tournament-file` is now optional; defaults to embedded data via `GameMapper::load_embedded()`. Mapper tests also use embedded data.
+### 2026-03-16 — Embed tournament data in Rust lib via include_str! (closes #62)
+- **New module** `crates/seismic-march-madness/src/data.rs` — embeds tournament.json and kenpom.csv for all available years (2025, 2026 men's) at compile time via `include_str!`. Year-parameterized API: `TournamentData::embedded(year)`, `KenpomRatings::embedded(year)`, `tournament_json(year)`, `kenpom_csv(year)`. No default year — callers must be explicit.
+- **Updated `bracket-sim`** — `load_teams_for_year()` and `BracketConfig::for_year()` use embedded data when available for the requested year. Falls back to filesystem for years without embedded data or when CLI override is provided.
+- **Updated `forecaster`** — `--tournament-file` is now optional; defaults to `TournamentData::embedded(2026)`.
+- **Updated `ncaa-feed`** — `--tournament-file` is now optional; defaults to `GameMapper::load_embedded(2026)`. Mapper takes year parameter.
 - **New dependency** `csv` on `seismic-march-madness` for KenPom CSV parsing.
 - **New dependency** `seismic-march-madness` on `bracket-sim` for embedded data access.
 

@@ -36,8 +36,8 @@ impl BracketConfig {
     /// For 2026, uses compile-time-embedded tournament data — no filesystem needed.
     /// For other years, reads from `data/{year}/men/tournament.json` on disk.
     pub fn for_year(year: u16) -> Self {
-        let content = if year == 2026 {
-            seismic_march_madness::TOURNAMENT_JSON.to_string()
+        let content = if let Some(json) = seismic_march_madness::tournament_json(year) {
+            json.to_string()
         } else {
             let path = crate::season_dir(year).join("tournament.json");
             std::fs::read_to_string(&path)

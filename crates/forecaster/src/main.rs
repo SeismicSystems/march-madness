@@ -49,7 +49,7 @@ fn main() -> eyre::Result<()> {
         serde_json::from_str(&std::fs::read_to_string(&cli.status_file)?)?;
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
-        None => TournamentData::load(),
+        None => TournamentData::embedded(2026),
     };
 
     info!(

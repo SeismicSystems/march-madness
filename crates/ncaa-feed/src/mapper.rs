@@ -43,11 +43,13 @@ impl GameMapper {
         Self::from_json(&json)
     }
 
-    /// Load mapper from the embedded 2026 tournament data.
+    /// Load mapper from embedded tournament data for the given year.
     /// No filesystem access required.
-    pub fn load_embedded() -> Self {
-        Self::from_json(seismic_march_madness::TOURNAMENT_JSON)
-            .expect("embedded tournament.json should always parse correctly")
+    pub fn load_embedded(year: u16) -> Self {
+        let json = seismic_march_madness::tournament_json(year)
+            .unwrap_or_else(|| panic!("no embedded tournament data for year {year}"));
+        Self::from_json(json)
+            .unwrap_or_else(|e| panic!("failed to parse embedded tournament.json for {year}: {e}"))
     }
 
     /// Parse mapper from a JSON string.
@@ -203,7 +205,7 @@ mod tests {
     use super::*;
 
     fn test_mapper() -> GameMapper {
-        GameMapper::load_embedded()
+        GameMapper::load_embedded(2026)
     }
 
     #[test]

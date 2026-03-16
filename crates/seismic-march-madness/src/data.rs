@@ -1,40 +1,61 @@
-//! Embedded tournament data for the 2026 Men's NCAA tournament.
+//! Embedded tournament data for NCAA tournaments.
 //!
 //! Data files are baked into the binary at compile time via `include_str!`.
-//! Downstream crates can call `TournamentData::load()` and `KenpomRatings::load()`
-//! to get parsed data without any filesystem access.
+//! Downstream crates call `TournamentData::embedded(year)` and
+//! `KenpomRatings::embedded(year)` to get parsed data without filesystem access.
 
 use serde::Deserialize;
 use std::collections::HashMap;
 
 // ── Embedded raw strings ────────────────────────────────────────────
 
-/// Raw JSON content of `data/2026/men/tournament.json`.
-pub const TOURNAMENT_JSON: &str = include_str!(concat!(
+const TOURNAMENT_JSON_2025: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/2025/men/tournament.json"
+));
+const KENPOM_CSV_2025: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/2025/men/kenpom.csv"
+));
+
+const TOURNAMENT_JSON_2026: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../data/2026/men/tournament.json"
 ));
-
-/// Raw CSV content of `data/2026/men/kenpom.csv`.
-pub const KENPOM_CSV: &str = include_str!(concat!(
+const KENPOM_CSV_2026: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../data/2026/men/kenpom.csv"
 ));
 
+/// Return the embedded tournament JSON string for a given year, if available.
+pub fn tournament_json(year: u16) -> Option<&'static str> {
+    match year {
+        2025 => Some(TOURNAMENT_JSON_2025),
+        2026 => Some(TOURNAMENT_JSON_2026),
+        _ => None,
+    }
+}
+
+/// Return the embedded KenPom CSV string for a given year, if available.
+pub fn kenpom_csv(year: u16) -> Option<&'static str> {
+    match year {
+        2025 => Some(KENPOM_CSV_2025),
+        2026 => Some(KENPOM_CSV_2026),
+        _ => None,
+    }
+}
+
 // ── Tournament data ─────────────────────────────────────────────────
 
-/// Parsed tournament data (team names, seeds, regions, Final Four pairings).
-///
-/// This is the same schema as the `TournamentData` in the `tournament` module,
-/// re-exported here with a `load()` constructor for convenience.
 impl crate::TournamentData {
-    /// Load the embedded 2026 Men's tournament data.
+    /// Load embedded tournament data for the given year.
     ///
-    /// This parses the compile-time-embedded `tournament.json` — no filesystem
-    /// access required.
-    pub fn load() -> Self {
-        serde_json::from_str(TOURNAMENT_JSON)
-            .expect("embedded tournament.json should always parse correctly")
+    /// Panics if the year is not embedded at compile time.
+    pub fn embedded(year: u16) -> Self {
+        let json = tournament_json(year)
+            .unwrap_or_else(|| panic!("no embedded tournament data for year {year}"));
+        serde_json::from_str(json)
+            .unwrap_or_else(|e| panic!("failed to parse embedded tournament.json for {year}: {e}"))
     }
 }
 
@@ -69,12 +90,14 @@ pub struct KenpomRatings {
 }
 
 impl KenpomRatings {
-    /// Load the embedded 2026 Men's KenPom ratings.
+    /// Load embedded KenPom ratings for the given year.
     ///
-    /// This parses the compile-time-embedded `kenpom.csv` — no filesystem
-    /// access required.
-    pub fn load() -> Self {
-        Self::from_csv(KENPOM_CSV).expect("embedded kenpom.csv should always parse correctly")
+    /// Panics if the year is not embedded at compile time.
+    pub fn embedded(year: u16) -> Self {
+        let csv =
+            kenpom_csv(year).unwrap_or_else(|| panic!("no embedded KenPom data for year {year}"));
+        Self::from_csv(csv)
+            .unwrap_or_else(|e| panic!("failed to parse embedded kenpom.csv for {year}: {e}"))
     }
 
     /// Parse KenPom ratings from a CSV string.
@@ -111,17 +134,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tournament_data_loads() {
-        let data = crate::TournamentData::load();
+    fn tournament_data_2026() {
+        let data = crate::TournamentData::embedded(2026);
         assert_eq!(data.regions.len(), 4);
         assert!(data.teams.len() >= 64, "should have at least 64 teams");
     }
 
     #[test]
-    fn kenpom_ratings_load() {
-        let ratings = KenpomRatings::load();
+    fn tournament_data_2025() {
+        let data = crate::TournamentData::embedded(2025);
+        assert_eq!(data.regions.len(), 4);
+        assert!(data.teams.len() >= 64, "should have at least 64 teams");
+    }
+
+    #[test]
+    #[should_panic(expected = "no embedded tournament data for year 2020")]
+    fn tournament_data_missing_year() {
+        crate::TournamentData::embedded(2020);
+    }
+
+    #[test]
+    fn kenpom_ratings_2026() {
+        let ratings = KenpomRatings::embedded(2026);
         assert!(ratings.teams.len() >= 64, "should have at least 64 teams");
-        // Check that the first team has plausible values
         let first = &ratings.teams[0];
         assert!(first.ortg > 80.0 && first.ortg < 150.0);
         assert!(first.drtg > 80.0 && first.drtg < 150.0);
@@ -129,17 +164,30 @@ mod tests {
     }
 
     #[test]
+    fn kenpom_ratings_2025() {
+        let ratings = KenpomRatings::embedded(2025);
+        assert!(ratings.teams.len() >= 64, "should have at least 64 teams");
+    }
+
+    #[test]
+    #[should_panic(expected = "no embedded KenPom data for year 2020")]
+    fn kenpom_ratings_missing_year() {
+        KenpomRatings::embedded(2020);
+    }
+
+    #[test]
     fn kenpom_map_works() {
-        let ratings = KenpomRatings::load();
+        let ratings = KenpomRatings::embedded(2026);
         let map = ratings.as_map();
         assert!(map.len() >= 64);
-        // Spot-check a known team
         assert!(map.contains_key("Duke"), "should contain Duke");
     }
 
     #[test]
     fn raw_strings_are_nonempty() {
-        assert!(!TOURNAMENT_JSON.is_empty());
-        assert!(!KENPOM_CSV.is_empty());
+        assert!(tournament_json(2025).unwrap().len() > 100);
+        assert!(tournament_json(2026).unwrap().len() > 100);
+        assert!(kenpom_csv(2025).unwrap().len() > 100);
+        assert!(kenpom_csv(2026).unwrap().len() > 100);
     }
 }

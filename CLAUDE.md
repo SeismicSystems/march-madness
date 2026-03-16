@@ -61,12 +61,12 @@ docs/               — Technical docs, changeset, prompts
 
 ## Embedded Data
 
-The `seismic-march-madness` crate embeds `data/2026/men/tournament.json` and `data/2026/men/kenpom.csv` at compile time via `include_str!`. Downstream crates (`bracket-sim`, `forecaster`, `ncaa-feed`) use the embedded data by default for 2026 — no filesystem access required. CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides for local dev or other years.
+The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). Downstream crates (`bracket-sim`, `forecaster`, `ncaa-feed`) use embedded data when available — no filesystem access required. CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
 
-Key accessors:
-- `TournamentData::load()` — parse embedded tournament JSON
-- `KenpomRatings::load()` — parse embedded KenPom CSV
-- `TOURNAMENT_JSON` / `KENPOM_CSV` — raw `&str` constants
+Key accessors (year-parameterized, no defaults):
+- `TournamentData::embedded(year)` — parse embedded tournament JSON for the given year
+- `KenpomRatings::embedded(year)` — parse embedded KenPom CSV for the given year
+- `tournament_json(year)` / `kenpom_csv(year)` — raw `Option<&'static str>` accessors
 
 ## Contract Interface (MarchMadness.sol)
 
