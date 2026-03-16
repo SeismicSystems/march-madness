@@ -1,0 +1,7 @@
+hey i see a big problem with our kalshi script...
+
+we try to scrape all the markets, not only the teams that are in the actual bracket. eventually we'll want to skip teams who are dead (eliminated) as well, or markets that have settled. but for now, stick with just: only scraping markets of teams in the tournament. currently that's 68 teams (normal 64 + first 4)
+
+it seems that kalshi market IDs are named differently than the team name we display in mappings. i think we'll need to add a section in mappings under the [kalshi] section that will go from ncaa name (in the tournament json) to kalshi market name. alternatiely we could do the inverse mapping to keep everythng consistently pointing to ncaa name (e.g. kalshi market ticker => ncaa name)
+
+you should look in the kalshi cache for these market ticker names to develop the mapping. pretty sure the cache is fully populated. only include names in the mapping that are in the actual tournament -- we have MORE  data than that in the cache

@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Filter Kalshi calibration to tournament teams only
+- **Calibrate binary**: Markets are now filtered to only tournament teams (68) before fetching orderbooks, instead of fetching all ~150 markets per round. Cached orderbooks are also filtered by ticker on load.
+- **Mappings**: Added 6 missing Kalshi → NCAA name mappings to `data/mappings.toml` `[kalshi]` section: California Baptist, Hawai'i, LIU, Miami (OH), North Carolina St., Queens University.
+
 ### 2026-03-16 — Refresh ratings wrapper script
 - **New script** `scripts/refresh-ratings.sh` — convenience wrapper that scrapes KenPom ratings then runs Kalshi calibration in sequence. Defaults to 2-hour Kalshi cache TTL. Flags: `--cache-ttl` (seconds), `--no-kalshi` (kenpom only), `--no-kenpom` (calibrate only). Everything after `--` passes through to the calibrate binary. Step indicators `[1/2]`/`[2/2]` show progress; kenpom failure aborts before calibration.
 
