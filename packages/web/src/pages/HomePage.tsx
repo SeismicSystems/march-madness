@@ -4,6 +4,7 @@ import { BracketView } from "../components/BracketView";
 import { DeadlineCountdown } from "../components/DeadlineCountdown";
 import { FaucetBanner } from "../components/FaucetBanner";
 import { GroupsSection } from "../components/GroupsSection";
+import { MirrorsSection } from "../components/MirrorsSection";
 import { SubmitPanel } from "../components/SubmitPanel";
 import { useBracket } from "../hooks/useBracket";
 import { useContract } from "../hooks/useContract";
@@ -82,6 +83,11 @@ export function HomePage() {
           />
         </div>
       )}
+
+      {/* Mirrors — tucked away, only shows if user has tracked mirrors */}
+      <div className="mb-6 sm:mb-8">
+        <MirrorsSection />
+      </div>
 
       <BracketView
         games={bracket.games}

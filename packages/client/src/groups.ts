@@ -7,6 +7,7 @@ import { getShieldedContract } from "seismic-viem";
 import type { ShieldedWalletClient, ShieldedContract } from "seismic-viem";
 import {
   type Address,
+  type Hex,
   type PublicClient as ViemPublicClient,
   type Hash,
   type Account,
@@ -210,7 +211,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
     slug: string,
     displayName: string,
     entryFee: bigint,
-    password: `0x${string}`,
+    password: Hex,
     opts: WriteOptions = {},
   ): Promise<Hash> {
     return this.shieldedContract.write.createGroupWithPassword(
@@ -235,7 +236,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
   /** Join a password-protected group. Uses shielded write for password (sbytes12). */
   async joinGroupWithPassword(
     groupId: number,
-    password: `0x${string}`,
+    password: Hex,
     name: string,
     entryFee: bigint = 0n,
     opts: WriteOptions = {},

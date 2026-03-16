@@ -11,7 +11,7 @@ export function useForecasts() {
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/forecasts`);
+      const res = await fetch(`${API_BASE}/forecasts`);
       if (res.ok) {
         const data: ForecastIndex = await res.json();
         setForecasts(data);

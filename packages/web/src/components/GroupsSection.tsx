@@ -14,6 +14,24 @@ interface GroupsSectionProps {
   onTrackGroup: (groupId: number) => void;
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="ml-1 px-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+      title="Copy to clipboard"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
 export function GroupsSection({
   joinedGroups,
   isLoading,
@@ -93,7 +111,7 @@ export function GroupsSection({
       {/* Joined Groups List */}
       {joinedGroups.length > 0 ? (
         <div className="space-y-3 mb-4">
-          {joinedGroups.map(({ groupId, group, members }) => (
+          {joinedGroups.map(({ groupId, group, members, storedInfo }) => (
             <div
               key={groupId}
               className="rounded-lg bg-bg-tertiary border border-border p-3"
@@ -106,11 +124,23 @@ export function GroupsSection({
                   <span className="ml-2 text-xs text-text-tertiary">
                     /{group.slug}
                   </span>
+                  {storedInfo.admin && (
+                    <span className="ml-2 text-xs text-indigo-400">Admin</span>
+                  )}
                 </div>
                 <span className="text-xs text-text-secondary">
                   {group.entryCount} member{group.entryCount !== 1 ? "s" : ""}
                 </span>
               </div>
+
+              {/* Password display for private groups */}
+              {storedInfo.password && (
+                <div className="flex items-center text-xs text-text-secondary mb-2 bg-bg-primary rounded px-2 py-1">
+                  <span className="text-text-tertiary mr-1">Password:</span>
+                  <code className="text-text-primary font-mono text-xs">{storedInfo.password}</code>
+                  <CopyButton text={storedInfo.password} />
+                </div>
+              )}
 
               {/* Member list (compact) */}
               <div className="text-xs text-text-secondary space-y-0.5 mb-2">
