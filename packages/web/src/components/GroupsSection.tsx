@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { JoinedGroup } from "../hooks/useGroups";
 import type { GroupData } from "@march-madness/client";
+import { formatEther } from "viem";
 
 interface GroupsSectionProps {
   joinedGroups: JoinedGroup[];
@@ -8,11 +9,13 @@ interface GroupsSectionProps {
   error: string | null;
   isBeforeDeadline: boolean;
   walletConnected: boolean;
+  walletBalance: bigint | null;
   onJoinGroup: (groupId: number, name: string, entryFee: bigint) => Promise<unknown>;
   onJoinGroupWithPassword: (groupId: number, passphrase: string, name: string, entryFee: bigint) => Promise<unknown>;
   onLeaveGroup: (groupId: number) => Promise<unknown>;
   onEditEntryName: (groupId: number, name: string) => Promise<unknown>;
   onLookupBySlug: (slug: string) => Promise<[number, GroupData] | null>;
+  onLookupById: (groupId: number) => Promise<GroupData | null>;
   onTrackGroup: (groupId: number) => void;
   initialSlug?: string;
   initialPassphrase?: string;
@@ -42,65 +45,92 @@ export function GroupsSection({
   error,
   isBeforeDeadline,
   walletConnected,
+  walletBalance,
   onJoinGroup,
   onJoinGroupWithPassword,
   onLeaveGroup,
   onEditEntryName,
   onLookupBySlug,
+  onLookupById,
   onTrackGroup,
   initialSlug = "",
   initialPassphrase = "",
 }: GroupsSectionProps) {
-  const [joinInput, setJoinInput] = useState(initialSlug);
+  const [slugInput, setSlugInput] = useState(initialSlug);
   const [nameInput, setNameInput] = useState("");
   const [passphraseInput, setPassphraseInput] = useState(initialPassphrase);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
-  // Track whether the resolved group needs a password
   const [resolvedGroupNeedsPassword, setResolvedGroupNeedsPassword] = useState<boolean | null>(
     initialPassphrase ? true : null,
   );
+  // Track by ID form
+  const [trackIdInput, setTrackIdInput] = useState("");
+
+  /** Resolve a slug to [groupId, GroupData]. Returns null if not found. */
+  const resolveGroup = async (input: string): Promise<[number, GroupData] | null> => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // Try slug lookup first (always unambiguous)
+    const bySlug = await onLookupBySlug(trimmed);
+    if (bySlug) return bySlug;
+
+    // If input looks numeric, also try by ID as fallback
+    const asNumber = parseInt(trimmed, 10);
+    if (!isNaN(asNumber) && String(asNumber) === trimmed) {
+      const byId = await onLookupById(asNumber);
+      if (byId) return [asNumber, byId];
+    }
+
+    return null;
+  };
 
   const handleJoin = async () => {
-    if (!joinInput.trim() || !nameInput.trim()) return;
+    if (!slugInput.trim() || !nameInput.trim()) return;
     setJoinError(null);
 
     try {
-      // Try parsing as group ID first
-      const asNumber = parseInt(joinInput, 10);
-      let groupId: number;
-      let groupData: GroupData | null = null;
-
-      if (!isNaN(asNumber) && String(asNumber) === joinInput.trim()) {
-        groupId = asNumber;
-      } else {
-        // Try slug lookup
-        const result = await onLookupBySlug(joinInput.trim());
-        if (!result) {
-          setJoinError("Group not found");
-          return;
-        }
-        groupId = result[0];
-        groupData = result[1];
+      // 1. Resolve group
+      const result = await resolveGroup(slugInput);
+      if (!result) {
+        setJoinError("Group not found");
+        return;
       }
 
-      // If we have group data, check if password is needed
-      if (groupData?.hasPassword) {
-        if (!passphraseInput.trim()) {
-          setResolvedGroupNeedsPassword(true);
-          setJoinError("This is a private group — enter the passphrase to join");
-          return;
-        }
-        await onJoinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), 0n);
-      } else if (passphraseInput.trim()) {
-        // User provided a passphrase — try with password in case it's needed
-        await onJoinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), 0n);
-      } else {
-        await onJoinGroup(groupId, nameInput.trim(), 0n);
+      const [groupId, groupData] = result;
+
+      // 2. Check if password is needed
+      if (groupData.hasPassword && !passphraseInput.trim()) {
+        setResolvedGroupNeedsPassword(true);
+        setJoinError("This is a private group — enter the passphrase to join");
+        return;
       }
 
-      setJoinInput("");
+      // 3. Check balance vs entry fee
+      const entryFee = groupData.entryFee;
+      if (entryFee > 0n) {
+        if (walletBalance === null) {
+          setJoinError("Unable to check wallet balance — try again");
+          return;
+        }
+        if (walletBalance < entryFee) {
+          setJoinError(
+            `Entry fee is ${formatEther(entryFee)} ETH, but your balance is ${formatEther(walletBalance)} ETH`,
+          );
+          return;
+        }
+      }
+
+      // 4. Send the transaction with the correct entry fee
+      if (groupData.hasPassword || passphraseInput.trim()) {
+        await onJoinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), entryFee);
+      } else {
+        await onJoinGroup(groupId, nameInput.trim(), entryFee);
+      }
+
+      setSlugInput("");
       setNameInput("");
       setPassphraseInput("");
       setResolvedGroupNeedsPassword(null);
@@ -110,10 +140,10 @@ export function GroupsSection({
   };
 
   const handleTrackById = () => {
-    const id = parseInt(joinInput, 10);
+    const id = parseInt(trackIdInput, 10);
     if (!isNaN(id)) {
       onTrackGroup(id);
-      setJoinInput("");
+      setTrackIdInput("");
     }
   };
 
@@ -156,6 +186,11 @@ export function GroupsSection({
                   </span>
                   {storedInfo.admin && (
                     <span className="ml-2 text-xs text-indigo-400">Admin</span>
+                  )}
+                  {group.entryFee > 0n && (
+                    <span className="ml-2 text-xs text-amber-400">
+                      {formatEther(group.entryFee)} ETH
+                    </span>
                   )}
                 </div>
                 <span className="text-xs text-text-secondary">
@@ -262,55 +297,66 @@ export function GroupsSection({
 
       {/* Join Group Form */}
       {walletConnected && isBeforeDeadline && (
-        <div className="max-w-lg space-y-2">
+        <div className="space-y-3">
           <h3 className="text-sm font-medium text-text-secondary">Join a Group</h3>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={joinInput}
-                onChange={(e) => setJoinInput(e.target.value)}
-                placeholder="Group ID or slug"
-                className="sm:w-40 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-              />
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder="Your name"
-                className="sm:w-36 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-              />
-              <input
-                type="text"
-                value={passphraseInput}
-                onChange={(e) => setPassphraseInput(e.target.value)}
-                placeholder={resolvedGroupNeedsPassword ? "Passphrase (required)" : "Passphrase (if private)"}
-                className={`sm:w-40 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors ${
-                  resolvedGroupNeedsPassword ? "border-amber-500/50" : "border-border"
-                }`}
-              />
-            </div>
-            <div className="flex gap-2">
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={slugInput}
+              onChange={(e) => setSlugInput(e.target.value)}
+              placeholder="Group slug"
+              className="w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+            />
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your display name"
+              className="w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+            />
+            <input
+              type="text"
+              value={passphraseInput}
+              onChange={(e) => setPassphraseInput(e.target.value)}
+              placeholder={resolvedGroupNeedsPassword ? "Passphrase (required)" : "Passphrase (leave blank for public groups)"}
+              className={`w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors ${
+                resolvedGroupNeedsPassword ? "border-amber-500/50" : "border-border"
+              }`}
+            />
+            <div>
               <button
                 onClick={handleJoin}
-                disabled={isLoading || !joinInput.trim() || !nameInput.trim()}
-                className="px-3 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+                disabled={isLoading || !slugInput.trim() || !nameInput.trim()}
+                className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
               >
                 {isLoading ? "Joining..." : "Join"}
-              </button>
-              <button
-                onClick={handleTrackById}
-                disabled={!joinInput.trim()}
-                className="px-3 py-1.5 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
-                title="Track a group without joining on-chain (e.g. if you already joined)"
-              >
-                Track
               </button>
             </div>
           </div>
           {joinError && (
             <p className="text-xs text-red-400">{joinError}</p>
           )}
+
+          {/* Track by ID (separate, small) */}
+          <div className="pt-2 border-t border-border">
+            <h4 className="text-xs text-text-tertiary mb-1">Already a member? Track by group ID</h4>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={trackIdInput}
+                onChange={(e) => setTrackIdInput(e.target.value)}
+                placeholder="Group ID"
+                className="w-28 px-3 py-1 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+              />
+              <button
+                onClick={handleTrackById}
+                disabled={!trackIdInput.trim()}
+                className="px-3 py-1 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Track
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

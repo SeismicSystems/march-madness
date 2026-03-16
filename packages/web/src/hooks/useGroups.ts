@@ -28,6 +28,10 @@ export interface StoredGroupInfo {
   admin?: true;
   passphrase?: string;
   password?: Hex;
+  /** Entry fee in wei (hex string for JSON serialization). */
+  entryFee?: string;
+  slug?: string;
+  displayName?: string;
 }
 
 /** Full localStorage dict: groupId → StoredGroupInfo */
@@ -280,10 +284,28 @@ export function useGroups() {
 
   /** Look up a group by slug. Returns [groupId, groupData] or null. */
   const lookupGroupBySlug = useCallback(
-    async (slug: string) => {
+    async (slug: string): Promise<[number, GroupData] | null> => {
       if (!groupsPublic) return null;
       try {
         return await groupsPublic.getGroupBySlug(slug);
+      } catch {
+        return null;
+      }
+    },
+    [groupsPublic],
+  );
+
+  /** Look up a group by ID. Returns GroupData or null. */
+  const lookupGroupById = useCallback(
+    async (groupId: number): Promise<GroupData | null> => {
+      if (!groupsPublic) return null;
+      try {
+        const group = await groupsPublic.getGroup(groupId);
+        // Zero-address creator means group doesn't exist
+        if (!group.creator || group.creator === "0x0000000000000000000000000000000000000000") {
+          return null;
+        }
+        return group;
       } catch {
         return null;
       }
@@ -306,6 +328,7 @@ export function useGroups() {
     trackGroup,
     untrackGroup,
     lookupGroupBySlug,
+    lookupGroupById,
     refreshGroups,
   };
 }

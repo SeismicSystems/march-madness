@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix group join flow: entry fees, slug-first lookup, layout
+- **Bug fix**: Joining a group with a non-zero entry fee now correctly populates the transaction value. Previously always sent 0.
+- **UX**: Join flow now fetches group metadata before submitting the tx — validates group exists, checks wallet balance vs entry fee, and surfaces clear error messages.
+- **UX**: Slug is now the primary lookup method (unambiguous). Numeric input falls back to ID lookup, but slug is tried first — fixes the "42069" slug ambiguity.
+- **UX**: Join form inputs are now stacked vertically at full width so placeholder text isn't truncated.
+- **UX**: "Track by ID" is separated into its own small section below the join form.
+- **Data**: Entry fee, slug, and display name are now stored in localStorage for joined groups.
+
 ### 2026-03-16 — Remove Groups and Mirrors sections from homepage
 - **Cleanup**: Removed GroupsSection and MirrorsSection from the homepage. Groups already have a dedicated `/groups` page. Mirrors will get a dedicated `/mirrors` page later (see issue).
 - **No functional change**: MirrorsSection component is kept in the codebase for future use.

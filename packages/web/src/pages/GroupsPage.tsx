@@ -179,11 +179,13 @@ export function GroupsPage() {
           error={groups.error}
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
+          walletBalance={contract.balance}
           onJoinGroup={groups.joinGroup}
           onJoinGroupWithPassword={groups.joinGroupWithPassword}
           onLeaveGroup={groups.leaveGroup}
           onEditEntryName={groups.editEntryName}
           onLookupBySlug={groups.lookupGroupBySlug}
+          onLookupById={groups.lookupGroupById}
           onTrackGroup={groups.trackGroup}
           initialSlug={initialSlug}
           initialPassphrase={initialPassphrase}
