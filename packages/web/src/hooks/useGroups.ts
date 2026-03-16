@@ -5,19 +5,28 @@ import {
   BracketGroupsUserClient,
 } from "@march-madness/client";
 import type { GroupData, MemberData } from "@march-madness/client";
-import type { Hex } from "viem";
+import { type Hex, keccak256, toHex } from "viem";
 
 import { GROUPS_CONTRACT_ADDRESS } from "../lib/constants";
+
+/** Hash a human-readable passphrase into sbytes12: take first 12 bytes of keccak256. */
+export function passphraseToBytes12(passphrase: string): Hex {
+  const hash = keccak256(toHex(passphrase));
+  // keccak256 returns 0x + 64 hex chars (32 bytes). Take first 12 bytes = 24 hex chars.
+  return `0x${hash.slice(2, 26)}` as Hex;
+}
 
 const STORAGE_KEY = "mm-groups";
 
 /**
  * Per-group localStorage entry.
  * - `admin` (optional): true if user created this group
- * - `password` (optional): hex string for private groups (stored so user can share it)
+ * - `passphrase` (optional): human-readable passphrase for private groups (what users share)
+ * - `password` (optional): hex bytes12 derived from passphrase (what the contract sees)
  */
 export interface StoredGroupInfo {
   admin?: true;
+  passphrase?: string;
   password?: Hex;
 }
 
@@ -126,14 +135,6 @@ export function useGroups() {
     [storedGroups],
   );
 
-  /** Get the stored password for a group (if any). */
-  const getGroupPassword = useCallback(
-    (groupId: number): Hex | undefined => {
-      return storedGroups[String(groupId)]?.password;
-    },
-    [storedGroups],
-  );
-
   /** Join a public group. */
   const joinGroup = useCallback(
     async (groupId: number, name: string, entryFee: bigint = 0n) => {
@@ -156,11 +157,11 @@ export function useGroups() {
     [groupsUser, trackGroup, refreshGroups],
   );
 
-  /** Join a password-protected group. Stores password in localStorage. */
+  /** Join a password-protected group. Takes a human-readable passphrase. */
   const joinGroupWithPassword = useCallback(
     async (
       groupId: number,
-      password: Hex,
+      passphrase: string,
       name: string,
       entryFee: bigint = 0n,
     ) => {
@@ -168,13 +169,14 @@ export function useGroups() {
       setIsLoading(true);
       setError(null);
       try {
+        const password = passphraseToBytes12(passphrase);
         const hash = await groupsUser.joinGroupWithPassword(
           groupId,
           password,
           name,
           entryFee,
         );
-        trackGroup(groupId, { password });
+        trackGroup(groupId, { passphrase, password });
         await refreshGroups();
         return hash;
       } catch (err) {
@@ -210,17 +212,14 @@ export function useGroups() {
     [groupsUser, refreshGroups],
   );
 
-  /** Create a password-protected group. Auto-generates password, stores it. */
+  /** Create a password-protected group. Takes a human-readable passphrase. */
   const createGroupWithPassword = useCallback(
-    async (slug: string, displayName: string, entryFee: bigint) => {
+    async (slug: string, displayName: string, entryFee: bigint, passphrase: string) => {
       if (!groupsUser) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
-        // Auto-generate a random 12-byte password
-        const bytes = crypto.getRandomValues(new Uint8Array(12));
-        const password: Hex = `0x${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
-
+        const password = passphraseToBytes12(passphrase);
         const hash = await groupsUser.createGroupWithPassword(slug, displayName, entryFee, password);
         // TODO: parse groupId from event logs to trackGroup(groupId, { admin: true, password })
         await refreshGroups();
@@ -306,7 +305,6 @@ export function useGroups() {
     editEntryName,
     trackGroup,
     untrackGroup,
-    getGroupPassword,
     lookupGroupBySlug,
     refreshGroups,
   };

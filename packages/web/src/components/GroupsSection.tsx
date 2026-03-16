@@ -133,12 +133,12 @@ export function GroupsSection({
                 </span>
               </div>
 
-              {/* Password display for private groups */}
-              {storedInfo.password && (
+              {/* Passphrase display for private groups */}
+              {storedInfo.passphrase && (
                 <div className="flex items-center text-xs text-text-secondary mb-2 bg-bg-primary rounded px-2 py-1">
-                  <span className="text-text-tertiary mr-1">Password:</span>
-                  <code className="text-text-primary font-mono text-xs">{storedInfo.password}</code>
-                  <CopyButton text={storedInfo.password} />
+                  <span className="text-text-tertiary mr-1">Passphrase:</span>
+                  <span className="text-text-primary">{storedInfo.passphrase}</span>
+                  <CopyButton text={storedInfo.passphrase} />
                 </div>
               )}
 
