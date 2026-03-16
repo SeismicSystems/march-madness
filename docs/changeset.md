@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add confirmation dialog to Reset Picks button
+- **Frontend**: Clicking "Reset Picks" now shows a confirmation dialog ("This will clear all 63 picks. This can't be undone.") before clearing the bracket.
+- Added `@headlessui/react` for accessible, headless dialog/modal components styled with Tailwind.
+- New reusable `ConfirmDialog` component supports title, description, danger styling, and backdrop dismiss.
+
 ### 2026-03-16 — Remove redundant entry count from Header
 - **Cleanup**: Removed the "1 entry" / entry count badge from both desktop and mobile Header since each user only has one entry, making the display redundant.
 - Removed `entryCount` prop from `Header` component and removed the `useContract` hook from `App.tsx`.

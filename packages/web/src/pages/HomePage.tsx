@@ -1,8 +1,8 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-
 import { BracketView } from "../components/BracketView";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DeadlineCountdown } from "../components/DeadlineCountdown";
 import { FaucetBanner } from "../components/FaucetBanner";
 import { GroupsSection } from "../components/GroupsSection";
@@ -21,6 +21,7 @@ export function HomePage() {
   const { status: tournamentStatus } = useTournamentStatus();
 
   const isLocked = !contract.isBeforeDeadline;
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Easter egg: double-click to fan out copy/edit icons, edit opens hex input
   const [hexOpen, setHexOpen] = useState(false);
@@ -117,11 +118,21 @@ export function HomePage() {
         {!isLocked && (
           <>
             <button
-              onClick={bracket.resetPicks}
+              onClick={() => setResetOpen(true)}
               className="px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
             >
               Reset Picks
             </button>
+            <ConfirmDialog
+              open={resetOpen}
+              onClose={() => setResetOpen(false)}
+              onConfirm={bracket.resetPicks}
+              title="Reset Picks?"
+              description="This will clear all 63 picks. This can't be undone."
+              confirmLabel="Reset"
+              cancelLabel="Cancel"
+              danger
+            />
             {hexOpen ? (
               <input
                 ref={hexRef}

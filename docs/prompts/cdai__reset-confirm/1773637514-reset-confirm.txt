@@ -1,0 +1,1 @@
+'Reset Picks' button on the UI should require a 'are you sure' check. use a nice UI library for this alert
