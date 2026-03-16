@@ -26,21 +26,14 @@ import sys
 
 from pathlib import Path
 
+import tomllib
+
 try:
     import cloudscraper
     import kenpompy.misc as kpm
 except ImportError:
     print("Install dependencies: uv pip install kenpompy cloudscraper")
     sys.exit(1)
-
-try:
-    import tomllib
-except ImportError:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        print("Python 3.11+ required (for tomllib), or: uv pip install tomli")
-        sys.exit(1)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 YEAR = 2026
