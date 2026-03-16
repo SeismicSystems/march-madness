@@ -132,18 +132,10 @@ Key variables for production:
 
 ## Deploy Aliases
 
-Add these to `~/.bashrc` or `~/.bash_aliases` on the server:
+Add to `~/.bashrc`:
 
 ```bash
-# Deploy frontend (static rebuild)
-alias dbrackets='cd ~/march-madness && git pull && bun install && bun build:web'
-
-# Deploy backend (rebuild Rust binaries + restart services)
-alias dbrackets-backend='cd ~/march-madness && git pull && cargo build --release && sudo supervisorctl restart all'
-
-# Deploy everything
-alias dbrackets-all='cd ~/march-madness && git pull && bun install && bun build:web && cargo build --release && sudo supervisorctl restart all'
-
-# Check service health after deploy
-alias dbrackets-status='sudo supervisorctl status && curl -sf http://localhost:3000/health && echo " OK"'
+source ~/march-madness/scripts/alias.sh
 ```
+
+See `scripts/alias.sh` for the full list (`dmm_frontend`, `dmm_backend`, `dmm_all`, `dmm_backfill`, `dmm_listen`, `dmm_status`).
