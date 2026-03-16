@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Gitignore broadcast directory
+- **Repo hygiene**: Removed committed `contracts/broadcast/` files and gitignored the entire directory. Broadcast logs are deployment artifacts that shouldn't be tracked.
+
 ### 2026-03-16 — Fix Kalshi trade log table alignment
 - **Bug fix**: `Side` column (`BUY`/`SELL`) wasn't respecting formatter width — `write!(f, "BUY")` bypasses padding; switched to `f.pad(s)`.
 - **Bug fix**: `Qty` column width was hardcoded to 4 but quantities can be 6+ digits; now computed dynamically via `log10`.
