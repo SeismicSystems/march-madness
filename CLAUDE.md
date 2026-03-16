@@ -169,6 +169,7 @@ See `docs/api.md` for full API documentation including schema, game index layout
 
 - `/` — Home: bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline)
 - `/leaderboard` — All entries ranked by `scoreBracketPartial` (current score, max possible)
+- `/groups` — Create and join bracket groups (public or private with passphrase)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
 
 ## Shielded Types & Security
