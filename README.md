@@ -8,6 +8,8 @@ Hosted at [brackets.seismictest.net](https://brackets.seismictest.net)
 
 Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
 
+Aside from ripping a bunch of contracts from Jim: this whole thing was super obviously vibe coded.
+
 ## How It Works
 
 1. **Connect** — Sign in with your Twitter, Discord, or other social account via Privy
@@ -44,7 +46,7 @@ A later-round pick only scores if the feeder games were also picked correctly.
 Two separate contracts for side pools alongside the main contest:
 
 - **Mirrors** (`BracketMirror`): Admin enters external brackets (bracket + slug) from off-chain pools (e.g. Yahoo Fantasy). No money, no scoring on-chain — purely for display. Admin sets a prize description for bookkeeping.
-- **Groups** (`BracketGroups`): Users self-join with their main-contract bracket. Optional password protection (shielded sbytes32). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
+- **Groups** (`BracketGroups`): Users self-join with their main-contract bracket. Optional password protection (`sbytes12(keccak256("your-password"))`). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
 
 ## Tech Stack
 
