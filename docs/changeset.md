@@ -19,6 +19,17 @@ All notable changes to this project. Every PR must add an entry here.
 ### 2026-03-17 — Fix group/mirror event ordering in indexer
 - **Indexer**: Group events (GroupCreated, MemberJoined, MemberLeft) and mirror events (MirrorCreated, EntryAdded, EntryRemoved) are now sorted by `(block_number, log_index)` before processing, instead of being grouped by event type. Fixes edge case where leave-then-rejoin within a single poll cycle or backfill batch could produce incorrect state.
 
+### 2026-03-17 — Reorganize Groups page with public groups browse and search
+
+- **UI**: Reorganized Groups page into four clear sections: Public Groups, Your Groups, Join Private Group, Create Group.
+- **UI**: Added Public Groups section that fetches all groups from the backend API and filters to public (no password) groups.
+- **UI**: Added client-side search bar for filtering public groups by name or slug.
+- **UI**: Public groups display as cards with inline "Join" button that expands to show a display name input and confirm button.
+- **UI**: Public Groups section works without wallet connected (browse-only, join button disabled).
+- **UI**: Extracted `PrivateJoinForm` component for joining private groups via slug + passphrase.
+- **UI**: Refactored `GroupsSection` to only show "Your Groups" section (hidden when no groups joined).
+- **Hook**: Added `usePublicGroups` hook that fetches from `VITE_API_BASE/groups` API endpoint.
+
 ### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
 
 - **Web**: Added `useSubmissionDeadline` hook that reads `submissionDeadline()` from the MarchMadness contract, falling back to the hardcoded constant if the contract read fails.

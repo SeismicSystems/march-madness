@@ -3,8 +3,11 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams } from "react-router-dom";
 
 import { GroupsSection } from "../components/GroupsSection";
+import { PublicGroupsList } from "../components/PublicGroupsList";
+import { PrivateJoinForm } from "../components/PrivateJoinForm";
 import { useContract } from "../hooks/useContract";
 import { useGroups } from "../hooks/useGroups";
+import { usePublicGroups } from "../hooks/usePublicGroups";
 
 const MAX_SLUG_LENGTH = 32; // Must match BracketGroups.sol MAX_SLUG_LENGTH
 
@@ -20,6 +23,7 @@ export function GroupsPage() {
   const { authenticated } = usePrivy();
   const contract = useContract();
   const groups = useGroups();
+  const { publicGroups, isLoading: publicLoading, error: publicError } = usePublicGroups();
   const [searchParams] = useSearchParams();
 
   // Read invite link params (e.g., /groups?slug=seismic-team&password=Quake100)
@@ -78,7 +82,50 @@ export function GroupsPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-xl font-bold text-text-primary">Groups</h1>
 
-      {/* Create Group Section */}
+      {!groups.hasContract && (
+        <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
+          <p className="text-sm text-text-muted">
+            Groups contract not deployed on this network.
+          </p>
+        </div>
+      )}
+
+      {/* Section 1: Public Groups (always visible, works without wallet) */}
+      {groups.hasContract && (
+        <PublicGroupsList
+          publicGroups={publicGroups}
+          isLoading={publicLoading}
+          error={publicError}
+          groups={groups}
+          walletConnected={authenticated}
+          isBeforeDeadline={contract.isBeforeDeadline}
+          walletBalance={contract.balance}
+        />
+      )}
+
+      {/* Section 2: Your Groups (only if user has joined groups) */}
+      {groups.hasContract && (
+        <GroupsSection
+          groups={groups}
+          isBeforeDeadline={contract.isBeforeDeadline}
+          walletConnected={authenticated}
+          walletBalance={contract.balance}
+        />
+      )}
+
+      {/* Section 3: Join Private Group */}
+      {groups.hasContract && (
+        <PrivateJoinForm
+          groups={groups}
+          isBeforeDeadline={contract.isBeforeDeadline}
+          walletConnected={authenticated}
+          walletBalance={contract.balance}
+          initialSlug={initialSlug}
+          initialPassphrase={initialPassphrase}
+        />
+      )}
+
+      {/* Section 4: Create Group */}
       {authenticated && contract.isBeforeDeadline && groups.hasContract && (
         <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-text-primary mb-1">
@@ -177,26 +224,6 @@ export function GroupsPage() {
               <p className="text-xs text-green-400">{createSuccess}</p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Existing groups section (join + list) */}
-      {groups.hasContract && (
-        <GroupsSection
-          groups={groups}
-          isBeforeDeadline={contract.isBeforeDeadline}
-          walletConnected={authenticated}
-          walletBalance={contract.balance}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
-        />
-      )}
-
-      {!groups.hasContract && (
-        <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
-          <p className="text-sm text-text-muted">
-            Groups contract not deployed on this network.
-          </p>
         </div>
       )}
     </div>
