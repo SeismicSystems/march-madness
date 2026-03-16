@@ -63,9 +63,9 @@ export function GroupsSection({
   const [joinError, setJoinError] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
-  const [resolvedGroupNeedsPassword, setResolvedGroupNeedsPassword] = useState<boolean | null>(
-    initialPassphrase ? true : null,
-  );
+  const [resolvedGroupNeedsPassword, setResolvedGroupNeedsPassword] = useState<
+    boolean | null
+  >(initialPassphrase ? true : null);
   // Track by ID form
   const [trackSlugInput, setTrackSlugInput] = useState("");
   const [trackError, setTrackError] = useState("");
@@ -115,7 +115,12 @@ export function GroupsSection({
 
       // 4. Send the transaction with the correct entry fee
       if (groupData.hasPassword || passphraseInput.trim()) {
-        await groups.joinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), entryFee);
+        await groups.joinGroupWithPassword(
+          groupId,
+          passphraseInput.trim(),
+          nameInput.trim(),
+          entryFee,
+        );
       } else {
         await groups.joinGroup(groupId, nameInput.trim(), entryFee);
       }
@@ -167,136 +172,155 @@ export function GroupsSection({
       {/* Joined Groups List */}
       {groups.joinedGroups.length > 0 ? (
         <div className="space-y-3 mb-4">
-          {groups.joinedGroups.map(({ groupId, group, members, storedInfo }) => (
-            <div
-              key={groupId}
-              className="rounded-lg bg-bg-tertiary border border-border p-3"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <span className="font-medium text-text-primary">
-                    {group.displayName}
-                  </span>
-                  <span className="ml-2 text-xs text-text-tertiary">
-                    /{group.slug}
-                  </span>
-                  {storedInfo.admin && (
-                    <span className="ml-2 text-xs text-indigo-400">Admin</span>
-                  )}
-                  {group.entryFee > 0n && (
-                    <span className="ml-2 text-xs text-amber-400">
-                      {formatEther(group.entryFee)} ETH
+          {groups.joinedGroups.map(
+            ({ groupId, group, members, storedInfo }) => (
+              <div
+                key={groupId}
+                className="rounded-lg bg-bg-tertiary border border-border p-3"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <span className="font-medium text-text-primary">
+                      {group.displayName}
                     </span>
-                  )}
-                </div>
-                <span className="text-xs text-text-secondary">
-                  {group.entryCount} member{group.entryCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {/* Passphrase + invite link for private groups */}
-              {storedInfo.passphrase && (
-                <div className="space-y-1 mb-2">
-                  <div className="flex items-center text-xs text-text-secondary bg-bg-primary rounded px-2 py-1">
-                    <span className="text-text-tertiary mr-1">Passphrase:</span>
-                    <span className="text-text-primary">{storedInfo.passphrase}</span>
-                    <CopyButton text={storedInfo.passphrase} />
-                  </div>
-                  <div className="flex items-center text-xs text-text-secondary bg-bg-primary rounded px-2 py-1">
-                    <span className="text-text-tertiary mr-1">Invite link:</span>
-                    <span className="text-text-primary truncate">
-                      {`${window.location.origin}/groups?slug=${encodeURIComponent(group.slug)}&password=${encodeURIComponent(storedInfo.passphrase)}`}
+                    <span className="ml-2 text-xs text-text-tertiary">
+                      /{group.slug}
                     </span>
-                    <CopyButton
-                      text={`${window.location.origin}/groups?slug=${encodeURIComponent(group.slug)}&password=${encodeURIComponent(storedInfo.passphrase)}`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Member list (compact) */}
-              <div className="text-xs text-text-secondary space-y-0.5 mb-2">
-                {members.slice(0, 5).map((m, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span>{m.name || m.addr.slice(0, 10) + "..."}</span>
-                    {m.isScored && (
-                      <span className="text-text-tertiary">Score: {m.score}</span>
+                    {storedInfo.admin && (
+                      <span className="ml-2 text-xs text-accent">Admin</span>
+                    )}
+                    {group.entryFee > 0n && (
+                      <span className="ml-2 text-xs text-gold">
+                        {formatEther(group.entryFee)} ETH
+                      </span>
                     )}
                   </div>
-                ))}
-                {members.length > 5 && (
-                  <div className="text-text-tertiary">
-                    +{members.length - 5} more
+                  <span className="text-xs text-text-secondary">
+                    {group.entryCount} member{group.entryCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {/* Passphrase + invite link for private groups */}
+                {storedInfo.passphrase && (
+                  <div className="space-y-1 mb-2">
+                    <div className="flex items-center text-xs text-text-secondary bg-bg-primary rounded px-2 py-1">
+                      <span className="text-text-tertiary mr-1">
+                        Passphrase:
+                      </span>
+                      <span className="text-text-primary">
+                        {storedInfo.passphrase}
+                      </span>
+                      <CopyButton text={storedInfo.passphrase} />
+                    </div>
+                    <div className="flex items-center text-xs text-text-secondary bg-bg-primary rounded px-2 py-1">
+                      <span className="text-text-tertiary mr-1">
+                        Invite link:
+                      </span>
+                      <span className="text-text-primary truncate">
+                        {`${window.location.origin}/groups?slug=${encodeURIComponent(group.slug)}&password=${encodeURIComponent(storedInfo.passphrase)}`}
+                      </span>
+                      <CopyButton
+                        text={`${window.location.origin}/groups?slug=${encodeURIComponent(group.slug)}&password=${encodeURIComponent(storedInfo.passphrase)}`}
+                      />
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 mt-2">
-                {isBeforeDeadline && (
-                  <>
-                    {editingGroup === groupId ? (
-                      <div className="flex gap-1 flex-1">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="New display name"
-                          className="flex-1 px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-primary"
-                        />
-                        <button
-                          onClick={() => handleEditName(groupId)}
-                          disabled={groups.isLoading}
-                          className="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingGroup(null)}
-                          className="px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-secondary hover:text-text-primary"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingGroup(groupId);
-                            setEditName("");
-                          }}
-                          className="px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-secondary hover:text-text-primary"
-                        >
-                          Edit Name
-                        </button>
-                        <button
-                          onClick={() => groups.leaveGroup(groupId)}
-                          disabled={groups.isLoading}
-                          className="px-2 py-1 text-xs rounded bg-red-900/30 border border-red-800 text-red-400 hover:bg-red-900/50 disabled:opacity-50"
-                        >
-                          Leave
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
+                {/* Member list (compact) */}
+                <div className="text-xs text-text-secondary space-y-0.5 mb-2">
+                  {members.slice(0, 5).map((m, i) => (
+                    <div key={i} className="flex justify-between">
+                      <span>{m.name || m.addr.slice(0, 10) + "..."}</span>
+                      {m.isScored && (
+                        <span className="text-text-tertiary">
+                          Score: {m.score}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {members.length > 5 && (
+                    <div className="text-text-tertiary">
+                      +{members.length - 5} more
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 mt-2">
+                  {isBeforeDeadline && (
+                    <>
+                      {editingGroup === groupId ? (
+                        <div className="flex gap-1 flex-1">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="New display name"
+                            className="flex-1 px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-primary"
+                          />
+                          <button
+                            onClick={() => handleEditName(groupId)}
+                            disabled={groups.isLoading}
+                            className="px-2 py-1 text-xs rounded bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingGroup(null)}
+                            className="px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-secondary hover:text-text-primary"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditingGroup(groupId);
+                              setEditName("");
+                            }}
+                            className="px-2 py-1 text-xs rounded bg-bg-primary border border-border text-text-secondary hover:text-text-primary"
+                          >
+                            Edit Name
+                          </button>
+                          <button
+                            onClick={() => groups.leaveGroup(groupId)}
+                            disabled={groups.isLoading}
+                            className="px-2 py-1 text-xs rounded bg-red-900/30 border border-red-800 text-red-400 hover:bg-red-900/50 disabled:opacity-50"
+                          >
+                            Leave
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       ) : (
         <p className="text-sm text-text-muted mb-4">
           No groups joined yet. Join one below, or create a new group from the{" "}
-          <a href="/groups" className="text-accent hover:underline">Groups</a> page.
+          <a href="/groups" className="text-accent hover:underline">
+            Groups
+          </a>{" "}
+          page.
         </p>
       )}
 
       {/* Join Group Form */}
       {walletConnected && isBeforeDeadline && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-text-secondary">Join a Group</h3>
+          <h3 className="text-sm font-medium text-text-secondary">
+            Join a Group
+          </h3>
           <div className="space-y-2">
-            <SlugInput value={slugInput} onChange={setSlugInput} placeholder="Group slug" />
+            <SlugInput
+              value={slugInput}
+              onChange={setSlugInput}
+              placeholder="Group slug"
+            />
             <input
               type="text"
               value={nameInput}
@@ -308,32 +332,43 @@ export function GroupsSection({
               type="text"
               value={passphraseInput}
               onChange={(e) => setPassphraseInput(e.target.value)}
-              placeholder={resolvedGroupNeedsPassword ? "Passphrase (required)" : "Passphrase (leave blank for public groups)"}
+              placeholder={
+                resolvedGroupNeedsPassword
+                  ? "Passphrase (required)"
+                  : "Passphrase (leave blank for public groups)"
+              }
               className={`w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors ${
-                resolvedGroupNeedsPassword ? "border-amber-500/50" : "border-border"
+                resolvedGroupNeedsPassword
+                  ? "border-warning/50"
+                  : "border-border"
               }`}
             />
             <div>
               <button
                 onClick={handleJoin}
-                disabled={groups.isLoading || !slugInput.trim() || !nameInput.trim()}
+                disabled={
+                  groups.isLoading || !slugInput.trim() || !nameInput.trim()
+                }
                 className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
               >
                 {groups.isLoading ? "Joining..." : "Join"}
               </button>
             </div>
           </div>
-          {joinError && (
-            <p className="text-xs text-red-400">{joinError}</p>
-          )}
+          {joinError && <p className="text-xs text-red-400">{joinError}</p>}
 
           {/* Track by slug (separate, small) */}
           <div className="pt-2 border-t border-border">
-            <h4 className="text-xs text-text-tertiary mb-1">Already a member? Track by slug</h4>
+            <h4 className="text-xs text-text-tertiary mb-1">
+              Already a member? Track by slug
+            </h4>
             <div className="flex gap-2 max-w-md">
               <SlugInput
                 value={trackSlugInput}
-                onChange={(v) => { setTrackSlugInput(v); setTrackError(""); }}
+                onChange={(v) => {
+                  setTrackSlugInput(v);
+                  setTrackError("");
+                }}
               />
               <button
                 onClick={handleTrackBySlug}
@@ -343,7 +378,9 @@ export function GroupsSection({
                 Track
               </button>
             </div>
-            {trackError && <p className="text-xs text-red-400 mt-1">{trackError}</p>}
+            {trackError && (
+              <p className="text-xs text-red-400 mt-1">{trackError}</p>
+            )}
           </div>
         </div>
       )}
