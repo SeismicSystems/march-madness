@@ -1,0 +1,1 @@
+check out to a new branch. fresh off main, git pull. edit the contract code to force the operator to post results within 90 days of the submission deadline. don't deploy this -- its fine for testnet as is and people have already submitted brackets. but add the guard for future deployments

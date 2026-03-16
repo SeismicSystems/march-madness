@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Add 90-day results submission deadline
+
+- **Contracts**: Added `RESULTS_DEADLINE = 90 days` constant — owner must post results within 90 days of the submission deadline or the window closes.
+- **Contracts**: `submitResults()` now reverts with `ResultsSubmissionWindowClosed` if called after the window.
+- **Contracts**: Added `collectEntryFee()` — entrants can reclaim their entry fee if the owner misses the results window (no-contest escape hatch).
+- **Contracts**: Added `hasCollectedEntryFee` mapping and `ResultsWindowStillOpen` error.
+- **Tests**: Added `ResultsDeadline.t.sol` with 7 tests covering the deadline guard and refund mechanism.
+
 ### 2026-03-16 — Apply Seismic brand colors
 
 - **UI**: Replaced generic indigo/dark-blue theme with Seismic brand palette (mauve `#825A6D`, dark purple `#523542`, warm grays, muted gold `#A6924D`).
