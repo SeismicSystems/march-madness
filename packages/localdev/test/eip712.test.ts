@@ -25,7 +25,7 @@ import {
   getPlaintextCalldata,
 } from "seismic-viem";
 import type { ShieldedPublicClient, ShieldedWalletClient } from "seismic-viem";
-import { MarchMadnessPublicClient, ENTRY_FEE } from "@march-madness/client";
+import { MarchMadnessPublicClient } from "@march-madness/client";
 import { MarchMadnessAbi } from "@march-madness/client";
 
 import {
@@ -160,6 +160,7 @@ beforeAll(async () => {
 describe("EIP-712 Typed Data Transactions", () => {
   test("submitBracket via EIP-712 typed data (messageVersion=2)", async () => {
     const bracket = randomBracket();
+    const entryFee = await mmPublic.getEntryFee();
 
     // Encode calldata the same way shieldedWriteContract does
     const calldata = getPlaintextCalldata({
@@ -178,7 +179,7 @@ describe("EIP-712 Typed Data Transactions", () => {
       privateKey: player.privateKey,
       to: contractAddress,
       data: calldata,
-      value: ENTRY_FEE,
+      value: entryFee,
     });
 
     console.log("  tx hash:", hash);

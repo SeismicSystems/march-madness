@@ -30,7 +30,6 @@ import {
   increaseTime,
   getAbi,
   isSanvilRunning,
-  ENTRY_FEE,
   createMMPublicClient,
   createMMUserClient,
   createMMOwnerClient,
@@ -93,7 +92,8 @@ describe("MarchMadness Integration", () => {
   describe("Contract Deployment", () => {
     test("contract is deployed with correct parameters", async () => {
       const entryFee = await mmPublic.getEntryFee();
-      expect(entryFee).toBe(ENTRY_FEE);
+      // DeployAllLocal.s.sol uses 1 ether as the entry fee
+      expect(entryFee).toBe(parseEther("1"));
 
       const deadline = await mmPublic.getSubmissionDeadline();
       expect(deadline).toBe(deployResult.deadline);

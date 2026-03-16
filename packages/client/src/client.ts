@@ -22,7 +22,6 @@ import {
   type Transport,
   type GetContractReturnType,
   getContract,
-  parseEther,
 } from "viem";
 
 import { MarchMadnessAbi } from "./abi.ts";
@@ -36,12 +35,6 @@ type MarchMadnessContract = ShieldedContract<
   Account,
   ShieldedWalletClient<Transport, Chain, Account>
 >;
-
-// ── Entry fee constant (DEPRECATED) ─────────────────────────────────
-// Prefer reading the entry fee from the contract at runtime via
-// MarchMadnessPublicClient.getEntryFee(). This hardcoded value is kept
-// only for backward compatibility but may not match the deployed contract.
-export const ENTRY_FEE = parseEther("0.1");
 
 // ── Types ───────────────────────────────────────────────────────────
 
