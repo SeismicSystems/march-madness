@@ -2,6 +2,8 @@
 
 A private, on-chain NCAA March Madness bracket contest built on the [Seismic Network](https://seismic.systems) — where your bracket picks are hidden until the tournament starts.
 
+Hosted at [brackets.seismictest.net](https://brackets.seismictest.net)
+
 ## Credits
 
 Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
