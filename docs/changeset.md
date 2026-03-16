@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-15 — Restructure data directory + centralized name mappings + First Four handling
+- **Data directory restructure**: Moved from `data/{year}/` to `data/{year}/men/` and `data/{year}/women/`. All per-gender data (tournament.json, kenpom.csv, status.json, mappings/) now lives under a gender subdirectory. Renamed `tournament-status.json` → `status.json`. Updated all CLI defaults, path helpers, frontend imports, and test references.
+- **New file** `data/mappings.toml` — centralized name mapping from sources (KenPom, Kalshi) to NCAA canonical names. Single source of truth for team name normalization.
+- **Updated `scrape_kenpom.py`** — loads name mappings from `data/mappings.toml`, writes KenPom data with NCAA canonical names. Uses `tournament.json` (not bracket.csv) for `--bracket-only` filtering, expanding First Four entries to include both individual teams.
+- **Updated `bracket-sim` team loading** — `load_teams_from_json()` now handles First Four entries by looking up both individual teams in KenPom and averaging their ratings (ortg, drtg, pace, goose).
+- **Updated kalshi crate** — team name mapping now loads from centralized `data/mappings.toml` (removed `crates/kalshi/team_names.toml`).
+
 ### 2026-03-15 — Fix Kalshi orderbook parsing + calibration sensitivity
 - **Fix** Kalshi API now returns `orderbook_fp` (string dollar format) instead of `orderbook` (integer cents). `OrderbookResponse` is now a `#[serde(untagged)]` enum supporting both legacy and FP formats. FP values converted to integer cents for downstream use.
 - **Fix** Calibration `sensitivity` default changed from `2.0` to `0.001`. The old value was tuned for probability-based edges (small numbers), but real orderbook edges are in the thousands of dollars, causing goose values to slam to ±15 clamp on the first iteration.
@@ -16,6 +23,14 @@ All notable changes to this project. Every PR must add an entry here.
 - **Revamped** `calibrate` binary — fetches orderbooks in-process with cache, runs calibration loop, prints edge summary and top trades table. No more CSV normalization pipeline.
 - **New dependency** `bracket-sim` → `kalshi` crate for in-process orderbook fetching (no intermediate CSV).
 - **Deleted** legacy CSV calibration mode (`calibration.rs`), normalization pipeline (`fair_value.rs`, `kalshi` binary fetch/watch commands), and pipeline scripts (`refresh.sh`, `fit_kenpom_model.py`). The `MarketDef` type was trimmed to remove normalization-only fields (`expected_sum`, `floor_prob`).
+
+### 2026-03-15 — Bracket fetcher: auto-populate tournament.json from NCAA API
+- **New binary** `fetch-bracket` (in `ncaa-feed` crate) — queries the NCAA bracket API on Selection Sunday, extracts all 64 teams with seeds, regions, and Final Four pairings, then writes `data/{year}/tournament.json` and `data/{year}/mappings/ncaa-names.json`.
+- **New module** `ncaa_api::bracket` — fetches tournament bracket from NCAA's `sdataprod.ncaa.com` GraphQL API (persisted query `get_championship_ncaa`). Returns typed `Championship` with games, regions, and teams.
+- **Region ordering**: Automatically determines Final Four pairings by tracing `victorBracketPositionId` chains through regional finals → semifinals. Regions are ordered so indices 0,1 play each other and 2,3 play each other, matching the bracket encoding. For 2026: East-South, West-Midwest.
+- **First Four handling**: Play-in games produce teams that feed into R64 slots. When an R64 game has only 1 team, the binary finds the First Four game that feeds into it and includes both competing teams. Output uses `firstFour: ["TeamA", "TeamB"]` field on affected slots. The `ncaa-names.json` maps both First Four team names to the same bracket position.
+- **Real 2026 data**: Replaced fake tournament data with actual 2026 NCAA bracket (68 teams, 4 First Four games).
+- Updated mapper tests to use real 2026 team names.
 
 ### 2026-03-15 — NCAA live score feed (closes #42, refs #43)
 - **New crate** `crates/ncaa-api` — NCAA basketball API client. Rate-limited HTTP client for the NCAA GraphQL API with 429 exponential backoff. Fetches scoreboard (live/final/upcoming games) and schedule data. Basketball-only (MBB/WBB, Division 1). Strong types: `ContestState` enum (Pre, Live{period,clock}, Final(overtimes), Other(raw)), `Period` enum, `ContestDate`, parsed scores/seeds.

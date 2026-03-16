@@ -1,0 +1,347 @@
+{
+  "name": "2026 DI Men's Basketball Championship",
+  "regions": [
+    "East",
+    "South",
+    "West",
+    "Midwest"
+  ],
+  "teams": [
+    {
+      "name": "Duke",
+      "seed": 1,
+      "region": "East"
+    },
+    {
+      "name": "Siena",
+      "seed": 16,
+      "region": "East"
+    },
+    {
+      "name": "Ohio St.",
+      "seed": 8,
+      "region": "East"
+    },
+    {
+      "name": "TCU",
+      "seed": 9,
+      "region": "East"
+    },
+    {
+      "name": "St. John's",
+      "seed": 5,
+      "region": "East"
+    },
+    {
+      "name": "Northern Iowa",
+      "seed": 12,
+      "region": "East"
+    },
+    {
+      "name": "Kansas",
+      "seed": 4,
+      "region": "East"
+    },
+    {
+      "name": "Cal Baptist",
+      "seed": 13,
+      "region": "East"
+    },
+    {
+      "name": "Louisville",
+      "seed": 6,
+      "region": "East"
+    },
+    {
+      "name": "South Florida",
+      "seed": 11,
+      "region": "East"
+    },
+    {
+      "name": "Michigan St.",
+      "seed": 3,
+      "region": "East"
+    },
+    {
+      "name": "North Dakota St.",
+      "seed": 14,
+      "region": "East"
+    },
+    {
+      "name": "UCLA",
+      "seed": 7,
+      "region": "East"
+    },
+    {
+      "name": "UCF",
+      "seed": 10,
+      "region": "East"
+    },
+    {
+      "name": "UConn",
+      "seed": 2,
+      "region": "East"
+    },
+    {
+      "name": "Furman",
+      "seed": 15,
+      "region": "East"
+    },
+    {
+      "name": "Florida",
+      "seed": 1,
+      "region": "South"
+    },
+    {
+      "name": "Prairie View A&M/Lehigh",
+      "seed": 16,
+      "region": "South",
+      "firstFour": [
+        "Prairie View A&M",
+        "Lehigh"
+      ]
+    },
+    {
+      "name": "Clemson",
+      "seed": 8,
+      "region": "South"
+    },
+    {
+      "name": "Iowa",
+      "seed": 9,
+      "region": "South"
+    },
+    {
+      "name": "Vanderbilt",
+      "seed": 5,
+      "region": "South"
+    },
+    {
+      "name": "McNeese",
+      "seed": 12,
+      "region": "South"
+    },
+    {
+      "name": "Nebraska",
+      "seed": 4,
+      "region": "South"
+    },
+    {
+      "name": "Troy",
+      "seed": 13,
+      "region": "South"
+    },
+    {
+      "name": "North Carolina",
+      "seed": 6,
+      "region": "South"
+    },
+    {
+      "name": "VCU",
+      "seed": 11,
+      "region": "South"
+    },
+    {
+      "name": "Illinois",
+      "seed": 3,
+      "region": "South"
+    },
+    {
+      "name": "Penn",
+      "seed": 14,
+      "region": "South"
+    },
+    {
+      "name": "Saint Mary's",
+      "seed": 7,
+      "region": "South"
+    },
+    {
+      "name": "Texas A&M",
+      "seed": 10,
+      "region": "South"
+    },
+    {
+      "name": "Houston",
+      "seed": 2,
+      "region": "South"
+    },
+    {
+      "name": "Idaho",
+      "seed": 15,
+      "region": "South"
+    },
+    {
+      "name": "Arizona",
+      "seed": 1,
+      "region": "West"
+    },
+    {
+      "name": "Long Island",
+      "seed": 16,
+      "region": "West"
+    },
+    {
+      "name": "Villanova",
+      "seed": 8,
+      "region": "West"
+    },
+    {
+      "name": "Utah St.",
+      "seed": 9,
+      "region": "West"
+    },
+    {
+      "name": "Wisconsin",
+      "seed": 5,
+      "region": "West"
+    },
+    {
+      "name": "High Point",
+      "seed": 12,
+      "region": "West"
+    },
+    {
+      "name": "Arkansas",
+      "seed": 4,
+      "region": "West"
+    },
+    {
+      "name": "Hawaii",
+      "seed": 13,
+      "region": "West"
+    },
+    {
+      "name": "BYU",
+      "seed": 6,
+      "region": "West"
+    },
+    {
+      "name": "Texas/NC State",
+      "seed": 11,
+      "region": "West",
+      "firstFour": [
+        "Texas",
+        "NC State"
+      ]
+    },
+    {
+      "name": "Gonzaga",
+      "seed": 3,
+      "region": "West"
+    },
+    {
+      "name": "Kennesaw St.",
+      "seed": 14,
+      "region": "West"
+    },
+    {
+      "name": "Miami (FL)",
+      "seed": 7,
+      "region": "West"
+    },
+    {
+      "name": "Missouri",
+      "seed": 10,
+      "region": "West"
+    },
+    {
+      "name": "Purdue",
+      "seed": 2,
+      "region": "West"
+    },
+    {
+      "name": "Queens (N.C.)",
+      "seed": 15,
+      "region": "West"
+    },
+    {
+      "name": "Michigan",
+      "seed": 1,
+      "region": "Midwest"
+    },
+    {
+      "name": "UMBC/Howard",
+      "seed": 16,
+      "region": "Midwest",
+      "firstFour": [
+        "UMBC",
+        "Howard"
+      ]
+    },
+    {
+      "name": "Georgia",
+      "seed": 8,
+      "region": "Midwest"
+    },
+    {
+      "name": "Saint Louis",
+      "seed": 9,
+      "region": "Midwest"
+    },
+    {
+      "name": "Texas Tech",
+      "seed": 5,
+      "region": "Midwest"
+    },
+    {
+      "name": "Akron",
+      "seed": 12,
+      "region": "Midwest"
+    },
+    {
+      "name": "Alabama",
+      "seed": 4,
+      "region": "Midwest"
+    },
+    {
+      "name": "Hofstra",
+      "seed": 13,
+      "region": "Midwest"
+    },
+    {
+      "name": "Tennessee",
+      "seed": 6,
+      "region": "Midwest"
+    },
+    {
+      "name": "Miami (Ohio)/SMU",
+      "seed": 11,
+      "region": "Midwest",
+      "firstFour": [
+        "Miami (Ohio)",
+        "SMU"
+      ]
+    },
+    {
+      "name": "Virginia",
+      "seed": 3,
+      "region": "Midwest"
+    },
+    {
+      "name": "Wright St.",
+      "seed": 14,
+      "region": "Midwest"
+    },
+    {
+      "name": "Kentucky",
+      "seed": 7,
+      "region": "Midwest"
+    },
+    {
+      "name": "Santa Clara",
+      "seed": 10,
+      "region": "Midwest"
+    },
+    {
+      "name": "Iowa St.",
+      "seed": 2,
+      "region": "Midwest"
+    },
+    {
+      "name": "Tennessee St.",
+      "seed": 15,
+      "region": "Midwest"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
 use bracket_sim::calibration_mm::{self, MmCalibrationConfig};
-use bracket_sim::{data_dir, load_teams_for_year};
+use bracket_sim::load_teams_for_year;
 use clap::Parser;
 use std::io;
 use std::path::PathBuf;
@@ -86,7 +86,7 @@ fn main() -> io::Result<()> {
 
     let args = CalibrateArgs::parse();
     let bracket_config = BracketConfig::for_year(args.year);
-    let season_dir = data_dir().join(args.year.to_string());
+    let season_dir = bracket_sim::season_dir(args.year);
     let output = args
         .output
         .clone()

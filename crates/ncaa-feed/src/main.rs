@@ -20,12 +20,12 @@ use crate::mapper::GameMapper;
     about = "NCAA live score feed → tournament-status.json"
 )]
 struct Cli {
-    /// Path to NCAA name mappings JSON (maps nameShort → bracket position).
-    #[arg(long, default_value = "data/2026/mappings/ncaa-names.json")]
-    names_file: PathBuf,
+    /// Path to tournament.json (team names → bracket positions derived from array index).
+    #[arg(long, default_value = "data/2026/men/tournament.json")]
+    tournament_file: PathBuf,
 
-    /// Path to write tournament-status.json.
-    #[arg(long, default_value = "data/2026/tournament-status.json")]
+    /// Path to write tournament status JSON.
+    #[arg(long, default_value = "data/2026/men/status.json")]
     output_file: PathBuf,
 
     /// Max NCAA API requests per second (must be < 5.0).
@@ -56,8 +56,11 @@ async fn main() -> Result<()> {
     let client = NcaaClient::new(cli.requests_per_sec).map_err(|e| eyre::eyre!("{e}"))?;
 
     // Load NCAA name → bracket position mappings.
-    let mut mapper = GameMapper::load(&cli.names_file)?;
-    info!("loaded name mappings from {}", cli.names_file.display());
+    let mut mapper = GameMapper::load(&cli.tournament_file)?;
+    info!(
+        "loaded name mappings from {}",
+        cli.tournament_file.display()
+    );
 
     // Load existing tournament status to resume from (e.g. after restart).
     let existing_status: Option<seismic_march_madness::TournamentStatus> =

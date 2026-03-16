@@ -8,6 +8,10 @@ description = "NCAA live score feed — polls NCAA API, writes tournament-status
 name = "ncaa-feed"
 path = "src/main.rs"
 
+[[bin]]
+name = "fetch-bracket"
+path = "src/bin/fetch_bracket.rs"
+
 [dependencies]
 ncaa-api.workspace = true
 seismic-march-madness.workspace = true

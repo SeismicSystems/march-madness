@@ -1,0 +1,25 @@
+hey we just added ncaa-api
+
+i want you to write a bin that will query ncaa bracket (they just put a bracket up -- it's selection sunday) and then write it to the data/2026/tournament json
+
+it should be the same format. you can exclude the team abbreviations if you'd like.
+
+make sure you are really smart about the regions and the ordering in which they play each other.
+
+---
+
+don't hard code it, but it looks like the matchups are EAST-SOUTH and WEST-MIDWEST in the final 4 round.
+
+---
+
+don't use his URL -- use the NCAA's -- his just proxies to NCAA's url. use NCAA directly. make sure you didnt hardcode his url anywhere.
+
+---
+
+also you will probably have to have some annoying edgecase logic to deal with the "first four" -- we'll need to build that everywhere.
+
+BRO DO NOT USE HIS URL. USE THE OFFICIAL NCAA ONE!
+
+---
+
+look at his source code. it's in ~/code/ncaa-api

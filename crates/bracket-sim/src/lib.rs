@@ -68,13 +68,13 @@ pub fn data_dir() -> std::path::PathBuf {
         .join("data")
 }
 
-/// Returns the `data/{year}/` directory for a given tournament year.
+/// Returns the `data/{year}/men/` directory for a given tournament year.
 pub fn season_dir(year: u16) -> std::path::PathBuf {
-    data_dir().join(year.to_string())
+    data_dir().join(year.to_string()).join("men")
 }
 
 /// Load teams from the default data paths for a given year:
-/// `data/{year}/tournament.json` + `data/{year}/kenpom.csv`.
+/// `data/{year}/men/tournament.json` + `data/{year}/men/kenpom.csv`.
 /// If `input` is Some, loads from that combined CSV instead.
 pub fn load_teams_for_year(
     input: Option<&std::path::Path>,

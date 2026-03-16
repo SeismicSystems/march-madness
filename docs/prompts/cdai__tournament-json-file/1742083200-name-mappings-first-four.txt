@@ -1,0 +1,13 @@
+we actually don't care about P(who wins first 4
+games) -- but what we DO need to do is inside the kalshi calibrator, know that we should be summing the probabilties of first 4 teams. this could lead
+to some calibrator issues, but we can be extra conservative here.... bid(first 4 combo) = bid(team 1) || 0 + bid(team 1) || 0 , similar for ask but
+default to no-ask and max at 100% (maybe thats not entirely correct, but my point is these teams dont matter, we gotta get the code to do a reasonable
+thing)
+
+and in our final data/mappings.toml
+
+everything should map from source => NCAA team name.
+
+so kenpom, kalshi => ncaa
+
+and even when we write kenpom, we should write mapped names. so everything loads nice.
