@@ -2,38 +2,30 @@ import { useState } from "react";
 
 import { ENTRY_FEE_DISPLAY, SUBMISSION_DEADLINE } from "../lib/constants";
 import { useIsMobile } from "../hooks/useIsMobile";
+import type { UseContractReturn } from "../hooks/useContract";
+import type { UseBracketReturn } from "../hooks/useBracket";
 
 interface SubmitPanelProps {
-  isComplete: boolean;
-  pickCount: number;
-  hasSubmitted: boolean;
-  isLoading: boolean;
-  isBracketLoading: boolean;
-  error: string | null;
-  encodedBracket: `0x${string}` | null;
-  existingBracket: `0x${string}` | null;
-  onSubmit: (bracket: `0x${string}`) => Promise<unknown>;
-  onUpdate: (bracket: `0x${string}`) => Promise<unknown>;
-  onSetTag: (tag: string) => Promise<unknown>;
-  onLoadBracket: () => Promise<void>;
+  contract: UseContractReturn;
+  bracket: UseBracketReturn;
   walletConnected: boolean;
+  onLoadBracket: () => Promise<void>;
 }
 
 export function SubmitPanel({
-  isComplete,
-  pickCount,
-  hasSubmitted,
-  isLoading,
-  isBracketLoading,
-  error,
-  encodedBracket,
-  existingBracket,
-  onSubmit,
-  onUpdate,
-  onSetTag,
-  onLoadBracket,
+  contract,
+  bracket,
   walletConnected,
+  onLoadBracket,
 }: SubmitPanelProps) {
+  const {
+    hasSubmitted,
+    isLoading,
+    isBracketLoading,
+    error,
+    existingBracket,
+  } = contract;
+  const { isComplete, pickCount, encodedBracket } = bracket;
   const [tag, setTag] = useState("");
   const [tagSaved, setTagSaved] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -45,9 +37,9 @@ export function SubmitPanel({
     if (!encodedBracket) return;
     try {
       if (hasSubmitted) {
-        await onUpdate(encodedBracket);
+        await contract.updateBracket(encodedBracket);
       } else {
-        await onSubmit(encodedBracket);
+        await contract.submitBracket(encodedBracket);
       }
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 3000);
@@ -59,7 +51,7 @@ export function SubmitPanel({
   const handleSetTag = async () => {
     if (!tag.trim()) return;
     try {
-      await onSetTag(tag.trim());
+      await contract.setTag(tag.trim());
       setTagSaved(true);
       setTimeout(() => setTagSaved(false), 3000);
     } catch {

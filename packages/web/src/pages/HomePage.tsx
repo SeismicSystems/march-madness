@@ -208,19 +208,10 @@ export function HomePage() {
 
       <div className="mb-6 sm:mb-8">
         <SubmitPanel
-          isComplete={bracket.isComplete}
-          pickCount={bracket.pickCount}
-          hasSubmitted={contract.hasSubmitted}
-          isLoading={contract.isLoading}
-          isBracketLoading={contract.isBracketLoading}
-          error={contract.error}
-          encodedBracket={bracket.encodedBracket}
-          existingBracket={contract.existingBracket}
-          onSubmit={contract.submitBracket}
-          onUpdate={contract.updateBracket}
-          onSetTag={contract.setTag}
-          onLoadBracket={handleLoadBracket}
+          contract={contract}
+          bracket={bracket}
           walletConnected={authenticated}
+          onLoadBracket={handleLoadBracket}
         />
       </div>
 

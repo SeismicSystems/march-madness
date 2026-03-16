@@ -266,6 +266,8 @@ export function useBracket(walletAddress?: string | null) {
   };
 }
 
+export type UseBracketReturn = ReturnType<typeof useBracket>;
+
 /**
  * When a pick changes, clear any downstream games whose outcome
  * may have depended on the old winner.
