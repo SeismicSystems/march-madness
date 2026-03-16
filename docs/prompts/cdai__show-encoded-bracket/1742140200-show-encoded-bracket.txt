@@ -1,0 +1,1 @@
+alright new branch... i noticed that AFTER i submitted a bracket, it zeroes out that "0x" hidden input location... i would like it to remain there -- we used to display it before and i like it

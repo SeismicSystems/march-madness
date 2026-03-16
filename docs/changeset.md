@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Show encoded bracket hex when picks are complete
+- **Frontend**: The faint `0x` easter egg placeholder now shows the full encoded bracket hex (e.g. `0xad551133fffdfdff`) once all 63 picks are made. Slightly more visible than the empty `0x` hint. Still double-clickable to open the hex input for loading a different bracket.
+
 ### 2026-03-16 — Fix hex input paste not working
 - **Bug**: Pasting a bracket hex into the easter egg input did nothing — three root causes:
   1. Used `validateBracket()` which requires the sentinel bit (first nibble >= 8), but bracket hex from simulations/tools often omits it. The sentinel is only needed for on-chain submission, not for loading picks.

@@ -104,9 +104,9 @@ export function HomePage() {
             ) : (
               <span
                 onDoubleClick={() => setHexOpen(true)}
-                className="px-2 py-1.5 text-xs font-mono text-text-muted/30 select-none cursor-default"
+                className={`px-2 py-1.5 text-xs font-mono select-none cursor-default ${bracket.encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
               >
-                0x
+                {bracket.encodedBracket ?? "0x"}
               </span>
             )}
           </>
