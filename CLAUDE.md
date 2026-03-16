@@ -163,7 +163,6 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
 - `GET /tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
-- `POST /tournament-status` — update tournament status (optional API key auth, rarely needed since `ncaa-feed` writes the file directly)
 - `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 

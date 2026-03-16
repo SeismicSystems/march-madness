@@ -1,6 +1,6 @@
 use axum::Json;
 use axum::extract::{Path, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use serde::Serialize;
 
@@ -94,35 +94,6 @@ pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "failed to read forecasts",
-            )
-                .into_response()
-        }
-    }
-}
-
-/// POST /tournament-status — update tournament status JSON (requires API key).
-pub async fn post_tournament_status(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(body): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let auth = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-
-    let key = auth.strip_prefix("Bearer ").unwrap_or(auth);
-    if !state.check_api_key(key) {
-        return (StatusCode::UNAUTHORIZED, "invalid or missing API key").into_response();
-    }
-
-    match state.set_tournament_status(body).await {
-        Ok(()) => (StatusCode::OK, "updated").into_response(),
-        Err(e) => {
-            tracing::error!("failed to write tournament status: {e}");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to write tournament status",
             )
                 .into_response()
         }
