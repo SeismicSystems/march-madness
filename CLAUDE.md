@@ -90,10 +90,10 @@ Key functions:
 - `setTag(string tag)` — set/update optional display name (separate from bracket submission)
 - `hasEntry(address)` → `bool` — public mapping, true if address has submitted. No signed read needed.
 - `getBracket(address account)` → `bytes8` — before deadline: requires msg.sender == account (signed read); after deadline: anyone can read
-- `submitResults(bytes8 results)` — owner only, posts tournament results
-- `scoreBracket(address account)` — score a bracket against results (after results posted)
-- `collectWinnings()` — winners collect after all brackets scored
-- `collectEntryFee()` — refund if contest invalid (28 days after results, not all scored)
+- `submitResults(bytes8 results)` — owner only, posts tournament results. Must be called within `RESULTS_DEADLINE` (90 days) of the submission deadline.
+- `scoreBracket(address account)` — score a bracket against results (after results posted, within `SCORING_DURATION` of results)
+- `collectWinnings()` — winners collect after scoring window closes
+- `collectEntryFee()` — entrants reclaim entry fee if owner fails to post results within the 90-day window (no-contest escape hatch)
 - `getEntryCount()` → `uint32` — number of entries (capped at uint32 max with overflow check)
 
 Events:

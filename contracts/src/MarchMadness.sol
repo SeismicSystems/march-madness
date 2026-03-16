@@ -35,9 +35,11 @@ contract MarchMadness is IMarchMadness {
     uint8 public winningScore;
     uint256 public numWinners;
     mapping(address => bool) public hasCollectedWinnings;
+    mapping(address => bool) public hasCollectedEntryFee;
 
     // ── Constants ──────────────────────────────────────────────────────────
     uint256 public constant SCORING_DURATION = 7 days;
+    uint256 public constant RESULTS_DEADLINE = 90 days;
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(uint16 _year, uint256 _entryFee, uint256 _submissionDeadline) {
@@ -121,6 +123,7 @@ contract MarchMadness is IMarchMadness {
         if (msg.sender != owner) revert OnlyOwner();
         if (results != bytes8(0)) revert ResultsAlreadyPosted();
         if (block.timestamp < submissionDeadline) revert SubmissionPhaseNotOver();
+        if (block.timestamp > submissionDeadline + RESULTS_DEADLINE) revert ResultsSubmissionWindowClosed();
         if (_results[0] & 0x80 == 0) revert InvalidSentinelByte();
 
         results = _results;
@@ -176,6 +179,19 @@ contract MarchMadness is IMarchMadness {
         emit WinningsCollected(msg.sender, payout);
 
         (bool success,) = msg.sender.call{value: payout}("");
+        if (!success) revert TransferFailed();
+    }
+
+    /// @notice Reclaim entry fee if the owner failed to post results within the 90-day window.
+    function collectEntryFee() external {
+        if (results != bytes8(0)) revert ResultsAlreadyPosted();
+        if (block.timestamp <= submissionDeadline + RESULTS_DEADLINE) revert ResultsWindowStillOpen();
+        if (!hasEntry[msg.sender]) revert NoBracketSubmitted();
+        if (hasCollectedEntryFee[msg.sender]) revert AlreadyCollected();
+
+        hasCollectedEntryFee[msg.sender] = true;
+
+        (bool success,) = msg.sender.call{value: entryFee}("");
         if (!success) revert TransferFailed();
     }
 
