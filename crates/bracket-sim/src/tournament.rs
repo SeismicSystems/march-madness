@@ -397,7 +397,7 @@ impl Tournament {
             current_round_games = self.create_next_round_matchups(winners_for_next_round);
         }
 
-        bits
+        crate::set_sentinel(bits)
     }
 
     /// Convert game index to round number (0-indexed).
@@ -651,16 +651,13 @@ mod tests {
                 tournament.score_bracket(&bracket, &actual_results, ScoringSystem::Base);
 
             let first_round_games = tournament.get_games();
-            let bracket_bb =
-                u64::from_str_radix(&bracket.to_byte_bracket(first_round_games), 16).unwrap();
+            let bracket_bb = bracket.to_byte_bracket_bb(first_round_games);
 
             let results_bracket = {
                 let picks: Vec<String> = actual_results.iter().map(|(w, _)| w.clone()).collect();
                 Bracket::new(picks)
             };
-            let results_bb =
-                u64::from_str_radix(&results_bracket.to_byte_bracket(first_round_games), 16)
-                    .unwrap();
+            let results_bb = results_bracket.to_byte_bracket_bb(first_round_games);
 
             let bb_score = score_base_bb(bracket_bb, results_bb);
 
