@@ -352,7 +352,7 @@ export const BracketGroupsAbi = [
         "type": "uint32"
       }
     ],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -386,7 +386,7 @@ export const BracketGroupsAbi = [
         "type": "uint32"
       }
     ],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {

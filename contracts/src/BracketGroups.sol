@@ -106,22 +106,26 @@ contract BracketGroups {
     //  GROUP LIFECYCLE
     // ════════════════════════════════════════════════════════════════════
 
-    /// @notice Create a public group (no password).
+    /// @notice Create a public group (no password). Creator is auto-joined with name "CREATOR".
+    ///         Send entry fee as msg.value (0 for free groups).
     function createGroup(string calldata slug, string calldata displayName, uint256 entryFee)
         external
+        payable
         returns (uint32 groupId)
     {
         groupId = _createGroup(slug, displayName, entryFee, false);
     }
 
-    /// @notice Create a password-protected group. Password is stored shielded (sbytes12).
+    /// @notice Create a password-protected group. Creator is auto-joined with name "CREATOR".
+    ///         Password is stored shielded (sbytes12).
     ///         Frontend converts user's string password to bytes12 (e.g. keccak256 truncated) before sending.
+    ///         Send entry fee as msg.value (0 for free groups).
     function createGroupWithPassword(
         string calldata slug,
         string calldata displayName,
         uint256 entryFee,
         sbytes12 password
-    ) external returns (uint32 groupId) {
+    ) external payable returns (uint32 groupId) {
         groupId = _createGroup(slug, displayName, entryFee, true);
         _passwords[groupId] = password;
     }
@@ -151,6 +155,9 @@ contract BracketGroups {
         slugToGroupId[slugHash] = groupId;
 
         emit GroupCreated(groupId, slug, displayName, msg.sender, hasPassword);
+
+        // Auto-join the creator with default name "CREATOR" (editable via editEntryName)
+        _joinGroup(groupId, "CREATOR");
     }
 
     // ════════════════════════════════════════════════════════════════════
