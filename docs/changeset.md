@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Improve tag input width and submit button prominence on desktop
+- **UX**: Widened desktop tag input from `w-32` (8rem) to `w-52` (13rem) so longer display names like "DRAPPIS LOVELY CHALK" are fully visible.
+- **UX**: Added a vertical divider between the tag section and the submit/update button to visually separate the two actions.
+- **UX**: Made the submit/update button more prominent: larger padding (`px-6 py-2`), bigger text (`text-sm`), and a subtle accent ring (`ring-2 ring-accent/30`) so it's harder to miss.
+
 ### 2026-03-16 — Fix bracket-sim ByteBracket encoding to match contract (MSB-first)
 - **Bug**: `bracket-sim` encoded game outcomes LSB-first (game 0 → bit 0) while `ByteBracket.sol` and the TS client use MSB-first (game 0 → bit 62, sentinel at bit 63). Hex strings from the sim decoded as "mostly 16 seeds win" in the UI because all bit positions were reversed.
 - **Root cause**: bracket-sim was self-consistent (LSB encoding + LSB scoring) so its internal roundtrip tests passed. The golden test vectors from issue #63 were never added to bracket-sim, so the cross-language mismatch went undetected.
