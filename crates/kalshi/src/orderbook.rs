@@ -17,10 +17,11 @@ pub enum Side {
 
 impl fmt::Display for Side {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Side::Buy => write!(f, "BUY"),
-            Side::Sell => write!(f, "SELL"),
-        }
+        let s = match self {
+            Side::Buy => "BUY",
+            Side::Sell => "SELL",
+        };
+        f.pad(s)
     }
 }
 
@@ -215,15 +216,14 @@ pub fn print_trade_log(trades: &[Trade]) {
         .unwrap_or(4)
         .max(4);
 
-    // Pre-format value cells so alignment accounts for ¢/$ characters.
     let rows: Vec<_> = trades
         .iter()
         .map(|t| {
             (
-                format!("{}\u{00a2}", t.price_cents),
-                format!("{:.0}\u{00a2}", t.model_prob_cents),
-                format!("{:.1}\u{00a2}", t.edge_cents),
-                format!("${:.2}", t.ev_dollars),
+                format!("{}", t.price_cents),
+                format!("{:.0}", t.model_prob_cents),
+                format!("{:.1}", t.edge_cents),
+                format!("{:.2}", t.ev_dollars),
             )
         })
         .collect();
@@ -233,8 +233,13 @@ pub fn print_trade_log(trades: &[Trade]) {
     let w_rnd = 3;
     let w_price = rows.iter().map(|r| r.0.len()).max().unwrap_or(5).max(5);
     let w_model = rows.iter().map(|r| r.1.len()).max().unwrap_or(5).max(5);
-    let w_edge = rows.iter().map(|r| r.2.len()).max().unwrap_or(6).max(4);
-    let w_qty = 4;
+    let w_edge = rows.iter().map(|r| r.2.len()).max().unwrap_or(4).max(4);
+    let w_qty = trades
+        .iter()
+        .map(|t| (t.quantity.max(1) as f64).log10() as usize + 1)
+        .max()
+        .unwrap_or(3)
+        .max(3);
     let w_ev = rows.iter().map(|r| r.3.len()).max().unwrap_or(5).max(5);
 
     println!();
@@ -263,7 +268,7 @@ pub fn print_trade_log(trades: &[Trade]) {
     }
 
     let total_ev: f64 = trades.iter().map(|t| t.ev_dollars).sum();
-    let total_ev_fmt = format!("${:.2}", total_ev);
+    let total_ev_fmt = format!("{:.2}", total_ev);
     println!("{}", "-".repeat(line_width));
     println!(
         " {:<max_team$}  {:>w_side$}  {:>w_rnd$}  {:>w_price$}  {:>w_model$}  {:>w_edge$}  {:>w_qty$}  {:>w_ev$}",
