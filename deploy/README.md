@@ -82,8 +82,8 @@ sudo supervisorctl start all
 
 | Process | Binary | Description |
 |---------|--------|-------------|
-| `server` | `target/release/server` | HTTP API server (port 3000) |
-| `indexer` | `target/release/indexer listen` | Chain event listener, writes to Redis |
+| `server` | `target/release/march-madness-server` | HTTP API server (port 3000) |
+| `indexer` | `target/release/march-madness-indexer listen` | Chain event listener, writes to Redis |
 | `ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes `status.json` |
 
 ### Initial backfill
@@ -92,7 +92,7 @@ On first deploy (or after `redis-cli FLUSHDB`), backfill historical events befor
 
 ```bash
 cd /home/ubuntu/march-madness
-./target/release/indexer backfill --from-block 30749805
+./target/release/march-madness-indexer backfill --from-block 30749805
 ```
 
 Then start supervisor — the `indexer listen` process will pick up from where backfill left off via the Redis cursor.
