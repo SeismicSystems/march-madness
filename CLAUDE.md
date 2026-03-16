@@ -60,6 +60,15 @@ docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
 
+## KenPom CSV Format
+
+`data/{year}/men/kenpom.csv` has **one row per team** — First Four teams each get their own row with individual KenPom metrics. No squished/averaged rows.
+
+- **Columns**: `team,ortg,drtg,pace[,goose]` — goose is optional (defaults to 0.0)
+- **First Four handling**: `load_teams_from_json` (in `bracket-sim/src/team.rs`) looks up each individual FF team in the kenpom map and averages their metrics for the 64-team bracket slot. This is the only place averaging happens.
+- **Calibration round-trip**: `save_kenpom_csv_with_goose` reads the original kenpom.csv, updates only goose values (using `ff_to_slot` mapping from tournament.json to apply slot goose to both FF teams), and preserves individual metrics.
+- **Re-scraping**: `python scripts/scrape_kenpom.py --bracket-only` outputs individual rows. Name mappings in `data/mappings.toml`.
+
 ## Embedded Data
 
 The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). This is primarily for **external consumers** who import the crate without access to the repo's data files. Internal crates like `bracket-sim` continue reading from the filesystem. `forecaster` and `ncaa-feed` use embedded data as a convenience (they already depend on the crate). CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
