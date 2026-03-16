@@ -30,7 +30,6 @@ import {
   increaseTime,
   getAbi,
   isSanvilRunning,
-  ENTRY_FEE,
   createMMPublicClient,
   createMMUserClient,
   createMMOwnerClient,
@@ -93,7 +92,8 @@ describe("MarchMadness Integration", () => {
   describe("Contract Deployment", () => {
     test("contract is deployed with correct parameters", async () => {
       const entryFee = await mmPublic.getEntryFee();
-      expect(entryFee).toBe(ENTRY_FEE);
+      // DeployAllLocal.s.sol uses 1 ether as the entry fee
+      expect(entryFee).toBe(parseEther("1"));
 
       const deadline = await mmPublic.getSubmissionDeadline();
       expect(deadline).toBe(deployResult.deadline);
@@ -142,8 +142,8 @@ describe("MarchMadness Integration", () => {
     });
 
     test("rejects submission without correct entry fee", async () => {
-      // Raw wallet call needed: client library hardcodes ENTRY_FEE,
-      // so we must use raw writeContract to test wrong fee.
+      // Raw wallet call needed: we need to send the wrong fee amount
+      // to verify the contract rejects it.
       const bracket = randomBracket();
       const abi = getAbi();
       await expect(

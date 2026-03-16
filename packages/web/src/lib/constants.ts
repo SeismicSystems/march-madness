@@ -1,13 +1,6 @@
-import { ENTRY_FEE } from "@march-madness/client";
-import { type Address, formatEther } from "viem";
+import { type Address } from "viem";
 import { sanvil } from "seismic-viem";
 import deployments from "@data/deployments.json";
-
-/** Re-export ENTRY_FEE from client library */
-export { ENTRY_FEE } from "@march-madness/client";
-
-/** Entry fee display string */
-export const ENTRY_FEE_DISPLAY = `${formatEther(ENTRY_FEE)} testnet ETH`;
 
 // ── Tournament season ────────────────────────────────────
 const YEAR = "2026";
