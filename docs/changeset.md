@@ -4,8 +4,17 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-16 — Add 90-day results submission deadline
+### 2026-03-16 — Read entry fee from contract instead of hardcoding
+- **Client**: `MarchMadnessUserClient.submitBracket()` now reads `entryFee()` from the contract at runtime instead of using a hardcoded `parseEther("0.1")` constant. This ensures the correct fee is sent regardless of how the contract was deployed.
+- **Client**: Deprecated the exported `ENTRY_FEE` constant with a comment directing users to `getEntryFee()`.
+- **Frontend**: `SubmitPanel` now displays the entry fee fetched from the contract via the `useContract` hook, replacing the static `ENTRY_FEE_DISPLAY` constant.
+- **Frontend**: Removed `ENTRY_FEE` and `ENTRY_FEE_DISPLAY` from `packages/web/src/lib/constants.ts`.
 
+### 2026-03-16 — Fix group slug length validation (#115)
+- **UI**: Changed `slugify()` truncation from 40 to 32 characters to match `BracketGroups.sol` `MAX_SLUG_LENGTH`.
+- **UI**: Added client-side validation message when slug is truncated to the contract limit, preventing confusing on-chain `SlugTooLong()` reverts.
+
+### 2026-03-16 — Add 90-day results submission deadline
 - **Contracts**: Added `RESULTS_DEADLINE = 90 days` constant — owner must post results within 90 days of the submission deadline or the window closes.
 - **Contracts**: `submitResults()` now reverts with `ResultsSubmissionWindowClosed` if called after the window.
 - **Contracts**: Added `collectEntryFee()` — entrants can reclaim their entry fee if the owner misses the results window (no-contest escape hatch).
@@ -15,15 +24,7 @@ All notable changes to this project. Every PR must add an entry here.
 ### 2026-03-16 — Fix scoreboard null data for future dates
 - **ncaa-api**: Treat missing `data`/`scoreboard` in NCAA API response as empty list instead of error. The API returns null for dates without game data (e.g. future dates), which is not an error condition.
 
-### 2026-03-16 — Read entry fee from contract instead of hardcoding
-
-- **Client**: `MarchMadnessUserClient.submitBracket()` now reads `entryFee()` from the contract at runtime instead of using a hardcoded `parseEther("0.1")` constant. This ensures the correct fee is sent regardless of how the contract was deployed.
-- **Client**: Deprecated the exported `ENTRY_FEE` constant with a comment directing users to `getEntryFee()`.
-- **Frontend**: `SubmitPanel` now displays the entry fee fetched from the contract via the `useContract` hook, replacing the static `ENTRY_FEE_DISPLAY` constant.
-- **Frontend**: Removed `ENTRY_FEE` and `ENTRY_FEE_DISPLAY` from `packages/web/src/lib/constants.ts`.
-
 ### 2026-03-16 — Apply Seismic brand colors
-
 - **UI**: Replaced generic indigo/dark-blue theme with Seismic brand palette (mauve `#825A6D`, dark purple `#523542`, warm grays, muted gold `#A6924D`).
 - **UI**: Updated all `@theme` CSS variables in `index.css` for backgrounds, text, borders, accent, warning, and gold.
 - **UI**: Added `--color-dark-purple` theme variable for secondary accent.
