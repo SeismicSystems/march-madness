@@ -1,21 +1,12 @@
 import { useState } from "react";
-import type { JoinedGroup } from "../hooks/useGroups";
-import type { GroupData } from "@march-madness/client";
+import type { UseGroupsReturn } from "../hooks/useGroups";
 import { formatEther } from "viem";
 
 interface GroupsSectionProps {
-  joinedGroups: JoinedGroup[];
-  isLoading: boolean;
-  error: string | null;
+  groups: UseGroupsReturn;
   isBeforeDeadline: boolean;
   walletConnected: boolean;
   walletBalance: bigint | null;
-  onJoinGroup: (groupId: number, name: string, entryFee: bigint) => Promise<unknown>;
-  onJoinGroupWithPassword: (groupId: number, passphrase: string, name: string, entryFee: bigint) => Promise<unknown>;
-  onLeaveGroup: (groupId: number) => Promise<unknown>;
-  onEditEntryName: (groupId: number, name: string) => Promise<unknown>;
-  onLookupBySlug: (slug: string) => Promise<[number, GroupData] | null>;
-  onTrackGroup: (groupId: number) => void;
   initialSlug?: string;
   initialPassphrase?: string;
 }
@@ -39,18 +30,10 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function GroupsSection({
-  joinedGroups,
-  isLoading,
-  error,
+  groups,
   isBeforeDeadline,
   walletConnected,
   walletBalance,
-  onJoinGroup,
-  onJoinGroupWithPassword,
-  onLeaveGroup,
-  onEditEntryName,
-  onLookupBySlug,
-  onTrackGroup,
   initialSlug = "",
   initialPassphrase = "",
 }: GroupsSectionProps) {
@@ -67,10 +50,10 @@ export function GroupsSection({
   const [trackIdInput, setTrackIdInput] = useState("");
 
   /** Resolve a slug to [groupId, GroupData]. Returns null if not found. */
-  const resolveGroup = async (input: string): Promise<[number, GroupData] | null> => {
+  const resolveGroup = async (input: string) => {
     const trimmed = input.trim();
     if (!trimmed) return null;
-    return await onLookupBySlug(trimmed);
+    return await groups.lookupGroupBySlug(trimmed);
   };
 
   const handleJoin = async () => {
@@ -111,9 +94,9 @@ export function GroupsSection({
 
       // 4. Send the transaction with the correct entry fee
       if (groupData.hasPassword || passphraseInput.trim()) {
-        await onJoinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), entryFee);
+        await groups.joinGroupWithPassword(groupId, passphraseInput.trim(), nameInput.trim(), entryFee);
       } else {
-        await onJoinGroup(groupId, nameInput.trim(), entryFee);
+        await groups.joinGroup(groupId, nameInput.trim(), entryFee);
       }
 
       setSlugInput("");
@@ -128,7 +111,7 @@ export function GroupsSection({
   const handleTrackById = () => {
     const id = parseInt(trackIdInput, 10);
     if (!isNaN(id)) {
-      onTrackGroup(id);
+      groups.trackGroup(id);
       setTrackIdInput("");
     }
   };
@@ -136,7 +119,7 @@ export function GroupsSection({
   const handleEditName = async (groupId: number) => {
     if (!editName.trim()) return;
     try {
-      await onEditEntryName(groupId, editName.trim());
+      await groups.editEntryName(groupId, editName.trim());
       setEditingGroup(null);
       setEditName("");
     } catch {
@@ -148,16 +131,16 @@ export function GroupsSection({
     <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-text-primary mb-4">Groups</h2>
 
-      {error && (
+      {groups.error && (
         <div className="mb-3 text-sm text-red-400 bg-red-900/20 rounded-lg px-3 py-2">
-          {error}
+          {groups.error}
         </div>
       )}
 
       {/* Joined Groups List */}
-      {joinedGroups.length > 0 ? (
+      {groups.joinedGroups.length > 0 ? (
         <div className="space-y-3 mb-4">
-          {joinedGroups.map(({ groupId, group, members, storedInfo }) => (
+          {groups.joinedGroups.map(({ groupId, group, members, storedInfo }) => (
             <div
               key={groupId}
               className="rounded-lg bg-bg-tertiary border border-border p-3"
@@ -236,7 +219,7 @@ export function GroupsSection({
                         />
                         <button
                           onClick={() => handleEditName(groupId)}
-                          disabled={isLoading}
+                          disabled={groups.isLoading}
                           className="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50"
                         >
                           Save
@@ -260,8 +243,8 @@ export function GroupsSection({
                           Edit Name
                         </button>
                         <button
-                          onClick={() => onLeaveGroup(groupId)}
-                          disabled={isLoading}
+                          onClick={() => groups.leaveGroup(groupId)}
+                          disabled={groups.isLoading}
                           className="px-2 py-1 text-xs rounded bg-red-900/30 border border-red-800 text-red-400 hover:bg-red-900/50 disabled:opacity-50"
                         >
                           Leave
@@ -312,10 +295,10 @@ export function GroupsSection({
             <div>
               <button
                 onClick={handleJoin}
-                disabled={isLoading || !slugInput.trim() || !nameInput.trim()}
+                disabled={groups.isLoading || !slugInput.trim() || !nameInput.trim()}
                 className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
               >
-                {isLoading ? "Joining..." : "Join"}
+                {groups.isLoading ? "Joining..." : "Join"}
               </button>
             </div>
           </div>

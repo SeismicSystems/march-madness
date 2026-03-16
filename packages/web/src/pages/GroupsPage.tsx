@@ -174,18 +174,10 @@ export function GroupsPage() {
       {/* Existing groups section (join + list) */}
       {groups.hasContract && (
         <GroupsSection
-          joinedGroups={groups.joinedGroups}
-          isLoading={groups.isLoading}
-          error={groups.error}
+          groups={groups}
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           walletBalance={contract.balance}
-          onJoinGroup={groups.joinGroup}
-          onJoinGroupWithPassword={groups.joinGroupWithPassword}
-          onLeaveGroup={groups.leaveGroup}
-          onEditEntryName={groups.editEntryName}
-          onLookupBySlug={groups.lookupGroupBySlug}
-          onTrackGroup={groups.trackGroup}
           initialSlug={initialSlug}
           initialPassphrase={initialPassphrase}
         />

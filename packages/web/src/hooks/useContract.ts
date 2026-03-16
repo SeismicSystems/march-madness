@@ -236,3 +236,5 @@ export function useContract() {
     walletAddress,
   };
 }
+
+export type UseContractReturn = ReturnType<typeof useContract>;

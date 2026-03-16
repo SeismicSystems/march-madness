@@ -332,3 +332,5 @@ export function useGroups() {
     refreshGroups,
   };
 }
+
+export type UseGroupsReturn = ReturnType<typeof useGroups>;
