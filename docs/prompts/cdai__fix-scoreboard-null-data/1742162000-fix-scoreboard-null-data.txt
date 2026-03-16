@@ -1,0 +1,15 @@
+ok sir that worked but not i see this error...
+ubuntu@clown-beatdown:~/march-madness$ tail -f /var/log/supervisor/ncaa-feed.out.log
+2026-03-16T21:33:19.211323Z  INFO ncaa_feed: using embedded 2026 tournament data
+2026-03-16T21:33:19.211867Z  INFO ncaa_feed: resuming from existing status (/home/ubuntu/march-madness/data/2026/men/status.json)
+2026-03-16T21:33:23.341747Z  INFO ncaa_feed: using embedded 2026 tournament data
+2026-03-16T21:33:23.342321Z  INFO ncaa_feed: resuming from existing status (/home/ubuntu/march-madness/data/2026/men/status.json)
+2026-03-16T21:43:33.273594Z  INFO ncaa_feed: using embedded 2026 tournament data
+2026-03-16T21:43:33.274108Z  INFO ncaa_feed: resuming from existing status (/home/ubuntu/march-madness/data/2026/men/status.json)
+2026-03-16T21:43:33.467406Z  INFO ncaa_feed: no games today, next game date: 2026/03/17
+2026-03-16T21:43:33.467439Z  INFO ncaa_feed: polling MBB scoreboard for date 2026/03/17
+2026-03-16T21:43:34.543648Z ERROR ncaa_feed: scoreboard fetch failed: failed to parse API response: scoreboard response missing data
+2026-03-16T21:43:34.543688Z  INFO ncaa_feed: phase: PreGame, next poll in 60s
+
+
+maybe its bc there are no games? but still it shouldnt be error response, no way ncaa gives error if there's no games. they miiiight give... empty []?

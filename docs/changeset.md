@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-16 — Fix scoreboard null data for future dates
+- **ncaa-api**: Treat missing `data`/`scoreboard` in NCAA API response as empty list instead of error. The API returns null for dates without game data (e.g. future dates), which is not an error condition.
+
 ### 2026-03-16 — Remove POST /tournament-status endpoint
 - **Server**: Removed `POST /tournament-status` endpoint, `--api-key` CLI flag, and `TOURNAMENT_API_KEY` env var. The `ncaa-feed` crate writes `status.json` directly; the server only needs to serve it via GET.
 - **Docs**: Updated `docs/api.md` and `CLAUDE.md` to reflect removal.

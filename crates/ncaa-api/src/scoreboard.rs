@@ -31,10 +31,7 @@ pub async fn fetch_scoreboard(
 
     let gql: ScoreboardGqlResponse = serde_json::from_str(&body)?;
 
-    let raw_contests = gql
-        .data
-        .and_then(|d| d.scoreboard)
-        .ok_or_else(|| NcaaApiError::Parse("scoreboard response missing data".into()))?;
+    let raw_contests = gql.data.and_then(|d| d.scoreboard).unwrap_or_default();
 
     let mut contests = Vec::with_capacity(raw_contests.len());
     for raw in raw_contests {
