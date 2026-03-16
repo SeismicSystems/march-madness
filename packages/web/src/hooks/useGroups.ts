@@ -27,18 +27,7 @@ type StoredGroups = Record<string, StoredGroupInfo>;
 function loadStoredGroups(): StoredGroups {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    // Migration: if old format was an array of numbers, convert
-    if (Array.isArray(parsed)) {
-      const migrated: StoredGroups = {};
-      for (const id of parsed) {
-        migrated[String(id)] = {};
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
-    }
-    return parsed;
+    return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
