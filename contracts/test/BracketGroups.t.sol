@@ -576,7 +576,7 @@ contract BracketGroupsTest is Test {
         bg.scoreEntry(groupId, 0);
 
         vm.prank(alice);
-        vm.expectRevert(BracketGroups.ScoringWindowStillOpen.selector);
+        vm.expectRevert(IMarchMadness.ScoringWindowStillOpen.selector);
         bg.collectWinnings(groupId);
     }
 

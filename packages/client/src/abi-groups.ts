@@ -381,7 +381,6 @@ export const BracketGroupsAbi = [
   { type: "error", name: "AlreadyScored", inputs: [] },
   { type: "error", name: "NoEntryFee", inputs: [] },
   { type: "error", name: "ResultsNotPosted", inputs: [] },
-  { type: "error", name: "ScoringWindowStillOpen", inputs: [] },
   { type: "error", name: "NoEntriesScored", inputs: [] },
   { type: "error", name: "NotScored", inputs: [] },
   { type: "error", name: "NotAWinner", inputs: [] },
