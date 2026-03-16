@@ -388,3 +388,5 @@ export const BracketGroupsAbi = [
   { type: "error", name: "TransferFailed", inputs: [] },
   { type: "error", name: "GroupNotFound", inputs: [] },
 ] as const;
+  { type: "error", name: "ScoringWindowClosed", inputs: [] },
+  { type: "error", name: "ScoringWindowStillOpen", inputs: [] },

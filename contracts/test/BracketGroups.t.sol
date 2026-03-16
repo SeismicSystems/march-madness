@@ -389,7 +389,7 @@ contract BracketGroupsTest is Test {
         // Fast-forward past scoring window
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
-        vm.expectRevert(IMarchMadness.ScoringWindowClosed.selector);
+        vm.expectRevert(BracketGroups.ScoringWindowClosed.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -437,7 +437,7 @@ contract BracketGroupsTest is Test {
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
         // Not scored on main, so scoreBracket will revert with ScoringWindowClosed
-        vm.expectRevert(IMarchMadness.ScoringWindowClosed.selector);
+        vm.expectRevert(BracketGroups.ScoringWindowClosed.selector);
         bg.scoreEntry(groupId, 0);
     }
 
@@ -576,7 +576,7 @@ contract BracketGroupsTest is Test {
         bg.scoreEntry(groupId, 0);
 
         vm.prank(alice);
-        vm.expectRevert(IMarchMadness.ScoringWindowStillOpen.selector);
+        vm.expectRevert(BracketGroups.ScoringWindowStillOpen.selector);
         bg.collectWinnings(groupId);
     }
 
