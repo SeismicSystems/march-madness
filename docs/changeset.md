@@ -4,6 +4,9 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Restrict Privy login methods
+- **UI**: Removed LinkedIn, Spotify, Instagram, TikTok, Apple, Farcaster, Telegram, and Passkey from the Privy login methods. Only Twitter, Discord, Google, GitHub, email, SMS, and wallet remain.
+
 ### 2026-03-17 — Show entry fee on public groups list
 - **UI**: Public groups list now always displays the entry fee. Groups with no fee show "Free" instead of hiding the fee entirely.
 
