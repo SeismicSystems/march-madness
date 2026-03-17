@@ -9,6 +9,7 @@ interface SubmitPanelProps {
   contract: UseContractReturn;
   bracket: UseBracketReturn;
   walletConnected: boolean;
+  totalEntries: number | null;
   onLoadBracket: () => Promise<void>;
 }
 
@@ -16,6 +17,7 @@ export function SubmitPanel({
   contract,
   bracket,
   walletConnected,
+  totalEntries,
   onLoadBracket,
 }: SubmitPanelProps) {
   const {
@@ -249,6 +251,7 @@ export function SubmitPanel({
         tagSaved={tagSaved}
         walletConnected={walletConnected}
         entryFeeDisplay={entryFeeDisplay}
+        totalEntries={totalEntries}
         resetOpen={resetOpen}
         hexError={hexError}
         hexControl={hexControl}
@@ -298,12 +301,22 @@ export function SubmitPanel({
 
         {/* Entry fee (before first submission) */}
         {!hasSubmitted && !isLocked && (
-          <span className="text-xs text-text-muted whitespace-nowrap">
-            Entry:{" "}
-            <span className="font-semibold text-text-primary">
-              {feeDisplay}
+          <div className="flex items-center gap-4 whitespace-nowrap">
+            <span className="text-xs text-text-muted">
+              Entry:{" "}
+              <span className="font-semibold text-text-primary">
+                {feeDisplay}
+              </span>
             </span>
-          </span>
+            {totalEntries != null && (
+              <span className="text-xs text-text-muted">
+                Brackets{" "}
+                <span className="font-semibold text-text-primary">
+                  {totalEntries}
+                </span>
+              </span>
+            )}
+          </div>
         )}
 
         <div className="flex-1" />
@@ -438,6 +451,7 @@ function MobileSubmitPanel({
   tagSaved,
   walletConnected,
   entryFeeDisplay,
+  totalEntries,
   resetOpen,
   hexError,
   hexControl,
@@ -461,6 +475,7 @@ function MobileSubmitPanel({
   tagSaved: boolean;
   walletConnected: boolean;
   entryFeeDisplay: string | null;
+  totalEntries: number | null;
   resetOpen: boolean;
   hexError: string | null;
   hexControl: React.ReactNode;
@@ -524,9 +539,21 @@ function MobileSubmitPanel({
       {/* Entry fee */}
       {!hasSubmitted && !isLocked && (
         <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
-          <div className="text-xs text-text-muted mb-1">Entry fee</div>
-          <div className="text-lg font-bold text-text-primary">
-            {feeDisplay}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs text-text-muted mb-1">Entry fee</div>
+              <div className="text-lg font-bold text-text-primary">
+                {feeDisplay}
+              </div>
+            </div>
+            {totalEntries != null && (
+              <div className="text-right">
+                <div className="text-xs text-text-muted mb-1">Brackets</div>
+                <div className="text-lg font-bold text-text-primary">
+                  {totalEntries}
+                </div>
+              </div>
+            )}
           </div>
           <div className="text-xs text-text-muted mt-1">
             Prize pool split equally among highest-scoring brackets
