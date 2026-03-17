@@ -4,6 +4,16 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Condition simulation on live game state (#43)
+
+- **New**: `Game::simulate_remaining()` in `bracket-sim/src/game.rs` — simulates only the remaining possessions of a live game from the current score, based on time remaining and period. Handles regulation remainder and overtime.
+- **New**: `Game::conditional_win_probability()` — Monte Carlo estimation of P(team1 wins | current score, time remaining) using the KenPom-based game model.
+- **Forecaster**: When live games have score + `secondsRemaining` + `period` data, the forecaster now computes model-derived conditional probabilities instead of relying on externally-set `team1WinProbability`. Loads team metrics from embedded KenPom data and traces bracket feeders to resolve which teams are playing in later rounds.
+- **Forecaster**: Added `--year` CLI flag (default 2026) for selecting embedded tournament data.
+- **Dependency**: `march-madness-forecaster` now depends on `bracket-sim` for game simulation.
+- **Docs**: Updated `docs/api.md` with `secondsRemaining` and `period` field documentation.
+- **Tests**: Added tests for `remaining_seconds`, `simulate_remaining` with big leads, close games, and end-of-game scenarios.
+
 ### 2026-03-17 — Tighten encoded bracket copy icon spacing
 
 - **UI**: Reduced the dead space between the encoded bracket hex field and the copy/edit icon fan-out on desktop by replacing the fixed-width icon rail with a collapsing `max-width` transition.

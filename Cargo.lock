@@ -3194,6 +3194,7 @@ dependencies = [
 name = "march-madness-forecaster"
 version = "0.1.0"
 dependencies = [
+ "bracket-sim",
  "clap",
  "eyre",
  "seismic-march-madness",
