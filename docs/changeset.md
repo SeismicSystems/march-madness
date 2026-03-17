@@ -10,6 +10,32 @@ All notable changes to this project. Every PR must add an entry here.
 - **UI**: Hex input is a fixed-width (`w-[10.5rem]`) input-styled container with single-click to edit (removed double-click fan-out flow). Copy button visible next to field when bracket exists.
 - **UI**: DeadlineCountdown is now centered (`flex justify-center`) above BracketView.
 - **Cleanup**: Removed unused `useCallback`, `useEffect`, `useRef` imports and stale hex/expand state from HomePage.
+### 2026-03-17 — Fix submit bracket button UX
+
+- **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
+- **Fix**: Submit button now correctly reflects wallet readiness — disabled until the wallet client is fully initialized, not just when Privy auth is active. Prevents silent failures when `authenticated` is true but the embedded wallet hasn't loaded yet.
+- **Fix**: `submitBracket`, `updateBracket`, and `setTag` now display a visible error message ("Wallet not connected") instead of silently failing when the wallet client isn't ready.
+
+### 2026-03-17 — Bracket submission counter on home page
+
+- **UI**: Added a bracket count indicator next to the deadline countdown on the home page, showing how many brackets have been submitted. Fetches from the `/stats` API endpoint, polls every 30s. Gracefully hidden when the API is unavailable.
+
+### 2026-03-17 — Groups page polish
+
+- **UI**: Simplified mobile tab labels: "Your Groups" → "Yours", "Public Groups" → "Public", "Join Group" → "Join", "Create Group" → "Create".
+- **UI**: Moved "Browse Public Groups" button from right column (Your Groups) to left column (under Join Group section) on desktop.
+- **UI**: Public group cards now show "Joined ✓" indicator instead of "Join" button for groups the user is already a member of.
+- **UI**: Repositioned entry fee display in public group cards to be right-aligned between member count and Join button for consistent alignment.
+
+### 2026-03-17 — Responsive Groups page with mobile tabs and desktop hub layout
+
+- **UI**: Mobile (< 768px): tab-based layout with "Your Groups", "Public Groups", "Join Group", and "Create Group" tabs. Empty state in "Your Groups" links to the other tabs.
+- **UI**: Desktop (>= 768px): two-column hub layout — left column has Create + Join forms stacked, right column has Your Groups list and a prominent "Browse Public Groups" link.
+- **UI**: Added `/groups/public` route with a dedicated page for browsing public groups (linked from the desktop hub).
+
+### 2026-03-17 — Restrict Privy login methods
+
+- **UI**: Removed LinkedIn, Spotify, Instagram, TikTok, Apple, Farcaster, Telegram, and Passkey from the Privy login methods. Only Twitter, Discord, Google, GitHub, email, SMS, and wallet remain.
 
 ### 2026-03-17 — Show entry fee on public groups list
 

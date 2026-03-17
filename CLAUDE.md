@@ -177,7 +177,8 @@ See `docs/api.md` for full API documentation including schema, game index layout
 
 - `/` — Home: bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline)
 - `/leaderboard` — All entries ranked by `scoreBracketPartial` (current score, max possible)
-- `/groups` — Create and join bracket groups (public or private with passphrase)
+- `/groups` — Groups hub: mobile uses tab layout (Your Groups, Public Groups, Join Group, Create Group); desktop uses 2-column layout with Create/Join forms on left, Your Groups + link to public groups on right
+- `/groups/public` — Browse public groups (dedicated page, linked from desktop hub)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
 
 ## Shielded Types & Security

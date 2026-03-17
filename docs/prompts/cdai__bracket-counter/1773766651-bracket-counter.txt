@@ -1,0 +1,2 @@
+on the main page, immediately to the right of "Brackets lock in ___":
+- add a simple counter for how many brackets have been submitted to the marchmadness contract. i think we store this in redis and expose it via the api.

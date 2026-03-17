@@ -6,6 +6,7 @@ import { FaucetBanner } from "../components/FaucetBanner";
 import { SubmitPanel } from "../components/SubmitPanel";
 import { useBracket } from "../hooks/useBracket";
 import { useContract } from "../hooks/useContract";
+import { useStats } from "../hooks/useStats";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
 export function HomePage() {
@@ -13,6 +14,7 @@ export function HomePage() {
   const contract = useContract();
   const bracket = useBracket(contract.walletAddress);
   const { status: tournamentStatus } = useTournamentStatus();
+  const { totalEntries, loading: statsLoading, error: statsError } = useStats();
 
   const isLocked = !contract.isBeforeDeadline;
 
@@ -35,7 +37,7 @@ export function HomePage() {
         <SubmitPanel
           contract={contract}
           bracket={bracket}
-          walletConnected={authenticated}
+          walletConnected={authenticated && !!contract.walletAddress}
           onLoadBracket={handleLoadBracket}
         />
       </div>

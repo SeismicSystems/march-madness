@@ -5,6 +5,7 @@ import { HomePage } from "./pages/HomePage";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { BracketViewerPage } from "./pages/BracketViewerPage";
 import { GroupsPage } from "./pages/GroupsPage";
+import { PublicGroupsPage } from "./pages/PublicGroupsPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/groups/public" element={<PublicGroupsPage />} />
           <Route path="/bracket/:address" element={<BracketViewerPage />} />
         </Routes>
       </main>

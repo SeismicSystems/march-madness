@@ -1,0 +1,16 @@
+the groups page looks awesome
+
+let's spin up background agents to fix a few more issues in parallel:
+
+1) for mobile, the tags should be:
+- "Yours"
+- "Public"
+- "Join"
+- "Create"
+^^ can remove the "Groups" suffix from all of them to simplify
+
+2) On desktop: the "browse public groups" button should be under the "Join Group" section, not under Your Groups
+
+3) In public groups item display, both same PR
+ a) if i'm already a member of the group, don't show a "join" button. instead indicate that i joined, with a checkmark or unclickable button
+ b) show the amount right aligned, between "n members" and "Join" button. make sure the spacing is consistent so everything lines up

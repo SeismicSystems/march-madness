@@ -205,7 +205,10 @@ export function useContract() {
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
-      if (!mmUser) throw new Error("Wallet not connected");
+      if (!mmUser) {
+        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        return;
+      }
       setIsLoading(true);
       setError(null);
 
@@ -230,7 +233,10 @@ export function useContract() {
   // Update bracket (shielded write, no additional fee)
   const updateBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
-      if (!mmUser) throw new Error("Wallet not connected");
+      if (!mmUser) {
+        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        return;
+      }
       setIsLoading(true);
       setError(null);
 
@@ -252,7 +258,10 @@ export function useContract() {
   // Set tag (transparent write via client library)
   const setTag = useCallback(
     async (tag: string) => {
-      if (!mmUser) throw new Error("Wallet not connected");
+      if (!mmUser) {
+        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        return;
+      }
       setIsLoading(true);
       setError(null);
 
