@@ -42,8 +42,18 @@ export function HomePage() {
         />
       </div>
 
-      <div className="flex justify-center mb-6 sm:mb-8">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-6 sm:mb-8">
         <DeadlineCountdown deadline={contract.submissionDeadline} />
+        {!statsLoading && !statsError && totalEntries != null && (
+          <div className="rounded-lg px-4 py-2 text-center bg-bg-tertiary border border-border">
+            <div className="text-xs text-text-muted mb-1">
+              Brackets submitted
+            </div>
+            <div className="font-mono font-bold text-sm text-text-primary">
+              {totalEntries}
+            </div>
+          </div>
+        )}
       </div>
 
       <BracketView
