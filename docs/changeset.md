@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Tighten encoded bracket copy icon spacing
+
+- **UI**: Reduced the dead space between the encoded bracket hex field and the copy/edit icon fan-out on desktop by replacing the fixed-width icon rail with a collapsing `max-width` transition.
+
 ### 2026-03-17 — Mobile create-bracket layout overhaul (space + no-scroll lanes)
 
 - **Mobile UI**: Reclaimed top-of-page vertical space by moving the lock countdown into a compact inline mode beside "Brackets submitted" and removing the separate countdown card row.
@@ -17,6 +21,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **UI**: Hex input is a fixed-width (`w-[10.5rem]`) input-styled container with single-click to edit (removed double-click fan-out flow). Copy button visible next to field when bracket exists.
 - **UI**: DeadlineCountdown is now centered (`flex justify-center`) above BracketView.
 - **Cleanup**: Removed unused `useCallback`, `useEffect`, `useRef` imports and stale hex/expand state from HomePage.
+
 ### 2026-03-17 — Fix submit bracket button UX
 
 - **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
