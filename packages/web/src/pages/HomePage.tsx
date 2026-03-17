@@ -235,7 +235,7 @@ export function HomePage() {
         <SubmitPanel
           contract={contract}
           bracket={bracket}
-          walletConnected={authenticated}
+          walletConnected={authenticated && !!contract.walletAddress}
           onLoadBracket={handleLoadBracket}
         />
       </div>
