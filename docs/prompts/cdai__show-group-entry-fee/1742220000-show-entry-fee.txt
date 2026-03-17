@@ -1,0 +1,1 @@
+In the list of public groups, we should display the entry fee buyin.
