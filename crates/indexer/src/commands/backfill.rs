@@ -248,17 +248,41 @@ pub async fn run(
 
     info!(entries = entry_count, "backfill complete");
 
-    // Sanity check (MarchMadness only).
-    info!("running sanity check");
+    // ── Sanity checks ─────────────────────────────────────────────────
+    info!("running sanity checks");
+
+    // Entry count: HLEN vs on-chain.
     let on_chain_count = p.get_entry_count(mm_addr).await?;
     let redis_count = redis_store::get_entry_count(redis).await? as u32;
     if on_chain_count == redis_count {
-        info!(count = redis_count, "sanity check passed");
+        info!(count = redis_count, "entry count sanity check passed");
     } else {
         info!(
             local = redis_count,
             on_chain = on_chain_count,
             "WARNING: entry count mismatch"
+        );
+    }
+
+    // Group member counts: verify member_count matches members.len().
+    let groups = redis_store::get_all_groups(redis).await?;
+    let mut groups_ok = true;
+    for (id, data) in &groups {
+        if data.member_count != data.members.len() as u32 {
+            info!(
+                group_id = %id,
+                slug = %data.slug,
+                stored_count = data.member_count,
+                actual_count = data.members.len(),
+                "WARNING: group member count mismatch"
+            );
+            groups_ok = false;
+        }
+    }
+    if groups_ok {
+        info!(
+            groups = groups.len(),
+            "group member count sanity checks passed"
         );
     }
 

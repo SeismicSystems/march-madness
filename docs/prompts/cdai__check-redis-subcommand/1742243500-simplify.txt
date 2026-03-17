@@ -1,0 +1,9 @@
+oh is HLEN efficient in redis? i realized it might be... if it is i feel like we might not need all of this machinery if using HLEN won't crash redis if it's constantly pinged
+
+and are there any breaking changes to our api? or will any consumer be able to handle these gracefully
+
+can we rename the check-counts subcommand to include something so it's clear that it just checks vs. redis?
+
+did you push a PR? is this available in the server api? what are the routes?
+
+oh ok then i think you should revert a ton of these changes -- maybe even work on a new branch that just cherry picks the relevant stuff we need to make sure the api server can return counts

@@ -1,0 +1,9 @@
+in our api server, we should have an endpoint to return: the total count of all brackets in the MarchMadness contract, and the total count of entries in each group.
+
+these will be called often, so we should update our listener to store them as a field in redis. i am guessing we need a new key for the count of overall brackets, can just be a simply key  => value
+
+for groups, we should be storing this in the group meta, and updating each time we have a new distinct entry in the group
+
+it's okay if your code changes would make this calculation incorrect if we were to run listenr right away; i will run a flushdb + backfill once we merge this. the important thing is that future runs of listener don't double count entries. the obvious edge case to consider is when someone simply updates their bracket.
+
+we should have a sanity check after backfill completes, to make sure each group we've processed is consistent with however we're storing group entries; we should also have a sanity cehck on the overall count. and there should be a separate indexer subcommand that sanity checks the stored counts with either --total (default), a specific group --group, or all groups --all-groups. note that i might run the sanity check while listener is going, so you'll have to be wise about atomicity

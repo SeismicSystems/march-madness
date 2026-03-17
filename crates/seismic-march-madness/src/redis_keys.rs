@@ -57,6 +57,8 @@ pub struct GroupData {
     pub creator: String,
     pub has_password: bool,
     pub members: Vec<String>,
+    #[serde(default)]
+    pub member_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

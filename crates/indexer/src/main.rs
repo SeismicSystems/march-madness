@@ -116,14 +116,27 @@ enum Command {
         #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
     },
+
+    /// Redis-internal consistency check for stored counts (no RPC needed)
+    #[command(name = "check-redis")]
+    CheckRedis {
+        /// Check a specific group by slug
+        #[arg(long)]
+        group: Option<String>,
+
+        /// Check all groups
+        #[arg(long)]
+        all_groups: bool,
+    },
 }
 
-fn rpc_url(command: &Command) -> &str {
+fn rpc_url(command: &Command) -> Option<&str> {
     match command {
-        Command::Listen { rpc_url, .. }
+        Command::Listen { rpc_url }
         | Command::Backfill { rpc_url, .. }
-        | Command::Reveal { rpc_url, .. }
-        | Command::SanityCheck { rpc_url, .. } => rpc_url,
+        | Command::Reveal { rpc_url }
+        | Command::SanityCheck { rpc_url } => Some(rpc_url),
+        Command::CheckRedis { .. } => None,
     }
 }
 
@@ -177,13 +190,28 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
-
-    let provider = match cli.network {
-        NetworkBackend::Reth => IndexerProvider::new_reth(rpc_url(&cli.command))?,
-        NetworkBackend::Foundry => IndexerProvider::new_foundry(rpc_url(&cli.command))?,
-    };
-
     let mut redis_conn = redis_store::connect().await?;
+
+    // check-redis is Redis-only — no provider or contract addresses needed.
+    if let Command::CheckRedis {
+        group, all_groups, ..
+    } = cli.command
+    {
+        let mode = if let Some(slug) = group {
+            commands::check_redis::CheckMode::Group(slug)
+        } else if all_groups {
+            commands::check_redis::CheckMode::AllGroups
+        } else {
+            commands::check_redis::CheckMode::All
+        };
+        return commands::check_redis::run(&mut redis_conn, mode).await;
+    }
+
+    let rpc = rpc_url(&cli.command).expect("rpc_url required for this command");
+    let provider = match cli.network {
+        NetworkBackend::Reth => IndexerProvider::new_reth(rpc)?,
+        NetworkBackend::Foundry => IndexerProvider::new_foundry(rpc)?,
+    };
     let addrs = resolve_addresses(&cli)?.parse()?;
 
     match cli.command {
@@ -201,6 +229,7 @@ async fn main() -> Result<()> {
             let mm = format!("{:#x}", addrs.march_madness);
             commands::check::run(&provider, &mut redis_conn, &mm).await?;
         }
+        Command::CheckRedis { .. } => unreachable!(),
     }
 
     Ok(())

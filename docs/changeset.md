@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Add `member_count` to groups + `check-redis` subcommand
+- **Indexer**: `GroupData` now tracks `member_count` field, updated atomically with `members` vec on join/leave.
+- **Indexer**: Backfill sanity check now verifies all group `member_count` values match `members.len()`.
+- **Indexer**: New `check-redis` subcommand for Redis-internal consistency checks (no RPC needed): default checks all, `--group <slug>` for a specific group, `--all-groups`.
+- No API changes — existing `GET /stats` (HLEN, O(1)) and `GET /groups` (member_count) continue to work.
+
 ### 2026-03-17 — Fix group/mirror event ordering in indexer
 - **Indexer**: Group events (GroupCreated, MemberJoined, MemberLeft) and mirror events (MirrorCreated, EntryAdded, EntryRemoved) are now sorted by `(block_number, log_index)` before processing, instead of being grouped by event type. Fixes edge case where leave-then-rejoin within a single poll cycle or backfill batch could produce incorrect state.
 
