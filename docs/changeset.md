@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Public groups display polish
+
+- **UI**: Show "Joined" indicator (green badge with checkmark) instead of "Join" button for groups the user is already a member of. Join form is also suppressed for joined groups.
+- **UI**: Moved entry fee display from inline after slug to right-aligned column between member count and Join/Joined button, with consistent min-width for alignment across cards.
+
 ### 2026-03-17 — Responsive Groups page with mobile tabs and desktop hub layout
 
 - **UI**: Mobile (< 768px): tab-based layout with "Your Groups", "Public Groups", "Join Group", and "Create Group" tabs. Empty state in "Your Groups" links to the other tabs.
