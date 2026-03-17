@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Bracket submission counter on home page
+
+- **UI**: Added a bracket count indicator next to the deadline countdown on the home page, showing how many brackets have been submitted. Fetches from the `/stats` API endpoint, polls every 30s. Gracefully hidden when the API is unavailable.
+
 ### 2026-03-17 — Groups page polish
 
 - **UI**: Simplified mobile tab labels: "Your Groups" → "Yours", "Public Groups" → "Public", "Join Group" → "Join", "Create Group" → "Create".
