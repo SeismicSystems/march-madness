@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Responsive Groups page with mobile tabs and desktop hub layout
+
+- **UI**: Mobile (< 768px): tab-based layout with "Your Groups", "Public Groups", "Join Group", and "Create Group" tabs. Empty state in "Your Groups" links to the other tabs.
+- **UI**: Desktop (>= 768px): two-column hub layout — left column has Create + Join forms stacked, right column has Your Groups list and a prominent "Browse Public Groups" link.
+- **UI**: Added `/groups/public` route with a dedicated page for browsing public groups (linked from the desktop hub).
+
 ### 2026-03-17 — Rename "Join Private Group" to "Join Group"
 
 - **UI**: Renamed "Join Private Group" heading to "Join Group" and updated subtitle to be group-type-agnostic.
