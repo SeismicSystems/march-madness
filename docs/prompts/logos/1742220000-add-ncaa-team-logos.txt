@@ -1,0 +1,30 @@
+Implement the following plan:
+
+# Plan: Add NCAA Team Logos to Bracket UI
+
+## Context
+
+The bracket UI currently displays teams as text-only (seed + name). We want to add team logos next to each team name, positioned on the **outer edge** — left side for left-side regions (East, South), right side for right-side regions (West, Midwest). This makes the bracket feel more polished and visually scannable.
+
+The NCAA API does not provide logo URLs, so we'll use the **ESPN CDN** (`https://a.espncdn.com/i/teamlogos/ncaa/500/{espn_id}.png`), which is the standard approach used across sports apps.
+
+## Implementation Steps
+
+### Step 1: Create ESPN logo mapping (`packages/web/src/lib/espn-logos.ts`) — NEW FILE
+
+Static `Record<string, number>` mapping each team name (as it appears in `tournament.json`) to its ESPN team ID. Export a `getTeamLogoUrl(teamName: string): string | null` helper.
+
+- ~68 individual team entries (First Four combo names like "Texas/NC State" will have no entry → returns `null` → no logo shown)
+- ESPN IDs are stable numeric IDs (e.g., Duke=150, Kansas=2305)
+
+### Step 2: Thread `reversed` prop through component tree
+
+**`BracketRegion.tsx`** — pass `reversed` to each `<BracketGame>`:
+**`BracketGame.tsx`** — add `reversed?: boolean` to `BracketGameProps`, pass to both `<TeamSlot>` calls
+**`TeamSlotProps`** — add `reversed?: boolean`
+
+### Step 3: Add `TeamLogo` component and render in `TeamSlot` (`BracketGame.tsx`)
+
+### Step 4: Add logo to champion display (`FinalFour.tsx`)
+
+### Step 5: Add preconnect hint (`packages/web/index.html`)
