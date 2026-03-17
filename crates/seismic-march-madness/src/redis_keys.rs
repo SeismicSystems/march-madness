@@ -31,6 +31,9 @@ pub const KEY_MIRROR_SLUGS: &str = "mm:mirror:slugs";
 /// Mirror entries: "mirrorId:entrySlug" → bracket_hex (HASH).
 pub const KEY_MIRROR_ENTRIES: &str = "mm:mirror:entries";
 
+/// Total distinct bracket entry count for MarchMadness (STRING).
+pub const KEY_ENTRY_COUNT: &str = "mm:entry_count";
+
 /// Build a composite key for mirror entries: "mirrorId:entrySlug".
 pub fn mirror_entry_field(mirror_id: u64, slug: &str) -> String {
     format!("{mirror_id}:{slug}")
@@ -57,6 +60,8 @@ pub struct GroupData {
     pub creator: String,
     pub has_password: bool,
     pub members: Vec<String>,
+    #[serde(default)]
+    pub member_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

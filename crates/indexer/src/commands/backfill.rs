@@ -51,8 +51,11 @@ pub async fn run(
                 }
             };
             let addr_str = format!("{address:#x}");
-            redis_store::upsert_bracket_submitted(redis, &addr_str, block_num, ts).await?;
-            entry_count += 1;
+            let is_new =
+                redis_store::upsert_bracket_submitted(redis, &addr_str, block_num, ts).await?;
+            if is_new {
+                entry_count += 1;
+            }
         }
 
         if !logs.is_empty() {
@@ -209,17 +212,44 @@ pub async fn run(
 
     info!(entries = entry_count, "backfill complete");
 
-    // Sanity check (MarchMadness only).
-    info!("running sanity check");
+    // ── Sanity checks ─────────────────────────────────────────────────
+
+    // Total entry count: verify counter key matches HLEN and on-chain.
+    info!("running sanity checks");
     let on_chain_count = p.get_entry_count(mm_addr).await?;
-    let redis_count = redis_store::get_entry_count(redis).await? as u32;
-    if on_chain_count == redis_count {
-        info!(count = redis_count, "sanity check passed");
+    let redis_hlen = redis_store::get_entry_count(redis).await? as u32;
+    let counter_val = redis_store::get_stored_entry_count(redis).await? as u32;
+
+    if counter_val == redis_hlen && redis_hlen == on_chain_count {
+        info!(count = redis_hlen, "entry count sanity check passed");
     } else {
         info!(
-            local = redis_count,
+            counter = counter_val,
+            hlen = redis_hlen,
             on_chain = on_chain_count,
             "WARNING: entry count mismatch"
+        );
+    }
+
+    // Group member counts: verify member_count matches members.len().
+    let groups = redis_store::get_all_groups(redis).await?;
+    let mut groups_ok = true;
+    for (id, data) in &groups {
+        if data.member_count != data.members.len() as u32 {
+            info!(
+                group_id = %id,
+                slug = %data.slug,
+                stored_count = data.member_count,
+                actual_count = data.members.len(),
+                "WARNING: group member count mismatch"
+            );
+            groups_ok = false;
+        }
+    }
+    if groups_ok {
+        info!(
+            groups = groups.len(),
+            "group member count sanity checks passed"
         );
     }
 

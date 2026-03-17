@@ -137,8 +137,8 @@ impl AppState {
 
     pub async fn get_entry_count(&self) -> Result<usize> {
         let mut conn = self.redis();
-        let count: usize = conn.hlen(KEY_ENTRIES).await?;
-        Ok(count)
+        let count: Option<usize> = conn.get(KEY_ENTRY_COUNT).await?;
+        Ok(count.unwrap_or(0))
     }
 
     // ── Group queries ────────────────────────────────────────────────
@@ -351,6 +351,6 @@ fn group_to_response(id: &str, data: &GroupData) -> GroupResponse {
         display_name: data.display_name.clone(),
         creator: data.creator.clone(),
         has_password: data.has_password,
-        member_count: data.members.len(),
+        member_count: data.member_count as usize,
     }
 }

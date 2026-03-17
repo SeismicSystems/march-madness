@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Denormalized entry count counters in Redis
+- **Indexer**: New `mm:entry_count` Redis key (STRING) tracks total distinct bracket entries via `INCR` on new submissions. Bracket updates (`updateBracket`) do not double-count — uses `HEXISTS` check.
+- **Indexer**: `GroupData` now has `member_count` field, updated atomically with `members` vec on join/leave.
+- **Indexer**: Backfill sanity check now verifies counter key vs HLEN vs on-chain, plus all group `member_count` vs `members.len()`.
+- **Indexer**: New `check-redis` subcommand for Redis-internal consistency checks (no RPC needed): `--total` (default), `--group <slug>`, `--all-groups`.
+- **Indexer**: Existing `check` subcommand now also compares counter key vs HLEN (in addition to on-chain).
+- **Server**: `GET /stats` reads from `mm:entry_count` instead of HLEN. `GET /groups` reads `member_count` from group metadata.
+
 ### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
 - **Web**: Added `useSubmissionDeadline` hook that reads `submissionDeadline()` from the MarchMadness contract, falling back to the hardcoded constant if the contract read fails.
 - **Web**: `useContract` hook now exposes `submissionDeadline` (number, seconds) and a reactive `isBeforeDeadline` that updates every second.

@@ -1,0 +1,1 @@
+can we rename the check-counts subcommand to include something so it's clear that it just checks vs. redis?

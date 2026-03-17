@@ -85,8 +85,8 @@ async fn process_march_madness(
             .ok_or_else(|| eyre::eyre!("log missing block number"))?;
         let ts = p.get_block_timestamp(block_num).await?;
         let addr_str = format!("{address:#x}");
-        info!(event = "BracketSubmitted", addr = %addr_str, block = block_num);
-        redis_store::upsert_bracket_submitted(redis, &addr_str, block_num, ts).await?;
+        let is_new = redis_store::upsert_bracket_submitted(redis, &addr_str, block_num, ts).await?;
+        info!(event = "BracketSubmitted", addr = %addr_str, block = block_num, new = is_new);
         count += 1;
     }
 

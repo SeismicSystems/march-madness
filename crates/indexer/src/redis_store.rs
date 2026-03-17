@@ -45,18 +45,24 @@ async fn modify_hash_field<T: serde::Serialize + serde::de::DeserializeOwned>(
 // ── Entry operations ─────────────────────────────────────────────────
 
 /// Record a BracketSubmitted event.
+/// Returns `true` if this was a new entry (not an update).
 pub async fn upsert_bracket_submitted(
     conn: &mut MultiplexedConnection,
     address: &str,
     block: u64,
     timestamp: u64,
-) -> Result<()> {
+) -> Result<bool> {
     let addr = address.to_lowercase();
+    let is_new: bool = !conn.hexists(KEY_ENTRIES, &addr).await?;
     modify_hash_field(conn, KEY_ENTRIES, &addr, EntryData::default, |e| {
         e.block = block;
         e.ts = timestamp;
     })
-    .await
+    .await?;
+    if is_new {
+        let _: u64 = conn.incr(KEY_ENTRY_COUNT, 1u64).await?;
+    }
+    Ok(is_new)
 }
 
 /// Record a TagSet event: set the name field.
@@ -106,6 +112,7 @@ pub async fn create_group(
         creator: creator.to_lowercase(),
         has_password,
         members: Vec::new(),
+        member_count: 0,
     };
     let json = serde_json::to_string(&data)?;
     let id_str = group_id.to_string();
@@ -134,6 +141,7 @@ pub async fn member_joined(
     {
         if !group.members.contains(&addr) {
             group.members.push(addr);
+            group.member_count = group.members.len() as u32;
         }
         let json = serde_json::to_string(&group)?;
         let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
@@ -155,6 +163,7 @@ pub async fn member_left(
         .and_then(|s| serde_json::from_str::<GroupData>(s).ok())
     {
         group.members.retain(|a| a != &addr);
+        group.member_count = group.members.len() as u32;
         let json = serde_json::to_string(&group)?;
         let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
     }
@@ -242,4 +251,45 @@ pub async fn get_entry(
     let addr = address.to_lowercase();
     let json: Option<String> = conn.hget(KEY_ENTRIES, &addr).await?;
     Ok(json.and_then(|s| serde_json::from_str(&s).ok()))
+}
+
+/// Read the stored entry count counter.
+pub async fn get_stored_entry_count(conn: &mut MultiplexedConnection) -> Result<u64> {
+    let count: Option<u64> = conn.get(KEY_ENTRY_COUNT).await?;
+    Ok(count.unwrap_or(0))
+}
+
+/// Set the entry count counter (useful for manual correction).
+#[allow(dead_code)]
+pub async fn set_entry_count(conn: &mut MultiplexedConnection, count: u64) -> Result<()> {
+    let () = conn.set(KEY_ENTRY_COUNT, count).await?;
+    Ok(())
+}
+
+/// Get all groups from Redis.
+pub async fn get_all_groups(
+    conn: &mut MultiplexedConnection,
+) -> Result<std::collections::HashMap<String, GroupData>> {
+    let all: std::collections::HashMap<String, String> = conn.hgetall(KEY_GROUPS).await?;
+    let mut result = std::collections::HashMap::with_capacity(all.len());
+    for (id, json) in all {
+        if let Ok(data) = serde_json::from_str::<GroupData>(&json) {
+            result.insert(id, data);
+        }
+    }
+    Ok(result)
+}
+
+/// Get a single group by slug.
+pub async fn get_group_by_slug(
+    conn: &mut MultiplexedConnection,
+    slug: &str,
+) -> Result<Option<(String, GroupData)>> {
+    let id: Option<String> = conn.hget(KEY_GROUP_SLUGS, slug).await?;
+    let Some(id) = id else { return Ok(None) };
+    let json: Option<String> = conn.hget(KEY_GROUPS, &id).await?;
+    match json {
+        Some(s) => Ok(Some((id, serde_json::from_str(&s)?))),
+        None => Ok(None),
+    }
 }
