@@ -1,0 +1,5 @@
+we need to standardize positions in the bracket, each Team Slot should have 3 columns, one for the logo, one for the seed, and one for the name
+
+for teams on the left side, it should we be seed | logo | name
+
+for teams on the right side it should be the same

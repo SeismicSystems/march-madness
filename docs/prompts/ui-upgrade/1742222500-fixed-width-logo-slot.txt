@@ -1,0 +1,1 @@
+some teams dont have logos, can we accomodate a fixed-width slot to make sure the layout stays consistent for missing logos
