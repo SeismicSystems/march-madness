@@ -4,33 +4,29 @@
 //! Does NOT require RPC access — purely local checks.
 //!
 //! Modes:
-//! - (default): all checks (total entries + all groups)
+//! - (default): total entry HLEN
 //! - `--group <slug>`: specific group's member_count vs members.len()
 //! - `--all-groups`: all groups
 
 use crate::redis_store;
-use eyre::Result;
+use eyre::{Result, eyre};
 use redis::aio::MultiplexedConnection;
 use seismic_march_madness::redis_keys::KEY_ENTRIES;
-use tracing::info;
+use tracing::{error, info};
 
 /// What to check.
 pub enum CheckMode {
-    /// Check everything: total entry HLEN + all group member counts.
-    All,
+    /// Check total entry HLEN.
+    Total,
     /// Check a specific group by slug.
     Group(String),
-    /// Check all groups only.
+    /// Check all groups.
     AllGroups,
 }
 
 pub async fn run(redis: &mut MultiplexedConnection, mode: CheckMode) -> Result<()> {
     match mode {
-        CheckMode::All => {
-            check_total(redis).await?;
-            check_all_groups(redis).await?;
-            Ok(())
-        }
+        CheckMode::Total => check_total(redis).await,
         CheckMode::Group(slug) => check_group(redis, &slug).await,
         CheckMode::AllGroups => check_all_groups(redis).await,
     }
@@ -49,8 +45,7 @@ async fn check_total(redis: &mut MultiplexedConnection) -> Result<()> {
 
 async fn check_group(redis: &mut MultiplexedConnection, slug: &str) -> Result<()> {
     let Some((id, data)) = redis_store::get_group_by_slug(redis, slug).await? else {
-        info!(slug, "group not found");
-        return Ok(());
+        return Err(eyre!("group not found: {slug}"));
     };
 
     let actual = data.members.len() as u32;
@@ -65,7 +60,7 @@ async fn check_group(redis: &mut MultiplexedConnection, slug: &str) -> Result<()
     if data.member_count == actual {
         info!("OK — group member count matches");
     } else {
-        info!("MISMATCH: stored member_count != members.len()");
+        error!("MISMATCH: stored member_count != members.len()");
     }
 
     Ok(())
@@ -83,7 +78,7 @@ async fn check_all_groups(redis: &mut MultiplexedConnection) -> Result<()> {
     for (id, data) in &groups {
         let actual = data.members.len() as u32;
         if data.member_count != actual {
-            info!(
+            error!(
                 group_id = %id,
                 slug = %data.slug,
                 stored_count = data.member_count,
@@ -97,7 +92,7 @@ async fn check_all_groups(redis: &mut MultiplexedConnection) -> Result<()> {
     if mismatches == 0 {
         info!(groups = groups.len(), "OK — all group member counts match");
     } else {
-        info!(mismatches, total = groups.len(), "group check complete");
+        error!(mismatches, total = groups.len(), "group check complete");
     }
 
     Ok(())

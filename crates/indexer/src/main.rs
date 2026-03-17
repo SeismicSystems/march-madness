@@ -202,7 +202,7 @@ async fn main() -> Result<()> {
         } else if all_groups {
             commands::check_redis::CheckMode::AllGroups
         } else {
-            commands::check_redis::CheckMode::All
+            commands::check_redis::CheckMode::Total
         };
         return commands::check_redis::run(&mut redis_conn, mode).await;
     }

@@ -6,7 +6,7 @@ use crate::redis_store;
 use alloy_rpc_types_eth::Log;
 use eyre::{Result, WrapErr};
 use redis::aio::MultiplexedConnection;
-use tracing::info;
+use tracing::{info, warn};
 
 /// Maximum block range per eth_getLogs request.
 const BATCH_SIZE: u64 = 10_000;
@@ -269,12 +269,12 @@ pub async fn run(
     let mut groups_ok = true;
     for (id, data) in &groups {
         if data.member_count != data.members.len() as u32 {
-            info!(
+            warn!(
                 group_id = %id,
                 slug = %data.slug,
                 stored_count = data.member_count,
                 actual_count = data.members.len(),
-                "WARNING: group member count mismatch"
+                "group member count mismatch"
             );
             groups_ok = false;
         }
