@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Add NCAA team logos to bracket UI
+
+- **Web**: Added ESPN CDN team logos next to team names in the bracket UI. Logos appear on the outer edge (left for East/South, right for West/Midwest).
+- **Web**: New `espn-logos.ts` mapping file with ESPN team IDs for all 68 tournament teams. First Four combo names gracefully show no logo.
+- **Web**: Exported `TeamLogo` component with `onError` fallback for broken images. Champion display in FinalFour also shows the logo.
+- **Web**: Added `<link rel="preconnect">` for ESPN CDN to speed up logo loading.
 ### 2026-03-17 — Add `member_count` to groups + `check-redis` subcommand
 - **Indexer**: `GroupData` now tracks `member_count` field, updated atomically with `members` vec on join/leave.
 - **Indexer**: Backfill sanity check now verifies all group `member_count` values match `members.len()`.
@@ -14,6 +20,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **Indexer**: Group events (GroupCreated, MemberJoined, MemberLeft) and mirror events (MirrorCreated, EntryAdded, EntryRemoved) are now sorted by `(block_number, log_index)` before processing, instead of being grouped by event type. Fixes edge case where leave-then-rejoin within a single poll cycle or backfill batch could produce incorrect state.
 
 ### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
+
 - **Web**: Added `useSubmissionDeadline` hook that reads `submissionDeadline()` from the MarchMadness contract, falling back to the hardcoded constant if the contract read fails.
 - **Web**: `useContract` hook now exposes `submissionDeadline` (number, seconds) and a reactive `isBeforeDeadline` that updates every second.
 - **Web**: `DeadlineCountdown` accepts an optional `deadline` prop (defaults to hardcoded constant for backward compat).
@@ -21,6 +28,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **Web**: Fixes local dev mismatch where the UI deadline could differ from the deployed contract's deadline.
 
 ### 2026-03-16 — Add 90-day results submission deadline
+
 - **Contracts**: Added `RESULTS_DEADLINE = 90 days` constant — owner must post results within 90 days of the submission deadline or the window closes.
 - **Contracts**: `submitResults()` now reverts with `ResultsSubmissionWindowClosed` if called after the window.
 - **Contracts**: Added `collectEntryFee()` — entrants can reclaim their entry fee if the owner misses the results window (no-contest escape hatch).
@@ -28,9 +36,11 @@ All notable changes to this project. Every PR must add an entry here.
 - **Tests**: Added `ResultsDeadline.t.sol` with 7 tests covering the deadline guard and refund mechanism.
 
 ### 2026-03-16 — Fix scoreboard null data for future dates
+
 - **ncaa-api**: Treat missing `data`/`scoreboard` in NCAA API response as empty list instead of error. The API returns null for dates without game data (e.g. future dates), which is not an error condition.
 
 ### 2026-03-16 — Apply Seismic brand colors
+
 - **UI**: Replaced generic indigo/dark-blue theme with Seismic brand palette (mauve `#825A6D`, dark purple `#523542`, warm grays, muted gold `#A6924D`).
 - **UI**: Updated all `@theme` CSS variables in `index.css` for backgrounds, text, borders, accent, warning, and gold.
 - **UI**: Added `--color-dark-purple` theme variable for secondary accent.

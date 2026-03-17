@@ -1,5 +1,8 @@
+import { useState } from "react";
+
 import type { GameStatus } from "@march-madness/client";
 import type { Team } from "../lib/tournament";
+import { getTeamLogoUrl } from "../lib/espn-logos";
 
 interface BracketGameProps {
   team1: Team | null;
@@ -12,6 +15,8 @@ interface BracketGameProps {
   mobile?: boolean;
   /** Tournament status overlay for this game */
   gameStatus?: GameStatus;
+  /** Whether this region reads right-to-left (logos on right side) */
+  reversed?: boolean;
 }
 
 export function BracketGame({
@@ -23,6 +28,7 @@ export function BracketGame({
   compact = false,
   mobile = false,
   gameStatus,
+  reversed = false,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -40,13 +46,21 @@ export function BracketGame({
 
   // Determine if each team's pick was correct/wrong based on game result
   const pickCorrectTeam1 =
-    gameStatus?.status === "final" && gameStatus.winner === true && winner === team1;
+    gameStatus?.status === "final" &&
+    gameStatus.winner === true &&
+    winner === team1;
   const pickCorrectTeam2 =
-    gameStatus?.status === "final" && gameStatus.winner === false && winner === team2;
+    gameStatus?.status === "final" &&
+    gameStatus.winner === false &&
+    winner === team2;
   const pickWrongTeam1 =
-    gameStatus?.status === "final" && gameStatus.winner === false && winner === team1;
+    gameStatus?.status === "final" &&
+    gameStatus.winner === false &&
+    winner === team1;
   const pickWrongTeam2 =
-    gameStatus?.status === "final" && gameStatus.winner === true && winner === team2;
+    gameStatus?.status === "final" &&
+    gameStatus.winner === true &&
+    winner === team2;
 
   return (
     <div className={`flex flex-col ${minW} gap-0.5 relative`}>
@@ -73,8 +87,11 @@ export function BracketGame({
         pickCorrect={pickCorrectTeam1}
         pickWrong={pickWrongTeam1}
         isLive={gameStatus?.status === "live"}
+        reversed={reversed}
         winProbability={
-          gameStatus?.status === "live" ? gameStatus.team1WinProbability : undefined
+          gameStatus?.status === "live"
+            ? gameStatus.team1WinProbability
+            : undefined
         }
       />
       <TeamSlot
@@ -91,6 +108,7 @@ export function BracketGame({
         pickCorrect={pickCorrectTeam2}
         pickWrong={pickWrongTeam2}
         isLive={gameStatus?.status === "live"}
+        reversed={reversed}
         winProbability={
           gameStatus?.status === "live"
             ? gameStatus.team1WinProbability !== undefined
@@ -118,6 +136,7 @@ interface TeamSlotProps {
   pickWrong?: boolean;
   isLive?: boolean;
   winProbability?: number;
+  reversed?: boolean;
 }
 
 function TeamSlot({
@@ -135,6 +154,7 @@ function TeamSlot({
   pickWrong = false,
   isLive = false,
   winProbability,
+  reversed = false,
 }: TeamSlotProps) {
   if (!team) {
     return (
@@ -155,11 +175,9 @@ function TeamSlot({
     className +=
       "bg-red-500/10 border-red-500/30 text-text-muted line-through opacity-60";
   } else if (isLive && isWinner) {
-    className +=
-      "bg-accent/20 border-accent text-text-primary font-semibold";
+    className += "bg-accent/20 border-accent text-text-primary font-semibold";
   } else if (isWinner) {
-    className +=
-      "bg-accent/20 border-accent text-text-primary font-semibold";
+    className += "bg-accent/20 border-accent text-text-primary font-semibold";
   } else if (isLoser) {
     className += "bg-bg-secondary border-border text-text-muted";
   } else {
@@ -178,8 +196,11 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className="flex items-center">
-        <span className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}>
+      <span className="flex items-center gap-1">
+        {!reversed && <TeamLogo teamName={team.name} mobile={mobile} />}
+        <span
+          className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}
+        >
           {team.seed}
         </span>
         <span>{team.abbrev ?? team.name}</span>
@@ -189,10 +210,13 @@ function TeamSlot({
         {pickWrong && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
+        {reversed && <TeamLogo teamName={team.name} mobile={mobile} />}
       </span>
       <span className="flex items-center gap-1">
         {gameScore !== undefined && (
-          <span className={`font-mono text-[10px] ${isLive ? "text-green-400" : "text-text-muted"}`}>
+          <span
+            className={`font-mono text-[10px] ${isLive ? "text-green-400" : "text-text-muted"}`}
+          >
             {gameScore}
           </span>
         )}
@@ -203,5 +227,27 @@ function TeamSlot({
         )}
       </span>
     </button>
+  );
+}
+
+export function TeamLogo({
+  teamName,
+  mobile = false,
+}: {
+  teamName: string;
+  mobile?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const url = getTeamLogoUrl(teamName);
+  if (!url || failed) return null;
+  const size = mobile ? "w-3 h-3" : "w-4 h-4";
+  return (
+    <img
+      src={url}
+      alt=""
+      className={`${size} object-contain flex-shrink-0`}
+      onError={() => setFailed(true)}
+      loading="lazy"
+    />
   );
 }
