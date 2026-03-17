@@ -165,11 +165,17 @@ impl AppState {
     }
 
     pub async fn get_group_members(&self, slug: &str) -> Result<Option<Vec<String>>> {
-        let (_id, data) = match self.resolve_group(slug).await? {
+        let (id, _data) = match self.resolve_group(slug).await? {
             Some(v) => v,
             None => return Ok(None),
         };
-        Ok(Some(data.members))
+        let mut conn = self.redis();
+        let json: Option<String> = conn.hget(KEY_GROUP_MEMBERS, &id).await?;
+        let members: Vec<String> = json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+        Ok(Some(members))
     }
 
     /// Slug → (id, GroupData) lookup, shared by group queries.
@@ -351,6 +357,6 @@ fn group_to_response(id: &str, data: &GroupData) -> GroupResponse {
         display_name: data.display_name.clone(),
         creator: data.creator.clone(),
         has_password: data.has_password,
-        member_count: data.members.len(),
+        member_count: data.member_count as usize,
     }
 }

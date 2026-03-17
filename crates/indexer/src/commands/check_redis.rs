@@ -1,11 +1,14 @@
 //! Redis-internal consistency check for stored counts.
 //!
 //! Verifies that denormalized counters match the actual data in Redis.
+//! Compares `member_count` in KEY_GROUPS (metadata) against the actual
+//! member array length in KEY_GROUP_MEMBERS.
+//!
 //! Does NOT require RPC access — purely local checks.
 //!
 //! Modes:
 //! - (default): total entry HLEN
-//! - `--group <slug>`: specific group's member_count vs members.len()
+//! - `--group <slug>`: specific group's member_count vs actual members
 //! - `--all-groups`: all groups
 
 use crate::redis_store;
@@ -48,7 +51,8 @@ async fn check_group(redis: &mut MultiplexedConnection, slug: &str) -> Result<()
         return Err(eyre!("group not found: {slug}"));
     };
 
-    let actual = data.members.len() as u32;
+    let members = redis_store::get_group_members(redis, &id).await?;
+    let actual = members.len() as u32;
     info!(
         group_id = %id,
         slug = %data.slug,
@@ -60,7 +64,7 @@ async fn check_group(redis: &mut MultiplexedConnection, slug: &str) -> Result<()
     if data.member_count == actual {
         info!("OK — group member count matches");
     } else {
-        error!("MISMATCH: stored member_count != members.len()");
+        error!("MISMATCH: member_count in metadata != members array length");
     }
 
     Ok(())
@@ -76,7 +80,8 @@ async fn check_all_groups(redis: &mut MultiplexedConnection) -> Result<()> {
 
     let mut mismatches = 0u32;
     for (id, data) in &groups {
-        let actual = data.members.len() as u32;
+        let members = redis_store::get_group_members(redis, id).await?;
+        let actual = members.len() as u32;
         if data.member_count != actual {
             error!(
                 group_id = %id,

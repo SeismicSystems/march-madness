@@ -264,16 +264,18 @@ pub async fn run(
         );
     }
 
-    // Group member counts: verify member_count matches members.len().
+    // Group member counts: verify member_count in metadata matches actual members array.
     let groups = redis_store::get_all_groups(redis).await?;
     let mut groups_ok = true;
     for (id, data) in &groups {
-        if data.member_count != data.members.len() as u32 {
+        let members = redis_store::get_group_members(redis, id).await?;
+        let actual = members.len() as u32;
+        if data.member_count != actual {
             warn!(
                 group_id = %id,
                 slug = %data.slug,
                 stored_count = data.member_count,
-                actual_count = data.members.len(),
+                actual_count = actual,
                 "group member count mismatch"
             );
             groups_ok = false;

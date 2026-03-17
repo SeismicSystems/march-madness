@@ -16,8 +16,13 @@ pub const KEY_LAST_BLOCK: &str = "mm:indexer:last_block";
 /// Entries: addr → JSON({ name?, bracket?, block, ts }) (HASH).
 pub const KEY_ENTRIES: &str = "mm:entries";
 
-/// Groups: groupId → JSON({ slug, display_name, creator, has_password, members }) (HASH).
+/// Groups metadata: groupId → JSON({ slug, display_name, creator, has_password, member_count }) (HASH).
+/// Lightweight — no member list. Queried often for group listings.
 pub const KEY_GROUPS: &str = "mm:groups";
+
+/// Group members: groupId → JSON(["0xaddr1", "0xaddr2", ...]) (HASH).
+/// Separate from metadata so listing groups doesn't load all member arrays.
+pub const KEY_GROUP_MEMBERS: &str = "mm:group_members";
 
 /// Group slug reverse lookup: slug → groupId (HASH).
 pub const KEY_GROUP_SLUGS: &str = "mm:group:slugs";
@@ -50,14 +55,12 @@ pub struct EntryData {
     pub ts: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GroupData {
     pub slug: String,
     pub display_name: String,
     pub creator: String,
     pub has_password: bool,
-    pub members: Vec<String>,
-    #[serde(default)]
     pub member_count: u32,
 }
 
