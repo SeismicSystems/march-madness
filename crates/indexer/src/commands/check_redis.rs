@@ -31,7 +31,10 @@ pub async fn run(redis: &mut MultiplexedConnection, mode: CheckMode) -> Result<(
     match mode {
         CheckMode::Total => check_total(redis).await,
         CheckMode::Group(slug) => check_group(redis, &slug).await,
-        CheckMode::AllGroups => check_all_groups(redis).await,
+        CheckMode::AllGroups => {
+            check_total(redis).await?;
+            check_all_groups(redis).await
+        }
     }
 }
 
