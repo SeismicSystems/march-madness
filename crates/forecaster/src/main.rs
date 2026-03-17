@@ -126,20 +126,6 @@ fn compute_live_game_probabilities(
             continue;
         }
 
-        // Need score + time data to compute conditional probability
-        let score = match &game.score {
-            Some(s) => (s.team1, s.team2),
-            None => continue,
-        };
-        let seconds_remaining = match game.seconds_remaining {
-            Some(s) => s,
-            None => continue,
-        };
-        let period = match game.period {
-            Some(p) => p,
-            None => continue,
-        };
-
         // Resolve the two teams playing
         let (t1_idx, t2_idx) = match resolve_game_teams(g, status) {
             Some(pair) => pair,
@@ -153,23 +139,31 @@ fn compute_live_game_probabilities(
         };
 
         let game_model = Game::new(t1.clone(), t2.clone());
-        let prob = game_model.conditional_win_probability(
-            score,
-            seconds_remaining,
-            period,
-            DEFAULT_PACE_D,
-            LIVE_GAME_SIMS,
-        );
+
+        // If we have score + time data, simulate the remaining game.
+        // Otherwise fall back to pre-game probability from team metrics.
+        let (prob, method) = if let (Some(score), Some(secs), Some(per)) =
+            (&game.score, game.seconds_remaining, game.period)
+        {
+            let p = game_model.conditional_win_probability(
+                (score.team1, score.team2),
+                secs,
+                per,
+                DEFAULT_PACE_D,
+                LIVE_GAME_SIMS,
+            );
+            (p, "conditional")
+        } else {
+            (game_model.team1_win_probability(), "pre-game")
+        };
 
         info!(
             game_index = g,
             team1 = t1_name,
             team2 = t2_name,
-            score = format!("{}-{}", score.0, score.1),
-            period,
-            seconds_remaining,
+            method,
             computed_prob = format!("{:.3}", prob),
-            "computed live game conditional probability"
+            "computed live game probability"
         );
 
         status.games[g].team1_win_probability = Some(prob);
