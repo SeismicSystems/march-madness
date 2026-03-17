@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatEther } from "viem";
 import type { PublicGroup } from "../hooks/usePublicGroups";
 import type { UseGroupsReturn } from "../hooks/useGroups";
@@ -30,6 +30,18 @@ function PublicGroupCard({
   const [joinName, setJoinName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
 
+  const isJoined = useMemo(
+    () => groups.joinedGroups.some((jg) => jg.groupId === Number(group.id)),
+    [groups.joinedGroups, group.id],
+  );
+
+  const entryFeeDisplay = useMemo(() => {
+    if (group.entry_fee && BigInt(group.entry_fee) > 0n) {
+      return `${formatEther(BigInt(group.entry_fee))} ETH`;
+    }
+    return "Free";
+  }, [group.entry_fee]);
+
   const handleJoin = async () => {
     if (!joinName.trim()) return;
     setJoinError(null);
@@ -60,18 +72,16 @@ function PublicGroupCard({
           <span className="ml-2 text-xs text-text-tertiary">
             /{group.slug}
           </span>
-          <span className="ml-2 text-xs text-gold">
-            {group.entry_fee && BigInt(group.entry_fee) > 0n
-              ? `${formatEther(BigInt(group.entry_fee))} ETH`
-              : "Free"}
-          </span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-xs text-text-secondary">
             {group.member_count} member
             {group.member_count !== 1 ? "s" : ""}
           </span>
-          {!joining && (
+          <span className="text-xs text-gold min-w-[5rem] text-right">
+            {entryFeeDisplay}
+          </span>
+          {!joining && !isJoined && (
             <button
               onClick={() => {
                 if (!walletConnected) return;
@@ -87,15 +97,23 @@ function PublicGroupCard({
                     ? "Deadline has passed"
                     : "Join this group"
               }
-              className="px-3 py-1 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+              className="px-3 py-1 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium min-w-[4rem]"
             >
               Join
             </button>
           )}
+          {isJoined && (
+            <span
+              className="px-3 py-1 text-xs rounded-lg bg-green-900/30 text-green-400 border border-green-800/50 font-medium min-w-[4rem] text-center"
+              title="You are a member of this group"
+            >
+              Joined ✓
+            </span>
+          )}
         </div>
       </div>
 
-      {joining && (
+      {joining && !isJoined && (
         <div className="mt-3 pt-3 border-t border-border space-y-2">
           <div className="flex gap-2 max-w-md">
             <input

@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Groups page polish
+
+- **UI**: Simplified mobile tab labels: "Your Groups" → "Yours", "Public Groups" → "Public", "Join Group" → "Join", "Create Group" → "Create".
+- **UI**: Moved "Browse Public Groups" button from right column (Your Groups) to left column (under Join Group section) on desktop.
+- **UI**: Public group cards now show "Joined ✓" indicator instead of "Join" button for groups the user is already a member of.
+- **UI**: Repositioned entry fee display in public group cards to be right-aligned between member count and Join button for consistent alignment.
+
 ### 2026-03-17 — Responsive Groups page with mobile tabs and desktop hub layout
 
 - **UI**: Mobile (< 768px): tab-based layout with "Your Groups", "Public Groups", "Join Group", and "Create Group" tabs. Empty state in "Your Groups" links to the other tabs.
