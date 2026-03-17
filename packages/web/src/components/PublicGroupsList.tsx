@@ -60,11 +60,11 @@ function PublicGroupCard({
           <span className="ml-2 text-xs text-text-tertiary">
             /{group.slug}
           </span>
-          {group.entry_fee && BigInt(group.entry_fee) > 0n && (
-            <span className="ml-2 text-xs text-gold">
-              {formatEther(BigInt(group.entry_fee))} ETH
-            </span>
-          )}
+          <span className="ml-2 text-xs text-gold">
+            {group.entry_fee && BigInt(group.entry_fee) > 0n
+              ? `${formatEther(BigInt(group.entry_fee))} ETH`
+              : "Free"}
+          </span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-xs text-text-secondary">

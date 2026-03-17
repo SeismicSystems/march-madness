@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Show entry fee on public groups list
+
+- **UI**: Public groups list now always displays the entry fee. Groups with no fee show "Free" instead of hiding the fee entirely.
+
 ### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
 
 - **UI**: Replaced the always-visible passphrase input with a "Private group" toggle checkbox. Passphrase field only appears when the toggle is on, and `handleJoin()` uses the toggle state (not input text or API-resolved group type) to choose between `joinGroup` and `joinGroupWithPassword`. This eliminates the bug where leftover passphrase text caused public group joins to revert with `GroupIsNotPasswordProtected`.
