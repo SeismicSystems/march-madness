@@ -1,0 +1,7 @@
+i merged #150. pull in master.
+
+the PRs #145 and #142 (staked on 145) made the "groups" feature richer. i highly suspect that these PRs will break the frontend in light of merging #150. so you need to edit these PRs to make it all work
+
+also you'll have some conflicts, at least in changeset
+
+remember we still want #142 to target #145's branch
