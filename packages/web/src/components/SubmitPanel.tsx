@@ -10,6 +10,11 @@ interface SubmitPanelProps {
   bracket: UseBracketReturn;
   walletConnected: boolean;
   totalEntries: number | null;
+  requiresChainSwitch: boolean;
+  isSwitchingChain: boolean;
+  requiredChainName: string;
+  chainSwitchError: string | null;
+  onSwitchChain: () => Promise<boolean>;
   onLoadBracket: () => Promise<void>;
 }
 
@@ -18,6 +23,11 @@ export function SubmitPanel({
   bracket,
   walletConnected,
   totalEntries,
+  requiresChainSwitch,
+  isSwitchingChain,
+  requiredChainName,
+  chainSwitchError,
+  onSwitchChain,
   onLoadBracket,
 }: SubmitPanelProps) {
   const {
@@ -28,6 +38,7 @@ export function SubmitPanel({
     existingBracket,
     entryFeeDisplay,
   } = contract;
+  const displayError = chainSwitchError ?? error;
   const feeDisplay = entryFeeDisplay ?? "...";
   const { isComplete, pickCount, encodedBracket } = bracket;
   const [tag, setTag] = useState("");
@@ -247,17 +258,22 @@ export function SubmitPanel({
         isLoading={isLoading}
         isBracketLoading={isBracketLoading}
         error={error}
+        chainSwitchError={chainSwitchError}
         existingBracket={existingBracket}
         isLocked={isLocked}
         submitSuccess={submitSuccess}
         tag={tag}
         tagSaved={tagSaved}
         walletConnected={walletConnected}
+        requiresChainSwitch={requiresChainSwitch}
+        isSwitchingChain={isSwitchingChain}
+        requiredChainName={requiredChainName}
         entryFeeDisplay={entryFeeDisplay}
         totalEntries={totalEntries}
         resetOpen={resetOpen}
         hexError={hexError}
         hexControl={hexControl}
+        onSwitchChain={onSwitchChain}
         onSubmit={handleSubmit}
         onLoadBracket={onLoadBracket}
         onSetTag={handleSetTag}
@@ -271,6 +287,12 @@ export function SubmitPanel({
   // Desktop: compact horizontal bar
   return (
     <div className="bg-bg-secondary border border-border rounded-xl px-4 py-3 space-y-2">
+      {requiresChainSwitch && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          Switch your wallet to {requiredChainName} to submit. If the network
+          is missing, we&apos;ll prompt MetaMask to add it first.
+        </div>
+      )}
       <div className="flex items-center gap-4">
         {/* Progress */}
         <div className="flex items-center gap-3 min-w-0">
@@ -388,19 +410,31 @@ export function SubmitPanel({
               danger
             />
             <button
-              onClick={handleSubmit}
-              disabled={!isComplete || isLoading || !walletConnected}
+              onClick={
+                requiresChainSwitch ? () => void onSwitchChain() : handleSubmit
+              }
+              disabled={
+                requiresChainSwitch
+                  ? isSwitchingChain
+                  : !isComplete || isLoading || !walletConnected
+              }
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                !isComplete || !walletConnected
+                requiresChainSwitch
+                  ? "bg-warning text-black hover:brightness-110 ring-2 ring-warning/30 cursor-pointer"
+                  : !isComplete || !walletConnected
                   ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
                   : isLoading
                     ? "bg-accent/50 text-white cursor-wait"
                     : submitSuccess
-                      ? "bg-success text-white ring-2 ring-success/30"
-                      : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30"
+                      ? "bg-success text-white ring-2 ring-success/30 cursor-pointer"
+                      : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
               }`}
             >
-              {isLoading
+              {requiresChainSwitch
+                ? isSwitchingChain
+                  ? `Switching to ${requiredChainName}...`
+                  : `Switch to ${requiredChainName}`
+                : isLoading
                 ? "Submitting..."
                 : submitSuccess
                   ? "Success!"
@@ -409,7 +443,7 @@ export function SubmitPanel({
                     : !isComplete
                       ? `${63 - pickCount} picks left`
                       : hasSubmitted
-                        ? "Update Bracket"
+                      ? "Update Bracket"
                         : `Submit (${feeDisplay})`}
             </button>
           </div>
@@ -424,14 +458,14 @@ export function SubmitPanel({
       )}
 
       {/* Error row */}
-      {error && (
+      {displayError && (
         <div
           onClick={() => {
-            navigator.clipboard.writeText(error);
+            navigator.clipboard.writeText(displayError);
           }}
           className="bg-danger/10 border border-danger/30 rounded-lg px-3 py-2 text-xs text-danger max-h-20 overflow-y-auto break-words cursor-pointer active:bg-danger/20"
         >
-          <span className="font-semibold">Error (tap to copy):</span> {error}
+          <span className="font-semibold">Error (tap to copy):</span> {displayError}
         </div>
       )}
     </div>
@@ -447,17 +481,22 @@ function MobileSubmitPanel({
   isLoading,
   isBracketLoading,
   error,
+  chainSwitchError,
   existingBracket,
   isLocked,
   submitSuccess,
   tag,
   tagSaved,
   walletConnected,
+  requiresChainSwitch,
+  isSwitchingChain,
+  requiredChainName,
   entryFeeDisplay,
   totalEntries,
   resetOpen,
   hexError,
   hexControl,
+  onSwitchChain,
   onSubmit,
   onLoadBracket,
   onSetTag,
@@ -471,17 +510,22 @@ function MobileSubmitPanel({
   isLoading: boolean;
   isBracketLoading: boolean;
   error: string | null;
+  chainSwitchError: string | null;
   existingBracket: `0x${string}` | null;
   isLocked: boolean;
   submitSuccess: boolean;
   tag: string;
   tagSaved: boolean;
   walletConnected: boolean;
+  requiresChainSwitch: boolean;
+  isSwitchingChain: boolean;
+  requiredChainName: string;
   entryFeeDisplay: string | null;
   totalEntries: number | null;
   resetOpen: boolean;
   hexError: string | null;
   hexControl: React.ReactNode;
+  onSwitchChain: () => Promise<boolean>;
   onSubmit: () => Promise<void>;
   onLoadBracket: () => Promise<void>;
   onSetTag: () => Promise<void>;
@@ -490,8 +534,16 @@ function MobileSubmitPanel({
   onResetPicks: () => void;
 }) {
   const feeDisplay = entryFeeDisplay ?? "...";
+  const displayError = chainSwitchError ?? error;
   return (
     <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-4">
+      {requiresChainSwitch && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          Switch your wallet to {requiredChainName} to submit. If MetaMask
+          doesn&apos;t have it yet, we&apos;ll ask to add it.
+        </div>
+      )}
+
       {/* Progress */}
       <div>
         <div className="flex justify-between text-sm mb-2">
@@ -589,19 +641,29 @@ function MobileSubmitPanel({
             danger
           />
           <button
-            onClick={onSubmit}
-            disabled={!isComplete || isLoading || !walletConnected}
+            onClick={requiresChainSwitch ? () => void onSwitchChain() : onSubmit}
+            disabled={
+              requiresChainSwitch
+                ? isSwitchingChain
+                : !isComplete || isLoading || !walletConnected
+            }
             className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all ${
-              !isComplete || !walletConnected
+              requiresChainSwitch
+                ? "bg-warning text-black cursor-pointer"
+                : !isComplete || !walletConnected
                 ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
                 : isLoading
                   ? "bg-accent/50 text-white cursor-wait"
                   : submitSuccess
-                    ? "bg-success text-white"
-                    : "bg-accent text-white hover:bg-accent-hover"
+                    ? "bg-success text-white cursor-pointer"
+                    : "bg-accent text-white hover:bg-accent-hover cursor-pointer"
             }`}
           >
-            {isLoading
+            {requiresChainSwitch
+              ? isSwitchingChain
+                ? `Switching to ${requiredChainName}...`
+                : `Switch to ${requiredChainName}`
+              : isLoading
               ? "Submitting..."
               : submitSuccess
                 ? "Success!"
@@ -610,7 +672,7 @@ function MobileSubmitPanel({
                   : !isComplete
                     ? `Complete your bracket (${63 - pickCount} picks remaining)`
                     : hasSubmitted
-                      ? "Update Bracket"
+                    ? "Update Bracket"
                       : `Submit Bracket (${feeDisplay})`}
           </button>
         </div>
@@ -643,15 +705,15 @@ function MobileSubmitPanel({
       )}
 
       {/* Error display */}
-      {error && (
+      {displayError && (
         <div
           onClick={() => {
-            navigator.clipboard.writeText(error);
+            navigator.clipboard.writeText(displayError);
           }}
           className="bg-danger/10 border border-danger/30 rounded-lg p-3 text-xs text-danger max-h-40 overflow-y-auto break-words cursor-pointer active:bg-danger/20"
         >
           <div className="font-semibold mb-1 text-sm">Error (tap to copy)</div>
-          {error}
+          {displayError}
         </div>
       )}
 

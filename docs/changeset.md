@@ -10,6 +10,12 @@ All notable changes to this project. Every PR must add an entry here.
 - **UI**: Hex input is a fixed-width (`w-[10.5rem]`) input-styled container with single-click to edit (removed double-click fan-out flow). Copy button visible next to field when bracket exists.
 - **UI**: DeadlineCountdown is now centered (`flex justify-center`) above BracketView.
 - **Cleanup**: Removed unused `useCallback`, `useEffect`, `useRef` imports and stale hex/expand state from HomePage.
+
+### 2026-03-17 — Prompt external wallet users to add/switch to the Seismic network
+
+- **Wallet UX**: When an external wallet connected through Privy is on the wrong chain, the submit panel now shows a `Switch to ...` action and explains that MetaMask may need to add the Seismic network first.
+- **Wallet UX**: The app now attempts `wallet_addEthereumChain` when the required Seismic network is missing, then switches the wallet to that chain automatically.
+- **Fix**: After a successful external-wallet chain change, the active Privy/wagmi wallet is re-synced so the Seismic shielded wallet client refreshes without requiring a manual hard refresh.
 ### 2026-03-17 — Fix submit bracket button UX
 
 - **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.

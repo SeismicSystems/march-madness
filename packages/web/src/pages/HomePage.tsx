@@ -6,12 +6,14 @@ import { FaucetBanner } from "../components/FaucetBanner";
 import { SubmitPanel } from "../components/SubmitPanel";
 import { useBracket } from "../hooks/useBracket";
 import { useContract } from "../hooks/useContract";
+import { useRequiredChain } from "../hooks/useRequiredChain";
 import { useStats } from "../hooks/useStats";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
 export function HomePage() {
   const { authenticated } = usePrivy();
   const contract = useContract();
+  const requiredChain = useRequiredChain();
   const bracket = useBracket(contract.walletAddress);
   const { status: tournamentStatus } = useTournamentStatus();
   const { totalEntries, loading: statsLoading, error: statsError } = useStats();
@@ -39,6 +41,11 @@ export function HomePage() {
           bracket={bracket}
           walletConnected={authenticated && !!contract.walletAddress}
           totalEntries={!statsLoading && !statsError ? totalEntries : null}
+          requiresChainSwitch={requiredChain.requiresChainSwitch}
+          isSwitchingChain={requiredChain.isSwitchingChain}
+          requiredChainName={requiredChain.requiredChain.name}
+          chainSwitchError={requiredChain.switchChainError}
+          onSwitchChain={requiredChain.switchToRequiredChain}
           onLoadBracket={handleLoadBracket}
         />
       </div>
