@@ -247,12 +247,12 @@ function MobileLayout({
   const canCreateOrJoin = authenticated && contract.isBeforeDeadline;
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "your-groups", label: "Your Groups" },
-    { id: "public-groups", label: "Public Groups" },
+    { id: "your-groups", label: "Yours" },
+    { id: "public-groups", label: "Public" },
     ...(canCreateOrJoin
       ? [
-          { id: "join-group" as Tab, label: "Join Group" },
-          { id: "create-group" as Tab, label: "Create Group" },
+          { id: "join-group" as Tab, label: "Join" },
+          { id: "create-group" as Tab, label: "Create" },
         ]
       : []),
   ];
@@ -338,7 +338,7 @@ function DesktopLayout({
 
   return (
     <div className="grid grid-cols-2 gap-6">
-      {/* Left column: Create + Join stacked */}
+      {/* Left column: Create + Join + Browse Public stacked */}
       <div className="space-y-6">
         {canCreateOrJoin && <CreateGroupForm groups={groups} />}
 
@@ -353,6 +353,13 @@ function DesktopLayout({
           />
         )}
 
+        <Link
+          to="/groups/public"
+          className="flex items-center justify-center gap-2 rounded-xl bg-accent/10 border border-accent/30 p-4 text-accent hover:bg-accent/20 transition-colors font-medium"
+        >
+          Browse Public Groups &rarr;
+        </Link>
+
         {!canCreateOrJoin && (
           <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
             <p className="text-sm text-text-muted">
@@ -364,7 +371,7 @@ function DesktopLayout({
         )}
       </div>
 
-      {/* Right column: Your Groups + Browse Public link */}
+      {/* Right column: Your Groups */}
       <div className="space-y-6">
         {groups.joinedGroups.length > 0 ? (
           <GroupsSection
@@ -384,13 +391,6 @@ function DesktopLayout({
             </p>
           </div>
         )}
-
-        <Link
-          to="/groups/public"
-          className="flex items-center justify-center gap-2 rounded-xl bg-accent/10 border border-accent/30 p-4 text-accent hover:bg-accent/20 transition-colors font-medium"
-        >
-          Browse Public Groups &rarr;
-        </Link>
       </div>
     </div>
   );
