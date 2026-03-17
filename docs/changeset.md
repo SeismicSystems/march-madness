@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Fix maxPossible elimination cascade in partial scoring (#116)
+
+- **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
+- **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
+
 ### 2026-03-17 — Bracket submission counter on home page
 
 - **UI**: Added a bracket count indicator next to the deadline countdown on the home page, showing how many brackets have been submitted. Fetches from the `/stats` API endpoint, polls every 30s. Gracefully hidden when the API is unavailable.
