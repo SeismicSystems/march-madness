@@ -1,0 +1,6 @@
+we just did a big revamp to the /groups page on the UI.
+
+in background agents working in parallel: fix these
+
+1) "Join Private Group" section should be named "Join Group". But "Private group" checkmark should be default on.
+2) In the list of public groups, we should display the entry fee buyin.
