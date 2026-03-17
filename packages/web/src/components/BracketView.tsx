@@ -72,7 +72,7 @@ export function BracketView({
   return (
     <div className="overflow-x-auto pb-4">
       <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 min-w-[1400px] items-stretch">
-        {/* Top half: East (left) + Final Four + West (right) */}
+        {/* Top half */}
         <BracketRegion
           regionName={displayedRegions[0].name}
           rounds={displayedRegions[0].rounds}
@@ -101,7 +101,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
         />
 
-        {/* Bottom half: South (left) + Midwest (right) */}
+        {/* Bottom half */}
         <BracketRegion
           regionName={displayedRegions[2].name}
           rounds={displayedRegions[2].rounds}
