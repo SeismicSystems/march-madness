@@ -1,0 +1,3 @@
+i think w eshould also treat the order of groupcreated vs member joined in the same way <-- order by block and then by log index
+
+fix it in this pr.

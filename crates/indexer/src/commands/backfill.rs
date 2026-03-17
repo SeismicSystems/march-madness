@@ -3,12 +3,18 @@
 use crate::ParsedAddresses;
 use crate::provider::{self, IndexerProvider};
 use crate::redis_store;
+use alloy_rpc_types_eth::Log;
 use eyre::{Result, WrapErr};
 use redis::aio::MultiplexedConnection;
 use tracing::info;
 
 /// Maximum block range per eth_getLogs request.
 const BATCH_SIZE: u64 = 10_000;
+
+/// Sort key for ordering events: (block_number, log_index).
+fn log_sort_key(log: &Log) -> (u64, u64) {
+    (log.block_number.unwrap_or(0), log.log_index.unwrap_or(0))
+}
 
 pub async fn run(
     p: &IndexerProvider,
@@ -91,7 +97,7 @@ pub async fn run(
         from = to + 1;
     }
 
-    // ── Pass 3: BracketGroups ────────────────────────────────────────
+    // ── Pass 3: BracketGroups (sorted by block + log_index) ─────────
     {
         let groups = groups_addr;
         info!("scanning BracketGroups events");
@@ -99,37 +105,50 @@ pub async fn run(
         while from <= latest_block {
             let to = std::cmp::min(from + BATCH_SIZE - 1, latest_block);
 
-            // GroupCreated
             let created = p.get_group_created_logs(groups, from, to).await?;
-            for log in &created {
-                let (id, slug, display_name, creator, has_password) =
-                    provider::parse_group_created(log)?;
-                let creator_str = format!("{creator:#x}");
-                redis_store::create_group(
-                    redis,
-                    id,
-                    &slug,
-                    &display_name,
-                    &creator_str,
-                    has_password,
-                )
-                .await?;
-            }
-
-            // MemberJoined
             let joined = p.get_member_joined_logs(groups, from, to).await?;
-            for log in &joined {
-                let (id, addr) = provider::parse_member_joined(log)?;
-                let addr_str = format!("{addr:#x}");
-                redis_store::member_joined(redis, id, &addr_str).await?;
-            }
-
-            // MemberLeft
             let left = p.get_member_left_logs(groups, from, to).await?;
+
+            let mut events: Vec<((u64, u64), GroupEvent)> =
+                Vec::with_capacity(created.len() + joined.len() + left.len());
+            for log in &created {
+                events.push((log_sort_key(log), GroupEvent::Created(log)));
+            }
+            for log in &joined {
+                events.push((log_sort_key(log), GroupEvent::Joined(log)));
+            }
             for log in &left {
-                let (id, addr) = provider::parse_member_left(log)?;
-                let addr_str = format!("{addr:#x}");
-                redis_store::member_left(redis, id, &addr_str).await?;
+                events.push((log_sort_key(log), GroupEvent::Left(log)));
+            }
+            events.sort_by_key(|(key, _)| *key);
+
+            for (_, event) in &events {
+                match event {
+                    GroupEvent::Created(log) => {
+                        let (id, slug, display_name, creator, has_password) =
+                            provider::parse_group_created(log)?;
+                        let creator_str = format!("{creator:#x}");
+                        redis_store::create_group(
+                            redis,
+                            id,
+                            &slug,
+                            &display_name,
+                            &creator_str,
+                            has_password,
+                        )
+                        .await?;
+                    }
+                    GroupEvent::Joined(log) => {
+                        let (id, addr) = provider::parse_member_joined(log)?;
+                        let addr_str = format!("{addr:#x}");
+                        redis_store::member_joined(redis, id, &addr_str).await?;
+                    }
+                    GroupEvent::Left(log) => {
+                        let (id, addr) = provider::parse_member_left(log)?;
+                        let addr_str = format!("{addr:#x}");
+                        redis_store::member_left(redis, id, &addr_str).await?;
+                    }
+                }
             }
 
             let total = created.len() + joined.len() + left.len();
@@ -146,7 +165,7 @@ pub async fn run(
         }
     }
 
-    // ── Pass 4: BracketMirror ────────────────────────────────────────
+    // ── Pass 4: BracketMirror (sorted by block + log_index) ─────────
     {
         let mirror = mirror_addr;
         info!("scanning BracketMirror events");
@@ -154,40 +173,60 @@ pub async fn run(
         while from <= latest_block {
             let to = std::cmp::min(from + BATCH_SIZE - 1, latest_block);
 
-            // MirrorCreated
             let created = p.get_mirror_created_logs(mirror, from, to).await?;
-            for log in &created {
-                let (id, slug, display_name, admin) = provider::parse_mirror_created(log)?;
-                let admin_str = format!("{admin:#x}");
-                redis_store::create_mirror(redis, id, &slug, &display_name, &admin_str).await?;
-            }
-
-            // EntryAdded
             let added = p.get_entry_added_logs(mirror, from, to).await?;
+            let removed = p.get_entry_removed_logs(mirror, from, to).await?;
+
+            let mut events: Vec<((u64, u64), MirrorEvent)> =
+                Vec::with_capacity(created.len() + added.len() + removed.len());
+            for log in &created {
+                events.push((log_sort_key(log), MirrorEvent::Created(log)));
+            }
             for log in &added {
-                let (mirror_id, slug) = provider::parse_entry_added(log)?;
-                let u256_id = alloy_primitives::U256::from(mirror_id);
-                match p
-                    .get_mirror_entry_bracket(mirror, u256_id, slug.clone())
-                    .await
-                {
-                    Ok(bracket) => {
-                        let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
-                        redis_store::mirror_entry_added(redis, mirror_id, &slug, &bracket_hex)
+                events.push((log_sort_key(log), MirrorEvent::Added(log)));
+            }
+            for log in &removed {
+                events.push((log_sort_key(log), MirrorEvent::Removed(log)));
+            }
+            events.sort_by_key(|(key, _)| *key);
+
+            for (_, event) in &events {
+                match event {
+                    MirrorEvent::Created(log) => {
+                        let (id, slug, display_name, admin) = provider::parse_mirror_created(log)?;
+                        let admin_str = format!("{admin:#x}");
+                        redis_store::create_mirror(redis, id, &slug, &display_name, &admin_str)
                             .await?;
                     }
-                    Err(e) => {
-                        info!(mirror_id, slug = %slug, error = %e, "failed to read mirror entry bracket");
-                        redis_store::mirror_entry_added(redis, mirror_id, &slug, "").await?;
+                    MirrorEvent::Added(log) => {
+                        let (mirror_id, slug) = provider::parse_entry_added(log)?;
+                        let u256_id = alloy_primitives::U256::from(mirror_id);
+                        match p
+                            .get_mirror_entry_bracket(mirror, u256_id, slug.clone())
+                            .await
+                        {
+                            Ok(bracket) => {
+                                let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
+                                redis_store::mirror_entry_added(
+                                    redis,
+                                    mirror_id,
+                                    &slug,
+                                    &bracket_hex,
+                                )
+                                .await?;
+                            }
+                            Err(e) => {
+                                info!(mirror_id, slug = %slug, error = %e, "failed to read mirror entry bracket");
+                                redis_store::mirror_entry_added(redis, mirror_id, &slug, "")
+                                    .await?;
+                            }
+                        }
+                    }
+                    MirrorEvent::Removed(log) => {
+                        let (mirror_id, slug) = provider::parse_entry_removed(log)?;
+                        redis_store::mirror_entry_removed(redis, mirror_id, &slug).await?;
                     }
                 }
-            }
-
-            // EntryRemoved
-            let removed = p.get_entry_removed_logs(mirror, from, to).await?;
-            for log in &removed {
-                let (mirror_id, slug) = provider::parse_entry_removed(log)?;
-                redis_store::mirror_entry_removed(redis, mirror_id, &slug).await?;
             }
 
             let total = created.len() + added.len() + removed.len();
@@ -224,4 +263,18 @@ pub async fn run(
     }
 
     Ok(())
+}
+
+// ── Tagged event enums for sort-then-process ────────────────────────
+
+enum GroupEvent<'a> {
+    Created(&'a Log),
+    Joined(&'a Log),
+    Left(&'a Log),
+}
+
+enum MirrorEvent<'a> {
+    Created(&'a Log),
+    Added(&'a Log),
+    Removed(&'a Log),
 }

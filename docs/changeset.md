@@ -10,6 +10,8 @@ All notable changes to this project. Every PR must add an entry here.
 - **Web**: New `espn-logos.ts` mapping file with ESPN team IDs for all 68 tournament teams. First Four combo names gracefully show no logo.
 - **Web**: Exported `TeamLogo` component with `onError` fallback for broken images. Champion display in FinalFour also shows the logo.
 - **Web**: Added `<link rel="preconnect">` for ESPN CDN to speed up logo loading.
+### 2026-03-17 — Fix group/mirror event ordering in indexer
+- **Indexer**: Group events (GroupCreated, MemberJoined, MemberLeft) and mirror events (MirrorCreated, EntryAdded, EntryRemoved) are now sorted by `(block_number, log_index)` before processing, instead of being grouped by event type. Fixes edge case where leave-then-rejoin within a single poll cycle or backfill batch could produce incorrect state.
 
 ### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
 
