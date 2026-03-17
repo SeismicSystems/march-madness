@@ -135,8 +135,8 @@ pub async fn member_joined(
     {
         if !group.members.contains(&addr) {
             group.members.push(addr);
-            group.member_count = group.members.len() as u32;
         }
+        reconcile_member_count(&mut group);
         let json = serde_json::to_string(&group)?;
         let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
     }
@@ -157,11 +157,17 @@ pub async fn member_left(
         .and_then(|s| serde_json::from_str::<GroupData>(s).ok())
     {
         group.members.retain(|a| a != &addr);
-        group.member_count = group.members.len() as u32;
+        reconcile_member_count(&mut group);
         let json = serde_json::to_string(&group)?;
         let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
     }
     Ok(())
+}
+
+/// Reconcile `member_count` from `members.len()`. Self-heals any drift
+/// (e.g. from out-of-order events or stale data) on the next mutation.
+fn reconcile_member_count(group: &mut GroupData) {
+    group.member_count = group.members.len() as u32;
 }
 
 // ── Mirror operations ────────────────────────────────────────────────
