@@ -163,7 +163,7 @@ export function SubmitPanel({
   };
 
   const hexControl = (
-    <div className="flex items-center gap-1 shrink-0">
+    <div className="flex items-center shrink-0">
       {hexOpen ? (
         <input
           ref={hexRef}
@@ -177,24 +177,27 @@ export function SubmitPanel({
           placeholder="0x..."
           spellCheck={false}
           autoFocus
-          className="w-[7.5rem] sm:w-40 px-2 py-2 text-[11px] font-mono rounded-lg bg-bg-tertiary border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
+          className="w-[7.5rem] sm:w-[9rem] px-2 py-2 text-[11px] font-mono rounded-lg bg-transparent border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
         />
       ) : (
-        <div ref={expandRef} className="relative flex items-center">
+        <div
+          ref={expandRef}
+          className="flex items-center w-[12rem] sm:w-[13.5rem]"
+        >
           <span
             onDoubleClick={() => {
               setHexExpanded((prev) => !prev);
               scheduleCollapse();
             }}
-            className={`max-w-[7.5rem] sm:max-w-[9rem] truncate rounded-lg border border-border/70 bg-bg-tertiary/60 px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
+            className={`min-w-0 flex-1 truncate rounded-lg border border-border/70 bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
             {encodedBracket ?? "0x"}
           </span>
           <div
-            className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${hexExpanded ? "max-w-[120px] opacity-100" : "max-w-0 opacity-0"}`}
+            className={`ml-1 flex w-[4.5rem] items-center justify-end gap-1 transition-opacity duration-200 ease-out ${hexExpanded ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           >
             {hexCopied ? (
-              <span className="px-1.5 py-1 text-[10px] text-green-400 whitespace-nowrap">
+              <span className="w-full px-1 py-1 text-center text-[10px] text-green-400 whitespace-nowrap">
                 Copied!
               </span>
             ) : (
