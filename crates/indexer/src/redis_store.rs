@@ -90,6 +90,11 @@ pub async fn set_bracket(
 }
 
 // ── Group operations ─────────────────────────────────────────────────
+//
+// Group data is split across two Redis keys:
+// - KEY_GROUPS: metadata (slug, display_name, creator, has_password, member_count)
+// - KEY_GROUP_MEMBERS: member lists (JSON array of addresses)
+// This lets group listings load only metadata without deserializing member arrays.
 
 /// Record a GroupCreated event.
 pub async fn create_group(
@@ -105,13 +110,15 @@ pub async fn create_group(
         display_name: display_name.to_string(),
         creator: creator.to_lowercase(),
         has_password,
-        members: Vec::new(),
+        member_count: 0,
     };
-    let json = serde_json::to_string(&data)?;
+    let meta_json = serde_json::to_string(&data)?;
+    let members_json = serde_json::to_string(&Vec::<String>::new())?;
     let id_str = group_id.to_string();
     redis::pipe()
         .atomic()
-        .hset(KEY_GROUPS, &id_str, &json)
+        .hset(KEY_GROUPS, &id_str, &meta_json)
+        .hset(KEY_GROUP_MEMBERS, &id_str, &members_json)
         .hset(KEY_GROUP_SLUGS, slug, &id_str)
         .exec_async(conn)
         .await
@@ -127,17 +134,28 @@ pub async fn member_joined(
 ) -> Result<()> {
     let addr = address.to_lowercase();
     let id_str = group_id.to_string();
-    let existing: Option<String> = conn.hget(KEY_GROUPS, &id_str).await?;
-    if let Some(mut group) = existing
+
+    // Read current members list.
+    let members_json: Option<String> = conn.hget(KEY_GROUP_MEMBERS, &id_str).await?;
+    let mut members: Vec<String> = members_json
         .as_deref()
-        .and_then(|s| serde_json::from_str::<GroupData>(s).ok())
-    {
-        if !group.members.contains(&addr) {
-            group.members.push(addr);
-        }
-        let json = serde_json::to_string(&group)?;
-        let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+
+    if members.contains(&addr) {
+        return Ok(());
     }
+    members.push(addr);
+
+    // Write updated members + increment metadata count atomically.
+    let new_members_json = serde_json::to_string(&members)?;
+    modify_hash_field(conn, KEY_GROUPS, &id_str, GroupData::default, |g| {
+        g.member_count += 1;
+    })
+    .await?;
+    let () = conn
+        .hset(KEY_GROUP_MEMBERS, &id_str, &new_members_json)
+        .await?;
     Ok(())
 }
 
@@ -149,15 +167,36 @@ pub async fn member_left(
 ) -> Result<()> {
     let addr = address.to_lowercase();
     let id_str = group_id.to_string();
-    let existing: Option<String> = conn.hget(KEY_GROUPS, &id_str).await?;
-    if let Some(mut group) = existing
+
+    // Read current members list.
+    let members_json: Option<String> = conn.hget(KEY_GROUP_MEMBERS, &id_str).await?;
+    let mut members: Vec<String> = match members_json
         .as_deref()
-        .and_then(|s| serde_json::from_str::<GroupData>(s).ok())
+        .and_then(|s| serde_json::from_str(s).ok())
     {
-        group.members.retain(|a| a != &addr);
-        let json = serde_json::to_string(&group)?;
-        let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
+        Some(m) => m,
+        None => return Ok(()),
+    };
+
+    let before = members.len();
+    members.retain(|a| a != &addr);
+    if members.len() == before {
+        // Member wasn't in the list — duplicate or out-of-order event. No-op.
+        return Ok(());
     }
+
+    // Write updated members + decrement metadata count.
+    let new_members_json = serde_json::to_string(&members)?;
+    // saturating_sub guards against member_count having drifted below
+    // members.len() (e.g. from a bug or out-of-order events). In the
+    // normal case member_count == before, so this is just a decrement.
+    modify_hash_field(conn, KEY_GROUPS, &id_str, GroupData::default, |g| {
+        g.member_count = g.member_count.saturating_sub(1);
+    })
+    .await?;
+    let () = conn
+        .hset(KEY_GROUP_MEMBERS, &id_str, &new_members_json)
+        .await?;
     Ok(())
 }
 
@@ -242,4 +281,44 @@ pub async fn get_entry(
     let addr = address.to_lowercase();
     let json: Option<String> = conn.hget(KEY_ENTRIES, &addr).await?;
     Ok(json.and_then(|s| serde_json::from_str(&s).ok()))
+}
+
+/// Get all groups from Redis.
+pub async fn get_all_groups(
+    conn: &mut MultiplexedConnection,
+) -> Result<std::collections::HashMap<String, GroupData>> {
+    let all: std::collections::HashMap<String, String> = conn.hgetall(KEY_GROUPS).await?;
+    let mut result = std::collections::HashMap::with_capacity(all.len());
+    for (id, json) in all {
+        if let Ok(data) = serde_json::from_str::<GroupData>(&json) {
+            result.insert(id, data);
+        }
+    }
+    Ok(result)
+}
+
+/// Get a single group by slug.
+pub async fn get_group_by_slug(
+    conn: &mut MultiplexedConnection,
+    slug: &str,
+) -> Result<Option<(String, GroupData)>> {
+    let id: Option<String> = conn.hget(KEY_GROUP_SLUGS, slug).await?;
+    let Some(id) = id else { return Ok(None) };
+    let json: Option<String> = conn.hget(KEY_GROUPS, &id).await?;
+    match json {
+        Some(s) => Ok(Some((id, serde_json::from_str(&s)?))),
+        None => Ok(None),
+    }
+}
+
+/// Get the member list for a group by ID.
+pub async fn get_group_members(
+    conn: &mut MultiplexedConnection,
+    group_id: &str,
+) -> Result<Vec<String>> {
+    let json: Option<String> = conn.hget(KEY_GROUP_MEMBERS, group_id).await?;
+    Ok(json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default())
 }
