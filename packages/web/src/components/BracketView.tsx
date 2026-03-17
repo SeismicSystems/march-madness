@@ -142,12 +142,13 @@ function MobileBracket({
   tournamentStatus?: TournamentStatus;
 }) {
   const [activeTab, setActiveTab] = useState(0);
+  const tabs = [...regions.map((r) => r.name), "Final Four"];
 
   return (
     <div>
       {/* Tab bar */}
       <div className="flex flex-wrap justify-center gap-1 mb-4">
-        {TABS.map((tab, i) => (
+        {tabs.map((tab, i) => (
           <button
             key={tab}
             type="button"
@@ -167,8 +168,8 @@ function MobileBracket({
       <div className="pb-2">
         {activeTab < 4 ? (
           <MobileRegionLanes
-            regionName={regions[activeTab]}
-            rounds={getRegionGames(activeTab)}
+            regionName={regions[activeTab].name}
+            rounds={regions[activeTab].rounds}
             onPick={onPick}
             disabled={disabled}
             tournamentStatus={tournamentStatus}
