@@ -159,7 +159,7 @@ function TeamSlot({
   if (!team) {
     return (
       <div
-        className={`${py} ${px} ${textSize} rounded border border-dashed border-border-light text-text-muted italic`}
+        className={`${py} ${px} ${textSize} rounded border border-border border-opacity-10 text-text-muted italic text-center `}
       >
         TBD
       </div>
@@ -186,7 +186,7 @@ function TeamSlot({
   }
 
   if (disabled) {
-    className += " cursor-default opacity-70";
+    className += " cursor-default opacity-90";
   }
 
   return (

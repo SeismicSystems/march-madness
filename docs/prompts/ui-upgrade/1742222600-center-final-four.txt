@@ -1,0 +1,1 @@
+can you center FinalFour component in the middle of the page horizzontally and vertically? eight now its only in the middle of the Top bracket reigion and offcenter from the bottom half
