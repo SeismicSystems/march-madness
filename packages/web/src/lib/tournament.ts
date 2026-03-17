@@ -1,5 +1,6 @@
 import tournamentData from "@data/2026/men/tournament.json";
 import { SEED_ORDER } from "./constants";
+import { getTeamAbbreviation } from "./espn-logos";
 
 export interface Team {
   name: string;
@@ -14,7 +15,13 @@ export interface TournamentData {
   teams: Team[];
 }
 
-export const tournament = tournamentData as TournamentData;
+export const tournament: TournamentData = {
+  ...(tournamentData as TournamentData),
+  teams: (tournamentData as TournamentData).teams.map((team) => ({
+    ...team,
+    abbrev: team.abbrev ?? getTeamAbbreviation(team.name) ?? undefined,
+  })),
+};
 
 /**
  * Get teams for a region in bracket seed order.
@@ -23,9 +30,7 @@ export const tournament = tournamentData as TournamentData;
  */
 export function getRegionTeams(region: string): Team[] {
   const regionTeams = tournament.teams.filter((t) => t.region === region);
-  return SEED_ORDER.map(
-    (seed) => regionTeams.find((t) => t.seed === seed)!,
-  );
+  return SEED_ORDER.map((seed) => regionTeams.find((t) => t.seed === seed)!);
 }
 
 /**
