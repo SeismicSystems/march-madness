@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
@@ -40,16 +40,62 @@ export function SubmitPanel({
 
   // Hex input
   const [hexOpen, setHexOpen] = useState(false);
+  const [hexExpanded, setHexExpanded] = useState(false);
   const [hexCopied, setHexCopied] = useState(false);
   const [hexInput, setHexInput] = useState("");
   const [hexError, setHexError] = useState<string | null>(null);
   const hexRef = useRef<HTMLInputElement>(null);
+  const expandRef = useRef<HTMLDivElement>(null);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const collapseHexControls = useCallback(() => {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    }
+    setHexExpanded(false);
+    setHexCopied(false);
+  }, []);
+
+  const scheduleCollapse = useCallback(() => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    collapseTimer.current = setTimeout(() => {
+      setHexExpanded(false);
+      setHexCopied(false);
+      collapseTimer.current = null;
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hexExpanded) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        expandRef.current &&
+        !expandRef.current.contains(event.target as Node)
+      ) {
+        collapseHexControls();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [collapseHexControls, hexExpanded]);
 
   const handleCopy = async () => {
     if (!encodedBracket) return;
     await navigator.clipboard.writeText(encodedBracket);
     setHexCopied(true);
-    setTimeout(() => setHexCopied(false), 1200);
+    setTimeout(() => {
+      setHexCopied(false);
+      setHexExpanded(false);
+    }, 1200);
   };
   const tryLoadHex = (raw: string) => {
     const cleaned = raw.replace(/[^0-9a-fA-Fx]/g, "");
@@ -83,6 +129,10 @@ export function SubmitPanel({
       e.preventDefault();
     }
   };
+  const openHexEditor = () => {
+    collapseHexControls();
+    setHexOpen(true);
+  };
 
   const handleSubmit = async () => {
     if (!encodedBracket) return;
@@ -110,59 +160,76 @@ export function SubmitPanel({
     }
   };
 
-  const hexInputBlock = (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wider text-text-muted">
-        Enter contract hex
-      </span>
-      <div className="flex items-center gap-1">
-        {hexOpen ? (
-          <input
-            ref={hexRef}
-            type="text"
-            value={hexInput}
-            onChange={(e) => handleHexChange(e.target.value)}
-            onPaste={handleHexPaste}
-            onBlur={() => {
-              if (!hexRef.current?.value) setHexOpen(false);
+  const hexControl = (
+    <div className="flex items-center gap-1">
+      {hexOpen ? (
+        <input
+          ref={hexRef}
+          type="text"
+          value={hexInput}
+          onChange={(e) => handleHexChange(e.target.value)}
+          onPaste={handleHexPaste}
+          onBlur={() => {
+            if (!hexRef.current?.value) setHexOpen(false);
+          }}
+          placeholder="0x..."
+          spellCheck={false}
+          autoFocus
+          className="w-40 px-2 py-1.5 text-xs font-mono rounded-lg bg-bg-primary border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
+        />
+      ) : (
+        <div ref={expandRef} className="relative flex items-center">
+          <span
+            onDoubleClick={() => {
+              setHexExpanded((prev) => !prev);
+              scheduleCollapse();
             }}
-            placeholder="0x..."
-            spellCheck={false}
-            autoFocus
-            className="w-[10.5rem] px-3 py-1.5 text-xs font-mono rounded-lg bg-bg-primary border-2 border-accent/60 text-text-primary placeholder-text-muted/50 shadow-inner focus:outline-none focus:ring-1 focus:ring-accent/50 transition-colors"
-          />
-        ) : (
-          <div
-            onClick={() => setHexOpen(true)}
-            className="w-[10.5rem] px-3 py-1.5 text-xs font-mono rounded-lg bg-bg-primary border-2 border-border text-text-muted cursor-text shadow-inner truncate hover:border-accent/40 transition-colors"
+            className={`px-2 py-1 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
-            {encodedBracket || "0x..."}
-          </div>
-        )}
-        {encodedBracket && (
-          <button
-            onClick={handleCopy}
-            title="Copy hex"
-            className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+            {encodedBracket ?? "0x"}
+          </span>
+          <div
+            className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${hexExpanded ? "max-w-[120px] opacity-100" : "max-w-0 opacity-0"}`}
           >
             {hexCopied ? (
-              <span className="text-[10px] text-green-400 whitespace-nowrap px-0.5">
+              <span className="px-1.5 py-1 text-[10px] text-green-400 whitespace-nowrap">
                 Copied!
               </span>
             ) : (
+              <button
+                onClick={handleCopy}
+                title="Copy hex"
+                className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-3.5 h-3.5"
+                >
+                  <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
+                  <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={openHexEditor}
+              title="Edit hex"
+              className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 className="w-3.5 h-3.5"
               >
-                <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
-                <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+                <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
+                <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
               </svg>
-            )}
-          </button>
-        )}
-      </div>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -175,7 +242,6 @@ export function SubmitPanel({
         isLoading={isLoading}
         isBracketLoading={isBracketLoading}
         error={error}
-        encodedBracket={encodedBracket}
         existingBracket={existingBracket}
         isLocked={isLocked}
         submitSuccess={submitSuccess}
@@ -185,7 +251,7 @@ export function SubmitPanel({
         entryFeeDisplay={entryFeeDisplay}
         resetOpen={resetOpen}
         hexError={hexError}
-        hexInputBlock={hexInputBlock}
+        hexControl={hexControl}
         onSubmit={handleSubmit}
         onLoadBracket={onLoadBracket}
         onSetTag={handleSetTag}
@@ -335,8 +401,8 @@ export function SubmitPanel({
 
       {/* Hex input row */}
       {!isLocked && (
-        <div className="flex items-end gap-3 pt-1 border-t border-border/50">
-          {hexInputBlock}
+        <div className="flex justify-end">
+          {hexControl}
         </div>
       )}
 
@@ -371,7 +437,6 @@ function MobileSubmitPanel({
   isLoading,
   isBracketLoading,
   error,
-  encodedBracket,
   existingBracket,
   isLocked,
   submitSuccess,
@@ -381,7 +446,7 @@ function MobileSubmitPanel({
   entryFeeDisplay,
   resetOpen,
   hexError,
-  hexInputBlock,
+  hexControl,
   onSubmit,
   onLoadBracket,
   onSetTag,
@@ -395,7 +460,6 @@ function MobileSubmitPanel({
   isLoading: boolean;
   isBracketLoading: boolean;
   error: string | null;
-  encodedBracket: `0x${string}` | null;
   existingBracket: `0x${string}` | null;
   isLocked: boolean;
   submitSuccess: boolean;
@@ -405,7 +469,7 @@ function MobileSubmitPanel({
   entryFeeDisplay: string | null;
   resetOpen: boolean;
   hexError: string | null;
-  hexInputBlock: React.ReactNode;
+  hexControl: React.ReactNode;
   onSubmit: () => Promise<void>;
   onLoadBracket: () => Promise<void>;
   onSetTag: () => Promise<void>;
@@ -527,20 +591,6 @@ function MobileSubmitPanel({
         </div>
       )}
 
-      {/* Hex input row */}
-      {!isLocked && (
-        <div className="flex items-end gap-3 pt-2 border-t border-border/50">
-          {hexInputBlock}
-        </div>
-      )}
-
-      {/* Hex error */}
-      {hexError && (
-        <div className="px-3 py-1.5 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg">
-          {hexError}
-        </div>
-      )}
-
       {/* Tag input */}
       {hasSubmitted && !isLocked && (
         <div className="space-y-2">
@@ -580,10 +630,16 @@ function MobileSubmitPanel({
         </div>
       )}
 
-      {/* Encoded bracket preview */}
-      {encodedBracket && (
-        <div className="text-xs text-text-muted font-mono break-all bg-bg-tertiary rounded p-2">
-          Bracket: {encodedBracket}
+      {!isLocked && (
+        <div className="flex justify-end">
+          {hexControl}
+        </div>
+      )}
+
+      {/* Hex error */}
+      {hexError && (
+        <div className="px-3 py-1.5 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg">
+          {hexError}
         </div>
       )}
     </div>
