@@ -21,7 +21,7 @@ export function PrivateJoinForm({
 }: PrivateJoinFormProps) {
   const [slugInput, setSlugInput] = useState(initialSlug);
   const [nameInput, setNameInput] = useState("");
-  const [isPrivateJoin, setIsPrivateJoin] = useState(!!initialPassphrase);
+  const [isPrivateJoin, setIsPrivateJoin] = useState(true);
   const [passphraseInput, setPassphraseInput] = useState(initialPassphrase);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -79,11 +79,10 @@ export function PrivateJoinForm({
   return (
     <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-text-primary mb-1">
-        Join Private Group
+        Join Group
       </h2>
       <p className="text-sm text-text-muted mb-4">
-        Have an invite link or slug? Enter it here with the passphrase to join a
-        private group.
+        Have an invite link or slug? Enter it here to join a group.
       </p>
 
       <div className="space-y-2 max-w-md">

@@ -5,8 +5,12 @@ All notable changes to this project. Every PR must add an entry here.
 ## [Unreleased]
 
 ### 2026-03-17 — Show entry fee on public groups list
-
 - **UI**: Public groups list now always displays the entry fee. Groups with no fee show "Free" instead of hiding the fee entirely.
+
+### 2026-03-17 — Rename "Join Private Group" to "Join Group"
+
+- **UI**: Renamed "Join Private Group" heading to "Join Group" and updated subtitle to be group-type-agnostic.
+- **UI**: "Private group" checkbox now defaults to checked, so users joining via invite links get the passphrase field by default.
 
 ### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
 

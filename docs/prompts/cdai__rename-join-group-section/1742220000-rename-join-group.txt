@@ -1,0 +1,1 @@
+"Join Private Group" section should be named "Join Group". But "Private group" checkmark should be default on.
