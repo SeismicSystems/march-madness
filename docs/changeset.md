@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Rename "Join Private Group" to "Join Group"
+
+- **UI**: Renamed "Join Private Group" heading to "Join Group" and updated subtitle to be group-type-agnostic.
+- **UI**: "Private group" checkbox now defaults to checked, so users joining via invite links get the passphrase field by default.
+
 ### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
 
 - **UI**: Replaced the always-visible passphrase input with a "Private group" toggle checkbox. Passphrase field only appears when the toggle is on, and `handleJoin()` uses the toggle state (not input text or API-resolved group type) to choose between `joinGroup` and `joinGroupWithPassword`. This eliminates the bug where leftover passphrase text caused public group joins to revert with `GroupIsNotPasswordProtected`.
