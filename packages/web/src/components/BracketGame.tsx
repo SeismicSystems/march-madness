@@ -17,6 +17,8 @@ interface BracketGameProps {
   gameStatus?: GameStatus;
   /** Whether this region reads right-to-left (logos on right side) */
   reversed?: boolean;
+  /** Stretch game card to its container width (used by mobile stacked lanes). */
+  fullWidth?: boolean;
 }
 
 export function BracketGame({
@@ -29,6 +31,7 @@ export function BracketGame({
   mobile = false,
   gameStatus,
   reversed = false,
+  fullWidth = false,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -63,7 +66,9 @@ export function BracketGame({
     winner === team2;
 
   return (
-    <div className={`flex flex-col ${minW} gap-0.5 relative`}>
+    <div
+      className={`flex flex-col ${fullWidth ? "w-full min-w-0 rounded-md border border-border/70 bg-bg-primary/20 p-1" : minW} gap-0.5 relative`}
+    >
       {/* Live indicator */}
       {gameStatus?.status === "live" && (
         <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
@@ -196,14 +201,14 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 min-w-0">
         <span
           className={`text-text-muted ${mobile ? "w-4" : "w-5"} text-right font-normal flex-shrink-0`}
         >
           {team.seed}
         </span>
         <TeamLogo teamName={team.name} mobile={mobile} />
-        <span>{team.abbrev ?? team.name}</span>
+        <span className="truncate">{team.abbrev ?? team.name}</span>
         {pickCorrect && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}
