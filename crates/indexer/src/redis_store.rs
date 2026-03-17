@@ -158,9 +158,14 @@ pub async fn member_left(
     {
         let before = group.members.len();
         group.members.retain(|a| a != &addr);
-        if group.members.len() < before {
-            group.member_count = group.member_count.saturating_sub(1);
+        if group.members.len() == before {
+            // Member wasn't in the list — duplicate or out-of-order event. No-op.
+            return Ok(());
         }
+        // saturating_sub guards against member_count having drifted below
+        // members.len() (e.g. from a bug or out-of-order events). In the
+        // normal case member_count == before, so this is just a decrement.
+        group.member_count = group.member_count.saturating_sub(1);
         let json = serde_json::to_string(&group)?;
         let () = conn.hset(KEY_GROUPS, &id_str, &json).await?;
     }
