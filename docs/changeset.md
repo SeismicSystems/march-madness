@@ -4,19 +4,47 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Show entry fee on public groups list
+- **UI**: Public groups list now always displays the entry fee. Groups with no fee show "Free" instead of hiding the fee entirely.
+
+### 2026-03-17 — Rename "Join Private Group" to "Join Group"
+
+- **UI**: Renamed "Join Private Group" heading to "Join Group" and updated subtitle to be group-type-agnostic.
+- **UI**: "Private group" checkbox now defaults to checked, so users joining via invite links get the passphrase field by default.
+
+### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
+
+- **UI**: Replaced the always-visible passphrase input with a "Private group" toggle checkbox. Passphrase field only appears when the toggle is on, and `handleJoin()` uses the toggle state (not input text or API-resolved group type) to choose between `joinGroup` and `joinGroupWithPassword`. This eliminates the bug where leftover passphrase text caused public group joins to revert with `GroupIsNotPasswordProtected`.
+- **UI**: Removed `resolvedGroupNeedsPassword` state and associated pre-check logic. The user explicitly controls whether to use the password path.
+- **UI**: Invite links with `?password=...` query params still work — the toggle defaults to ON when `initialPassphrase` is provided.
+
+### 2026-03-17 — Reorganize Groups page with public groups browse and search
+
+- **UI**: Reorganized Groups page into four clear sections: Public Groups, Your Groups, Join Private Group, Create Group.
+- **UI**: Added Public Groups section that fetches all groups from the backend API and filters to public (no password) groups.
+- **UI**: Added client-side search bar for filtering public groups by name or slug.
+- **UI**: Public groups display as cards with inline "Join" button that expands to show a display name input and confirm button.
+- **UI**: Public Groups section works without wallet connected (browse-only, join button disabled).
+- **UI**: Extracted `PrivateJoinForm` component for joining private groups via slug + passphrase.
+- **UI**: Refactored `GroupsSection` to only show "Your Groups" section (hidden when no groups joined).
+- **Hook**: Added `usePublicGroups` hook that fetches from `VITE_API_BASE/groups` API endpoint.
+
 ### 2026-03-17 — Add NCAA team logos to bracket UI
 
 - **Web**: Added ESPN CDN team logos next to team names in the bracket UI. Logos appear on the outer edge (left for East/South, right for West/Midwest).
 - **Web**: New `espn-logos.ts` mapping file with ESPN team IDs for all 68 tournament teams. First Four combo names gracefully show no logo.
 - **Web**: Exported `TeamLogo` component with `onError` fallback for broken images. Champion display in FinalFour also shows the logo.
 - **Web**: Added `<link rel="preconnect">` for ESPN CDN to speed up logo loading.
+
 ### 2026-03-17 — Add `member_count` to groups + `check-redis` subcommand
+
 - **Indexer**: `GroupData` now tracks `member_count` field, updated atomically with `members` vec on join/leave.
 - **Indexer**: Backfill sanity check now verifies all group `member_count` values match `members.len()`.
 - **Indexer**: New `check-redis` subcommand for Redis-internal consistency checks (no RPC needed): default checks all, `--group <slug>` for a specific group, `--all-groups`.
 - No API changes — existing `GET /stats` (HLEN, O(1)) and `GET /groups` (member_count) continue to work.
 
 ### 2026-03-17 — Fix group/mirror event ordering in indexer
+
 - **Indexer**: Group events (GroupCreated, MemberJoined, MemberLeft) and mirror events (MirrorCreated, EntryAdded, EntryRemoved) are now sorted by `(block_number, log_index)` before processing, instead of being grouped by event type. Fixes edge case where leave-then-rejoin within a single poll cycle or backfill batch could produce incorrect state.
 
 ### 2026-03-16 — Use on-chain submission deadline instead of hardcoded constant (#113)
