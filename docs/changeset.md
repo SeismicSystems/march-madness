@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Tighten encoded bracket copy icon spacing
+
+- **UI**: Reduced the dead space between the encoded bracket hex field and the copy/edit icon fan-out on desktop by replacing the fixed-width icon rail with a collapsing `max-width` transition.
+
 ### 2026-03-17 — Move Reset Picks & hex input into SubmitPanel, center deadline
 
 - **UI**: Moved "Reset Picks" button, ConfirmDialog, and hex contract input from HomePage into SubmitPanel (desktop: new row below main bar; mobile: same placement). All hex state/handlers now live in SubmitPanel.

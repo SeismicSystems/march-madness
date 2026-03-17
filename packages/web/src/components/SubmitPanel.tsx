@@ -194,7 +194,7 @@ export function SubmitPanel({
             {encodedBracket ?? "0x"}
           </span>
           <div
-            className={`ml-1 flex w-[4.5rem] items-center justify-end gap-1 transition-opacity duration-200 ease-out ${hexExpanded ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            className={`ml-1 flex max-w-0 items-center gap-1 overflow-hidden transition-[max-width,opacity] duration-200 ease-out ${hexExpanded ? "max-w-[3.5rem] opacity-100" : "opacity-0 pointer-events-none"}`}
           >
             {hexCopied ? (
               <span className="w-full px-1 py-1 text-center text-[10px] text-green-400 whitespace-nowrap">
