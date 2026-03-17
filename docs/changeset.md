@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Mobile create-bracket layout overhaul (space + no-scroll lanes)
+
+- **Mobile UI**: Reclaimed top-of-page vertical space by moving the lock countdown into a compact inline mode beside "Brackets submitted" and removing the separate countdown card row.
+- **Mobile UI**: Repositioned controls so `Reset bracket` sits directly under `Submit Bracket`. Moved hex tools out of the main card into a subtle bottom `0x` debug toggle with copy + paste support.
+- **Mobile UI**: Reworked the mobile bracket tabs into stacked round lanes that fit screen width (no horizontal scrolling), with clearer matchup separation via per-game borders and reversed two-column lane order for visual flow.
+- **Mobile UI**: Applied the same lane treatment to the Final Four tab; current order is `Final Four` above `Championship`, with champion summary shown below.
+
 ### 2026-03-17 — Move Reset Picks & hex input into SubmitPanel, center deadline
 
 - **UI**: Moved "Reset Picks" button, ConfirmDialog, and hex contract input from HomePage into SubmitPanel (desktop: new row below main bar; mobile: same placement). All hex state/handlers now live in SubmitPanel.
