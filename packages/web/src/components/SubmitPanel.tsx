@@ -161,7 +161,7 @@ export function SubmitPanel({
   };
 
   const hexControl = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 shrink-0">
       {hexOpen ? (
         <input
           ref={hexRef}
@@ -175,7 +175,7 @@ export function SubmitPanel({
           placeholder="0x..."
           spellCheck={false}
           autoFocus
-          className="w-40 px-2 py-1.5 text-xs font-mono rounded-lg bg-bg-primary border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
+          className="w-[7.5rem] sm:w-40 px-2 py-2 text-[11px] font-mono rounded-lg bg-bg-tertiary border border-accent/50 text-text-primary placeholder-text-muted/50 focus:outline-none transition-colors"
         />
       ) : (
         <div ref={expandRef} className="relative flex items-center">
@@ -184,7 +184,7 @@ export function SubmitPanel({
               setHexExpanded((prev) => !prev);
               scheduleCollapse();
             }}
-            className={`px-2 py-1 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
+            className={`max-w-[7.5rem] sm:max-w-[9rem] truncate rounded-lg border border-border/70 bg-bg-tertiary/60 px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
             {encodedBracket ?? "0x"}
           </span>
@@ -350,6 +350,7 @@ export function SubmitPanel({
         {/* Reset + Submit buttons */}
         {!isLocked && (
           <div className="flex items-center gap-2">
+            {hexControl}
             <button
               onClick={() => setResetOpen(true)}
               className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
@@ -398,13 +399,6 @@ export function SubmitPanel({
           </div>
         )}
       </div>
-
-      {/* Hex input row */}
-      {!isLocked && (
-        <div className="flex justify-end">
-          {hexControl}
-        </div>
-      )}
 
       {/* Hex error */}
       {hexError && (
@@ -542,7 +536,8 @@ function MobileSubmitPanel({
 
       {/* Reset + Submit buttons */}
       {!isLocked && (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {hexControl}
           <button
             onClick={() => onResetOpen(true)}
             className="px-4 py-3 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
@@ -627,12 +622,6 @@ function MobileSubmitPanel({
         >
           <div className="font-semibold mb-1 text-sm">Error (tap to copy)</div>
           {error}
-        </div>
-      )}
-
-      {!isLocked && (
-        <div className="flex justify-end">
-          {hexControl}
         </div>
       )}
 
