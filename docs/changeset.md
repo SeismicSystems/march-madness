@@ -27,6 +27,7 @@ All notable changes to this project. Every PR must add an entry here.
 - **Wallet UX**: When an external wallet connected through Privy is on the wrong chain, the submit panel now shows a `Switch to ...` action and explains that MetaMask may need to add the Seismic network first.
 - **Wallet UX**: The app now attempts `wallet_addEthereumChain` when the required Seismic network is missing, then switches the wallet to that chain automatically.
 - **Fix**: After a successful external-wallet chain change, the active Privy/wagmi wallet is re-synced so the Seismic shielded wallet client refreshes without requiring a manual hard refresh.
+
 ### 2026-03-17 — Fix submit bracket button UX
 
 - **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
