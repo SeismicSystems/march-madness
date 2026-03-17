@@ -26,6 +26,7 @@ export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
           "twitter",
           "discord",
           "github",
+          "passkey",
         ],
         embeddedWallets: {
           ethereum: {
