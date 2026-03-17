@@ -25,16 +25,12 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
   MarchMadnessOwnerClient,
-  ENTRY_FEE,
 } from "@march-madness/client";
 
 // We use `any` for wallet client type to avoid chain-narrowing issues with viem generics.
 // At runtime, the client is always created with `chain: sanvil`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type WalletClient = any;
-
-// Re-export ENTRY_FEE from client library so existing imports still work
-export { ENTRY_FEE };
 
 // ── Paths ─────────────────────────────────────────────────────────────
 

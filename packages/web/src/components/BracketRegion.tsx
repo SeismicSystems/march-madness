@@ -30,7 +30,9 @@ export function BracketRegion({
 
   return (
     <div className="flex flex-col flex-1">
-      <h3 className={`text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1 ${reversed ? "text-right" : ""}`}>
+      <h3
+        className={`text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1 ${reversed ? "text-right" : ""}`}
+      >
         {regionName}
       </h3>
       <div className="flex flex-row items-stretch gap-1 flex-1">
@@ -40,7 +42,7 @@ export function BracketRegion({
             : displayIdx;
 
           return (
-            <div key={displayIdx} className="flex flex-col">
+            <div key={displayIdx} className="flex flex-col flex-1">
               <div className="text-[10px] text-text-muted text-center mb-1 whitespace-nowrap">
                 {ROUND_NAMES[actualRoundIdx]}
               </div>
@@ -55,6 +57,7 @@ export function BracketRegion({
                     disabled={disabled}
                     compact={actualRoundIdx === 0}
                     mobile={compact}
+                    reversed={reversed}
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                   />
                 ))}
@@ -66,4 +69,3 @@ export function BracketRegion({
     </div>
   );
 }
-

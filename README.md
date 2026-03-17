@@ -2,11 +2,13 @@
 
 A private, on-chain NCAA March Madness bracket contest built on the [Seismic Network](https://seismic.systems) — where your bracket picks are hidden until the tournament starts.
 
+Hosted at [brackets.seismictest.net](https://brackets.seismictest.net)
+
 ## Credits
 
 Built on [jimpo's march-madness-dapp](https://github.com/jimpo/march-madness-dapp). The bracket encoding and scoring use his ByteBracket library directly, which implements the compact scoring algorithm by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48). jimpo's original project ran on Ethereum with Truffle; we've ported it to Seismic with modern tooling.
 
-The bracket pool smart contract was also inspired by the work of the [Ethereum March Madness](https://github.com/EthereumMarchMadness) team.
+Aside from ripping a bunch of contracts from Jim: this whole thing was super obviously vibe coded.
 
 ## How It Works
 
@@ -35,8 +37,8 @@ A later-round pick only scores if the feeder games were also picked correctly.
 
 ### Entry
 
-- **Buy-in**: 1 ETH (testnet)
-- **Deadline**: Wednesday, March 18, 2026 at 12:00 PM EST
+- **Buy-in**: 0.1 ETH (testnet)
+- **Deadline**: Thursday, March 19, 2026 at 12:15 PM EST
 - One entry per address. You can update your bracket before the deadline.
 
 ### Mirrors & Groups
@@ -44,7 +46,7 @@ A later-round pick only scores if the feeder games were also picked correctly.
 Two separate contracts for side pools alongside the main contest:
 
 - **Mirrors** (`BracketMirror`): Admin enters external brackets (bracket + slug) from off-chain pools (e.g. Yahoo Fantasy). No money, no scoring on-chain — purely for display. Admin sets a prize description for bookkeeping.
-- **Groups** (`BracketGroups`): Users self-join with their main-contract bracket. Optional password protection (shielded sbytes32). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
+- **Groups** (`BracketGroups`): Creating a group auto-joins the creator (default name "CREATOR", editable). Other users self-join with their main-contract bracket. Optional password protection (`sbytes12(keccak256("your-password"))`). Optional entry fee creates a side-bet prize pool. Winners split the pool after scoring.
 
 ## Tech Stack
 
@@ -66,6 +68,7 @@ Two separate contracts for side pools alongside the main contest:
 |-------|-------------|
 | `/` | Bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline) |
 | `/leaderboard` | All entries ranked by score with current/max points, champion pick |
+| `/groups` | Create and join bracket groups (public or private with passphrase) |
 | `/bracket/:address` | Read-only bracket view for any player with tournament status overlay |
 
 ## Mirrors & Groups
@@ -136,6 +139,10 @@ bun deploy:testnet
 ### Environment
 
 All environment variables live in a single `.env` file at the repo root. See `.env.example` for the full list. Vite loads from there via `envDir`, and the testnet deploy script sources it directly. The local populate script uses hardcoded anvil accounts — it does not need `DEPLOYER_PRIVATE_KEY`.
+
+## Deployment
+
+Production deployment docs, nginx config, and supervisor config live in `deploy/`. See [`deploy/README.md`](deploy/README.md) for full setup instructions.
 
 ## License
 

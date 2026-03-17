@@ -1,32 +1,37 @@
-//! Post-deadline bracket reveal: read brackets for all indexed addresses.
+//! Post-deadline bracket reveal: read brackets for all indexed addresses, write to Redis.
 
-use crate::indexer::{load_index, save_index, set_bracket};
 use crate::provider::IndexerProvider;
+use crate::redis_store;
 use alloy_primitives::Address;
 use eyre::{Result, WrapErr};
-use std::path::Path;
+use redis::aio::MultiplexedConnection;
+use tracing::info;
 
-pub async fn run(p: &IndexerProvider, contract: &str, index_path: &Path) -> Result<()> {
+pub async fn run(
+    p: &IndexerProvider,
+    redis: &mut MultiplexedConnection,
+    contract: &str,
+) -> Result<()> {
     let contract_addr: Address = contract.parse().wrap_err("invalid contract address")?;
-    let mut index = load_index(index_path)?;
 
-    if index.is_empty() {
-        println!("No entries in index. Run backfill first.");
+    let addresses = redis_store::get_all_entry_addresses(redis).await?;
+    if addresses.is_empty() {
+        info!("no entries in Redis, run backfill first");
         return Ok(());
     }
 
-    println!(
-        "Revealing brackets for {} entries (post-deadline)...",
-        index.len()
-    );
+    info!(count = addresses.len(), "revealing brackets");
 
-    let addresses: Vec<String> = index.keys().cloned().collect();
     let mut revealed = 0u32;
     let mut failed = 0u32;
+    let mut skipped = 0u32;
 
     for addr_str in &addresses {
-        // Skip entries that already have a bracket
-        if index.get(addr_str).is_some_and(|e| e.bracket.is_some()) {
+        // Skip entries that already have a bracket.
+        if let Some(entry) = redis_store::get_entry(redis, addr_str).await?
+            && entry.bracket.is_some()
+        {
+            skipped += 1;
             continue;
         }
 
@@ -37,24 +42,23 @@ pub async fn run(p: &IndexerProvider, contract: &str, index_path: &Path) -> Resu
         match p.get_bracket(contract_addr, address).await {
             Ok(bracket) => {
                 let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
-                set_bracket(&mut index, addr_str, bracket_hex.clone());
-                println!("  {} => {}", addr_str, bracket_hex);
+                redis_store::set_bracket(redis, addr_str, &bracket_hex).await?;
+                info!(addr = %addr_str, bracket = %bracket_hex, "revealed");
                 revealed += 1;
             }
             Err(e) => {
-                println!("  {} — failed to read bracket: {}", addr_str, e);
+                info!(addr = %addr_str, error = %e, "failed to read bracket");
                 failed += 1;
             }
         }
     }
 
-    save_index(index_path, &index)?;
-    println!(
-        "Reveal complete. {} revealed, {} failed, {} total entries",
+    info!(
         revealed,
         failed,
-        index.len()
+        skipped,
+        total = addresses.len(),
+        "reveal complete"
     );
-
     Ok(())
 }

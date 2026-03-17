@@ -266,9 +266,12 @@ export function useBracket(walletAddress?: string | null) {
   };
 }
 
+export type UseBracketReturn = ReturnType<typeof useBracket>;
+
 /**
- * When a pick changes, clear any downstream games whose outcome
- * may have depended on the old winner.
+ * When a pick changes, clear downstream games whose picked winner
+ * came from the changed game's side of the bracket. Picks that chose
+ * a team from the *other* feeder game are unaffected and preserved.
  */
 function clearDownstream(
   picks: (boolean | null)[],
@@ -283,17 +286,30 @@ function clearDownstream(
     round++;
     roundSize = roundSize / 2;
   }
-  const posInRound = changedGameIndex - idx;
 
-  let nextGamePos = Math.floor(posInRound / 2);
+  let currentPos = changedGameIndex - idx;
   let nextGameRound = round + 1;
   let nextIdx = idx + roundSize;
 
   while (nextGameRound <= 5) {
     const nextRoundSize = roundSize / 2;
+    const nextGamePos = Math.floor(currentPos / 2);
     const gameIdx = nextIdx + nextGamePos;
+
+    // No pick here — nothing downstream depends on this path
+    if (picks[gameIdx] === null) break;
+
+    // The changed game feeds as team1 (even position) or team2 (odd position)
+    const feedsAsTeam1 = currentPos % 2 === 0;
+    const pickChoseChangedSide =
+      (feedsAsTeam1 && picks[gameIdx] === true) ||
+      (!feedsAsTeam1 && picks[gameIdx] === false);
+
+    // If the downstream pick chose the other team, it's unaffected — stop
+    if (!pickChoseChangedSide) break;
+
     picks[gameIdx] = null;
-    nextGamePos = Math.floor(nextGamePos / 2);
+    currentPos = nextGamePos;
     nextIdx += nextRoundSize;
     roundSize = nextRoundSize;
     nextGameRound++;

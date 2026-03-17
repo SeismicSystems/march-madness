@@ -6,11 +6,7 @@ import { FAUCET_URL } from "../lib/constants";
 import { truncateAddress } from "../lib/tournament";
 import { useIsMobile } from "../hooks/useIsMobile";
 
-interface HeaderProps {
-  entryCount: number;
-}
-
-export function Header({ entryCount }: HeaderProps) {
+export function Header() {
   const { login, logout, authenticated, user } = usePrivy();
   const [copied, setCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -65,15 +61,13 @@ export function Header({ entryCount }: HeaderProps) {
               <Link to="/" className={navLinkClass("/")}>
                 Bracket
               </Link>
+              <Link to="/groups" className={navLinkClass("/groups")}>
+                Groups
+              </Link>
               <Link to="/leaderboard" className={navLinkClass("/leaderboard")}>
                 Leaderboard
               </Link>
             </nav>
-          )}
-          {entryCount > 0 && !isMobile && (
-            <span className="text-xs text-text-muted bg-bg-tertiary px-2 py-1 rounded-full">
-              {entryCount} {entryCount === 1 ? "entry" : "entries"}
-            </span>
           )}
         </div>
 
@@ -150,17 +144,19 @@ export function Header({ entryCount }: HeaderProps) {
 
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-bg-secondary border border-border rounded-xl shadow-lg py-2 z-50">
-                {entryCount > 0 && (
-                  <div className="px-4 py-2 text-xs text-text-muted">
-                    {entryCount} {entryCount === 1 ? "entry" : "entries"}
-                  </div>
-                )}
                 <Link
                   to="/"
                   onClick={() => setMenuOpen(false)}
                   className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
                 >
                   Bracket
+                </Link>
+                <Link
+                  to="/groups"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+                >
+                  Groups
                 </Link>
                 <Link
                   to="/leaderboard"

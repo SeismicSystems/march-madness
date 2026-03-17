@@ -37,7 +37,7 @@ struct CalibrateArgs {
     output: Option<PathBuf>,
 
     /// Simulations per calibration iteration
-    #[arg(short = 'n', long, default_value_t = 10000, value_parser = parse_nonzero_usize)]
+    #[arg(short = 'n', long, default_value_t = 100_000, value_parser = parse_nonzero_usize)]
     sims_per_iter: usize,
 
     /// Maximum calibration iterations

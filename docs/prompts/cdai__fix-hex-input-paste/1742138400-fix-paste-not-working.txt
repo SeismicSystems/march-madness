@@ -1,0 +1,5 @@
+ok... so now the teams all load... but i still can't submit brackets with hex. i paste in the hex, and no dice
+
+also in a background agent: make an issue to make the group joining + "Your name" input way nicer... it is way too long on desktop mode
+
+work off a fresh branch from main, bc i merged the last PR.

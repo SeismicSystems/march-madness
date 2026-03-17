@@ -1,0 +1,3 @@
+hey! so most users will manually fill out brackets. but i am a power user and i want to be able to PASTE in a bracket to the ui and have it auto-fill in the bracket for me. basically in that place where we show bracket, i want to be able to control that with input. it shouldn't be an advertised feature (almost a little bit like an easter egg) but it would save me a lot of time.
+
+when you're done, open a PR.

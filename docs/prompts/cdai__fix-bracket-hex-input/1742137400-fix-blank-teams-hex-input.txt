@@ -1,0 +1,7 @@
+make a new branch off main, bc i merged this pr.
+
+i just pasted in my hex string, and nothing happens!
+
+i dont see consol errors either... please fix
+
+OH. a bigger bug is... i dont see the teams loading at ALL!

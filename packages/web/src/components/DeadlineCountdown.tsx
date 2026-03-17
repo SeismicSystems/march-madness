@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 
 import { SUBMISSION_DEADLINE } from "../lib/constants";
 
-export function DeadlineCountdown() {
+interface DeadlineCountdownProps {
+  /** Unix timestamp in seconds. Falls back to the hardcoded constant. */
+  deadline?: number;
+}
+
+export function DeadlineCountdown({ deadline }: DeadlineCountdownProps) {
+  const effectiveDeadline = deadline ?? SUBMISSION_DEADLINE;
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -10,7 +16,7 @@ export function DeadlineCountdown() {
     return () => clearInterval(interval);
   }, []);
 
-  const deadlineMs = SUBMISSION_DEADLINE * 1000;
+  const deadlineMs = effectiveDeadline * 1000;
   const diff = deadlineMs - now;
 
   if (diff <= 0) {

@@ -1,0 +1,7 @@
+in the top bar of the UI, let's move "Groups" to the left of "Leaderboard". leaderboard isn't useful right now; groups is
+
+ok also... "Already a member? Track by group Id section"....
+
+i thinkw e should nix this, and also require them to enter a slug here.
+
+can you create pr

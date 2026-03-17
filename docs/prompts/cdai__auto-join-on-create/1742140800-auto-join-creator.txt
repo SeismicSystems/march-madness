@@ -1,0 +1,5 @@
+hey really annoying thing about the groups contract...
+
+when you create a group, it doesn't automatically join for you. we should make edits to the groups contract so that we automatically join (including sending the appropriate value in the tx, per what they specify as the feel)
+
+i think this means we have to make creator ALSO pass in a name. if we can make them NOT put in a name, and default it to "CREATOR", that's cool with me, SO LONG AS people can edit their names. it's critical they can edit the name field if they wish. implement this feature and when you're done, open a pr

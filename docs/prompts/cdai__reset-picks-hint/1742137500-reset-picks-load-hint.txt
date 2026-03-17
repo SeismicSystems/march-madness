@@ -1,0 +1,4 @@
+in the "are you sure you want to reset picks?" question
+
+ONLY if they had submitted a value on chain, we should alter that confirm prompt to say:
+"You can re-load your on-chain submission by clicking "Load bracket""

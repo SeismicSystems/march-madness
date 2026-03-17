@@ -1,0 +1,1 @@
+The 'set tag' input is way too narrow on desktop. i'm not sure what our max tag length is, but it can't even fully display 'DRAPPIS LOVELY CHALK', which is the name of my bracket. also, i think having the tag settings right next to 'update bracket' miiiight be a little misleading. 'Update bracket' should be really hard to miss.

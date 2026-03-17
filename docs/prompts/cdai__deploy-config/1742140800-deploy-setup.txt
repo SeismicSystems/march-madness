@@ -1,0 +1,37 @@
+We're going to actually deploy stuff to the codebase. Make a folder called deploy/ in the root.
+
+1) Create a file called nginx.conf. Stick this content in it for now:
+
+server {
+    root /home/ubuntu/march-madness/packages/web/dist;
+
+    index index.html index.nginx-debian.html;
+    server_name brackets.seismictest.net;
+
+    location / {
+        # First attempt to serve request as file, then
+        # as directory, then return the built application
+        try_files $uri $uri/ /index.html;
+    }
+
+    # backend api
+    location /api/ {
+        proxy_pass http://localhost:3000/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+}
+2) Write up instructions sayinng we use nginx + certbot for SSL and routing
+3) Write instructions sauing we use supervisor for managing processes. Write down instructions for how to install our deps on ubuntu
+4) Create a supervisor config for the different processes that need to run on our machine. Frontend is static HTML but everything else we care about (e.g. listener, server). Commit that file to supervisor.conf. The repo lives at /home/ubuntu/march-madness on the server
+5) We use local redis for persistent storage. Write instructions on how to install redis. hopefully it's managed with systemd -- we don't want supervisor for this
+6) write up any instructions on env variables we need for this deploy, aside  from the stuff already in .env.example
+
+WHen you're done, push up a PR.

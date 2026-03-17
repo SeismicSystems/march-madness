@@ -35,15 +35,20 @@ contract BracketGroupsTest is Test {
         vm.deal(alice, 100 ether);
         vm.deal(bob, 100 ether);
         vm.deal(charlie, 100 ether);
+
+        // Creator needs a bracket in the main contract to create groups (auto-join requires it).
+        // Uses BAD bracket so creator doesn't interfere with scoring/payout test expectations.
+        vm.prank(creator);
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(BAD));
     }
 
     // ════════════════════════════════════════════════════════════════════
-    //  GROUP CREATION
+    //  GROUP CREATION (with auto-join)
     // ════════════════════════════════════════════════════════════════════
 
     function test_createGroup() public {
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("side-bet", "Side Bet", 0.1 ether);
+        uint32 groupId = bg.createGroup{value: 0.1 ether}("side-bet", "Side Bet", 0.1 ether);
 
         assertEq(groupId, 1);
         (uint32 slugId, BracketGroups.Group memory g) = bg.getGroupBySlug("side-bet");
@@ -51,9 +56,16 @@ contract BracketGroupsTest is Test {
         assertEq(g.slug, "side-bet");
         assertEq(g.displayName, "Side Bet");
         assertEq(g.creator, creator);
-        assertEq(g.entryCount, 0);
+        assertEq(g.entryCount, 1); // creator auto-joined
         assertEq(g.entryFee, 0.1 ether);
         assertFalse(g.hasPassword);
+
+        // Creator is auto-joined with default name
+        assertTrue(bg.isMemberOf(groupId, creator));
+        BracketGroups.Member[] memory members = bg.getMembers(groupId);
+        assertEq(members.length, 1);
+        assertEq(members[0].addr, creator);
+        assertEq(members[0].name, "CREATOR");
     }
 
     function test_createGroupWithPassword() public {
@@ -63,6 +75,21 @@ contract BracketGroupsTest is Test {
         BracketGroups.Group memory g = bg.getGroup(groupId);
         assertTrue(g.hasPassword);
         assertEq(g.slug, "private");
+        assertEq(g.entryCount, 1); // creator auto-joined
+        assertTrue(bg.isMemberOf(groupId, creator));
+    }
+
+    function test_creatorCanEditName() public {
+        vm.prank(creator);
+        uint32 groupId = bg.createGroup("bet", "Bet", 0);
+
+        // Creator auto-joined with "CREATOR" name
+        assertEq(bg.getMembers(groupId)[0].name, "CREATOR");
+
+        // Creator edits their name
+        vm.prank(creator);
+        bg.editEntryName(groupId, "The Boss");
+        assertEq(bg.getMembers(groupId)[0].name, "The Boss");
     }
 
     function test_duplicateSlugReverts() public {
@@ -75,11 +102,13 @@ contract BracketGroupsTest is Test {
     }
 
     function test_emptySlugReverts() public {
+        vm.prank(creator);
         vm.expectRevert(BracketGroups.SlugCannotBeEmpty.selector);
         bg.createGroup("", "Bet", 0);
     }
 
     function test_longSlugReverts() public {
+        vm.prank(creator);
         vm.expectRevert(BracketGroups.SlugTooLong.selector);
         bg.createGroup("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Bet", 0);
     }
@@ -97,12 +126,37 @@ contract BracketGroupsTest is Test {
     function test_multipleGroups() public {
         vm.prank(creator);
         uint32 g1 = bg.createGroup("g1", "G1", 0);
+
         vm.prank(alice);
-        uint32 g2 = bg.createGroup("g2", "G2", 0.5 ether);
+        mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
+        vm.prank(alice);
+        uint32 g2 = bg.createGroup{value: 0.5 ether}("g2", "G2", 0.5 ether);
 
         assertEq(g1, 1);
         assertEq(g2, 2);
         assertEq(bg.getGroup(g2).creator, alice);
+        assertTrue(bg.isMemberOf(g2, alice));
+    }
+
+    function test_createGroup_rejectWithoutMainBracket() public {
+        // charlie has no bracket in main contract
+        vm.prank(charlie);
+        vm.expectRevert(BracketGroups.NoBracketInMainContract.selector);
+        bg.createGroup("bet", "Bet", 0);
+    }
+
+    function test_createGroup_rejectWrongFee() public {
+        vm.prank(creator);
+        vm.expectRevert(abi.encodeWithSelector(BracketGroups.IncorrectEntryFee.selector, 0.1 ether, 0.05 ether));
+        bg.createGroup{value: 0.05 ether}("bet", "Bet", 0.1 ether);
+    }
+
+    function test_createGroup_rejectAfterDeadline() public {
+        vm.warp(DEADLINE);
+
+        vm.prank(creator);
+        vm.expectRevert(BracketGroups.CannotJoinAfterDeadline.selector);
+        bg.createGroup("bet", "Bet", 0);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -111,7 +165,7 @@ contract BracketGroupsTest is Test {
 
     function test_joinGroup() public {
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", 0.1 ether);
+        uint32 groupId = bg.createGroup{value: 0.1 ether}("bet", "Bet", 0.1 ether);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -121,12 +175,14 @@ contract BracketGroupsTest is Test {
 
         assertTrue(bg.isMemberOf(groupId, alice));
         assertTrue(bg.getIsMember(groupId, alice));
-        assertEq(bg.getGroup(groupId).entryCount, 1);
+        assertEq(bg.getGroup(groupId).entryCount, 2); // creator + alice
 
         BracketGroups.Member[] memory members = bg.getMembers(groupId);
-        assertEq(members.length, 1);
-        assertEq(members[0].name, "Alice");
-        assertEq(members[0].addr, alice);
+        assertEq(members.length, 2);
+        assertEq(members[0].name, "CREATOR"); // creator auto-joined
+        assertEq(members[0].addr, creator);
+        assertEq(members[1].name, "Alice");
+        assertEq(members[1].addr, alice);
     }
 
     function test_joinGroup_rejectDuplicate() public {
@@ -154,7 +210,7 @@ contract BracketGroupsTest is Test {
 
     function test_joinGroup_rejectWrongFee() public {
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", 0.1 ether);
+        uint32 groupId = bg.createGroup{value: 0.1 ether}("bet", "Bet", 0.1 ether);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -180,7 +236,7 @@ contract BracketGroupsTest is Test {
 
     function test_leaveGroup_refund() public {
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", 0.5 ether);
+        uint32 groupId = bg.createGroup{value: 0.5 ether}("bet", "Bet", 0.5 ether);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -193,7 +249,7 @@ contract BracketGroupsTest is Test {
 
         assertEq(alice.balance - balBefore, 0.5 ether);
         assertFalse(bg.isMemberOf(groupId, alice));
-        assertEq(bg.getGroup(groupId).entryCount, 0);
+        assertEq(bg.getGroup(groupId).entryCount, 1); // only creator remains
     }
 
     function test_leaveGroup_swapAndPop() public {
@@ -214,14 +270,16 @@ contract BracketGroupsTest is Test {
         vm.prank(charlie);
         bg.joinGroup(groupId, "Charlie");
 
-        // Alice leaves (index 0) — charlie swaps in
+        // creator=0, alice=1, bob=2, charlie=3
+        // Alice leaves (index 1) — charlie swaps in
         vm.prank(alice);
         bg.leaveGroup(groupId);
 
-        assertEq(bg.getGroup(groupId).entryCount, 2);
+        assertEq(bg.getGroup(groupId).entryCount, 3);
         BracketGroups.Member[] memory members = bg.getMembers(groupId);
-        assertEq(members[0].addr, charlie);
-        assertEq(members[1].addr, bob);
+        assertEq(members[0].addr, creator);
+        assertEq(members[1].addr, charlie);
+        assertEq(members[2].addr, bob);
     }
 
     function test_leaveGroup_blockedAfterDeadline() public {
@@ -252,7 +310,7 @@ contract BracketGroupsTest is Test {
         vm.prank(alice);
         bg.editEntryName(groupId, "Alice the Great");
 
-        assertEq(bg.getMembers(groupId)[0].name, "Alice the Great");
+        assertEq(bg.getMembers(groupId)[1].name, "Alice the Great");
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -270,7 +328,7 @@ contract BracketGroupsTest is Test {
         bg.joinGroupWithPassword(groupId, sbytes12(PASSWORD), "Alice");
 
         assertTrue(bg.isMemberOf(groupId, alice));
-        assertEq(bg.getMembers(groupId)[0].name, "Alice");
+        assertEq(bg.getMembers(groupId)[1].name, "Alice");
     }
 
     function test_joinPasswordGroup_wrongPassword() public {
@@ -301,7 +359,8 @@ contract BracketGroupsTest is Test {
 
     function test_joinPasswordGroup_withFee() public {
         vm.prank(creator);
-        uint32 groupId = bg.createGroupWithPassword("private", "Private", 0.5 ether, sbytes12(PASSWORD));
+        uint32 groupId =
+            bg.createGroupWithPassword{value: 0.5 ether}("private", "Private", 0.5 ether, sbytes12(PASSWORD));
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -310,7 +369,7 @@ contract BracketGroupsTest is Test {
         bg.joinGroupWithPassword{value: 0.5 ether}(groupId, sbytes12(PASSWORD), "Alice");
 
         assertTrue(bg.isMemberOf(groupId, alice));
-        assertEq(address(bg).balance, 0.5 ether);
+        assertEq(address(bg).balance, 1.0 ether); // creator + alice fee
     }
 
     function test_publicJoinOnPasswordlessGroup() public {
@@ -342,9 +401,9 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
 
-        bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1); // alice is index 1
 
-        assertEq(bg.getMemberScore(groupId, 0), 192);
+        assertEq(bg.getMemberScore(groupId, 1), 192);
         // Also scored on main contract
         assertTrue(mm.isScored(alice));
         assertEq(mm.scores(alice), 192);
@@ -367,8 +426,8 @@ contract BracketGroupsTest is Test {
         assertTrue(mm.isScored(alice));
 
         // Group scoring should still work (reads existing score)
-        bg.scoreEntry(groupId, 0);
-        assertEq(bg.getMemberScore(groupId, 0), 192);
+        bg.scoreEntry(groupId, 1);
+        assertEq(bg.getMemberScore(groupId, 1), 192);
     }
 
     function test_scoreEntry_afterWindowIfAlreadyScoredOnMain() public {
@@ -389,9 +448,8 @@ contract BracketGroupsTest is Test {
         // Fast-forward past scoring window
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
-        // Group scoring should still work since bracket was already scored on main
-        bg.scoreEntry(groupId, 0);
-        assertEq(bg.getMemberScore(groupId, 0), 192);
+        vm.expectRevert(BracketGroups.ScoringWindowClosed.selector);
+        bg.scoreEntry(groupId, 1);
     }
 
     function test_scoreEntry_revertsBeforeResults() public {
@@ -404,7 +462,7 @@ contract BracketGroupsTest is Test {
         bg.joinGroup(groupId, "Alice");
 
         vm.expectRevert(IMarchMadness.ResultsNotPosted.selector);
-        bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
     }
 
     function test_scoreEntry_revertsAlreadyScored() public {
@@ -419,9 +477,9 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
 
-        bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
         vm.expectRevert(BracketGroups.AlreadyScored.selector);
-        bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
     }
 
     function test_scoreEntry_revertsAfterScoringWindow() public {
@@ -438,14 +496,14 @@ contract BracketGroupsTest is Test {
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
         // Not scored on main, so scoreBracket will revert with ScoringWindowClosed
-        vm.expectRevert(IMarchMadness.ScoringWindowClosed.selector);
-        bg.scoreEntry(groupId, 0);
+        vm.expectRevert(BracketGroups.ScoringWindowClosed.selector);
+        bg.scoreEntry(groupId, 1);
     }
 
     function test_collectWinnings_singleWinner() public {
         uint256 groupFee = 0.5 ether;
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", groupFee);
+        uint32 groupId = bg.createGroup{value: groupFee}("bet", "Bet", groupFee);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -460,21 +518,23 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
 
+        // Score all 3: creator(BAD,idx=0), alice(PERFECT,idx=1), bob(BAD,idx=2)
         bg.scoreEntry(groupId, 0);
         bg.scoreEntry(groupId, 1);
+        bg.scoreEntry(groupId, 2);
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
         uint256 aliceBefore = alice.balance;
         vm.prank(alice);
         bg.collectWinnings(groupId);
-        assertEq(alice.balance - aliceBefore, 2 * groupFee);
+        assertEq(alice.balance - aliceBefore, 3 * groupFee); // sole winner gets entire pool
     }
 
     function test_collectWinnings_twoWinnersSplit() public {
         uint256 groupFee = 0.5 ether;
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", groupFee);
+        uint32 groupId = bg.createGroup{value: groupFee}("bet", "Bet", groupFee);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -493,13 +553,16 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
 
+        // Score all 4: creator(BAD,0), alice(PERFECT,1), bob(PERFECT,2), charlie(BAD,3)
         bg.scoreEntry(groupId, 0);
         bg.scoreEntry(groupId, 1);
         bg.scoreEntry(groupId, 2);
+        bg.scoreEntry(groupId, 3);
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
-        uint256 expectedPayout = (3 * groupFee) / 2;
+        // 4 members * 0.5 ether = 2.0 pool, split between 2 winners = 1.0 each
+        uint256 expectedPayout = (4 * groupFee) / 2;
 
         uint256 aliceBefore = alice.balance;
         vm.prank(alice);
@@ -515,7 +578,7 @@ contract BracketGroupsTest is Test {
     function test_collectWinnings_nonWinnerReverts() public {
         uint256 groupFee = 0.5 ether;
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", groupFee);
+        uint32 groupId = bg.createGroup{value: groupFee}("bet", "Bet", groupFee);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -531,6 +594,7 @@ contract BracketGroupsTest is Test {
         mm.submitResults(RESULTS);
         bg.scoreEntry(groupId, 0);
         bg.scoreEntry(groupId, 1);
+        bg.scoreEntry(groupId, 2);
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
@@ -542,7 +606,7 @@ contract BracketGroupsTest is Test {
     function test_collectWinnings_cannotCollectTwice() public {
         uint256 groupFee = 0.5 ether;
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", groupFee);
+        uint32 groupId = bg.createGroup{value: groupFee}("bet", "Bet", groupFee);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -552,6 +616,7 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
         bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
 
@@ -565,7 +630,7 @@ contract BracketGroupsTest is Test {
     function test_collectWinnings_revertsBeforeScoringWindow() public {
         uint256 groupFee = 0.5 ether;
         vm.prank(creator);
-        uint32 groupId = bg.createGroup("bet", "Bet", groupFee);
+        uint32 groupId = bg.createGroup{value: groupFee}("bet", "Bet", groupFee);
 
         vm.prank(alice);
         mm.submitBracket{value: ENTRY_FEE}(sbytes8(PERFECT));
@@ -575,6 +640,7 @@ contract BracketGroupsTest is Test {
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
         bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
 
         vm.prank(alice);
         vm.expectRevert(BracketGroups.ScoringWindowStillOpen.selector);
@@ -592,8 +658,8 @@ contract BracketGroupsTest is Test {
 
         vm.warp(DEADLINE + 1);
         mm.submitResults(RESULTS);
-        bg.scoreEntry(groupId, 0);
-        assertEq(bg.getMemberScore(groupId, 0), 192);
+        bg.scoreEntry(groupId, 1);
+        assertEq(bg.getMemberScore(groupId, 1), 192);
 
         vm.warp(mm.resultsPostedAt() + bg.SCORING_DURATION());
         vm.prank(alice);
@@ -605,10 +671,11 @@ contract BracketGroupsTest is Test {
         vm.prank(creator);
         uint32 groupId = bg.createGroup("bet", "Bet", 0);
 
+        // Group has 1 member (creator at index 0), so index 1 is out of bounds
         vm.expectRevert(BracketGroups.IndexOutOfBounds.selector);
-        bg.scoreEntry(groupId, 0);
+        bg.scoreEntry(groupId, 1);
 
         vm.expectRevert(BracketGroups.IndexOutOfBounds.selector);
-        bg.getMember(groupId, 0);
+        bg.getMember(groupId, 1);
     }
 }

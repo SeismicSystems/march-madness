@@ -1,0 +1,32 @@
+look into this:
+
+ubuntu@clown-beatdown:~/march-madness$ tail -f /var/log/supervisor/ncaa-feed.err.log -n 100
+Error: failed to fetch schedule
+
+Caused by:
+    failed to parse API response: schedule response missing data
+
+Location:
+    crates/ncaa-feed/src/main.rs:157:10
+Error: failed to fetch schedule
+
+Caused by:
+    failed to parse API response: schedule response missing data
+
+Location:
+    crates/ncaa-feed/src/main.rs:157:10
+Error: failed to fetch schedule
+
+Caused by:
+    failed to parse API response: schedule response missing data
+
+Location:
+    crates/ncaa-feed/src/main.rs:157:10
+Error: failed to fetch schedule
+
+Caused by:
+    failed to parse API response: schedule response missing data
+
+Location:
+    crates/ncaa-feed/src/main.rs:157:10
+^C

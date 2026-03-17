@@ -31,8 +31,8 @@
 - **UI**: React + Tailwind CSS
 
 ### Rust (Crates)
-- **indexer**: Listens for on-chain events, writes entrant data to JSON
-- **server**: Serves indexed data to frontend via HTTP
+- **indexer**: Listens for on-chain events (MarchMadness, BracketGroups, BracketMirror), writes to Redis
+- **server**: Serves indexed data from Redis + file-based tournament status/forecasts via HTTP
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
 - **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes `data/{year}/men/status.json`. Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
 
@@ -56,6 +56,7 @@ crates/
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, status.json, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
+deploy/             — Production deploy configs (nginx, supervisor, README)
 docs/               — Technical docs, changeset, prompts
 .github/workflows/  — CI: tests, lint, typecheck, build
 ```
@@ -89,10 +90,10 @@ Key functions:
 - `setTag(string tag)` — set/update optional display name (separate from bracket submission)
 - `hasEntry(address)` → `bool` — public mapping, true if address has submitted. No signed read needed.
 - `getBracket(address account)` → `bytes8` — before deadline: requires msg.sender == account (signed read); after deadline: anyone can read
-- `submitResults(bytes8 results)` — owner only, posts tournament results
-- `scoreBracket(address account)` — score a bracket against results (after results posted)
-- `collectWinnings()` — winners collect after all brackets scored
-- `collectEntryFee()` — refund if contest invalid (28 days after results, not all scored)
+- `submitResults(bytes8 results)` — owner only, posts tournament results. Must be called within `RESULTS_DEADLINE` (90 days) of the submission deadline.
+- `scoreBracket(address account)` — score a bracket against results (after results posted, within `SCORING_DURATION` of results)
+- `collectWinnings()` — winners collect after scoring window closes
+- `collectEntryFee()` — entrants reclaim entry fee if owner fails to post results within the 90-day window (no-contest escape hatch)
 - `getEntryCount()` → `uint32` — number of entries (capped at uint32 max with overflow check)
 
 Events:
@@ -115,8 +116,8 @@ Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no
 
 Linked sub-groups composing with MarchMadness. Optional password + entry fee.
 
-- `createGroup(slug, displayName, entryFee)` → groupId (public)
-- `createGroupWithPassword(slug, displayName, entryFee, sbytes12 password)` → groupId (private)
+- `createGroup(slug, displayName, entryFee)` → groupId (public, payable — creator auto-joined with name "CREATOR")
+- `createGroupWithPassword(slug, displayName, entryFee, sbytes12 password)` → groupId (private, payable — creator auto-joined with name "CREATOR")
 - `joinGroup(groupId, name)` / `joinGroupWithPassword(groupId, sbytes12 password, name)` — payable, always requires name
 - `leaveGroup(groupId)` — refund before submission deadline
 - `editEntryName(groupId, name)` — update display name
@@ -137,6 +138,7 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 - **Production**: `contracts/script/DeployAll.s.sol` — deploys MM + Groups + Mirror
 - **Local dev**: `contracts/script/DeployAllLocal.s.sol` — same with configurable `DEADLINE_OFFSET`
 - **Testnet**: `scripts/deploy-testnet.sh` — runs `DeployAll.s.sol`, writes all 3 addresses to `data/deployments.json`
+- **Mirror-only**: `contracts/script/DeployMirror.s.sol` + `scripts/redeploy-mirror.sh` — redeploy BracketMirror without touching MM or Groups
 - **Legacy scripts**: `MarchMadness.s.sol` / `MarchMadnessLocal.s.sol` still work for MM-only deploys
 
 `data/deployments.json` format: `{ "2026": { "5124": { "marchMadness": "0x...", "bracketGroups": "0x...", "bracketMirror": "0x..." } } }`
@@ -150,15 +152,21 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 
 ## Server API
 
-Rust HTTP server (`crates/server`, default port 3000). Routes have NO `/api` prefix — nginx adds that in production.
-- `GET /entries` — full entry index (from indexer)
+Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from Redis; tournament status and forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
+- `GET /entries` — full entry index (from Redis)
 - `GET /entries/:address` — single entry by address
 - `GET /stats` — total entries + scored count
+- `GET /groups` — list all groups (from Redis)
+- `GET /groups/:slug` — group details by slug
+- `GET /groups/:slug/members` — group member addresses
+- `GET /mirrors` — list all mirrors (from Redis)
+- `GET /mirrors/:slug` — mirror details by slug
+- `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
 - `GET /tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
-- `POST /tournament-status` — update tournament status (requires `Authorization: Bearer <key>`, key set via `TOURNAMENT_API_KEY` env var or `--api-key` flag)
 - `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
-- `GET /groups` — stub endpoint returning empty list of public groups (placeholder for future registry)
 - `GET /health` — health check
+
+Requires Redis (`REDIS_URL` env var, default `redis://127.0.0.1:6379`).
 
 Frontend env var `VITE_API_BASE` sets the server URL (default `http://localhost:3000`).
 
@@ -169,6 +177,7 @@ See `docs/api.md` for full API documentation including schema, game index layout
 
 - `/` — Home: bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline)
 - `/leaderboard` — All entries ranked by `scoreBracketPartial` (current score, max possible)
+- `/groups` — Create and join bracket groups (public or private with passphrase)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
 
 ## Shielded Types & Security
@@ -187,6 +196,7 @@ Single `.env` file at repo root — see `.env.example` for all variables. Never 
 - **Testnet deploy** (`bun deploy:testnet`) sources `.env` for `DEPLOYER_PRIVATE_KEY` and `VITE_RPC_URL`, deploys via sforge, and writes the contract address to `data/deployments.json`
 - **Contract address resolution**: `VITE_CONTRACT_ADDRESS` CLI override → `data/deployments.json` (checked-in, keyed by year + chain ID) → zero address fallback
 - **Local dev** (populate script) uses hardcoded anvil accounts from `data/anvil-accounts.json` — does not need `DEPLOYER_PRIVATE_KEY`
+- **Redis**: `REDIS_URL` env var (default `redis://127.0.0.1:6379`). Used by indexer and server for chain metadata storage.
 
 ## Local Development
 
@@ -218,9 +228,9 @@ bun run --filter @march-madness/localdev test
 Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
 
 ## Key Dates
-- **Bracket lock**: Wednesday March 18, 2026 at Noon EST (1773853200 unix)
+- **Bracket lock**: Thursday March 19, 2026 at 12:15 PM EST (1773940500 unix)
 - **No-contest deadline**: 28 days after results posted
-- **Entry fee**: 1 ETH (testnet)
+- **Entry fee**: 0.1 ETH (testnet)
 
 ## Error Handling
 - **Use rich error types** — don't swallow errors to `String`. Use `#[from]` with `thiserror` to preserve original error types (e.g. `reqwest::Error`, `serde_json::Error`). Structured error variants (e.g. `HttpStatus { status, url }`) are better than `Http(String)`.

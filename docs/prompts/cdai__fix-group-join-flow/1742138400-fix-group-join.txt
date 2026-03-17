@@ -1,0 +1,13 @@
+on the groups section, when i try to join a group that has a non-zero fee, it still populates value: 0...
+
+we need to look up a group's entry fee on the fly, after they press submit. before populating the tx info, we need to check:
+1) fetch the group metadata
+2) if the group doesnt exist, tell them that this group doesnt exist and dont try for a tx
+3) if it does exist, and they have smaller balance than the entry fee, say "entry fee is X eth, your balance is Y eth"
+4) if it exists and they have enough balance, populate the tx and ask them to sign it
+
+make sure we're storing the entry fee and any other fetched group metadata to any groups they join in local storage....
+
+also how are you allowing join by id OR slug? that seems tricky with the current form structure... are you checking "are all these digits? if so let's try id?" that seems like a brittle solution... what if someones slug is "42069"?
+
+and while you're editing the join group page... the "passphrase (if private)" placeholder gets cut off... not great. probably fine to just have each of these inputs on their own line and make them reasonably (like 64 characters) wide?

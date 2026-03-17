@@ -1,0 +1,84 @@
+Implement the following plan:
+
+# Apply Seismic Brand Colors to March Madness App
+
+## Context
+
+The app currently uses a generic dark theme with indigo accents. We're applying the Seismic brand palette to give it a distinctive, cohesive look.
+
+### Brand Palette
+
+| Name             | Hex       | Character                                  |
+| ---------------- | --------- | ------------------------------------------ |
+| Mauve            | `#825A6D` | Warm mid-tone — primary accent             |
+| Dark Purple      | `#523542` | Rich dark — secondary accent, hover states |
+| Background Black | `#2B2B2B` | Warm dark gray — surfaces                  |
+| Custom White     | `#D1CCBF` | Warm off-white — primary text              |
+| Custom Black     | `#161616` | True dark — deepest background             |
+| Yellow           | `#A6924D` | Muted gold — highlights, gold/warning      |
+
+## Color Mapping
+
+### Theme Variables (`packages/web/src/index.css`)
+
+| Variable                 | Current   | New                                 | Rationale                 |
+| ------------------------ | --------- | ----------------------------------- | ------------------------- |
+| `--color-bg-primary`     | `#0a0a0f` | `#161616` (customBlack)             | Deepest background        |
+| `--color-bg-secondary`   | `#12121a` | `#1e1e1e` (between black & bgBlack) | Slightly lifted           |
+| `--color-bg-tertiary`    | `#1a1a26` | `#2B2B2B` (backgroundBlack)         | Card surfaces             |
+| `--color-bg-hover`       | `#22222e` | `#363636` (lighter warm gray)       | Hover states              |
+| `--color-border`         | `#2a2a3a` | `#3d3d3d` (warm gray)               | Standard borders          |
+| `--color-border-light`   | `#3a3a4a` | `#4a4a4a` (lighter warm gray)       | Light borders             |
+| `--color-text-primary`   | `#e8e8f0` | `#D1CCBF` (customWhite)             | Main text                 |
+| `--color-text-secondary` | `#9898a8` | `#a09a8e` (muted customWhite)       | Secondary text            |
+| `--color-text-muted`     | `#686878` | `#6e6a62` (warm muted)              | Muted text                |
+| `--color-accent`         | `#6366f1` | `#825A6D` (mauve)                   | Primary accent            |
+| `--color-accent-hover`   | `#818cf8` | `#9a7085` (lighter mauve)           | Accent hover              |
+| `--color-success`        | `#22c55e` | `#22c55e`                           | **Keep green** (semantic) |
+| `--color-warning`        | `#f59e0b` | `#A6924D` (yellow)                  | Warnings use brand gold   |
+| `--color-danger`         | `#ef4444` | `#ef4444`                           | **Keep red** (semantic)   |
+| `--color-gold`           | `#fbbf24` | `#A6924D` (yellow)                  | Brand gold                |
+
+> **Design decision**: Success (green) and danger (red) stay as-is — these are semantic/accessibility colors that users universally understand. Changing them would hurt usability.
+
+### Privy Accent Color (`packages/web/src/lib/providers.tsx`)
+
+- Change `accentColor: "#6366f1"` → `"#825A6D"` (mauve)
+
+### Hardcoded Tailwind Colors to Replace
+
+Components use raw Tailwind colors (e.g. `indigo-600`, `amber-400`) instead of the theme variables. These need updating:
+
+| Current                                  | Replace With                                             | Files                             |
+| ---------------------------------------- | -------------------------------------------------------- | --------------------------------- |
+| `indigo-400`, `indigo-600`, `indigo-500` | `accent` / `accent-hover` / `dark-purple` semantic class | GroupsSection, MirrorsSection     |
+| `amber-400`                              | `warning` or `gold`                                      | GroupsSection (entry fee badge)   |
+| `yellow-400`                             | `gold`                                                   | DeadlineCountdown, other warnings |
+
+> Green (`green-400/500`) and red (`red-400/500`) hardcoded colors stay — they're semantic for correct/incorrect picks.
+
+### New Theme Color: Dark Purple
+
+Add `--color-dark-purple: #523542` to the theme for use as a secondary accent (e.g., button hover backgrounds, selected states). This gives us a nice two-tone brand feel.
+
+## Files to Modify
+
+1. **`packages/web/src/index.css`** — Update all `@theme` color variables
+2. **`packages/web/src/lib/providers.tsx`** — Privy accent color
+3. **`packages/web/src/components/GroupsSection.tsx`** — Replace `indigo-*` → accent/dark-purple
+4. **`packages/web/src/components/MirrorsSection.tsx`** — Replace `indigo-*` → accent/dark-purple
+5. **`packages/web/src/components/FinalFour.tsx`** — `gold` already uses CSS var, should auto-update
+6. **`packages/web/src/components/DeadlineCountdown.tsx`** — Replace `yellow-400` if present
+7. **`packages/web/src/components/FaucetBanner.tsx`** — warning colors auto-update via CSS var
+
+## Verification
+
+1. Run `bun run --filter @march-madness/web dev` and visually inspect:
+   - Home page bracket picker
+   - Header / navigation
+   - Groups page (admin badges, buttons)
+   - Leaderboard
+   - FinalFour section
+2. Confirm scrollbar styling picks up new colors
+3. Confirm Privy login modal uses mauve accent
+4. Run `./scripts/ci.sh` to ensure build passes

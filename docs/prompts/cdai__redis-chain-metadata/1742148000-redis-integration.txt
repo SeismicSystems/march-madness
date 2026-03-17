@@ -1,0 +1,9 @@
+Implement the following plan:
+
+# Redis Integration for Chain Metadata
+
+## Context
+
+The indexer currently writes chain event data to flat JSON files (`data/entries.json`), and the server reads them with file locks and TTL caches. This works but doesn't scale well for richer data (groups, mirrors). Redis replaces the file-based storage with proper data structures, letting us index all three contracts' events efficiently.
+
+[Full plan provided in conversation - covers events to index, Redis key design, implementation steps for indexer + server + CI]

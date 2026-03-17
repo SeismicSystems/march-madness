@@ -15,8 +15,8 @@ contract DeployAllScript is Script {
 
         MarchMadness mm = new MarchMadness(
             2026, // year
-            1 ether, // entryFee
-            1773853200 // submissionDeadline: March 18, 2026 12:00 PM EST
+            0.1 ether, // entryFee
+            1773940500 // submissionDeadline: March 19, 2026 12:15 PM EST
         );
         console.log("MarchMadness deployed at:", address(mm));
 

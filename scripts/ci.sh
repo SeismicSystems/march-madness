@@ -111,6 +111,15 @@ run_crates() {
     run_step "crates" bash -c "echo 'cargo not installed' && exit 1"
     return
   fi
+  # Ensure Redis is running (needed by indexer + server crates).
+  if command -v redis-cli &>/dev/null && redis-cli ping &>/dev/null; then
+    printf "${GREEN}  Redis already running${NC}\n"
+  elif command -v redis-server &>/dev/null; then
+    printf "${CYAN}  Starting Redis for crate tests...${NC}\n"
+    redis-server --daemonize yes --save "" --appendonly no
+  else
+    printf "${YELLOW}  redis-server not found — tests requiring Redis may fail${NC}\n"
+  fi
   run_step "crates build" cargo build
   run_step "crates test" cargo test
   run_step "crates fmt" cargo fmt --all -- --check

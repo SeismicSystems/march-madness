@@ -19,7 +19,6 @@ export {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
   MarchMadnessOwnerClient,
-  ENTRY_FEE,
 } from "./client.ts";
 export type { ReadOptions, WriteOptions } from "./client.ts";
 

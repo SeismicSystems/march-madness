@@ -1,0 +1,22 @@
+hey we tried to fix the formatting here... but it is still very wrong:
+ Team              Side  Rnd  Price  Model   Edge   Qty     EV($)  URL
+----------------------------------------------------------------------
+ Arizona           BUY   CW    17¢    18¢   0.7¢  201405  $1409.83  https://kalshi.com/markets/KXMARMAD-26-ARIZ
+ Iowa St.          SELL   E8    50¢    45¢   5.4¢  10481   $563.88  https://kalshi.com/markets/KXMARMADROUND-26E8-ISU
+ Wisconsin         SELL   CW     1¢     1¢   0.3¢  165623   $529.99  https://kalshi.com/markets/KXMARMAD-26-WIS
+ Houston           BUY   CW     7¢     7¢   0.1¢  616217   $492.97  https://kalshi.com/markets/KXMARMAD-26-HOU
+ Michigan          SELL   F4    53¢    51¢   2.1¢  18203   $385.90  https://kalshi.com/markets/KXMARMADROUND-26F4-MICH
+ Florida           BUY   CW    11¢    11¢   0.2¢  154337   $385.84  https://kalshi.com/markets/KXMARMAD-26-FLA
+ Arizona           SELL   F4    53¢    49¢   3.5¢  6482   $228.81  https://kalshi.com/markets/KXMARMADROUND-26F4-ARIZ
+ UConn             SELL   CW     3¢     3¢   0.5¢  35760   $171.65  https://kalshi.com/markets/KXMARMAD-26-CONN
+ Arizona           SELL   E8    68¢    66¢   2.3¢  5900   $136.88  https://kalshi.com/markets/KXMARMADROUND-26E8-ARIZ
+ Illinois          SELL  S16    76¢    74¢   1.9¢  5700   $111.15  https://kalshi.com/markets/KXMARMADROUND-26S16-ILL
+ Tennessee         BUY   F4     5¢     6¢   0.5¢  20887   $108.61  https://kalshi.com/markets/KXMARMADROUND-26F4-TENN
+ St. John's        SELL   E8    15¢    14¢   1.5¢  6679    $98.85  https://kalshi.com/markets/KXMARMADROUND-26E8-SJU
+ Michigan          SELL   F4    52¢    51¢   1.1¢  8511    $95.32  https://kalshi.com/markets/KXMARMADROUND-26F4-MICH
+ UConn             BUY   E8    41¢    42¢   0.6¢  15918    $93.92  https://kalshi.com/markets/KXMARMADROUND-26E8-CONN
+ Kansas            SELL   CW     1¢     1¢   0.2¢  49122    $93.33  https://kalshi.com/markets/KXMARMAD-26-KU
+ Arizona           SELL   F4    54¢    49¢   4.5¢  1853    $83.94  https://kalshi.com/markets/KXMARMADROUND-26F4-ARIZ
+ Duke              BUY  S16    85¢    86¢   1.4¢  6050    $83.49  https://kalshi.com/markets/
+
+why not just log10 on it and then round that instead of ugly while loop

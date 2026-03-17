@@ -25,6 +25,8 @@ interface IMarchMadness {
     error NotScored();
     error AlreadyCollected();
     error TransferFailed();
+    error ResultsSubmissionWindowClosed();
+    error ResultsWindowStillOpen();
 
     // ── Events ───────────────────────────────────────────────────────────
     event BracketSubmitted(address indexed account);
@@ -68,10 +70,13 @@ interface IMarchMadness {
 
     // ── Payouts ──────────────────────────────────────────────────────────
     function collectWinnings() external;
+    function collectEntryFee() external;
     function winningScore() external view returns (uint8);
     function numWinners() external view returns (uint256);
     function hasCollectedWinnings(address account) external view returns (bool);
 
     // ── Constants ────────────────────────────────────────────────────────
     function SCORING_DURATION() external view returns (uint256);
+    function RESULTS_DEADLINE() external view returns (uint256);
+    function hasCollectedEntryFee(address account) external view returns (bool);
 }

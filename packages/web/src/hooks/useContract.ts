@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShieldedWallet } from "seismic-react";
+import { formatEther } from "viem";
 
 import {
   MarchMadnessPublicClient,
@@ -7,6 +8,34 @@ import {
 } from "@march-madness/client";
 
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+
+/**
+ * Fetch the on-chain submission deadline once, falling back to the
+ * hardcoded constant if the contract read fails (e.g. no wallet / not deployed).
+ */
+function useSubmissionDeadline(
+  mmPublic: MarchMadnessPublicClient | null,
+): number {
+  const [deadline, setDeadline] = useState<number>(SUBMISSION_DEADLINE);
+
+  useEffect(() => {
+    if (!mmPublic) return;
+    let cancelled = false;
+    mmPublic
+      .getSubmissionDeadline()
+      .then((val) => {
+        if (!cancelled) setDeadline(Number(val));
+      })
+      .catch(() => {
+        // Contract might not be deployed yet — keep hardcoded fallback
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mmPublic]);
+
+  return deadline;
+}
 
 /**
  * Hook for interacting with the MarchMadness contract.
@@ -26,8 +55,7 @@ export function useContract() {
   const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
-
-  const isBeforeDeadline = Date.now() / 1000 < SUBMISSION_DEADLINE;
+  const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -83,6 +111,17 @@ export function useContract() {
     );
   }, [publicClient, walletClient]);
 
+  // On-chain deadline (seconds), with hardcoded fallback
+  const submissionDeadline = useSubmissionDeadline(mmPublic);
+
+  // Reactive: recalculate every second so the UI transitions at the right moment
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const isBeforeDeadline = now / 1000 < submissionDeadline;
+
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {
     if (!mmPublic) return;
@@ -105,6 +144,17 @@ export function useContract() {
     }
   }, [mmPublic, walletAddress]);
 
+  // Fetch entry fee from contract
+  const fetchEntryFee = useCallback(async () => {
+    if (!mmPublic) return;
+    try {
+      const fee = await mmPublic.getEntryFee();
+      setEntryFeeDisplay(`${formatEther(fee)} testnet ETH`);
+    } catch {
+      // Contract might not be deployed yet
+    }
+  }, [mmPublic]);
+
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
     if (!publicClient || !walletAddress) return;
@@ -120,7 +170,8 @@ export function useContract() {
     fetchEntryCount();
     checkHasEntry();
     fetchBalance();
-  }, [fetchEntryCount, checkHasEntry, fetchBalance]);
+    fetchEntryFee();
+  }, [fetchEntryCount, checkHasEntry, fetchBalance, fetchEntryFee]);
 
   /**
    * Load user's bracket via signed read (before deadline) or transparent read (after).
@@ -227,7 +278,9 @@ export function useContract() {
     isBracketLoading,
     error,
     isBeforeDeadline,
+    submissionDeadline,
     balance,
+    entryFeeDisplay,
     submitBracket,
     updateBracket,
     setTag,
@@ -236,3 +289,5 @@ export function useContract() {
     walletAddress,
   };
 }
+
+export type UseContractReturn = ReturnType<typeof useContract>;

@@ -22,7 +22,6 @@ import {
   type Transport,
   type GetContractReturnType,
   getContract,
-  parseEther,
 } from "viem";
 
 import { MarchMadnessAbi } from "./abi.ts";
@@ -36,9 +35,6 @@ type MarchMadnessContract = ShieldedContract<
   Account,
   ShieldedWalletClient<Transport, Chain, Account>
 >;
-
-// ── Entry fee constant ──────────────────────────────────────────────
-export const ENTRY_FEE = parseEther("1");
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -190,14 +186,17 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
 
   /**
    * Submit a shielded bracket with entry fee.
+   * Reads the entry fee from the contract at runtime so the value always
+   * matches what the deployed contract expects.
    * Uses shielded write (encrypted calldata) via contract.write.
    */
   async submitBracket(
     bracket: `0x${string}`,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    const entryFee = await this.getEntryFee();
     return this.shieldedContract.write.submitBracket([bracket], {
-      value: ENTRY_FEE,
+      value: entryFee,
       ...opts,
     });
   }
