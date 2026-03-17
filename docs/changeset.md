@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Restrict Privy login methods
+
+- **UI**: Removed LinkedIn, Spotify, Instagram, TikTok, Apple, Farcaster, Telegram, and Passkey from the Privy login methods. Only Twitter, Discord, Google, GitHub, email, SMS, and wallet remain.
+
 ### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
 
 - **UI**: Replaced the always-visible passphrase input with a "Private group" toggle checkbox. Passphrase field only appears when the toggle is on, and `handleJoin()` uses the toggle state (not input text or API-resolved group type) to choose between `joinGroup` and `joinGroupWithPassword`. This eliminates the bug where leftover passphrase text caused public group joins to revert with `GroupIsNotPasswordProtected`.

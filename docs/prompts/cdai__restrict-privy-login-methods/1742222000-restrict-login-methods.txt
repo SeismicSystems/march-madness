@@ -1,0 +1,6 @@
+on privy settings, restrict "login with socials" to only allow:
+- Twitter
+- Discord
+- Google
+- Github
+plus email/phone, and continue with a wallet
