@@ -144,13 +144,13 @@ function MobileBracket({
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex overflow-x-auto gap-1 mb-4 pb-1 -mx-1 px-1">
+      <div className="flex overflow-x-auto justify-center gap-1 mb-4 pb-1 -mx-1 px-1">
         {TABS.map((tab, i) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(i)}
-            className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+            className={`shrink-0 px-4 py-1.5 text-xs rounded-lg border transition-colors ${
               activeTab === i
                 ? "bg-accent text-white border-accent"
                 : "bg-bg-tertiary text-text-secondary border-border hover:bg-bg-hover"
