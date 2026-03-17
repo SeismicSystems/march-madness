@@ -33,7 +33,12 @@ export function BracketView({
   tournamentStatus,
 }: BracketViewProps) {
   const isMobile = useIsMobile();
-  const regions = tournament.regions; // [East, West, South, Midwest]
+  const regions = tournament.regions;
+  const displayRegionOrder = [0, 2, 1, 3];
+  const displayedRegions = displayRegionOrder.map((index) => ({
+    name: regions[index],
+    rounds: getRegionGames(index),
+  }));
 
   function getRegionGames(regionIndex: number): GameSlot[][] {
     const rounds: GameSlot[][] = [];
@@ -54,8 +59,7 @@ export function BracketView({
   if (isMobile) {
     return (
       <MobileBracket
-        regions={regions}
-        getRegionGames={getRegionGames}
+        regions={displayedRegions}
         f4Games={f4Games}
         champGame={champGame}
         onPick={onPick}
@@ -68,10 +72,10 @@ export function BracketView({
   return (
     <div className="overflow-x-auto pb-4">
       <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 min-w-[1400px] items-stretch">
-        {/* Top half: East (left) + Final Four + West (right) */}
+        {/* Top half */}
         <BracketRegion
-          regionName={regions[0]}
-          rounds={getRegionGames(0)}
+          regionName={displayedRegions[0].name}
+          rounds={displayedRegions[0].rounds}
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
@@ -89,25 +93,25 @@ export function BracketView({
         </div>
 
         <BracketRegion
-          regionName={regions[1]}
-          rounds={getRegionGames(1)}
+          regionName={displayedRegions[1].name}
+          rounds={displayedRegions[1].rounds}
           onPick={onPick}
           disabled={disabled}
           reversed
           tournamentStatus={tournamentStatus}
         />
 
-        {/* Bottom half: South (left) + Midwest (right) */}
+        {/* Bottom half */}
         <BracketRegion
-          regionName={regions[2]}
-          rounds={getRegionGames(2)}
+          regionName={displayedRegions[2].name}
+          rounds={displayedRegions[2].rounds}
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
         />
         <BracketRegion
-          regionName={regions[3]}
-          rounds={getRegionGames(3)}
+          regionName={displayedRegions[3].name}
+          rounds={displayedRegions[3].rounds}
           onPick={onPick}
           disabled={disabled}
           reversed
@@ -120,19 +124,15 @@ export function BracketView({
 
 /* ── Mobile tabbed bracket ─────────────────────────────── */
 
-const TABS = ["East", "West", "South", "Midwest", "Final Four"] as const;
-
 function MobileBracket({
   regions,
-  getRegionGames,
   f4Games,
   champGame,
   onPick,
   disabled,
   tournamentStatus,
 }: {
-  regions: string[];
-  getRegionGames: (i: number) => GameSlot[][];
+  regions: Array<{ name: string; rounds: GameSlot[][] }>;
   f4Games: GameSlot[];
   champGame: GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
@@ -145,7 +145,7 @@ function MobileBracket({
     <div>
       {/* Tab bar */}
       <div className="flex overflow-x-auto gap-1 mb-4 pb-1 -mx-1 px-1">
-        {TABS.map((tab, i) => (
+        {[...regions.map((region) => region.name), "Final Four"].map((tab, i) => (
           <button
             key={tab}
             type="button"
@@ -163,10 +163,10 @@ function MobileBracket({
 
       {/* Tab content */}
       <div className="overflow-x-auto pb-2">
-        {activeTab < 4 ? (
+        {activeTab < regions.length ? (
           <BracketRegion
-            regionName={regions[activeTab]}
-            rounds={getRegionGames(activeTab)}
+            regionName={regions[activeTab].name}
+            rounds={regions[activeTab].rounds}
             onPick={onPick}
             disabled={disabled}
             compact
