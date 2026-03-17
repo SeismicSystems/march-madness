@@ -57,6 +57,7 @@ export function BracketRegion({
                     disabled={disabled}
                     compact={actualRoundIdx === 0}
                     mobile={compact}
+                    reversed={reversed}
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                   />
                 ))}

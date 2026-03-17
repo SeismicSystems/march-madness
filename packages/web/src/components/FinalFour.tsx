@@ -1,7 +1,7 @@
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
-import { BracketGame } from "./BracketGame";
+import { BracketGame, TeamLogo } from "./BracketGame";
 
 interface FinalFourProps {
   semifinal1: GameSlot | null;
@@ -59,7 +59,8 @@ export function FinalFour({
           {championship?.winner && (
             <div className="mt-2 px-4 py-2 bg-gold/20 border border-gold/50 rounded-lg text-center">
               <div className="text-[10px] text-gold/80 uppercase">Champion</div>
-              <div className="text-lg font-bold text-gold">
+              <div className="text-lg font-bold text-gold flex items-center justify-center gap-2">
+                <TeamLogo teamName={championship.winner.name} />
                 {championship.winner.seed} {championship.winner.name}
               </div>
             </div>
