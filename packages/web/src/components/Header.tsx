@@ -49,11 +49,13 @@ export function Header() {
       <div className="max-w-[1800px] mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <Link to="/" className="flex items-center gap-1 sm:gap-2">
-            <h1 className="text-base sm:text-xl font-bold text-text-primary tracking-tight whitespace-nowrap">
+            <h1 className="text-base sm:text-xl font-bold text-text-primary tracking-tight whitespace-nowrap flex items-center">
               March Madness
-              <span className="text-accent ml-1 sm:ml-2 font-normal text-xs sm:text-sm">
-                on Seismic
-              </span>
+              <img
+                src="/seis_logo.png"
+                alt="Seismic"
+                className="h-4 sm:h-5 ml-1.5 sm:ml-2 inline-block"
+              />
             </h1>
           </Link>
           {!isMobile && (

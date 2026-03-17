@@ -22,7 +22,7 @@ export function FinalFour({
 }: FinalFourProps) {
   return (
     <div className="flex flex-col items-center min-w-[200px]">
-      <h3 className="text-sm font-semibold text-gold uppercase tracking-wider mb-3 px-1">
+      <h3 className="text-sm font-semibold  uppercase tracking-wider mb-3 px-1">
         Final Four
       </h3>
       {/* Spacer matching the round-label row in BracketRegion */}
@@ -43,18 +43,22 @@ export function FinalFour({
 
         {/* Championship */}
         <div className="flex flex-col items-center gap-2">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">
+          <div className="text-md  text-gold  uppercase tracking-wider">
             Championship
           </div>
           {championship && (
-            <BracketGame
-              team1={championship.team1}
-              team2={championship.team2}
-              winner={championship.winner}
-              onPick={(pickTeam1) => onPick(championship.gameIndex, pickTeam1)}
-              disabled={disabled}
-              gameStatus={tournamentStatus?.games[championship.gameIndex]}
-            />
+            <div className="w-[240px]">
+              <BracketGame
+                team1={championship.team1}
+                team2={championship.team2}
+                winner={championship.winner}
+                onPick={(pickTeam1) =>
+                  onPick(championship.gameIndex, pickTeam1)
+                }
+                disabled={disabled}
+                gameStatus={tournamentStatus?.games[championship.gameIndex]}
+              />
+            </div>
           )}
           {championship?.winner && (
             <div className="mt-2 px-4 py-2 bg-gold/20 border border-gold/50 rounded-lg text-center">
@@ -66,7 +70,9 @@ export function FinalFour({
             </div>
           )}
         </div>
-
+        <h3 className="text-sm font-semibold  uppercase tracking-wider mb-3 px-1">
+          Final Four
+        </h3>
         {/* Semifinal 2 */}
         {semifinal2 && (
           <BracketGame

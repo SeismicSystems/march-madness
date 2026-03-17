@@ -1,0 +1,41 @@
+Implement the following plan:
+
+# Plan: Make Tag Input More Visible in SubmitPanel
+
+## Context
+
+The "Display name" tag input in `SubmitPanel.tsx` blends into the surrounding UI because it uses the same `bg-bg-tertiary border border-border` styling as non-interactive elements. The user wants it to clearly look like a clickable text field.
+
+## Changes
+
+### File: `packages/web/src/components/SubmitPanel.tsx`
+
+**Desktop input (line ~151):**
+
+- Background: `bg-bg-tertiary` → `bg-bg-primary` (darker/contrasting background makes it stand out as a field)
+- Border: add `border-2` for thicker border, use `border-border-light` or keep `border-border` but with visible contrast against new bg
+- Add `shadow-inner` or `shadow-sm` for inset field appearance
+- Padding: `px-2 py-1.5` → `px-3 py-2` (slightly more room)
+- Text: `text-xs` → `text-sm` (more readable)
+- Placeholder: make more descriptive — "Enter display name..."
+- Focus ring: add `focus:ring-1 focus:ring-accent/50` for clearer focus state
+
+**Mobile input (line ~351):**
+
+- Background: `bg-bg-tertiary` → `bg-bg-primary` (same treatment)
+- Add `shadow-inner` for field appearance
+- Border: add `border-2`
+- Focus ring: add `focus:ring-1 focus:ring-accent/50`
+
+**Desktop label:** Add a small label "Display name" above or inline (currently only mobile has a label). Can use inline text in the flex row: add `text-xs text-text-secondary` label before the input.
+
+## Verification
+
+1. `bun p:post` — start dev server in post-submission phase (tag input visible)
+2. Desktop: input should visually stand out as an interactive text field
+3. Mobile: same — clearly a text input, not a badge or label
+4. Focus state: clicking should show accent ring
+
+---
+
+User correction: The actual target was the hexOpen input in HomePage.tsx (lines 140-165), not the SubmitPanel tag input. Applied the same styling treatment to that input instead.

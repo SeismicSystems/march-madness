@@ -76,14 +76,18 @@ export function BracketView({
           disabled={disabled}
           tournamentStatus={tournamentStatus}
         />
-        <FinalFour
-          semifinal1={f4Games[0] ?? null}
-          semifinal2={f4Games[1] ?? null}
-          championship={champGame[0] ?? null}
-          onPick={onPick}
-          disabled={disabled}
-          tournamentStatus={tournamentStatus}
-        />
+
+        <div className="row-span-2 flex items-center justify-center">
+          <FinalFour
+            semifinal1={f4Games[0] ?? null}
+            semifinal2={f4Games[1] ?? null}
+            championship={champGame[0] ?? null}
+            onPick={onPick}
+            disabled={disabled}
+            tournamentStatus={tournamentStatus}
+          />
+        </div>
+
         <BracketRegion
           regionName={regions[1]}
           rounds={getRegionGames(1)}
@@ -93,7 +97,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
         />
 
-        {/* Bottom half: South (left) + spacer + Midwest (right) */}
+        {/* Bottom half: South (left) + Midwest (right) */}
         <BracketRegion
           regionName={regions[2]}
           rounds={getRegionGames(2)}
@@ -101,8 +105,6 @@ export function BracketView({
           disabled={disabled}
           tournamentStatus={tournamentStatus}
         />
-        {/* Empty cell — grid keeps it aligned with FinalFour column */}
-        <div />
         <BracketRegion
           regionName={regions[3]}
           rounds={getRegionGames(3)}

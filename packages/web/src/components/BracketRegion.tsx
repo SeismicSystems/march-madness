@@ -43,10 +43,10 @@ export function BracketRegion({
 
           return (
             <div key={displayIdx} className="flex flex-col flex-1">
-              <div className="text-[10px] text-text-muted text-center mb-1 whitespace-nowrap">
+              {/* <div className="text-[10px] text-text-muted text-center mb-1 whitespace-nowrap">
                 {ROUND_NAMES[actualRoundIdx]}
-              </div>
-              <div className="flex flex-col flex-1 justify-around gap-2">
+              </div> */}
+              <div className="flex flex-col flex-1 justify-around gap-4">
                 {roundGames.map((game) => (
                   <BracketGame
                     key={game.gameIndex}

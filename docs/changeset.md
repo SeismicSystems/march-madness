@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Move Reset Picks & hex input into SubmitPanel, center deadline
+
+- **UI**: Moved "Reset Picks" button, ConfirmDialog, and hex contract input from HomePage into SubmitPanel (desktop: new row below main bar; mobile: same placement). All hex state/handlers now live in SubmitPanel.
+- **UI**: Hex input is a fixed-width (`w-[10.5rem]`) input-styled container with single-click to edit (removed double-click fan-out flow). Copy button visible next to field when bracket exists.
+- **UI**: DeadlineCountdown is now centered (`flex justify-center`) above BracketView.
+- **Cleanup**: Removed unused `useCallback`, `useEffect`, `useRef` imports and stale hex/expand state from HomePage.
 ### 2026-03-17 — Fix submit bracket button UX
 
 - **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
