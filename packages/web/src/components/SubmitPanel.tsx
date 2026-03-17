@@ -254,10 +254,7 @@ export function SubmitPanel({
         tagSaved={tagSaved}
         walletConnected={walletConnected}
         entryFeeDisplay={entryFeeDisplay}
-        totalEntries={totalEntries}
         resetOpen={resetOpen}
-        hexError={hexError}
-        hexControl={hexControl}
         onSubmit={handleSubmit}
         onLoadBracket={onLoadBracket}
         onSetTag={handleSetTag}
@@ -454,10 +451,7 @@ function MobileSubmitPanel({
   tagSaved,
   walletConnected,
   entryFeeDisplay,
-  totalEntries,
   resetOpen,
-  hexError,
-  hexControl,
   onSubmit,
   onLoadBracket,
   onSetTag,
@@ -478,10 +472,7 @@ function MobileSubmitPanel({
   tagSaved: boolean;
   walletConnected: boolean;
   entryFeeDisplay: string | null;
-  totalEntries: number | null;
   resetOpen: boolean;
-  hexError: string | null;
-  hexControl: React.ReactNode;
   onSubmit: () => Promise<void>;
   onLoadBracket: () => Promise<void>;
   onSetTag: () => Promise<void>;
@@ -542,21 +533,9 @@ function MobileSubmitPanel({
       {/* Entry fee */}
       {!hasSubmitted && !isLocked && (
         <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs text-text-muted mb-1">Entry fee</div>
-              <div className="text-lg font-bold text-text-primary">
-                {feeDisplay}
-              </div>
-            </div>
-            {totalEntries != null && (
-              <div className="text-right">
-                <div className="text-xs text-text-muted mb-1">Brackets</div>
-                <div className="text-lg font-bold text-text-primary">
-                  {totalEntries}
-                </div>
-              </div>
-            )}
+          <div className="text-xs text-text-muted mb-1">Entry fee</div>
+          <div className="text-lg font-bold text-text-primary">
+            {feeDisplay}
           </div>
           <div className="text-xs text-text-muted mt-1">
             Prize pool split equally among highest-scoring brackets
@@ -564,15 +543,42 @@ function MobileSubmitPanel({
         </div>
       )}
 
-      {/* Reset + Submit buttons */}
+      {/* Submit button */}
       {!isLocked && (
-        <div className="flex items-center gap-2">
-          {hexControl}
+        <button
+          onClick={onSubmit}
+          disabled={!isComplete || isLoading || !walletConnected}
+          className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
+            !isComplete || !walletConnected
+              ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
+              : isLoading
+                ? "bg-accent/50 text-white cursor-wait"
+                : submitSuccess
+                  ? "bg-success text-white"
+                  : "bg-accent text-white hover:bg-accent-hover"
+          }`}
+        >
+          {isLoading
+            ? "Submitting..."
+            : submitSuccess
+              ? "Success!"
+              : !walletConnected
+                ? "Connect wallet to submit"
+                : !isComplete
+                  ? `Complete your bracket (${63 - pickCount} picks remaining)`
+                  : hasSubmitted
+                    ? "Update Bracket"
+                    : `Submit Bracket (${feeDisplay})`}
+        </button>
+      )}
+
+      {!isLocked && (
+        <div>
           <button
             onClick={() => onResetOpen(true)}
-            className="px-4 py-3 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
+            className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
           >
-            Reset Picks
+            Reset bracket
           </button>
           <ConfirmDialog
             open={resetOpen}
@@ -588,31 +594,6 @@ function MobileSubmitPanel({
             cancelLabel="Cancel"
             danger
           />
-          <button
-            onClick={onSubmit}
-            disabled={!isComplete || isLoading || !walletConnected}
-            className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all ${
-              !isComplete || !walletConnected
-                ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
-                : isLoading
-                  ? "bg-accent/50 text-white cursor-wait"
-                  : submitSuccess
-                    ? "bg-success text-white"
-                    : "bg-accent text-white hover:bg-accent-hover"
-            }`}
-          >
-            {isLoading
-              ? "Submitting..."
-              : submitSuccess
-                ? "Success!"
-                : !walletConnected
-                  ? "Connect wallet to submit"
-                  : !isComplete
-                    ? `Complete your bracket (${63 - pickCount} picks remaining)`
-                    : hasSubmitted
-                      ? "Update Bracket"
-                      : `Submit Bracket (${feeDisplay})`}
-          </button>
         </div>
       )}
 
@@ -655,12 +636,6 @@ function MobileSubmitPanel({
         </div>
       )}
 
-      {/* Hex error */}
-      {hexError && (
-        <div className="px-3 py-1.5 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg">
-          {hexError}
-        </div>
-      )}
     </div>
   );
 }
