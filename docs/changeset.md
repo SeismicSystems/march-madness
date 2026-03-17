@@ -10,7 +10,12 @@ All notable changes to this project. Every PR must add an entry here.
 - **UI**: Desktop (>= 768px): two-column hub layout — left column has Create + Join forms stacked, right column has Your Groups list and a prominent "Browse Public Groups" link.
 - **UI**: Added `/groups/public` route with a dedicated page for browsing public groups (linked from the desktop hub).
 
+### 2026-03-17 — Restrict Privy login methods
+
+- **UI**: Removed LinkedIn, Spotify, Instagram, TikTok, Apple, Farcaster, Telegram, and Passkey from the Privy login methods. Only Twitter, Discord, Google, GitHub, email, SMS, and wallet remain.
+
 ### 2026-03-17 — Show entry fee on public groups list
+
 - **UI**: Public groups list now always displays the entry fee. Groups with no fee show "Free" instead of hiding the fee entirely.
 
 ### 2026-03-17 — Rename "Join Private Group" to "Join Group"
