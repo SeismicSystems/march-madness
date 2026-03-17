@@ -28,21 +28,36 @@ export function FinalFour({
       {/* Spacer matching the round-label row in BracketRegion */}
       <div className="text-[10px] mb-1 invisible">​</div>
 
-      <div className="flex flex-col items-center justify-center gap-8 flex-1">
-        {/* Semifinal 1 */}
-        {semifinal1 && (
-          <BracketGame
-            team1={semifinal1.team1}
-            team2={semifinal1.team2}
-            winner={semifinal1.winner}
-            onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
-            disabled={disabled}
-            gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
-          />
-        )}
+      <div className="flex flex-col items-center justify-center gap-6 flex-1 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start w-full">
+          <div className="flex justify-center md:justify-start">
+            {semifinal1 && (
+              <BracketGame
+                team1={semifinal1.team1}
+                team2={semifinal1.team2}
+                winner={semifinal1.winner}
+                onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
+                disabled={disabled}
+                gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
+              />
+            )}
+          </div>
 
-        {/* Championship */}
-        <div className="flex flex-col items-center gap-2">
+          <div className="flex justify-center md:justify-end">
+            {semifinal2 && (
+              <BracketGame
+                team1={semifinal2.team1}
+                team2={semifinal2.team2}
+                winner={semifinal2.winner}
+                onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
+                disabled={disabled}
+                gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 md:mt-4">
           <div className="text-md  text-gold  uppercase tracking-wider">
             Championship
           </div>
@@ -70,20 +85,6 @@ export function FinalFour({
             </div>
           )}
         </div>
-        <h3 className="text-sm font-semibold  uppercase tracking-wider mb-3 px-1">
-          Final Four
-        </h3>
-        {/* Semifinal 2 */}
-        {semifinal2 && (
-          <BracketGame
-            team1={semifinal2.team1}
-            team2={semifinal2.team2}
-            winner={semifinal2.winner}
-            onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
-            disabled={disabled}
-            gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
-          />
-        )}
       </div>
     </div>
   );
