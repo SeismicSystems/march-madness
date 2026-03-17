@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Fix submit bracket button UX
+
+- **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
+- **Fix**: Submit button now correctly reflects wallet readiness — disabled until the wallet client is fully initialized, not just when Privy auth is active. Prevents silent failures when `authenticated` is true but the embedded wallet hasn't loaded yet.
+- **Fix**: `submitBracket`, `updateBracket`, and `setTag` now display a visible error message ("Wallet not connected") instead of silently failing when the wallet client isn't ready.
+
 ### 2026-03-17 — Bracket submission counter on home page
 
 - **UI**: Added a bracket count indicator next to the deadline countdown on the home page, showing how many brackets have been submitted. Fetches from the `/stats` API endpoint, polls every 30s. Gracefully hidden when the API is unavailable.

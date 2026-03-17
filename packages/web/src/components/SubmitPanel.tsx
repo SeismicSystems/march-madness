@@ -176,8 +176,8 @@ export function SubmitPanel({
                 : isLoading
                   ? "bg-accent/50 text-white cursor-wait"
                   : submitSuccess
-                    ? "bg-success text-white ring-2 ring-success/30"
-                    : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30"
+                    ? "bg-success text-white ring-2 ring-success/30 cursor-pointer"
+                    : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
             }`}
           >
             {isLoading
@@ -319,8 +319,8 @@ function MobileSubmitPanel({
               : isLoading
                 ? "bg-accent/50 text-white cursor-wait"
                 : submitSuccess
-                  ? "bg-success text-white"
-                  : "bg-accent text-white hover:bg-accent-hover"
+                  ? "bg-success text-white cursor-pointer"
+                  : "bg-accent text-white hover:bg-accent-hover cursor-pointer"
           }`}
         >
           {isLoading
