@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Fix public group joins failing when passphrase field is non-empty
+
+- **UI**: Replaced the always-visible passphrase input with a "Private group" toggle checkbox. Passphrase field only appears when the toggle is on, and `handleJoin()` uses the toggle state (not input text or API-resolved group type) to choose between `joinGroup` and `joinGroupWithPassword`. This eliminates the bug where leftover passphrase text caused public group joins to revert with `GroupIsNotPasswordProtected`.
+- **UI**: Removed `resolvedGroupNeedsPassword` state and associated pre-check logic. The user explicitly controls whether to use the password path.
+- **UI**: Invite links with `?password=...` query params still work — the toggle defaults to ON when `initialPassphrase` is provided.
+
 ### 2026-03-17 — Reorganize Groups page with public groups browse and search
 
 - **UI**: Reorganized Groups page into four clear sections: Public Groups, Your Groups, Join Private Group, Create Group.

@@ -21,6 +21,7 @@ export function PrivateJoinForm({
 }: PrivateJoinFormProps) {
   const [slugInput, setSlugInput] = useState(initialSlug);
   const [nameInput, setNameInput] = useState("");
+  const [isPrivateJoin, setIsPrivateJoin] = useState(!!initialPassphrase);
   const [passphraseInput, setPassphraseInput] = useState(initialPassphrase);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -37,11 +38,6 @@ export function PrivateJoinForm({
 
       const [groupId, groupData] = result;
 
-      if (groupData.hasPassword && !passphraseInput.trim()) {
-        setJoinError("This is a private group — enter the passphrase to join");
-        return;
-      }
-
       const entryFee = groupData.entryFee;
       if (entryFee > 0n) {
         if (walletBalance === null) {
@@ -56,7 +52,9 @@ export function PrivateJoinForm({
         }
       }
 
-      if (groupData.hasPassword || passphraseInput.trim()) {
+      // Use the toggle state (not field contents or API-resolved group type)
+      // to choose between joinGroup and joinGroupWithPassword
+      if (isPrivateJoin) {
         await groups.joinGroupWithPassword(
           groupId,
           passphraseInput.trim(),
@@ -70,6 +68,7 @@ export function PrivateJoinForm({
       setSlugInput("");
       setNameInput("");
       setPassphraseInput("");
+      setIsPrivateJoin(false);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Failed to join");
     }
@@ -102,13 +101,24 @@ export function PrivateJoinForm({
           placeholder="Your display name"
           className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
         />
-        <input
-          type="text"
-          value={passphraseInput}
-          onChange={(e) => setPassphraseInput(e.target.value)}
-          placeholder="Passphrase"
-          className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-        />
+        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isPrivateJoin}
+            onChange={(e) => setIsPrivateJoin(e.target.checked)}
+            className="accent-accent"
+          />
+          Private group
+        </label>
+        {isPrivateJoin && (
+          <input
+            type="text"
+            value={passphraseInput}
+            onChange={(e) => setPassphraseInput(e.target.value)}
+            placeholder="Passphrase"
+            className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+          />
+        )}
         <div>
           <button
             onClick={handleJoin}

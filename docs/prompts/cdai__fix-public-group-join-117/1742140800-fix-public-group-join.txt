@@ -1,0 +1,1 @@
+Fix public group joins failing when passphrase field has text (#117)
