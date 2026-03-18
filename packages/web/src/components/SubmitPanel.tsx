@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
@@ -45,6 +46,7 @@ export function SubmitPanel({
   const [tagSaved, setTagSaved] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const isMobile = useIsMobile();
+  const { login } = usePrivy();
 
   const isLocked = !contract.isBeforeDeadline;
 
@@ -193,14 +195,14 @@ export function SubmitPanel({
       ) : (
         <div
           ref={expandRef}
-          className="flex items-center w-[12rem] sm:w-[13.5rem]"
+          className="flex items-center"
         >
           <span
             onDoubleClick={() => {
               setHexExpanded((prev) => !prev);
               scheduleCollapse();
             }}
-            className={`min-w-0 flex-1 truncate rounded-lg border border-border/70 bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
+            className={`shrink-0 rounded-lg bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
             {encodedBracket ?? "0x"}
           </span>
@@ -277,6 +279,7 @@ export function SubmitPanel({
         onTagChange={setTag}
         onResetOpen={setResetOpen}
         onResetPicks={bracket.resetPicks}
+        onLogin={login}
       />
     );
   }
@@ -315,6 +318,7 @@ export function SubmitPanel({
             Submitted
           </span>
         )}
+        {hasSubmitted && hexControl}
         {isLocked && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-danger/20 text-danger border border-danger/30 whitespace-nowrap">
             Locked
@@ -385,7 +389,6 @@ export function SubmitPanel({
         {/* Reset + Submit buttons */}
         {!isLocked && (
           <div className="flex items-center gap-2">
-            {hexControl}
             <button
               onClick={() => setResetOpen(true)}
               className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
@@ -408,17 +411,23 @@ export function SubmitPanel({
             />
             <button
               onClick={
-                requiresChainSwitch ? () => void onSwitchChain() : handleSubmit
+                !walletConnected
+                  ? login
+                  : requiresChainSwitch
+                    ? () => void onSwitchChain()
+                    : handleSubmit
               }
               disabled={
                 requiresChainSwitch
                   ? isSwitchingChain
-                  : !isComplete || isLoading || !walletConnected
+                  : walletConnected && (!isComplete || isLoading)
               }
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                requiresChainSwitch
+                !walletConnected
+                  ? "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
+                  : requiresChainSwitch
                   ? "bg-warning text-black hover:brightness-110 ring-2 ring-warning/30 cursor-pointer"
-                  : !isComplete || !walletConnected
+                  : !isComplete
                   ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
                   : isLoading
                     ? "bg-accent/50 text-white cursor-wait"
@@ -427,7 +436,7 @@ export function SubmitPanel({
                       : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
               }`}
             >
-              {requiresChainSwitch
+              {requiresChainSwitch && walletConnected
                 ? isSwitchingChain
                   ? `Switching to ${requiredChainName}...`
                   : `Switch to ${requiredChainName}`
@@ -497,6 +506,7 @@ function MobileSubmitPanel({
   onTagChange,
   onResetOpen,
   onResetPicks,
+  onLogin,
 }: {
   isComplete: boolean;
   pickCount: number;
@@ -523,6 +533,7 @@ function MobileSubmitPanel({
   onTagChange: (v: string) => void;
   onResetOpen: (v: boolean) => void;
   onResetPicks: () => void;
+  onLogin: () => void;
 }) {
   const feeDisplay = entryFeeDisplay ?? "...";
   const displayError = chainSwitchError ?? error;
@@ -567,6 +578,53 @@ function MobileSubmitPanel({
         )}
       </div>
 
+      {/* Submit button */}
+      {!isLocked && (
+        <button
+          onClick={
+            !walletConnected
+              ? onLogin
+              : requiresChainSwitch
+                ? () => void onSwitchChain()
+                : onSubmit
+          }
+          disabled={
+            requiresChainSwitch
+              ? isSwitchingChain
+              : walletConnected && (!isComplete || isLoading)
+          }
+          className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
+            !walletConnected
+              ? "bg-accent text-white hover:bg-accent-hover cursor-pointer"
+              : requiresChainSwitch
+              ? "bg-warning text-black cursor-pointer"
+              : !isComplete
+              ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
+              : isLoading
+                ? "bg-accent/50 text-white cursor-wait"
+                : submitSuccess
+                  ? "bg-success text-white"
+                  : "bg-accent text-white hover:bg-accent-hover"
+          }`}
+        >
+          {requiresChainSwitch && walletConnected
+            ? isSwitchingChain
+              ? `Switching to ${requiredChainName}...`
+              : `Switch to ${requiredChainName}`
+            : isLoading
+              ? "Submitting..."
+              : submitSuccess
+                ? "Success!"
+                : !walletConnected
+                  ? "Connect wallet to submit"
+                  : !isComplete
+                    ? `Complete your bracket (${63 - pickCount} picks remaining)`
+                    : hasSubmitted
+                      ? "Update Bracket"
+                      : `Submit Bracket (${feeDisplay})`}
+        </button>
+      )}
+
       {/* Load existing bracket */}
       {hasSubmitted && !existingBracket && (
         <button
@@ -593,45 +651,6 @@ function MobileSubmitPanel({
             Prize pool split equally among highest-scoring brackets
           </div>
         </div>
-      )}
-
-      {/* Submit button */}
-      {!isLocked && (
-        <button
-          onClick={requiresChainSwitch ? () => void onSwitchChain() : onSubmit}
-          disabled={
-            requiresChainSwitch
-              ? isSwitchingChain
-              : !isComplete || isLoading || !walletConnected
-          }
-          className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            requiresChainSwitch
-              ? "bg-warning text-black cursor-pointer"
-              : !isComplete || !walletConnected
-              ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
-              : isLoading
-                ? "bg-accent/50 text-white cursor-wait"
-                : submitSuccess
-                  ? "bg-success text-white"
-                  : "bg-accent text-white hover:bg-accent-hover"
-          }`}
-        >
-          {requiresChainSwitch
-            ? isSwitchingChain
-              ? `Switching to ${requiredChainName}...`
-              : `Switch to ${requiredChainName}`
-            : isLoading
-              ? "Submitting..."
-              : submitSuccess
-                ? "Success!"
-                : !walletConnected
-                  ? "Connect wallet to submit"
-                  : !isComplete
-                    ? `Complete your bracket (${63 - pickCount} picks remaining)`
-                    : hasSubmitted
-                      ? "Update Bracket"
-                      : `Submit Bracket (${feeDisplay})`}
-        </button>
       )}
 
       {!isLocked && (

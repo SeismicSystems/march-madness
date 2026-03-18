@@ -10,6 +10,15 @@ All notable changes to this project. Every PR must add an entry here.
 - **web**: `/groups/:slug/leaderboard` route shows leaderboard filtered to group members. Reuses existing `LeaderboardPage` with group filtering via `useGroupMembers` hook.
 - **web**: Added "Leaderboard" links to joined group cards and public group cards.
 
+### 2026-03-18 — Add Connect Wallet button to home page (#178)
+
+- **Frontend**: Added a prominent "Connect Wallet" button on the home/bracket page, visible when the user is not connected. Uses the same Privy `login()` as the nav bar. Especially helpful on mobile where the hamburger menu isn't discoverable.
+
+### 2026-03-18 — Fix encoded bracket display position and styling (#179)
+
+- **Frontend**: Moved encoded bracket hex display from between "Reset Picks" and submit buttons to right of "Submitted" status badge on desktop.
+- **Frontend**: Removed border from the encoded bracket hex element for a cleaner look.
+
 ### 2026-03-18 — Change default Kalshi calibrator edge threshold to $1000
 
 - **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
