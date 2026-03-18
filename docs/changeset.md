@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add bracket count display to the desktop header, showing the total number of submissions to the left of the Faucet link.
+
+
 Move group membership tracking from frontend localStorage to Redis. Add `mm:address_groups` reverse mapping (address → group IDs) maintained by the indexer on join/leave events. New server endpoint `GET /address/:address/groups`. Frontend now fetches membership from API; localStorage only stores passphrases (client-side secrets).
 
 
