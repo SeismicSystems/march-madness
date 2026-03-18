@@ -60,8 +60,8 @@ def load_tournament_teams(tournament_path: Path) -> set[str]:
         first_four = team.get("firstFour")
         if first_four:
             # Add both individual First Four team names
-            for ff_name in first_four:
-                names.add(ff_name)
+            for ff_team in first_four.get("teams", []):
+                names.add(ff_team["name"])
         else:
             names.add(team["name"])
     return names

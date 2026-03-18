@@ -17,7 +17,19 @@ use tracing::{debug, warn};
 struct TournamentTeam {
     name: String,
     #[serde(default)]
-    first_four: Option<Vec<String>>,
+    first_four: Option<FirstFourEntry>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourEntry {
+    teams: Vec<FirstFourTeam>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourTeam {
+    name: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -60,10 +72,10 @@ impl GameMapper {
         let mut name_to_position = HashMap::new();
         for (i, team) in tournament.teams.iter().enumerate() {
             let pos = i as u8;
-            if let Some(ref ff_names) = team.first_four {
+            if let Some(ref ff) = team.first_four {
                 // First Four: map both individual names to this position.
-                for ff_name in ff_names {
-                    name_to_position.insert(ff_name.clone(), pos);
+                for ff_team in &ff.teams {
+                    name_to_position.insert(ff_team.name.clone(), pos);
                 }
             }
             // Also map the display name (e.g. "Texas/NC State" or normal name).

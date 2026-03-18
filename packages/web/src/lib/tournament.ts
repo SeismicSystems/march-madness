@@ -1,11 +1,22 @@
 import tournamentData from "@data/2026/men/tournament.json";
 import { SEED_ORDER } from "./constants";
 
+export interface FirstFourTeam {
+  name: string;
+  abbrev?: string;
+}
+
+export interface FirstFourEntry {
+  teams: [FirstFourTeam, FirstFourTeam];
+  winner?: string;
+}
+
 export interface Team {
   name: string;
   seed: number;
   region: string;
   abbrev?: string;
+  firstFour?: FirstFourEntry;
 }
 
 export interface TournamentData {
