@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-17 — Fix maxPossible elimination cascade in partial scoring (#116)
+
+- **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
+- **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
+
 ### 2026-03-18 — Restructure firstFour schema in tournament.json
 
 - **Schema change**: `firstFour` is now `{ teams: [{ name, abbrev? }, ...], winner? }` instead of `[string, string]`.
