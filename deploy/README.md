@@ -108,15 +108,38 @@ sudo supervisorctl tail -f server stderr  # Follow stderr logs
 
 ## Building
 
+### Rust
+
 ```bash
 cd /home/ubuntu/march-madness
-
-# Build Rust binaries
 cargo build --release
+```
 
-# Build frontend
-bun install
-bun run --filter @march-madness/web build
+### Frontend (zero-downtime)
+
+The frontend deploy script builds to a timestamped directory and atomically swaps a `current` symlink so nginx never serves from an empty or half-built directory.
+
+```bash
+./scripts/deploy-frontend.sh
+```
+
+This replaces the old `bun build:web` approach, which would cause a brief 403 from nginx while Vite cleared and rebuilt the `dist/` directory.
+
+#### One-time migration
+
+If you're upgrading from the old `dist/`-based setup, create the initial symlink:
+
+```bash
+cd /home/ubuntu/march-madness/packages/web
+mv dist dist-$(date +%s)
+ln -sfn dist-* current
+```
+
+Then update the nginx config and reload:
+
+```bash
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/brackets.seismictest.net
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ## Environment Variables

@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Zero-downtime frontend deploy
+
+- **Deploy**: Added `scripts/deploy-frontend.sh` — builds to a timestamped directory and atomically swaps a `current` symlink, eliminating the nginx 403 that occurred mid-build when Vite cleared the old `dist/` directory.
+- **Deploy**: Updated `deploy/nginx.conf` root to point to the `current` symlink instead of `dist/`.
+- **Deploy**: Updated `scripts/alias.sh` — `dmm_frontend` and `dmm_all` now use the new deploy script.
+
 ### 2026-03-18 — Stabilize Privy embedded wallet session sync (#186)
 
 - **Wallet UX**: Unified Privy wallet selection logic across the app so embedded-wallet sessions consistently prefer the Privy-managed wallet over linked external wallets during refresh, chain sync, and logout.

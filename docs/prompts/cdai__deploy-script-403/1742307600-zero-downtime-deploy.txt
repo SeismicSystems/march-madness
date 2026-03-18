@@ -1,0 +1,3 @@
+hey when i deploy, the build goes, but right before it's finished, we get this annoying error on page load: nginx gives a 403. it goes away after the build actually completes. i suspect this is because we're between the old build output and the new one. i feel like a system where we build to a tmp location and then swap it out so there's no downtime. can you push a change to our deploy workflow? here's my current deploy script:
+
+alias dmm_frontend='cd ~/march-madness && git pull && bun install && bun build:web'
