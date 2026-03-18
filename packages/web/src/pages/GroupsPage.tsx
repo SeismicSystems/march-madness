@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GroupsSection } from "../components/GroupsSection";
 import { PublicGroupsList } from "../components/PublicGroupsList";
@@ -50,8 +50,15 @@ function CreateGroupForm({
 
   const slugAtLimit = slug.length >= MAX_SLUG_LENGTH;
 
+  const [attempted, setAttempted] = useState(false);
+
+  const missingName = !displayName.trim();
+  const missingSlug = !slug.trim();
+  const isDisabled = groups.isLoading || missingName || missingSlug;
+
   const handleCreate = async () => {
-    if (!displayName.trim() || !slug.trim()) return;
+    setAttempted(true);
+    if (missingName || missingSlug) return;
     setCreateError(null);
     setCreateSuccess(null);
 
@@ -165,8 +172,8 @@ function CreateGroupForm({
         <div className="flex items-center gap-3">
           <button
             onClick={handleCreate}
-            disabled={groups.isLoading || !displayName.trim() || !slug.trim()}
-            className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+            disabled={groups.isLoading}
+            className={`px-4 py-2 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
           >
             {groups.isLoading ? "Creating..." : "Create Group"}
           </button>
@@ -177,6 +184,12 @@ function CreateGroupForm({
           )}
         </div>
 
+        {attempted && missingName && (
+          <p className="text-xs text-red-400">Please enter a display name.</p>
+        )}
+        {attempted && missingSlug && (
+          <p className="text-xs text-red-400">Please enter a slug.</p>
+        )}
         {createError && <p className="text-xs text-red-400">{createError}</p>}
         {createSuccess && (
           <p className="text-xs text-green-400">{createSuccess}</p>
@@ -200,19 +213,19 @@ function YourGroupsEmpty({ onSwitchTab }: { onSwitchTab: (tab: Tab) => void }) {
       <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
         <button
           onClick={() => onSwitchTab("public-groups")}
-          className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium cursor-pointer"
         >
           Browse Public Groups
         </button>
         <button
           onClick={() => onSwitchTab("join-group")}
-          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium cursor-pointer"
         >
           Join a Group
         </button>
         <button
           onClick={() => onSwitchTab("create-group")}
-          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium cursor-pointer"
         >
           Create a Group
         </button>
@@ -230,8 +243,6 @@ function MobileLayout({
   publicGroups,
   publicLoading,
   publicError,
-  initialSlug,
-  initialPassphrase,
 }: {
   groups: ReturnType<typeof useGroups>;
   contract: ReturnType<typeof useContract>;
@@ -239,8 +250,6 @@ function MobileLayout({
   publicGroups: ReturnType<typeof usePublicGroups>["publicGroups"];
   publicLoading: boolean;
   publicError: string | null;
-  initialSlug: string;
-  initialPassphrase: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("your-groups");
 
@@ -307,8 +316,6 @@ function MobileLayout({
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           walletBalance={contract.balance}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
         />
       )}
 
@@ -325,33 +332,27 @@ function DesktopLayout({
   groups,
   contract,
   authenticated,
-  initialSlug,
-  initialPassphrase,
 }: {
   groups: ReturnType<typeof useGroups>;
   contract: ReturnType<typeof useContract>;
   authenticated: boolean;
-  initialSlug: string;
-  initialPassphrase: string;
 }) {
   const canCreateOrJoin = authenticated && contract.isBeforeDeadline;
 
   return (
     <div className="grid grid-cols-2 gap-6">
-      {/* Left column: Create + Join + Browse Public stacked */}
+      {/* Left column: Join + Create + Browse Public stacked */}
       <div className="space-y-6">
-        {canCreateOrJoin && <CreateGroupForm groups={groups} />}
-
         {canCreateOrJoin && (
           <PrivateJoinForm
             groups={groups}
             isBeforeDeadline={contract.isBeforeDeadline}
             walletConnected={authenticated}
             walletBalance={contract.balance}
-            initialSlug={initialSlug}
-            initialPassphrase={initialPassphrase}
           />
         )}
+
+        {canCreateOrJoin && <CreateGroupForm groups={groups} />}
 
         <Link
           to="/groups/public"
@@ -408,6 +409,7 @@ export function GroupsPage() {
     error: publicError,
   } = usePublicGroups();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const initialSlug = useMemo(
     () => searchParams.get("slug") ?? "",
@@ -418,6 +420,8 @@ export function GroupsPage() {
     [searchParams],
   );
 
+  const isSplash = !!(initialSlug || initialPassphrase);
+
   if (!groups.hasContract) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -427,6 +431,29 @@ export function GroupsPage() {
             Groups contract not deployed on this network.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Invite link splash: show only the join form
+  if (isSplash) {
+    return (
+      <div className="max-w-md mx-auto mt-8 sm:mt-16">
+        <PrivateJoinForm
+          groups={groups}
+          isBeforeDeadline={contract.isBeforeDeadline}
+          walletConnected={authenticated}
+          walletBalance={contract.balance}
+          initialSlug={initialSlug}
+          initialPassphrase={initialPassphrase}
+          onSuccess={() => navigate("/groups", { replace: true })}
+        />
+        <button
+          onClick={() => navigate("/groups", { replace: true })}
+          className="mt-4 w-full text-center text-sm text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+        >
+          Skip &mdash; go to Groups
+        </button>
       </div>
     );
   }
@@ -444,8 +471,6 @@ export function GroupsPage() {
           publicGroups={publicGroups}
           publicLoading={publicLoading}
           publicError={publicError}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
         />
       </div>
 
@@ -455,8 +480,6 @@ export function GroupsPage() {
           groups={groups}
           contract={contract}
           authenticated={authenticated}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
         />
       </div>
     </div>

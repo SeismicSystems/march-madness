@@ -45,7 +45,10 @@ function PublicGroupCard({
     return "Free";
   }, [group.entry_fee]);
 
+  const [attempted, setAttempted] = useState(false);
+
   const handleJoin = async () => {
+    setAttempted(true);
     if (!joinName.trim()) return;
     setJoinError(null);
     try {
@@ -104,7 +107,7 @@ function PublicGroupCard({
                     ? "Deadline has passed"
                     : "Join this group"
               }
-              className="px-3 py-1 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium min-w-[4rem]"
+              className={`px-3 py-1 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium min-w-[4rem] ${!walletConnected || !isBeforeDeadline ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
               Join
             </button>
@@ -135,8 +138,8 @@ function PublicGroupCard({
             />
             <button
               onClick={handleJoin}
-              disabled={groups.isLoading || !joinName.trim()}
-              className="px-3 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+              disabled={groups.isLoading}
+              className={`px-3 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${groups.isLoading || !joinName.trim() ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
             >
               {groups.isLoading ? "Joining..." : "Confirm"}
             </button>
@@ -144,12 +147,16 @@ function PublicGroupCard({
               onClick={() => {
                 setJoining(false);
                 setJoinError(null);
+                setAttempted(false);
               }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-secondary hover:text-text-primary transition-colors"
+              className="px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               Cancel
             </button>
           </div>
+          {attempted && !joinName.trim() && (
+            <p className="text-xs text-red-400">Please enter a display name.</p>
+          )}
           {joinError && <p className="text-xs text-red-400">{joinError}</p>}
         </div>
       )}
