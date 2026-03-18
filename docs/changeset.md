@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix validation errors flashing after successful group create/join by resetting `attempted` state on success
+
+
 Move "Join a Group" above "Create a Group" on the Groups page. Highlight the join form with an accent border when arriving via an invite link (?slug=...&password=...), and auto-switch to the Join tab on mobile. Clear highlight and URL params after successful join.
 
 
