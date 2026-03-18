@@ -45,8 +45,7 @@ pub struct FirstFourData {
 #[serde(rename_all = "camelCase")]
 pub struct FirstFourTeamData {
     pub name: String,
-    #[serde(default)]
-    pub abbrev: Option<String>,
+    pub abbrev: String,
 }
 
 impl TeamData {
@@ -192,11 +191,11 @@ mod tests {
                 teams: vec![
                     FirstFourTeamData {
                         name: "Prairie View A&M".to_string(),
-                        abbrev: Some("PVAMU".to_string()),
+                        abbrev: "PV A&M".to_string(),
                     },
                     FirstFourTeamData {
                         name: "Lehigh".to_string(),
-                        abbrev: None,
+                        abbrev: "Lehigh".to_string(),
                     },
                 ],
                 winner: None,
@@ -216,11 +215,11 @@ mod tests {
                 teams: vec![
                     FirstFourTeamData {
                         name: "UMBC".to_string(),
-                        abbrev: None,
+                        abbrev: "UMBC".to_string(),
                     },
                     FirstFourTeamData {
                         name: "Howard".to_string(),
-                        abbrev: None,
+                        abbrev: "Howard".to_string(),
                     },
                 ],
                 winner: Some("Howard".to_string()),
@@ -231,7 +230,7 @@ mod tests {
 
     #[test]
     fn deserialize_null_name_ff() {
-        let json = r#"{"name": null, "seed": 16, "region": "S", "firstFour": {"teams": [{"name": "A"}, {"name": "B"}]}}"#;
+        let json = r#"{"name": null, "seed": 16, "region": "S", "firstFour": {"teams": [{"name": "A", "abbrev": "A"}, {"name": "B", "abbrev": "B"}]}}"#;
         let team: TeamData = serde_json::from_str(json).unwrap();
         assert!(team.name.is_none());
         assert!(team.first_four.is_some());
@@ -245,10 +244,10 @@ mod tests {
             "teams": [
                 {"name": "Duke", "seed": 1, "region": "East"},
                 {"name": null, "seed": 16, "region": "East",
-                 "firstFour": {"teams": [{"name": "A"}, {"name": "B"}]}},
+                 "firstFour": {"teams": [{"name": "A", "abbrev": "A"}, {"name": "B", "abbrev": "B"}]}},
                 {"name": "Kansas", "seed": 8, "region": "East"},
                 {"name": null, "seed": 9, "region": "East",
-                 "firstFour": {"teams": [{"name": "X"}, {"name": "Y"}], "winner": "X"}}
+                 "firstFour": {"teams": [{"name": "X", "abbrev": "X"}, {"name": "Y", "abbrev": "Y"}], "winner": "X"}}
             ]
         }"#;
         let data: TournamentData = serde_json::from_str(json).unwrap();

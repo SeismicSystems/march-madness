@@ -64,7 +64,7 @@
       "name": "Michigan St.",
       "seed": 3,
       "region": "East",
-      "abbrev": "Mich. St."
+      "abbrev": "Mich St"
     },
     {
       "name": "North Dakota St.",
@@ -105,10 +105,11 @@
         "teams": [
           {
             "name": "Prairie View A&M",
-            "abbrev": "PVAMU"
+            "abbrev": "PV A&M"
           },
           {
-            "name": "Lehigh"
+            "name": "Lehigh",
+            "abbrev": "Lehigh"
           }
         ]
       }
@@ -168,7 +169,7 @@
       "name": "Saint Mary's",
       "seed": 7,
       "region": "South",
-      "abbrev": "St. Mary's"
+      "abbrev": "St Mary's"
     },
     {
       "name": "Texas A&M",
@@ -215,7 +216,7 @@
       "name": "High Point",
       "seed": 12,
       "region": "West",
-      "abbrev": "High Pt."
+      "abbrev": "High Pt"
     },
     {
       "name": "Arkansas",
@@ -233,9 +234,22 @@
       "region": "West"
     },
     {
-      "name": "Texas",
+      "name": null,
       "seed": 11,
-      "region": "West"
+      "region": "West",
+      "firstFour": {
+        "teams": [
+          {
+            "name": "Texas",
+            "abbrev": "Texas"
+          },
+          {
+            "name": "NC State",
+            "abbrev": "NCSU"
+          }
+        ],
+        "winner": "Texas"
+      }
     },
     {
       "name": "Gonzaga",
@@ -268,7 +282,7 @@
       "name": "Queens (N.C.)",
       "seed": 15,
       "region": "West",
-      "abbrev": "Queens"
+      "abbrev": "Queens NC"
     },
     {
       "name": "Michigan",
@@ -276,9 +290,22 @@
       "region": "Midwest"
     },
     {
-      "name": "Howard",
+      "name": null,
       "seed": 16,
-      "region": "Midwest"
+      "region": "Midwest",
+      "firstFour": {
+        "teams": [
+          {
+            "name": "UMBC",
+            "abbrev": "UMBC"
+          },
+          {
+            "name": "Howard",
+            "abbrev": "Howard"
+          }
+        ],
+        "winner": "Howard"
+      }
     },
     {
       "name": "Georgia",
@@ -295,7 +322,7 @@
       "name": "Texas Tech",
       "seed": 5,
       "region": "Midwest",
-      "abbrev": "Tex. Tech"
+      "abbrev": "TT"
     },
     {
       "name": "Akron",
@@ -325,10 +352,11 @@
         "teams": [
           {
             "name": "Miami (Ohio)",
-            "abbrev": "M-OH"
+            "abbrev": "Miami OH"
           },
           {
-            "name": "SMU"
+            "name": "SMU",
+            "abbrev": "SMU"
           }
         ]
       }
@@ -353,7 +381,7 @@
       "name": "Santa Clara",
       "seed": 10,
       "region": "Midwest",
-      "abbrev": "S. Clara"
+      "abbrev": "SCU"
     },
     {
       "name": "Iowa St.",
@@ -364,7 +392,7 @@
       "name": "Tennessee St.",
       "seed": 15,
       "region": "Midwest",
-      "abbrev": "Tenn. St."
+      "abbrev": "Tenn St"
     }
   ]
 }

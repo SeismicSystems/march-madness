@@ -3,7 +3,7 @@ import { SEED_ORDER } from "./constants";
 
 export interface FirstFourTeam {
   name: string;
-  abbrev?: string;
+  abbrev: string;
 }
 
 export interface FirstFourEntry {
@@ -48,7 +48,7 @@ export function displayAbbrev(team: Team): string {
       );
       return winner?.abbrev ?? team.firstFour.winner;
     }
-    return team.firstFour.teams.map((t) => t.abbrev ?? t.name).join("/");
+    return team.firstFour.teams.map((t) => t.abbrev).join("/");
   }
   return "TBD";
 }
