@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ShieldedWalletProvider } from "seismic-react";
 import { http } from "viem";
 
 import { PrivyProvider } from "@privy-io/react-auth";
-import { WagmiProvider } from "@privy-io/wagmi";
+import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useDisconnect } from "wagmi";
 
+import { debugLog, useDebugValueChanges } from "../hooks/useDebugValueChanges";
+import { usePrivyWalletSelection } from "../hooks/usePrivyWalletSelection";
 import { APP_CHAINS, REQUIRED_CHAIN, config, queryClient } from "./config";
 
 export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -39,15 +42,86 @@ export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={config} reconnectOnMount={true}>
-          <ShieldedWalletProvider
-            config={config}
-            options={{ publicChain: REQUIRED_CHAIN, publicTransport }}
-          >
-            {children}
-          </ShieldedWalletProvider>
-        </WagmiProvider>
+        <PrivyBackedWagmiProvider publicTransport={publicTransport}>
+          {children}
+        </PrivyBackedWagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>
   );
 };
+
+function PrivyBackedWagmiProvider({
+  children,
+  publicTransport,
+}: React.PropsWithChildren<{
+  publicTransport: ReturnType<typeof http>;
+}>) {
+  return (
+    <WagmiProvider config={config} reconnectOnMount={false}>
+      <PrivyWalletSync />
+      <ShieldedWalletProvider
+        config={config}
+        options={{ publicChain: REQUIRED_CHAIN, publicTransport }}
+      >
+        {children}
+      </ShieldedWalletProvider>
+    </WagmiProvider>
+  );
+}
+
+function PrivyWalletSync() {
+  const { authenticated, preferredWallet, privyReady, user, walletsReady } =
+    usePrivyWalletSelection();
+  const { setActiveWallet } = useSetActiveWallet();
+  const { disconnect } = useDisconnect();
+  const lastSyncRef = useRef<string | null>(null);
+
+  useDebugValueChanges("PrivyWalletSync", {
+    authenticated,
+    privyReady,
+    walletsReady,
+    hasUser: !!user,
+    preferredWalletAddress: preferredWallet?.address?.toLowerCase() ?? null,
+    preferredWalletChainId: preferredWallet?.chainId ?? null,
+    lastSyncKey: lastSyncRef.current,
+  });
+
+  useEffect(() => {
+    if (!privyReady || !walletsReady) return;
+
+    if (!authenticated || !user) {
+      if (lastSyncRef.current === "disconnected") return;
+      lastSyncRef.current = "disconnected";
+      debugLog("PrivyWalletSync disconnect");
+      disconnect();
+      return;
+    }
+
+    if (!preferredWallet) {
+      lastSyncRef.current = null;
+      return;
+    }
+
+    const syncKey = `${preferredWallet.address.toLowerCase()}:${preferredWallet.chainId ?? "unknown"}`;
+    if (lastSyncRef.current === syncKey) return;
+    lastSyncRef.current = syncKey;
+    debugLog("PrivyWalletSync setActiveWallet", {
+      address: preferredWallet.address.toLowerCase(),
+      chainId: preferredWallet.chainId ?? null,
+    });
+
+    void setActiveWallet(preferredWallet).catch(() => {
+      lastSyncRef.current = null;
+    });
+  }, [
+    authenticated,
+    disconnect,
+    preferredWallet,
+    privyReady,
+    setActiveWallet,
+    user,
+    walletsReady,
+  ]);
+
+  return null;
+}
