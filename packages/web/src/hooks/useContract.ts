@@ -10,17 +10,19 @@ import { usePrivy } from "@privy-io/react-auth";
 
 import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
 import { debugLog, useDebugValueChanges } from "./useDebugValueChanges";
-import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+import { CONTRACT_ADDRESS, DEADLINE_DST_CORRECTION_SECONDS } from "../lib/constants";
 import { normalizeAddress } from "../lib/privyWallets";
 
 /**
- * Fetch the on-chain submission deadline once, falling back to the
- * hardcoded constant if the contract read fails (e.g. no wallet / not deployed).
+ * Fetch the on-chain submission deadline once. Returns `null` until the
+ * chain value is available. Applies the DST correction so the UI displays
+ * the intended 12:15 PM Eastern lock time (the on-chain value was computed
+ * with EST but March 19 falls in EDT).
  */
 function useSubmissionDeadline(
   mmPublic: MarchMadnessPublicClient | null,
-): number {
-  const [deadline, setDeadline] = useState<number>(SUBMISSION_DEADLINE);
+): number | null {
+  const [deadline, setDeadline] = useState<number | null>(null);
 
   useEffect(() => {
     if (!mmPublic) return;
@@ -28,10 +30,11 @@ function useSubmissionDeadline(
     mmPublic
       .getSubmissionDeadline()
       .then((val) => {
-        if (!cancelled) setDeadline(Number(val));
+        if (!cancelled)
+          setDeadline(Number(val) - DEADLINE_DST_CORRECTION_SECONDS);
       })
       .catch(() => {
-        // Contract might not be deployed yet — keep hardcoded fallback
+        // Contract might not be deployed yet
       });
     return () => {
       cancelled = true;
@@ -163,7 +166,10 @@ export function useContract() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const isBeforeDeadline = now / 1000 < submissionDeadline;
+  // Before we know the chain deadline, assume locked (safe default —
+  // prevents accidental submissions while the value loads).
+  const isBeforeDeadline =
+    submissionDeadline !== null ? now / 1000 < submissionDeadline : false;
 
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {

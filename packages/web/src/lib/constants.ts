@@ -4,8 +4,13 @@ import deployments from "@data/deployments.json";
 
 // ── Tournament season ────────────────────────────────────
 const YEAR = "2026";
-/** Unix timestamp for bracket lock: Thursday March 19, 2026 at 12:15 PM EST */
-export const SUBMISSION_DEADLINE = 1773940500;
+
+/**
+ * 2026: The on-chain deadline was computed with EST (UTC-5) but March 19 falls
+ * in EDT (UTC-4) due to DST. Subtract 1 hour so the UI shows the intended
+ * 12:15 PM Eastern lock time. Remove this for future years.
+ */
+export const DEADLINE_DST_CORRECTION_SECONDS = YEAR === "2026" ? 3600 : 0;
 
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? String(sanvil.id);
 
