@@ -289,7 +289,7 @@ export function SubmitPanel({
   // Desktop: compact horizontal bar
   return (
     <div className="bg-bg-secondary border border-border rounded-xl px-4 py-3 space-y-2">
-      {!isSessionHydrating && requiresChainSwitch && (
+      {requiresChainSwitch && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Switch your wallet to {requiredChainName} to submit. If the network
           is missing, we&apos;ll prompt MetaMask to add it first.
@@ -357,7 +357,7 @@ export function SubmitPanel({
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border whitespace-nowrap ${
               isBracketLoading
                 ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
-                : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+                : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50 cursor-pointer"
             }`}
           >
             {isBracketLoading ? "Loading..." : "Load my bracket"}
@@ -393,7 +393,7 @@ export function SubmitPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setResetOpen(true)}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap cursor-pointer"
             >
               Reset Picks
             </button>
@@ -413,43 +413,43 @@ export function SubmitPanel({
             />
             <button
               onClick={
-                isSessionHydrating
-                  ? undefined
-                  : !walletConnected
-                  ? login
-                  : requiresChainSwitch
-                    ? () => void onSwitchChain()
-                    : handleSubmit
+                requiresChainSwitch
+                  ? () => void onSwitchChain()
+                  : isSessionHydrating
+                    ? undefined
+                    : !walletConnected
+                      ? login
+                      : handleSubmit
               }
               disabled={
-                isSessionHydrating
-                  ? true
-                  : requiresChainSwitch
+                requiresChainSwitch
                   ? isSwitchingChain
-                  : walletConnected && (!isComplete || isLoading)
+                  : isSessionHydrating
+                    ? true
+                    : walletConnected && (!isComplete || isLoading)
               }
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                isSessionHydrating
-                  ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
-                  : !walletConnected
-                  ? "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
-                  : requiresChainSwitch
+                requiresChainSwitch
                   ? "bg-warning text-black hover:brightness-110 ring-2 ring-warning/30 cursor-pointer"
-                  : !isComplete
-                  ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
-                  : isLoading
-                    ? "bg-accent/50 text-white cursor-wait"
-                    : submitSuccess
-                      ? "bg-success text-white ring-2 ring-success/30 cursor-pointer"
-                      : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
+                  : isSessionHydrating
+                    ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
+                    : !walletConnected
+                      ? "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
+                      : !isComplete
+                        ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
+                        : isLoading
+                          ? "bg-accent/50 text-white cursor-wait"
+                          : submitSuccess
+                            ? "bg-success text-white ring-2 ring-success/30 cursor-pointer"
+                            : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
               }`}
             >
-              {isSessionHydrating
-                ? "Loading wallet..."
-                : requiresChainSwitch && walletConnected
+              {requiresChainSwitch
                 ? isSwitchingChain
                   ? `Switching to ${requiredChainName}...`
                   : `Switch to ${requiredChainName}`
+                : isSessionHydrating
+                ? "Loading wallet..."
                 : isLoading
                 ? "Submitting..."
                 : submitSuccess
@@ -551,7 +551,7 @@ function MobileSubmitPanel({
   const displayError = chainSwitchError ?? error;
   return (
     <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-4">
-      {!isSessionHydrating && requiresChainSwitch && (
+      {requiresChainSwitch && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Switch your wallet to {requiredChainName} to submit. If MetaMask
           doesn&apos;t have it yet, we&apos;ll ask to add it.
@@ -594,43 +594,43 @@ function MobileSubmitPanel({
       {!isLocked && (
         <button
           onClick={
-            isSessionHydrating
-              ? undefined
-              : !walletConnected
-              ? onLogin
-              : requiresChainSwitch
-                ? () => void onSwitchChain()
-                : onSubmit
+            requiresChainSwitch
+              ? () => void onSwitchChain()
+              : isSessionHydrating
+                ? undefined
+                : !walletConnected
+                  ? onLogin
+                  : onSubmit
           }
           disabled={
-            isSessionHydrating
-              ? true
-              : requiresChainSwitch
+            requiresChainSwitch
               ? isSwitchingChain
-              : walletConnected && (!isComplete || isLoading)
+              : isSessionHydrating
+                ? true
+                : walletConnected && (!isComplete || isLoading)
           }
           className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            isSessionHydrating
-              ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
-              : !walletConnected
-              ? "bg-accent text-white hover:bg-accent-hover cursor-pointer"
-              : requiresChainSwitch
+            requiresChainSwitch
               ? "bg-warning text-black cursor-pointer"
-              : !isComplete
-              ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
-              : isLoading
-                ? "bg-accent/50 text-white cursor-wait"
-                : submitSuccess
-                  ? "bg-success text-white"
-                  : "bg-accent text-white hover:bg-accent-hover"
+              : isSessionHydrating
+                ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
+                : !walletConnected
+                  ? "bg-accent text-white hover:bg-accent-hover cursor-pointer"
+                  : !isComplete
+                    ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
+                    : isLoading
+                      ? "bg-accent/50 text-white cursor-wait"
+                      : submitSuccess
+                        ? "bg-success text-white"
+                        : "bg-accent text-white hover:bg-accent-hover"
           }`}
         >
-          {isSessionHydrating
-            ? "Loading wallet..."
-            : requiresChainSwitch && walletConnected
+          {requiresChainSwitch
             ? isSwitchingChain
               ? `Switching to ${requiredChainName}...`
               : `Switch to ${requiredChainName}`
+            : isSessionHydrating
+            ? "Loading wallet..."
             : isLoading
               ? "Submitting..."
               : submitSuccess
@@ -653,7 +653,7 @@ function MobileSubmitPanel({
           className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all border ${
             isBracketLoading
               ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
-              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50 cursor-pointer"
           }`}
         >
           {isBracketLoading ? "Loading..." : "Load my bracket"}
@@ -677,7 +677,7 @@ function MobileSubmitPanel({
         <div>
           <button
             onClick={() => onResetOpen(true)}
-            className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+            className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors cursor-pointer"
           >
             Reset bracket
           </button>

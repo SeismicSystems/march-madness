@@ -97,7 +97,7 @@ export function Header() {
                 onClick={copyAddress}
                 type="button"
                 title="Copy address"
-                className="text-sm text-text-secondary font-mono hover:text-text-primary transition-colors"
+                className="cursor-pointer text-sm text-text-secondary font-mono hover:text-text-primary hover:underline decoration-dotted underline-offset-4 transition-colors"
               >
                 {copied ? "Copied!" : truncateAddress(address)}
               </button>
@@ -105,14 +105,14 @@ export function Header() {
             {authenticated ? (
               <button
                 onClick={logout}
-                className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors border border-border"
+                className="cursor-pointer px-4 py-2 text-sm rounded-lg bg-bg-tertiary text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors border border-border"
               >
                 Disconnect
               </button>
             ) : (
               <button
                 onClick={login}
-                className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium"
+                className="cursor-pointer px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium"
               >
                 Connect
               </button>
@@ -181,7 +181,7 @@ export function Header() {
                       copyAddress();
                       setTimeout(() => setMenuOpen(false), 1000);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-text-secondary font-mono hover:bg-bg-hover transition-colors"
+                    className="w-full cursor-pointer text-left px-4 py-2.5 text-sm text-text-secondary font-mono hover:bg-bg-hover transition-colors"
                   >
                     {copied ? "Copied!" : truncateAddress(address)}
                   </button>
@@ -201,7 +201,7 @@ export function Header() {
                       setMenuOpen(false);
                       logout();
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-danger hover:bg-bg-hover transition-colors"
+                    className="w-full cursor-pointer text-left px-4 py-2.5 text-sm text-danger hover:bg-bg-hover transition-colors"
                   >
                     Disconnect
                   </button>
@@ -211,7 +211,7 @@ export function Header() {
                       setMenuOpen(false);
                       login();
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-accent font-medium hover:bg-bg-hover transition-colors"
+                    className="w-full cursor-pointer text-left px-4 py-2.5 text-sm text-accent font-medium hover:bg-bg-hover transition-colors"
                   >
                     Connect
                   </button>
