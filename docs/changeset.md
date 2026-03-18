@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Move "Join a Group" above "Create a Group" on the Groups page. Highlight the join form with an accent border when arriving via an invite link (?slug=...&password=...), and auto-switch to the Join tab on mobile. Clear highlight and URL params after successful join.
+
+
 ### Leaderboard table → card layout
 
 - **web**: Replaced leaderboard `<table>` with full-width card list using `@fab-ui/card` (shadcn registry). Each entry is a horizontal card with rank, player, champion pick with ESPN team logo, forecast stats, and score.
