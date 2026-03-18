@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Reduce wallet/session useEffect churn
+
+- **Frontend**: Moved March Madness contract reads in `useContract()` onto React Query and replaced the per-hook deadline interval effect with a shared `useNow()` external-store clock.
+- **Frontend**: Simplified `useRequiredChain()` to a single imperative wallet-sync effect and converted chain-switch errors to wallet-keyed state instead of effect-driven resets.
+- **Frontend**: Folded bracket local-storage reset behavior into the existing hydration path so `useBracket()` no longer needs a separate reset effect.
+
 ### 2026-03-18 — Stabilize Privy embedded wallet session sync (#186)
 
 - **Wallet UX**: Unified Privy wallet selection logic across the app so embedded-wallet sessions consistently prefer the Privy-managed wallet over linked external wallets during refresh, chain sync, and logout.
