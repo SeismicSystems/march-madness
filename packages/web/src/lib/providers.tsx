@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { ShieldedWalletProvider } from "seismic-react";
 import { http } from "viem";
 
@@ -6,14 +6,30 @@ import {
   PrivyProvider,
   useActiveWallet,
   usePrivy,
+  useWallets,
   type ConnectedWallet,
 } from "@privy-io/react-auth";
-import { WagmiProvider } from "@privy-io/wagmi";
+import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useDisconnect } from "wagmi";
 
 import { APP_CHAINS, REQUIRED_CHAIN, config, queryClient } from "./config";
 
 const normalizeAddress = (address?: string | null) => address?.toLowerCase();
+
+const findWalletByAddress = (
+  wallets: ConnectedWallet[],
+  address?: string | null,
+): ConnectedWallet | null => {
+  const normalizedAddress = normalizeAddress(address);
+  if (!normalizedAddress) return null;
+
+  return (
+    wallets.find(
+      (wallet) => normalizeAddress(wallet.address) === normalizedAddress,
+    ) ?? null
+  );
+};
 
 const isPrivyManagedWallet = (
   wallet?: {
@@ -81,51 +97,9 @@ function PrivyBackedWagmiProvider({
 }: React.PropsWithChildren<{
   publicTransport: ReturnType<typeof http>;
 }>) {
-  const { user } = usePrivy();
-  const { wallet: privyActiveWallet } = useActiveWallet();
-
-  const pickActiveWalletForWagmi = useCallback(
-    ({ wallets }: { wallets: ConnectedWallet[] }) => {
-      const activeAddress =
-        privyActiveWallet?.type === "ethereum"
-          ? normalizeAddress(privyActiveWallet.address)
-          : null;
-      const activeWallet = activeAddress
-        ? wallets.find(
-            (wallet) => normalizeAddress(wallet.address) === activeAddress,
-          )
-        : undefined;
-      if (activeWallet) return activeWallet;
-
-      const embeddedWalletAddresses =
-        getEmbeddedWalletAddresses(user?.linkedAccounts).map(normalizeAddress);
-      const embeddedWallet = embeddedWalletAddresses
-        .map((address: string | undefined) =>
-          wallets.find((wallet) => normalizeAddress(wallet.address) === address),
-        )
-        .find((wallet): wallet is ConnectedWallet => !!wallet);
-      if (embeddedWallet) return embeddedWallet;
-
-      const anyEmbeddedWallet = wallets.find(isPrivyManagedWallet);
-      if (anyEmbeddedWallet) return anyEmbeddedWallet;
-
-      const verifiedAddress = normalizeAddress(user?.wallet?.address);
-      const verifiedWallet = verifiedAddress
-        ? wallets.find(
-            (wallet) => normalizeAddress(wallet.address) === verifiedAddress,
-          )
-        : undefined;
-      return verifiedWallet ?? wallets[0];
-    },
-    [privyActiveWallet, user?.linkedAccounts, user?.wallet?.address],
-  );
-
   return (
-    <WagmiProvider
-      config={config}
-      reconnectOnMount={true}
-      setActiveWalletForWagmi={pickActiveWalletForWagmi}
-    >
+    <WagmiProvider config={config} reconnectOnMount={false}>
+      <PrivyWalletSync />
       <ShieldedWalletProvider
         config={config}
         options={{ publicChain: REQUIRED_CHAIN, publicTransport }}
@@ -134,4 +108,76 @@ function PrivyBackedWagmiProvider({
       </ShieldedWalletProvider>
     </WagmiProvider>
   );
+}
+
+function PrivyWalletSync() {
+  const { authenticated, ready: privyReady, user } = usePrivy();
+  const { wallet: privyActiveWallet } = useActiveWallet();
+  const { ready: walletsReady, wallets } = useWallets();
+  const { setActiveWallet } = useSetActiveWallet();
+  const { disconnect } = useDisconnect();
+  const lastSyncRef = useRef<string | null>(null);
+
+  const preferredWallet = useMemo(() => {
+    if (!privyReady || !walletsReady || !authenticated || !user) {
+      return null;
+    }
+
+    if (privyActiveWallet?.type === "ethereum") {
+      const activeWallet = findWalletByAddress(wallets, privyActiveWallet.address);
+      if (activeWallet) return activeWallet;
+    }
+
+    const embeddedWalletAddresses = getEmbeddedWalletAddresses(user.linkedAccounts);
+    for (const address of embeddedWalletAddresses) {
+      const embeddedWallet = findWalletByAddress(wallets, address);
+      if (embeddedWallet) return embeddedWallet;
+    }
+
+    const anyEmbeddedWallet = wallets.find(isPrivyManagedWallet);
+    if (anyEmbeddedWallet) return anyEmbeddedWallet;
+
+    return findWalletByAddress(wallets, user.wallet?.address);
+  }, [
+    authenticated,
+    privyActiveWallet,
+    privyReady,
+    user,
+    wallets,
+    walletsReady,
+  ]);
+
+  useEffect(() => {
+    if (!privyReady || !walletsReady) return;
+
+    if (!authenticated || !user) {
+      if (lastSyncRef.current === "disconnected") return;
+      lastSyncRef.current = "disconnected";
+      disconnect();
+      return;
+    }
+
+    if (!preferredWallet) {
+      lastSyncRef.current = null;
+      return;
+    }
+
+    const syncKey = `${preferredWallet.address.toLowerCase()}:${preferredWallet.chainId ?? "unknown"}`;
+    if (lastSyncRef.current === syncKey) return;
+    lastSyncRef.current = syncKey;
+
+    void setActiveWallet(preferredWallet).catch(() => {
+      lastSyncRef.current = null;
+    });
+  }, [
+    authenticated,
+    disconnect,
+    preferredWallet,
+    privyReady,
+    setActiveWallet,
+    user,
+    walletsReady,
+  ]);
+
+  return null;
 }

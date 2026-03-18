@@ -16,7 +16,7 @@ export function HomePage() {
   const { authenticated } = usePrivy();
   const contract = useContract();
   const requiredChain = useRequiredChain();
-  const bracket = useBracket(contract.walletAddress);
+  const bracket = useBracket(contract.walletAddress, !contract.isSessionHydrating);
   const { status: tournamentStatus } = useTournamentStatus();
   const { totalEntries, loading: statsLoading, error: statsError } = useStats();
   const isMobile = useIsMobile();
