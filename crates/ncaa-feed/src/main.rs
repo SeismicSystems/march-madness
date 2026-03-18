@@ -1,33 +1,30 @@
-//! `ncaa-feed` — polls NCAA basketball scores and writes tournament-status.json.
+//! `ncaa-feed` — polls NCAA basketball scores and writes tournament status to Redis.
 
 mod feed;
 mod mapper;
 mod writer;
 
-use std::path::{Path, PathBuf};
-
 use clap::Parser;
 use eyre::{Context, Result};
 use ncaa_api::{ContestDate, NcaaClient, SportCode, fetch_schedule, fetch_scoreboard};
+use redis::aio::MultiplexedConnection;
+use seismic_march_madness::redis_keys::DEFAULT_REDIS_URL;
 use tracing::{error, info, warn};
 
 use crate::feed::{FeedPhase, FeedState};
 use crate::mapper::GameMapper;
 
 #[derive(Parser)]
-#[command(
-    name = "ncaa-feed",
-    about = "NCAA live score feed → tournament-status.json"
-)]
+#[command(name = "ncaa-feed", about = "NCAA live score feed → Redis (mm:games)")]
 struct Cli {
     /// Path to tournament.json (team names → bracket positions derived from array index).
     /// If not specified, uses embedded 2026 tournament data.
     #[arg(long)]
-    tournament_file: Option<PathBuf>,
+    tournament_file: Option<std::path::PathBuf>,
 
-    /// Path to write tournament status JSON.
-    #[arg(long, default_value = "data/2026/men/status.json")]
-    output_file: PathBuf,
+    /// Redis URL.
+    #[arg(long, env = "REDIS_URL", default_value = DEFAULT_REDIS_URL)]
+    redis_url: String,
 
     /// Max NCAA API requests per second (must be < 5.0).
     #[arg(long, default_value = "1.0")]
@@ -57,6 +54,15 @@ async fn main() -> Result<()> {
     let sport: SportCode = cli.sport.parse().map_err(|e: String| eyre::eyre!(e))?;
     let client = NcaaClient::new(cli.requests_per_sec).map_err(|e| eyre::eyre!("{e}"))?;
 
+    // Connect to Redis.
+    let redis_client = redis::Client::open(cli.redis_url.as_str())
+        .wrap_err_with(|| format!("failed to create Redis client from {}", cli.redis_url))?;
+    let mut conn = redis_client
+        .get_multiplexed_async_connection()
+        .await
+        .wrap_err("failed to connect to Redis")?;
+    info!("connected to Redis");
+
     // Load NCAA name → bracket position mappings.
     let mut mapper = match &cli.tournament_file {
         Some(path) => {
@@ -69,21 +75,15 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Load existing tournament status to resume from (e.g. after restart).
-    let existing_status: Option<seismic_march_madness::TournamentStatus> =
-        std::fs::read_to_string(&cli.output_file)
-            .ok()
-            .and_then(|json| {
-                serde_json::from_str(&json)
-                    .inspect_err(|e| warn!("failed to parse existing status: {e}"))
-                    .ok()
-            });
+    // Load existing tournament status from Redis to resume from (e.g. after restart).
+    let existing_status = writer::read_tournament_status(&mut conn)
+        .await
+        .inspect_err(|e| warn!("failed to read existing status from Redis: {e}"))
+        .ok()
+        .flatten();
 
     if existing_status.is_some() {
-        info!(
-            "resuming from existing status ({})",
-            cli.output_file.display()
-        );
+        info!("resuming from existing status in Redis");
     }
 
     // Seed mapper with existing final results.
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
 
                 if changes > 0 || state.dirty {
                     info!("{changes} game(s) changed");
-                    publish_status(&state, &cli.output_file);
+                    publish_status(&state, &mut conn).await;
                     state.mark_clean();
                 }
             }
@@ -125,7 +125,7 @@ async fn main() -> Result<()> {
         match phase {
             FeedPhase::Complete => {
                 info!("all 63 games are final — tournament complete!");
-                publish_status(&state, &cli.output_file);
+                publish_status(&state, &mut conn).await;
                 break;
             }
             _ => {
@@ -138,10 +138,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Write tournament status to file.
-fn publish_status(state: &FeedState, output_file: &Path) {
+/// Write tournament status to Redis.
+async fn publish_status(state: &FeedState, conn: &mut MultiplexedConnection) {
     let status = state.to_tournament_status();
-    if let Err(e) = writer::write_tournament_status(output_file, &status) {
+    if let Err(e) = writer::write_tournament_status(conn, &status).await {
         error!("failed to write status: {e}");
     }
 }

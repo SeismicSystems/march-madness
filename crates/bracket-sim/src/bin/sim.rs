@@ -8,6 +8,7 @@ use bracket_sim::{DEFAULT_PACE_D, Tournament, load_teams_for_year};
 use clap::Parser;
 use tracing::info;
 
+use seismic_march_madness::redis_keys::{DEFAULT_REDIS_URL, KEY_GAMES};
 use seismic_march_madness::{
     GameState, TournamentData, TournamentStatus, build_reach_probs, get_teams_in_bracket_order,
     run_team_advance_simulations_with_resolver,
@@ -35,11 +36,14 @@ struct SimArgs {
     #[arg(long, default_value_t = DEFAULT_PACE_D)]
     pace_d: f64,
 
-    /// Condition on live/decided game state from a status JSON file.
-    /// Pass --status alone to use the default (data/{year}/men/status.json),
-    /// or --status <path> for a custom file. Omit to simulate from scratch.
-    #[arg(long = "status", num_args = 0..=1, default_missing_value = "")]
-    status: Option<String>,
+    /// Condition on live tournament status from Redis.
+    #[arg(long)]
+    live: bool,
+
+    /// Condition on game state from a status JSON file.
+    /// Omit both --live and --status to simulate from scratch.
+    #[arg(long = "status")]
+    status: Option<PathBuf>,
 }
 
 fn print_table(
@@ -78,6 +82,7 @@ fn print_table(
 }
 
 fn main() -> io::Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -99,30 +104,43 @@ fn main() -> io::Result<()> {
     let tournament_data = TournamentData::embedded(args.year);
     let team_names = get_teams_in_bracket_order(&tournament_data);
 
-    let status_path = args.status.as_ref().map(|s| {
-        if s.is_empty() {
-            PathBuf::from(format!("data/{}/men/status.json", args.year))
-        } else {
-            PathBuf::from(s)
-        }
-    });
-
-    if let Some(status_path) = &status_path {
-        // Conditioned mode: use forward sim with status file
+    // Load tournament status: --live (Redis), --status <path> (file), or none (unconditioned)
+    let status: Option<TournamentStatus> = if args.live {
+        let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
+        let client = redis::Client::open(url.as_str()).map_err(io::Error::other)?;
+        let mut conn = client.get_connection().map_err(io::Error::other)?;
+        let json: Option<String> =
+            redis::Commands::get(&mut conn, KEY_GAMES).map_err(io::Error::other)?;
+        let json = json.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("no tournament status in Redis (key: {KEY_GAMES})"),
+            )
+        })?;
+        info!("loaded tournament status from Redis");
+        Some(serde_json::from_str(&json).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidData, format!("Redis status: {e}"))
+        })?)
+    } else if let Some(status_path) = &args.status {
         let status_str = std::fs::read_to_string(status_path)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", status_path.display(), e)))?;
-        let status: TournamentStatus = serde_json::from_str(&status_str).map_err(|e| {
+        info!("loaded tournament status from {}", status_path.display());
+        Some(serde_json::from_str(&status_str).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("{}: {}", status_path.display(), e),
             )
-        })?;
+        })?)
+    } else {
+        None
+    };
 
+    if let Some(ref status) = status {
         info!(
             year = args.year,
             n_sims = args.n_sims,
             pace_d = args.pace_d,
-            "conditioned simulation (status file)"
+            "conditioned simulation"
         );
 
         // Build resolver for live games
@@ -142,7 +160,7 @@ fn main() -> io::Result<()> {
         // Build reach probs: use status file's if present, otherwise compute from full tournament sim
         let reach = if let Some(reach_map) = &status.team_reach_probabilities {
             if !reach_map.is_empty() {
-                info!("using reach probs from status file");
+                info!("using reach probs from status");
                 build_reach_probs(&team_names, reach_map)
             } else {
                 compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
@@ -152,7 +170,7 @@ fn main() -> io::Result<()> {
         };
 
         let results = run_team_advance_simulations_with_resolver(
-            &status,
+            status,
             &reach,
             args.n_sims as u32,
             resolver_opt,

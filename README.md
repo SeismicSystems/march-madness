@@ -60,7 +60,7 @@ Two separate contracts for side pools alongside the main contest:
 | Server | Rust (HTTP, serves indexed data + tournament status + forecasts) |
 | Forecaster | Rust (Monte Carlo bracket win probability simulator) |
 | Calibrator | Rust (goose fitting via market-making loss against Kalshi orderbooks) |
-| NCAA Feed | Rust (live score polling → tournament-status.json) |
+| NCAA Feed | Rust (live score polling → Redis) |
 
 ## Pages
 
@@ -97,7 +97,7 @@ crates/
   forecaster/       — Monte Carlo win probability simulator
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
-data/               — Tournament data, seed configs, tournament-status.json
+data/               — Tournament data, seed configs
 docs/               — Technical docs, changeset log, prompt archive
 ```
 

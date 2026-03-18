@@ -34,7 +34,7 @@
 - **indexer**: Listens for on-chain events (MarchMadness, BracketGroups, BracketMirror), writes to Redis
 - **server**: Serves indexed data from Redis + file-based tournament status/forecasts via HTTP
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
-- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes `data/{year}/men/status.json`. Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
+- **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament status to Redis (`mm:games` key). Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
 
 ## Architecture
 
@@ -53,7 +53,7 @@ crates/
   forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
-data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, status.json, mappings/)
+data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
 deploy/             — Production deploy configs (nginx, supervisor, README)
@@ -152,7 +152,7 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 
 ## Server API
 
-Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from Redis; tournament status and forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
+Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and tournament status from Redis; forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
 - `GET /entries` — full entry index (from Redis)
 - `GET /entries/:address` — single entry by address
 - `GET /stats` — total entries + scored count
@@ -162,7 +162,7 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata from
 - `GET /mirrors` — list all mirrors (from Redis)
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
-- `GET /tournament-status` — tournament status JSON (from `data/{year}/men/status.json`, TTL cached)
+- `GET /tournament-status` — tournament status JSON (from Redis `mm:games` key)
 - `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
 - `GET /health` — health check
 
