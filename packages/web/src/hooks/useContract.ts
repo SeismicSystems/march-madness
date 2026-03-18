@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useShieldedWallet } from "seismic-react";
 import { formatEther } from "viem";
 
@@ -7,39 +7,76 @@ import {
   MarchMadnessUserClient,
 } from "@march-madness/client";
 import { usePrivy } from "@privy-io/react-auth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useNow } from "./useNow";
 import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
 import { debugLog, useDebugValueChanges } from "./useDebugValueChanges";
-import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+import { CONTRACT_ADDRESS } from "../lib/constants";
 import { normalizeAddress } from "../lib/privyWallets";
 
-/**
- * Fetch the on-chain submission deadline once, falling back to the
- * hardcoded constant if the contract read fails (e.g. no wallet / not deployed).
- */
-function useSubmissionDeadline(
-  mmPublic: MarchMadnessPublicClient | null,
-): number {
-  const [deadline, setDeadline] = useState<number>(SUBMISSION_DEADLINE);
+const contractQueryKeys = {
+  balance: (chainId: number | null, walletKey: string | null) =>
+    ["marchMadness", "balance", chainId, walletKey] as const,
+  entryCount: (chainId: number | null) =>
+    ["marchMadness", "entryCount", chainId] as const,
+  entryFee: (chainId: number | null) =>
+    ["marchMadness", "entryFee", chainId] as const,
+  hasEntry: (chainId: number | null, walletKey: string | null) =>
+    ["marchMadness", "hasEntry", chainId, walletKey] as const,
+  submissionDeadline: (chainId: number | null) =>
+    ["marchMadness", "submissionDeadline", chainId] as const,
+};
 
-  useEffect(() => {
-    if (!mmPublic) return;
-    let cancelled = false;
-    mmPublic
-      .getSubmissionDeadline()
-      .then((val) => {
-        if (!cancelled) setDeadline(Number(val));
-      })
-      .catch(() => {
-        // Contract might not be deployed yet — keep hardcoded fallback
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mmPublic]);
+const stringify = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
 
-  return deadline;
-}
+const extractErrorMessage = (err: unknown, fallback: string): string => {
+  if (!err) return fallback;
+  const parts: string[] = [];
+  let current: unknown = err;
+
+  for (let i = 0; i < 8 && current; i++) {
+    if (current instanceof Error) {
+      const error = current as Error & {
+        cause?: unknown;
+        details?: unknown;
+        shortMessage?: unknown;
+      };
+      if (error.shortMessage) parts.push(stringify(error.shortMessage));
+      else if (error.message) parts.push(error.message);
+      if (error.details) parts.push(`details: ${stringify(error.details)}`);
+      current = error.cause;
+      continue;
+    }
+
+    if (typeof current === "object" && current !== null) {
+      const value = current as Record<string, unknown>;
+      if (value.shortMessage) parts.push(stringify(value.shortMessage));
+      else if (value.message) parts.push(stringify(value.message));
+      if (value.details) parts.push(`details: ${stringify(value.details)}`);
+      if (!value.shortMessage && !value.message && !value.details) {
+        parts.push(stringify(value));
+      }
+      current = value.cause;
+      continue;
+    }
+
+    parts.push(stringify(current));
+    break;
+  }
+
+  const deduped = parts.filter((message, index) => {
+    return index === 0 || message !== parts[index - 1];
+  });
+  return deduped.join(" -> ") || fallback;
+};
 
 /**
  * Hook for interacting with the MarchMadness contract.
@@ -52,9 +89,13 @@ export function useContract() {
   const { authenticated } = usePrivy();
   const { preferredWalletAddress, privyReady, walletsReady } =
     usePrivyWalletSelection();
-  const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
-    useShieldedWallet();
-  const [entryCount, setEntryCount] = useState<number>(0);
+  const {
+    walletClient,
+    publicClient,
+    loaded: shieldedLoaded,
+    error: shieldedError,
+  } = useShieldedWallet();
+  const queryClient = useQueryClient();
   const [hasSubmittedState, setHasSubmittedState] = useState<{
     owner: string | null;
     value: boolean;
@@ -66,50 +107,6 @@ export function useContract() {
   const [isLoading, setIsLoading] = useState(false);
   const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [balanceState, setBalanceState] = useState<{
-    owner: string | null;
-    value: bigint | null;
-  }>({ owner: null, value: null });
-  const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
-  const [resolvedEntryStateOwner, setResolvedEntryStateOwner] = useState<string | null>(null);
-  const [resolvedBalanceOwner, setResolvedBalanceOwner] = useState<string | null>(null);
-
-  // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
-  // Returns all messages in the cause chain so we can debug on mobile.
-  // Serializes objects to JSON so we never get "[object Object]".
-  const stringify = (v: unknown): string => {
-    if (typeof v === "string") return v;
-    try { return JSON.stringify(v); } catch { return String(v); }
-  };
-  const extractErrorMessage = (err: unknown, fallback: string): string => {
-    if (!err) return fallback;
-    const parts: string[] = [];
-    let current: unknown = err;
-    for (let i = 0; i < 8 && current; i++) {
-      if (current instanceof Error) {
-        const e = current as Error & { shortMessage?: unknown; details?: unknown; cause?: unknown };
-        if (e.shortMessage) parts.push(stringify(e.shortMessage));
-        else if (e.message) parts.push(e.message);
-        if (e.details) parts.push(`details: ${stringify(e.details)}`);
-        current = e.cause;
-      } else if (typeof current === "object" && current !== null) {
-        const obj = current as Record<string, unknown>;
-        if (obj.shortMessage) parts.push(stringify(obj.shortMessage));
-        else if (obj.message) parts.push(stringify(obj.message));
-        if (obj.details) parts.push(`details: ${stringify(obj.details)}`);
-        if (!obj.shortMessage && !obj.message && !obj.details) {
-          parts.push(stringify(obj));
-        }
-        current = obj.cause;
-      } else {
-        parts.push(stringify(current));
-        break;
-      }
-    }
-    // Deduplicate consecutive identical messages
-    const deduped = parts.filter((m, i) => i === 0 || m !== parts[i - 1]);
-    return deduped.join(" → ") || fallback;
-  };
 
   const rawWalletAddress = authenticated
     ? (walletClient?.account?.address ?? null)
@@ -120,109 +117,81 @@ export function useContract() {
       ? rawWalletAddress
       : null;
   const walletKey = walletAddress?.toLowerCase() ?? null;
-  const hasSubmitted =
-    walletKey && hasSubmittedState.owner === walletKey
-      ? hasSubmittedState.value
-      : false;
   const existingBracket =
     walletKey && existingBracketState.owner === walletKey
       ? existingBracketState.value
       : null;
-  const balance =
-    walletKey && balanceState.owner === walletKey
-      ? balanceState.value
-      : null;
-  const hasResolvedEntryState =
-    !authenticated ||
-    (walletKey !== null && resolvedEntryStateOwner === walletKey);
-  const hasResolvedBalance =
-    !authenticated ||
-    (walletKey !== null && resolvedBalanceOwner === walletKey);
 
-  // Construct client library instances from seismic-react wallet/public clients
   const mmPublic = useMemo(() => {
     if (!publicClient) return null;
     return new MarchMadnessPublicClient(publicClient, CONTRACT_ADDRESS);
   }, [publicClient]);
-
   const mmUser = useMemo(() => {
-    if (!authenticated || !publicClient || !walletClient || !walletAddress) return null;
+    if (!authenticated || !publicClient || !walletClient || !walletAddress) {
+      return null;
+    }
+
     return new MarchMadnessUserClient(
       publicClient,
       walletClient,
       CONTRACT_ADDRESS,
     );
   }, [authenticated, publicClient, walletAddress, walletClient]);
+  const chainId = publicClient?.chain?.id ?? null;
+  const now = useNow();
 
-  // On-chain deadline (seconds), with hardcoded fallback
-  const submissionDeadline = useSubmissionDeadline(mmPublic);
+  const { data: submissionDeadline = null } = useQuery({
+    queryKey: contractQueryKeys.submissionDeadline(chainId),
+    enabled: !!mmPublic,
+    queryFn: async () => Number(await mmPublic!.getSubmissionDeadline()),
+    staleTime: Infinity,
+  });
+  const {
+    data: entryCount = 0,
+    refetch: refetchEntryCount,
+  } = useQuery({
+    queryKey: contractQueryKeys.entryCount(chainId),
+    enabled: !!mmPublic,
+    queryFn: async () => Number(await mmPublic!.getEntryCount()),
+    initialData: 0,
+  });
+  const {
+    data: entryFeeDisplay = null,
+  } = useQuery({
+    queryKey: contractQueryKeys.entryFee(chainId),
+    enabled: !!mmPublic,
+    queryFn: async () => `${formatEther(await mmPublic!.getEntryFee())} testnet ETH`,
+    staleTime: Infinity,
+  });
+  const hasEntryQuery = useQuery({
+    queryKey: contractQueryKeys.hasEntry(chainId, walletKey),
+    enabled: !!mmPublic && !!walletAddress && !!walletKey,
+    queryFn: async () => await mmPublic!.getHasEntry(walletAddress!),
+    retry: false,
+  });
+  const balanceQuery = useQuery({
+    queryKey: contractQueryKeys.balance(chainId, walletKey),
+    enabled: !!publicClient && !!walletAddress && !!walletKey,
+    queryFn: async () => await publicClient!.getBalance({ address: walletAddress! }),
+    retry: false,
+  });
 
-  // Reactive: recalculate every second so the UI transitions at the right moment
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const isBeforeDeadline = now / 1000 < submissionDeadline;
-
-  // Fetch entry count
+  const hasSubmitted =
+    walletKey && hasSubmittedState.owner === walletKey
+      ? hasSubmittedState.value
+      : hasEntryQuery.data ?? false;
+  const balance = balanceQuery.data ?? null;
+  const hasResolvedEntryState =
+    !authenticated || (walletKey !== null && hasEntryQuery.isFetched);
+  const hasResolvedBalance =
+    !authenticated || (walletKey !== null && balanceQuery.isFetched);
+  const isBeforeDeadline =
+    submissionDeadline !== null && now / 1000 < submissionDeadline;
   const fetchEntryCount = useCallback(async () => {
-    if (!mmPublic) return;
-    try {
-      const count = await mmPublic.getEntryCount();
-      setEntryCount(Number(count));
-    } catch {
-      // Contract might not be deployed yet
-    }
-  }, [mmPublic]);
-
-  // Check if user has submitted (public read — no signing needed)
-  const checkHasEntry = useCallback(async () => {
-    if (!mmPublic || !walletAddress || !walletKey) {
-      return;
-    }
-    try {
-      const has = await mmPublic.getHasEntry(walletAddress);
-      setHasSubmittedState({ owner: walletKey, value: has });
-    } catch {
-      // Contract might not be deployed yet
-    } finally {
-      setResolvedEntryStateOwner(walletKey);
-    }
-  }, [mmPublic, walletAddress, walletKey]);
-
-  // Fetch entry fee from contract
-  const fetchEntryFee = useCallback(async () => {
-    if (!mmPublic) return;
-    try {
-      const fee = await mmPublic.getEntryFee();
-      setEntryFeeDisplay(`${formatEther(fee)} testnet ETH`);
-    } catch {
-      // Contract might not be deployed yet
-    }
-  }, [mmPublic]);
-
-  // Fetch wallet ETH balance
-  const fetchBalance = useCallback(async () => {
-    if (!publicClient || !walletAddress || !walletKey) {
-      return;
-    }
-    try {
-      const bal = await publicClient.getBalance({ address: walletAddress });
-      setBalanceState({ owner: walletKey, value: bal });
-    } catch {
-      // ignore
-    } finally {
-      setResolvedBalanceOwner(walletKey);
-    }
-  }, [publicClient, walletAddress, walletKey]);
-
-  useEffect(() => {
-    fetchEntryCount();
-    checkHasEntry();
-    fetchBalance();
-    fetchEntryFee();
-  }, [fetchEntryCount, checkHasEntry, fetchBalance, fetchEntryFee]);
+    await refetchEntryCount();
+  }, [refetchEntryCount]);
+  const refetchHasEntry = hasEntryQuery.refetch;
+  const refetchBalance = balanceQuery.refetch;
 
   const isSessionHydrating =
     !privyReady ||
@@ -287,12 +256,12 @@ export function useContract() {
         walletAddress: normalizeAddress(walletAddress),
       });
     } catch (err) {
-      const msg = extractErrorMessage(err, "Failed to load bracket");
+      const message = extractErrorMessage(err, "Failed to load bracket");
       debugLog("useContract loadMyBracket error", {
         walletAddress: normalizeAddress(walletAddress),
-        error: msg,
+        error: message,
       });
-      setError(msg);
+      setError(message);
       throw err;
     } finally {
       setIsBracketLoading(false);
@@ -300,7 +269,6 @@ export function useContract() {
     return null;
   }, [
     authenticated,
-    extractErrorMessage,
     mmUser,
     preferredWalletAddress,
     rawWalletAddress,
@@ -313,7 +281,9 @@ export function useContract() {
   const submitBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
       if (!mmUser) {
-        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        setError(
+          "Wallet not connected - please wait for your wallet to initialize or try reconnecting.",
+        );
         return;
       }
       setIsLoading(true);
@@ -324,26 +294,43 @@ export function useContract() {
         if (walletKey) {
           setHasSubmittedState({ owner: walletKey, value: true });
           setExistingBracketState({ owner: walletKey, value: bracketHex });
+          queryClient.setQueryData(
+            contractQueryKeys.hasEntry(chainId, walletKey),
+            true,
+          );
         }
-        await fetchEntryCount();
-        await fetchBalance();
+        await Promise.allSettled([
+          refetchEntryCount(),
+          refetchHasEntry(),
+          refetchBalance(),
+        ]);
         return hash;
       } catch (err) {
-        const msg = extractErrorMessage(err, "Failed to submit bracket");
-        setError(msg);
+        const message = extractErrorMessage(err, "Failed to submit bracket");
+        setError(message);
         throw err;
       } finally {
         setIsLoading(false);
       }
     },
-    [mmUser, fetchEntryCount, fetchBalance, walletKey],
+    [
+      chainId,
+      mmUser,
+      queryClient,
+      refetchBalance,
+      refetchEntryCount,
+      refetchHasEntry,
+      walletKey,
+    ],
   );
 
   // Update bracket (shielded write, no additional fee)
   const updateBracket = useCallback(
     async (bracketHex: `0x${string}`) => {
       if (!mmUser) {
-        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        setError(
+          "Wallet not connected - please wait for your wallet to initialize or try reconnecting.",
+        );
         return;
       }
       setIsLoading(true);
@@ -356,8 +343,8 @@ export function useContract() {
         }
         return hash;
       } catch (err) {
-        const msg = extractErrorMessage(err, "Failed to update bracket");
-        setError(msg);
+        const message = extractErrorMessage(err, "Failed to update bracket");
+        setError(message);
         throw err;
       } finally {
         setIsLoading(false);
@@ -370,7 +357,9 @@ export function useContract() {
   const setTag = useCallback(
     async (tag: string) => {
       if (!mmUser) {
-        setError("Wallet not connected — please wait for your wallet to initialize or try reconnecting.");
+        setError(
+          "Wallet not connected - please wait for your wallet to initialize or try reconnecting.",
+        );
         return;
       }
       setIsLoading(true);
@@ -380,8 +369,8 @@ export function useContract() {
         const hash = await mmUser.setTag(tag);
         return hash;
       } catch (err) {
-        const msg = extractErrorMessage(err, "Failed to set tag");
-        setError(msg);
+        const message = extractErrorMessage(err, "Failed to set tag");
+        setError(message);
         throw err;
       } finally {
         setIsLoading(false);

@@ -100,9 +100,11 @@ export function useRequiredChain() {
   const { setActiveWallet } = useSetActiveWallet();
   const { address, chainId: wagmiChainId } = useAccount();
   const [isSwitching, setIsSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [switchErrorState, setSwitchErrorState] = useState<{
+    key: string | null;
+    message: string | null;
+  }>({ key: null, message: null });
   const lastWalletSyncRef = useRef<string | null>(null);
-  const lastSyncedWalletRef = useRef<string | null>(null);
 
   const wagmiWallet = useMemo(
     () => findWalletByAddress(wallets, address),
@@ -126,6 +128,9 @@ export function useRequiredChain() {
     activeChainId !== undefined &&
     activeChainId !== null &&
     !isOnRequiredChain;
+  const switchErrorKey = `${normalizeAddress(activeWallet?.address) ?? "none"}:${activeWallet?.chainId ?? "none"}:${wagmiChainId ?? "none"}`;
+  const switchError =
+    switchErrorState.key === switchErrorKey ? switchErrorState.message : null;
 
   useDebugValueChanges("useRequiredChain", {
     authenticated,
@@ -142,16 +147,23 @@ export function useRequiredChain() {
   });
 
   useEffect(() => {
-    if (!authenticated || !walletsReady || !activeWallet) return;
-
-    const activeWalletAddress = normalizeAddress(activeWallet.address);
-    const wagmiAddress = normalizeAddress(address);
-    if (!activeWalletAddress || activeWalletAddress === wagmiAddress) {
+    const activeWalletAddress = normalizeAddress(activeWallet?.address);
+    if (!authenticated || !walletsReady || !activeWallet || !activeWalletAddress) {
       lastWalletSyncRef.current = null;
       return;
     }
 
-    const syncKey = `${activeWalletAddress}:${activeChainId ?? "unknown"}`;
+    const wagmiAddress = normalizeAddress(address);
+    const addressMismatch = activeWalletAddress !== wagmiAddress;
+    const needsRequiredChainResync =
+      isExternalActiveWallet && activeChainId === REQUIRED_CHAIN.id;
+
+    if (!addressMismatch && !needsRequiredChainResync) {
+      lastWalletSyncRef.current = null;
+      return;
+    }
+
+    const syncKey = `${addressMismatch ? "align" : "required-chain"}:${activeWalletAddress}:${activeChainId ?? "unknown"}`;
     if (lastWalletSyncRef.current === syncKey) return;
     lastWalletSyncRef.current = syncKey;
 
@@ -163,26 +175,10 @@ export function useRequiredChain() {
     activeWallet,
     address,
     authenticated,
+    isExternalActiveWallet,
     walletsReady,
     setActiveWallet,
   ]);
-
-  useEffect(() => {
-    if (!isExternalActiveWallet || !activeWallet) return;
-    if (activeChainId !== REQUIRED_CHAIN.id) return;
-
-    const syncKey = `${activeWallet.address.toLowerCase()}:${activeChainId}`;
-    if (lastSyncedWalletRef.current === syncKey) return;
-    lastSyncedWalletRef.current = syncKey;
-
-    void setActiveWallet(activeWallet).catch(() => {
-      lastSyncedWalletRef.current = null;
-    });
-  }, [activeChainId, activeWallet, isExternalActiveWallet, setActiveWallet]);
-
-  useEffect(() => {
-    setSwitchError(null);
-  }, [activeWallet?.address, activeWallet?.chainId, wagmiChainId]);
 
   const switchToRequiredChain = useCallback(async () => {
     if (!activeWallet || !isExternalActiveWallet) {
@@ -190,25 +186,26 @@ export function useRequiredChain() {
     }
 
     setIsSwitching(true);
-    setSwitchError(null);
+    setSwitchErrorState({ key: switchErrorKey, message: null });
 
     try {
       await switchWalletChain(activeWallet, REQUIRED_CHAIN);
-      lastSyncedWalletRef.current = null;
+      lastWalletSyncRef.current = null;
       await setActiveWallet(activeWallet);
       return true;
     } catch (error) {
-      setSwitchError(
-        extractErrorMessage(
+      setSwitchErrorState({
+        key: switchErrorKey,
+        message: extractErrorMessage(
           error,
           `Failed to switch to ${REQUIRED_CHAIN.name}.`,
         ),
-      );
+      });
       return false;
     } finally {
       setIsSwitching(false);
     }
-  }, [activeWallet, isExternalActiveWallet, setActiveWallet]);
+  }, [activeWallet, isExternalActiveWallet, setActiveWallet, switchErrorKey]);
 
   return {
     activeWallet,

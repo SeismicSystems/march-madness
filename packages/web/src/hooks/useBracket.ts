@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -108,15 +107,13 @@ export function useBracket(
   // picks[i] = true means team1 wins, false means team2 wins, null means no pick
   const [picks, setPicks] = useState<(boolean | null)[]>(createEmptyPicks);
 
-  useEffect(() => {
-    if (storageEnabled) return;
-    hydratedAddrRef.current = null;
-    setPicks(createEmptyPicks());
-  }, [effectiveAddr, storageEnabled]);
-
   // Handle address changes (login/logout) once the wallet session has settled.
   useLayoutEffect(() => {
-    if (!storageEnabled) return;
+    if (!storageEnabled) {
+      hydratedAddrRef.current = null;
+      setPicks(createEmptyPicks());
+      return;
+    }
     if (hydratedAddrRef.current === effectiveAddr) return;
     hydratedAddrRef.current = effectiveAddr;
 
