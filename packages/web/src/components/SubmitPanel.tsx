@@ -357,7 +357,7 @@ export function SubmitPanel({
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border whitespace-nowrap ${
               isBracketLoading
                 ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
-                : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+                : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50 cursor-pointer"
             }`}
           >
             {isBracketLoading ? "Loading..." : "Load my bracket"}
@@ -393,7 +393,7 @@ export function SubmitPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setResetOpen(true)}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap cursor-pointer"
             >
               Reset Picks
             </button>
@@ -653,7 +653,7 @@ function MobileSubmitPanel({
           className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all border ${
             isBracketLoading
               ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
-              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50 cursor-pointer"
           }`}
         >
           {isBracketLoading ? "Loading..." : "Load my bracket"}
@@ -677,7 +677,7 @@ function MobileSubmitPanel({
         <div>
           <button
             onClick={() => onResetOpen(true)}
-            className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+            className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors cursor-pointer"
           >
             Reset bracket
           </button>
