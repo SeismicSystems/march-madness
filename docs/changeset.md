@@ -4,6 +4,14 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Move tournament status from file to Redis (#44)
+
+- **Breaking**: `ncaa-feed` now writes tournament status to Redis (`mm:games` key) instead of `data/{year}/men/status.json`. Removed `--output-file` CLI arg; added `--redis-url` (env: `REDIS_URL`).
+- **Server**: `/tournament-status` endpoint reads from Redis instead of file-based TTL cache. Removed `--tournament-status-file` CLI arg.
+- **Forecaster**: Added `--live` flag to read tournament status from Redis. Without it, falls back to `--status <path>` (file-based, default `data/{year}/men/status.json`).
+- **bracket-sim**: Added `--live` flag to read tournament status from Redis for conditioned simulation. `--status <path>` still works for file-based input.
+- **Shared**: Added `KEY_GAMES` constant (`mm:games`) to `redis_keys.rs`.
+
 ### 2026-03-17 — Condition simulation on live game state (#43)
 
 - **New**: `Game::simulate_remaining()` in `bracket-sim/src/game.rs` — simulates only the remaining possessions of a live game from the current score, based on time remaining and period. Handles regulation remainder and overtime.

@@ -54,7 +54,7 @@ Returns per-bracket win probabilities (written by the forecaster crate). No auth
 
 ## Tournament Status Schema
 
-The tournament status JSON file (`data/{year}/men/status.json`, written by `ncaa-feed`) has this shape:
+The tournament status (Redis key `mm:games`, written by `ncaa-feed`) has this shape:
 
 ```jsonc
 {
@@ -223,16 +223,21 @@ cargo run --bin march-madness-server -- --port 3000
 After tournament status is posted, run the forecaster to generate win probabilities:
 
 ```bash
-cargo run --release --bin march-madness-forecaster
+# Live mode: read tournament status from Redis
+cargo run --release --bin march-madness-forecaster -- --live
+
+# File mode: read status from a file
+cargo run --release --bin march-madness-forecaster -- \
+  --status data/2026/men/status.json
 
 # Custom paths / simulation count
 cargo run --release --bin march-madness-forecaster -- \
+  --live \
   --entries-file data/entries.json \
-  --status-file data/2026/men/status.json \
   --tournament-file data/2026/men/tournament.json \
   --output-file data/2026/men/forecasts.json \
   --simulations 100000
 ```
 
-The forecaster reads `entries.json` + `data/2026/men/status.json` + `data/2026/men/tournament.json`, runs 100k Monte Carlo forward simulations, and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
+The forecaster reads entries from a file, tournament status from Redis (`--live`) or a file (`--status <path>`), and tournament structure from embedded data or `--tournament-file`. It runs 100k Monte Carlo forward simulations and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
 

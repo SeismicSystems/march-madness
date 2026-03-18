@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
-/// Shared application state with Redis connection and file-based caches for
-/// tournament status and forecasts.
+/// Shared application state with Redis connection and file-based cache for
+/// forecasts.
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<Inner>,
@@ -18,8 +18,6 @@ pub struct AppState {
 
 struct Inner {
     redis: MultiplexedConnection,
-    tournament_status_path: PathBuf,
-    tournament_status_cache: RwLock<CachedJson>,
     forecasts_path: PathBuf,
     forecasts_cache: RwLock<CachedJson>,
     ttl: Duration,
@@ -70,11 +68,7 @@ pub struct MirrorEntryResponse {
 }
 
 impl AppState {
-    pub async fn new(
-        tournament_status_path: PathBuf,
-        forecasts_path: PathBuf,
-        ttl: Duration,
-    ) -> Result<Self> {
+    pub async fn new(forecasts_path: PathBuf, ttl: Duration) -> Result<Self> {
         let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
         let client = redis::Client::open(url.as_str())
             .wrap_err_with(|| format!("failed to create Redis client from {url}"))?;
@@ -87,11 +81,6 @@ impl AppState {
         Ok(Self {
             inner: Arc::new(Inner {
                 redis: conn,
-                tournament_status_path,
-                tournament_status_cache: RwLock::new(CachedJson {
-                    data: serde_json::Value::Null,
-                    fetched_at: expired,
-                }),
                 forecasts_path,
                 forecasts_cache: RwLock::new(CachedJson {
                     data: serde_json::Value::Null,
@@ -284,34 +273,18 @@ impl AppState {
         Ok(keys.iter().filter(|k| k.starts_with(&prefix)).count())
     }
 
-    // ── File-based caches (tournament status, forecasts) ─────────────
+    // ── Tournament status (Redis) ────────────────────────────────────
 
     pub async fn get_tournament_status(&self) -> Result<serde_json::Value> {
-        {
-            let cache = self.inner.tournament_status_cache.read().await;
-            if cache.fetched_at.elapsed() < self.inner.ttl && !cache.data.is_null() {
-                return Ok(cache.data.clone());
-            }
+        let mut conn = self.redis();
+        let json: Option<String> = conn.get(KEY_GAMES).await?;
+        match json {
+            Some(s) => Ok(serde_json::from_str(&s)?),
+            None => Ok(serde_json::Value::Null),
         }
-
-        let path = self.inner.tournament_status_path.clone();
-        let data = tokio::task::spawn_blocking(move || -> Result<serde_json::Value> {
-            if !path.exists() {
-                return Ok(serde_json::Value::Null);
-            }
-            let file = std::fs::File::open(&path)?;
-            let reader = std::io::BufReader::new(&file);
-            let value: serde_json::Value = serde_json::from_reader(reader)?;
-            Ok(value)
-        })
-        .await??;
-
-        let mut cache = self.inner.tournament_status_cache.write().await;
-        cache.data = data.clone();
-        cache.fetched_at = Instant::now();
-
-        Ok(data)
     }
+
+    // ── File-based cache (forecasts) ──────────────────────────────────
 
     pub async fn get_forecasts(&self) -> Result<serde_json::Value> {
         {

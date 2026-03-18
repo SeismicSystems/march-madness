@@ -7,6 +7,7 @@ use tracing::info;
 
 use bracket_sim::Team;
 use bracket_sim::live_resolver::GameModelResolver;
+use seismic_march_madness::redis_keys::{DEFAULT_REDIS_URL, KEY_GAMES};
 use seismic_march_madness::{
     BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentData, TournamentStatus,
     build_reach_probs, compute_current_score, compute_max_possible, get_teams_in_bracket_order,
@@ -23,6 +24,10 @@ struct Cli {
     /// Path to the entries JSON file (from indexer).
     #[arg(long, default_value = "data/entries.json")]
     entries_file: PathBuf,
+
+    /// Read live tournament status from Redis instead of a file.
+    #[arg(long, conflicts_with = "status_file")]
+    live: bool,
 
     /// Path to the tournament status JSON file.
     /// Defaults to data/{year}/men/status.json.
@@ -52,14 +57,27 @@ struct Cli {
 }
 
 fn main() -> eyre::Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    let status_path = cli
-        .status_file
-        .unwrap_or_else(|| PathBuf::from(format!("data/{}/men/status.json", cli.year)));
-    let status: TournamentStatus = serde_json::from_str(&std::fs::read_to_string(&status_path)?)?;
+    let status: TournamentStatus = if cli.live {
+        info!("reading tournament status from Redis");
+        let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
+        let client = redis::Client::open(url.as_str())?;
+        let mut conn = client.get_connection()?;
+        let json: Option<String> = redis::Commands::get(&mut conn, KEY_GAMES)?;
+        let json =
+            json.ok_or_else(|| eyre::eyre!("no tournament status in Redis (key: {KEY_GAMES})"))?;
+        serde_json::from_str(&json)?
+    } else {
+        let status_path = cli
+            .status_file
+            .unwrap_or_else(|| PathBuf::from(format!("data/{}/men/status.json", cli.year)));
+        info!("reading tournament status from {}", status_path.display());
+        serde_json::from_str(&std::fs::read_to_string(&status_path)?)?
+    };
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
         None => TournamentData::embedded(cli.year),
