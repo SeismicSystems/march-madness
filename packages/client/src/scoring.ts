@@ -96,9 +96,11 @@ export function scoreBracketWithMask(
 /**
  * Score a bracket against partial tournament results (in-progress).
  *
- * For each decided game, check if the bracket pick matches.
- * For undecided games, assume the best case (all remaining picks correct)
- * to compute maxPossible.
+ * `current`: points earned from decided games (simple per-game check).
+ * `maxPossible`: current + best-case points from remaining undecided games,
+ * accounting for elimination cascades — when a pick is wrong, the bracket's
+ * predicted team is eliminated and downstream games depending on that team
+ * cannot contribute to maxPossible.
  */
 export function scoreBracketPartial(
   bracketHex: `0x${string}`,
@@ -106,7 +108,8 @@ export function scoreBracketPartial(
 ): PartialScore {
   const bits = BigInt(bracketHex);
 
-  // Extract picks: bit 62 = game 0, bit 0 = game 62
+  // Extract picks: bit 62 = game 0, bit 0 = game 62.
+  // pick[i] = true means bracket picks team1 (winner of feeder A) for game i.
   const picks: boolean[] = [];
   for (let i = 0; i < 63; i++) {
     picks.push(((bits >> BigInt(62 - i)) & 1n) === 1n);
@@ -115,45 +118,69 @@ export function scoreBracketPartial(
   // Points per round: R64=1, R32=2, S16=4, E8=8, F4=16, Champ=32
   const roundPoints = [1, 2, 4, 8, 16, 32];
 
-  // Build game→round mapping
+  // Build game→round mapping and round start offsets
   const gameRound: number[] = [];
+  const roundStart: number[] = [];
   let gamesInRound = 32;
+  let offset = 0;
   for (let round = 0; round <= 5; round++) {
+    roundStart.push(offset);
     for (let g = 0; g < gamesInRound; g++) {
       gameRound.push(round);
     }
+    offset += gamesInRound;
     gamesInRound = Math.floor(gamesInRound / 2);
   }
 
+  // ── current: simple per-game check (unchanged from original) ──
   let current = 0;
-  let maxPossible = 0;
-
-  // For tracking which teams are still alive for later rounds
-  // A pick can only score if the team actually reached that game
-  // For simplicity in partial scoring, we score each decided game independently
-  // and add full round points for undecided games as the optimistic max
-
   for (let i = 0; i < 63; i++) {
     const game = status.games[i];
-    const round = gameRound[i];
-    const pts = roundPoints[round];
-
-    if (!game || game.status === "upcoming" || game.status === "live") {
-      // Undecided — optimistically assume correct for maxPossible
-      maxPossible += pts;
-    } else if (game.status === "final" && game.winner !== undefined) {
-      // Decided — check if bracket pick matches
-      const bracketPickedTeam1 = picks[i];
-      const correctPickIsTeam1 = game.winner;
-      if (bracketPickedTeam1 === correctPickIsTeam1) {
-        current += pts;
-        maxPossible += pts;
+    if (game && game.status === "final" && game.winner !== undefined) {
+      if (picks[i] === game.winner) {
+        current += roundPoints[gameRound[i]];
       }
-      // Wrong pick: 0 points, and downstream picks using this team also can't score.
-      // For a more accurate maxPossible, we'd need to track elimination cascades.
-      // This simple approach is good enough for demo — it overstates maxPossible slightly.
     }
   }
 
-  return { current, maxPossible };
+  // ── maxPossible: current + cascade-aware remaining ──
+  // pickAlive[i] = the bracket's predicted team can still reach game i
+  // (and the bracket's pick for game i hasn't been decided wrong).
+  // For round 0: alive unless the game was decided wrong.
+  // For later rounds: the feeder game supplying the bracket's picked team
+  // must itself be alive, AND this game must not be decided wrong.
+  const decidedWrong: boolean[] = [];
+  for (let i = 0; i < 63; i++) {
+    const game = status.games[i];
+    if (game && game.status === "final" && game.winner !== undefined) {
+      decidedWrong.push(picks[i] !== game.winner);
+    } else {
+      decidedWrong.push(false);
+    }
+  }
+
+  const pickAlive: boolean[] = [];
+  for (let i = 0; i < 63; i++) {
+    const round = gameRound[i];
+    if (round === 0) {
+      pickAlive.push(!decidedWrong[i]);
+    } else {
+      const posInRound = i - roundStart[round];
+      const feederA = roundStart[round - 1] + 2 * posInRound;
+      const feeder = picks[i] ? feederA : feederA + 1;
+      pickAlive.push(pickAlive[feeder] && !decidedWrong[i]);
+    }
+  }
+
+  let maxRemaining = 0;
+  for (let i = 0; i < 63; i++) {
+    const game = status.games[i];
+    if (!game || game.status === "upcoming" || game.status === "live") {
+      if (pickAlive[i]) {
+        maxRemaining += roundPoints[gameRound[i]];
+      }
+    }
+  }
+
+  return { current, maxPossible: current + maxRemaining };
 }

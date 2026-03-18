@@ -9,6 +9,26 @@ All notable changes to this project. Every PR must add an entry here.
 - **Frontend**: Moved encoded bracket hex display from between "Reset Picks" and submit buttons to right of "Submitted" status badge on desktop.
 - **Frontend**: Removed border from the encoded bracket hex element for a cleaner look.
 
+### 2026-03-18 — Change default Kalshi calibrator edge threshold to $1000
+
+- **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
+
+### 2026-03-17 — Fix maxPossible elimination cascade in partial scoring (#116)
+
+- **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
+- **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
+
+### 2026-03-18 — Restructure firstFour schema in tournament.json
+
+- **Schema change**: `firstFour` is now `{ teams: [{ name, abbrev? }, ...], winner? }` instead of `[string, string]`.
+- **fetch-bracket**: Detects FF game winners from NCAA API `isWinner` flag. Applies abbreviations to individual FF teams and builds combo abbreviation for the slot name.
+- **ncaa-api**: Added `is_winner` field to `BracketTeam`.
+- **bracket-sim**: Updated `TournamentJsonTeam.first_four` to new struct. KenPom averaging and FF→slot mapping use `ff.teams[].name`.
+- **ncaa-feed mapper**: Updated FF name extraction to new schema.
+- **scrape_kenpom.py**: Updated to read `firstFour.teams[].name`.
+- **Frontend**: Added `FirstFourEntry` and `FirstFourTeam` TypeScript interfaces.
+- **data/mappings.toml**: Added abbreviations for `Prairie View A&M` and `Miami (Ohio)`.
+
 ### 2026-03-18 — Move team abbreviations to data/mappings.toml
 
 - **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.

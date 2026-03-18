@@ -1,0 +1,1 @@
+in parallel background agents, solve each of these issues. put up a PR when you're done. they should all be pretty fast: https://github.com/SeismicSystems/march-madness/issues/181
