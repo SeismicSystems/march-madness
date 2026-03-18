@@ -11,6 +11,8 @@ interface FinalFourProps {
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled?: boolean;
   tournamentStatus?: TournamentStatus;
+  eliminatedTeams?: Set<string>;
+  advancedTeams?: Set<string>;
 }
 
 export function FinalFour({
@@ -20,9 +22,11 @@ export function FinalFour({
   onPick,
   disabled = false,
   tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
 }: FinalFourProps) {
   return (
-    <div className="flex flex-col items-center min-w-[200px]">
+    <div className="flex flex-col items-center min-w-0">
       <h3 className="text-sm font-semibold  uppercase tracking-wider mb-3 px-1">
         Final Four
       </h3>
@@ -30,9 +34,9 @@ export function FinalFour({
       <div className="text-[10px] mb-1 invisible">​</div>
 
       <div className="flex flex-col items-center justify-center gap-6 flex-1 w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start w-full">
-          <div className="flex justify-center md:justify-start">
-            {semifinal1 && (
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
+          {semifinal1 && (
+            <div className="w-[180px]">
               <BracketGame
                 team1={semifinal1.team1}
                 team2={semifinal1.team2}
@@ -40,12 +44,13 @@ export function FinalFour({
                 onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
                 disabled={disabled}
                 gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
               />
-            )}
-          </div>
-
-          <div className="flex justify-center md:justify-end">
-            {semifinal2 && (
+            </div>
+          )}
+          {semifinal2 && (
+            <div className="w-[180px]">
               <BracketGame
                 team1={semifinal2.team1}
                 team2={semifinal2.team2}
@@ -53,9 +58,11 @@ export function FinalFour({
                 onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
                 disabled={disabled}
                 gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-2 md:mt-4">
@@ -73,6 +80,8 @@ export function FinalFour({
                 }
                 disabled={disabled}
                 gameStatus={tournamentStatus?.games[championship.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
               />
             </div>
           )}

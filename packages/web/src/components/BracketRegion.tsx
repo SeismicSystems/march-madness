@@ -15,6 +15,8 @@ interface BracketRegionProps {
   /** Compact mode for mobile — smaller sizing and spacing */
   compact?: boolean;
   tournamentStatus?: TournamentStatus;
+  eliminatedTeams?: Set<string>;
+  advancedTeams?: Set<string>;
 }
 
 export function BracketRegion({
@@ -25,28 +27,32 @@ export function BracketRegion({
   reversed = false,
   compact = false,
   tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
 }: BracketRegionProps) {
   const orderedRounds = reversed ? [...rounds].reverse() : rounds;
 
   return (
-    <div className="flex flex-col flex-1">
+    <div className="flex flex-col flex-1 min-w-0">
       <h3
-        className={`text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1 ${reversed ? "text-right" : ""}`}
+        className={`text-sm font-semibold text-accent uppercase tracking-wider mb-3 px-1 ${
+          reversed ? "text-right" : ""
+        }`}
       >
         {regionName}
       </h3>
-      <div className="flex flex-row items-stretch gap-1 flex-1">
+      <div className="flex flex-row items-stretch gap-1 flex-1 min-w-0">
         {orderedRounds.map((roundGames, displayIdx) => {
           const actualRoundIdx = reversed
             ? rounds.length - 1 - displayIdx
             : displayIdx;
 
           return (
-            <div key={displayIdx} className="flex flex-col flex-1">
+            <div key={displayIdx} className="flex flex-col flex-1 min-w-0">
               {/* <div className="text-[10px] text-text-muted text-center mb-1 whitespace-nowrap">
                 {ROUND_NAMES[actualRoundIdx]}
               </div> */}
-              <div className="flex flex-col flex-1 justify-around gap-4">
+              <div className="flex flex-col flex-1 justify-around gap-4 min-w-0">
                 {roundGames.map((game) => (
                   <BracketGame
                     key={game.gameIndex}
@@ -59,6 +65,8 @@ export function BracketRegion({
                     mobile={compact}
                     reversed={reversed}
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
+                    eliminatedTeams={eliminatedTeams}
+                    advancedTeams={advancedTeams}
                   />
                 ))}
               </div>

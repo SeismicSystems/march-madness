@@ -57,34 +57,26 @@ function CardInner({
 
             {/* Player */}
             <div className="min-w-0 flex-1">
-              {entry.tag ? (
-                <>
-                  <div className="text-text-primary font-medium truncate">
-                    {entry.tag}
-                  </div>
-                  <div className="text-[10px] text-text-muted font-mono">
-                    {truncateAddress(entry.address)}
-                  </div>
-                </>
-              ) : (
-                <div className="text-text-primary font-mono text-sm">
-                  {truncateAddress(entry.address)}
+              <div className="text-text-primary font-mono text-sm truncate">
+                {truncateAddress(entry.address)}
+              </div>
+              {entry.tag && (
+                <div className="text-[10px] text-gold truncate">
+                  GROUP: {entry.tag}
                 </div>
               )}
             </div>
 
             {/* Champion */}
             {entry.championName ? (
-              <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <TeamLogo teamName={entry.championName} />
                 <span className="text-text-secondary text-xs">
                   {entry.championName}
                 </span>
               </div>
             ) : (
-              <span className="text-text-muted text-xs hidden sm:block shrink-0">
-                —
-              </span>
+              <span className="text-text-muted text-xs shrink-0">—</span>
             )}
 
             {/* Forecast stats */}

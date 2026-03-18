@@ -1,0 +1,5 @@
+we have two new issues
+
+now the bracket page has horizontal scroll, you fixed the original issue but i should never have to horizontally scroll especailyl o the bracket page
+
+also, if a team loses a game, but the user picked them to advance into later rounds, the team should appear as 'red' in each subsequent round to indicate the user made the wrong choice

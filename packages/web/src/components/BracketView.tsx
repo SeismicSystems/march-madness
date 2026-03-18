@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { TournamentStatus } from "@march-madness/client";
 
@@ -58,6 +58,32 @@ export function BracketView({
   const f4Games = getGamesForRound(4);
   const champGame = getGamesForRound(5);
 
+  // Build set of eliminated and advancing team names from tournament results
+  const { eliminatedTeams, advancedTeams } = useMemo(() => {
+    if (!tournamentStatus)
+      return {
+        eliminatedTeams: new Set<string>(),
+        advancedTeams: new Set<string>(),
+      };
+    const eliminated = new Set<string>();
+    const winners = new Set<string>();
+    for (const game of games) {
+      const gs = tournamentStatus.games[game.gameIndex];
+      if (gs?.status === "final" && gs.winner !== undefined) {
+        const loser = gs.winner ? game.team2 : game.team1;
+        const winner = gs.winner ? game.team1 : game.team2;
+        if (loser) eliminated.add(displayName(loser));
+        if (winner) winners.add(displayName(winner));
+      }
+    }
+    // Advanced = won at least one game and not yet eliminated
+    const advanced = new Set<string>();
+    for (const name of winners) {
+      if (!eliminated.has(name)) advanced.add(name);
+    }
+    return { eliminatedTeams: eliminated, advancedTeams: advanced };
+  }, [games, tournamentStatus]);
+
   if (isMobile) {
     return (
       <MobileBracket
@@ -67,13 +93,15 @@ export function BracketView({
         onPick={onPick}
         disabled={disabled}
         tournamentStatus={tournamentStatus}
+        eliminatedTeams={eliminatedTeams}
+        advancedTeams={advancedTeams}
       />
     );
   }
 
   return (
-    <div className="overflow-x-auto pb-4">
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 min-w-[1400px] items-stretch">
+    <div className="pb-4 w-full">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 items-stretch w-full min-w-0">
         {/* Top half */}
         <BracketRegion
           regionName={displayedRegions[0].name}
@@ -81,6 +109,8 @@ export function BracketView({
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
+          eliminatedTeams={eliminatedTeams}
+          advancedTeams={advancedTeams}
         />
 
         <div className="row-span-2 flex items-center justify-center">
@@ -91,6 +121,8 @@ export function BracketView({
             onPick={onPick}
             disabled={disabled}
             tournamentStatus={tournamentStatus}
+            eliminatedTeams={eliminatedTeams}
+            advancedTeams={advancedTeams}
           />
         </div>
 
@@ -101,6 +133,8 @@ export function BracketView({
           disabled={disabled}
           reversed
           tournamentStatus={tournamentStatus}
+          eliminatedTeams={eliminatedTeams}
+          advancedTeams={advancedTeams}
         />
 
         {/* Bottom half */}
@@ -110,6 +144,8 @@ export function BracketView({
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
+          eliminatedTeams={eliminatedTeams}
+          advancedTeams={advancedTeams}
         />
         <BracketRegion
           regionName={displayedRegions[3].name}
@@ -118,6 +154,8 @@ export function BracketView({
           disabled={disabled}
           reversed
           tournamentStatus={tournamentStatus}
+          eliminatedTeams={eliminatedTeams}
+          advancedTeams={advancedTeams}
         />
       </div>
     </div>
@@ -133,6 +171,8 @@ function MobileBracket({
   onPick,
   disabled,
   tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
 }: {
   regions: Array<{ name: string; rounds: GameSlot[][] }>;
   f4Games: GameSlot[];
@@ -140,6 +180,8 @@ function MobileBracket({
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
+  eliminatedTeams: Set<string>;
+  advancedTeams: Set<string>;
 }) {
   const [activeTab, setActiveTab] = useState(0);
   const tabs = [...regions.map((r) => r.name), "Final Four"];
@@ -173,6 +215,8 @@ function MobileBracket({
             onPick={onPick}
             disabled={disabled}
             tournamentStatus={tournamentStatus}
+            eliminatedTeams={eliminatedTeams}
+            advancedTeams={advancedTeams}
           />
         ) : (
           <MobileFinalFourLanes
@@ -182,6 +226,8 @@ function MobileBracket({
             onPick={onPick}
             disabled={disabled}
             tournamentStatus={tournamentStatus}
+            eliminatedTeams={eliminatedTeams}
+            advancedTeams={advancedTeams}
           />
         )}
       </div>
@@ -195,12 +241,16 @@ function MobileRegionLanes({
   onPick,
   disabled,
   tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
 }: {
   regionName: string;
   rounds: GameSlot[][];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
+  eliminatedTeams: Set<string>;
+  advancedTeams: Set<string>;
 }) {
   const reverseLaneColumns = (games: GameSlot[]) => {
     if (games.length < 2) return games;
@@ -233,7 +283,9 @@ function MobileRegionLanes({
                 </div>
               </div>
               <div
-                className={`grid gap-2 ${roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                className={`grid gap-2 ${
+                  roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"
+                }`}
               >
                 {displayGames.map((game) => (
                   <BracketGame
@@ -247,6 +299,8 @@ function MobileRegionLanes({
                     mobile
                     fullWidth
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
+                    eliminatedTeams={eliminatedTeams}
+                    advancedTeams={advancedTeams}
                   />
                 ))}
               </div>
@@ -274,6 +328,8 @@ function MobileFinalFourLanes({
   onPick,
   disabled,
   tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
 }: {
   semifinal1: GameSlot | null;
   semifinal2: GameSlot | null;
@@ -281,9 +337,11 @@ function MobileFinalFourLanes({
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
+  eliminatedTeams: Set<string>;
+  advancedTeams: Set<string>;
 }) {
   const semifinalGames = [semifinal1, semifinal2].filter(
-    (g): g is GameSlot => g !== null,
+    (g): g is GameSlot => g !== null
   );
   const displaySemifinals =
     semifinalGames.length === 2
@@ -315,6 +373,8 @@ function MobileFinalFourLanes({
               mobile
               fullWidth
               gameStatus={tournamentStatus?.games[game.gameIndex]}
+              eliminatedTeams={eliminatedTeams}
+              advancedTeams={advancedTeams}
             />
           ))}
         </div>
@@ -342,6 +402,8 @@ function MobileFinalFourLanes({
             mobile
             fullWidth
             gameStatus={tournamentStatus?.games[championship.gameIndex]}
+            eliminatedTeams={eliminatedTeams}
+            advancedTeams={advancedTeams}
           />
         )}
       </section>
