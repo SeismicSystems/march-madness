@@ -1,0 +1,1 @@
+now make a branch off this branch (and we'll make a PR targeting the team abbrevs pr's branch when we're done). we want to change the first 4 logic: (1) firstFour schema should be firstFour: { teams: [{ abbrev?: "", [team-or-name]: ""}], winner?: "team-name"} (2) update all consumers to be able to reason about this (3) make abbrev logic work for first 4 too

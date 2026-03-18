@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { GameStatus } from "@march-madness/client";
-import type { Team } from "../lib/tournament";
+import { displayAbbrev, displayName, type Team } from "../lib/tournament";
 import { getTeamLogoUrl } from "../lib/espn-logos";
 
 interface BracketGameProps {
@@ -17,6 +17,8 @@ interface BracketGameProps {
   gameStatus?: GameStatus;
   /** Whether this region reads right-to-left (logos on right side) */
   reversed?: boolean;
+  /** Stretch game card to its container width (used by mobile stacked lanes). */
+  fullWidth?: boolean;
 }
 
 export function BracketGame({
@@ -29,6 +31,7 @@ export function BracketGame({
   mobile = false,
   gameStatus,
   reversed = false,
+  fullWidth = false,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -63,7 +66,9 @@ export function BracketGame({
     winner === team2;
 
   return (
-    <div className={`flex flex-col ${minW} gap-0.5 relative`}>
+    <div
+      className={`flex flex-col ${fullWidth ? "w-full min-w-0 rounded-md border border-border/70 bg-bg-primary/20 p-1" : minW} gap-0.5 relative`}
+    >
       {/* Live indicator */}
       {gameStatus?.status === "live" && (
         <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
@@ -159,7 +164,7 @@ function TeamSlot({
   if (!team) {
     return (
       <div
-        className={`${py} ${px} ${textSize} rounded border border-dashed border-border-light text-text-muted italic`}
+        className={`${py} ${px} ${textSize} rounded border border-border border-opacity-10 text-text-muted italic text-center `}
       >
         TBD
       </div>
@@ -186,7 +191,7 @@ function TeamSlot({
   }
 
   if (disabled) {
-    className += " cursor-default opacity-70";
+    className += " cursor-default opacity-90";
   }
 
   return (
@@ -196,21 +201,20 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className="flex items-center gap-1">
-        {!reversed && <TeamLogo teamName={team.name} mobile={mobile} />}
+      <span className="flex items-center gap-2 min-w-0">
         <span
-          className={`text-text-muted ${mobile ? "mr-0.5" : "mr-1.5"} font-normal`}
+          className={`text-text-muted ${mobile ? "w-4" : "w-5"} text-right font-normal flex-shrink-0`}
         >
           {team.seed}
         </span>
-        <span>{team.abbrev ?? team.name}</span>
+        <TeamLogo teamName={displayName(team)} mobile={mobile} />
+        <span className="truncate">{displayAbbrev(team)}</span>
         {pickCorrect && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}
         {pickWrong && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
-        {reversed && <TeamLogo teamName={team.name} mobile={mobile} />}
       </span>
       <span className="flex items-center gap-1">
         {gameScore !== undefined && (
@@ -239,15 +243,18 @@ export function TeamLogo({
 }) {
   const [failed, setFailed] = useState(false);
   const url = getTeamLogoUrl(teamName);
-  if (!url || failed) return null;
-  const size = mobile ? "w-3 h-3" : "w-4 h-4";
+  const size = mobile ? "w-3 h-3" : "w-6 h-6";
   return (
-    <img
-      src={url}
-      alt=""
-      className={`${size} object-contain flex-shrink-0`}
-      onError={() => setFailed(true)}
-      loading="lazy"
-    />
+    <div className={`${size} flex-shrink-0`}>
+      {url && !failed && (
+        <img
+          src={url}
+          alt=""
+          className="w-full h-full object-contain"
+          onError={() => setFailed(true)}
+          loading="lazy"
+        />
+      )}
+    </div>
   );
 }

@@ -4,7 +4,9 @@ import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { tournament } from "../lib/tournament";
+import { ROUND_NAMES } from "../lib/constants";
+import { displayName, tournament } from "../lib/tournament";
+import { BracketGame, TeamLogo } from "./BracketGame";
 import { BracketRegion } from "./BracketRegion";
 import { FinalFour } from "./FinalFour";
 
@@ -23,7 +25,7 @@ interface BracketViewProps {
  *   [East R64→E8]  [Final Four / Championship]  [E8←R64 West]
  *   [South R64→E8] [spacer]                      [E8←R64 Midwest]
  *
- * Mobile: Tabbed view — one region at a time + Final Four tab.
+ * Mobile: Tabbed stacked lanes — no horizontal scrolling.
  */
 export function BracketView({
   games,
@@ -33,7 +35,12 @@ export function BracketView({
   tournamentStatus,
 }: BracketViewProps) {
   const isMobile = useIsMobile();
-  const regions = tournament.regions; // [East, West, South, Midwest]
+  const regions = tournament.regions;
+  const displayRegionOrder = [0, 2, 1, 3];
+  const displayedRegions = displayRegionOrder.map((index) => ({
+    name: regions[index],
+    rounds: getRegionGames(index),
+  }));
 
   function getRegionGames(regionIndex: number): GameSlot[][] {
     const rounds: GameSlot[][] = [];
@@ -54,8 +61,7 @@ export function BracketView({
   if (isMobile) {
     return (
       <MobileBracket
-        regions={regions}
-        getRegionGames={getRegionGames}
+        regions={displayedRegions}
         f4Games={f4Games}
         champGame={champGame}
         onPick={onPick}
@@ -68,44 +74,46 @@ export function BracketView({
   return (
     <div className="overflow-x-auto pb-4">
       <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-12 min-w-[1400px] items-stretch">
-        {/* Top half: East (left) + Final Four + West (right) */}
+        {/* Top half */}
         <BracketRegion
-          regionName={regions[0]}
-          rounds={getRegionGames(0)}
+          regionName={displayedRegions[0].name}
+          rounds={displayedRegions[0].rounds}
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
         />
-        <FinalFour
-          semifinal1={f4Games[0] ?? null}
-          semifinal2={f4Games[1] ?? null}
-          championship={champGame[0] ?? null}
-          onPick={onPick}
-          disabled={disabled}
-          tournamentStatus={tournamentStatus}
-        />
+
+        <div className="row-span-2 flex items-center justify-center">
+          <FinalFour
+            semifinal1={f4Games[0] ?? null}
+            semifinal2={f4Games[1] ?? null}
+            championship={champGame[0] ?? null}
+            onPick={onPick}
+            disabled={disabled}
+            tournamentStatus={tournamentStatus}
+          />
+        </div>
+
         <BracketRegion
-          regionName={regions[1]}
-          rounds={getRegionGames(1)}
+          regionName={displayedRegions[1].name}
+          rounds={displayedRegions[1].rounds}
           onPick={onPick}
           disabled={disabled}
           reversed
           tournamentStatus={tournamentStatus}
         />
 
-        {/* Bottom half: South (left) + spacer + Midwest (right) */}
+        {/* Bottom half */}
         <BracketRegion
-          regionName={regions[2]}
-          rounds={getRegionGames(2)}
+          regionName={displayedRegions[2].name}
+          rounds={displayedRegions[2].rounds}
           onPick={onPick}
           disabled={disabled}
           tournamentStatus={tournamentStatus}
         />
-        {/* Empty cell — grid keeps it aligned with FinalFour column */}
-        <div />
         <BracketRegion
-          regionName={regions[3]}
-          rounds={getRegionGames(3)}
+          regionName={displayedRegions[3].name}
+          rounds={displayedRegions[3].rounds}
           onPick={onPick}
           disabled={disabled}
           reversed
@@ -118,19 +126,15 @@ export function BracketView({
 
 /* ── Mobile tabbed bracket ─────────────────────────────── */
 
-const TABS = ["East", "West", "South", "Midwest", "Final Four"] as const;
-
 function MobileBracket({
   regions,
-  getRegionGames,
   f4Games,
   champGame,
   onPick,
   disabled,
   tournamentStatus,
 }: {
-  regions: string[];
-  getRegionGames: (i: number) => GameSlot[][];
+  regions: Array<{ name: string; rounds: GameSlot[][] }>;
   f4Games: GameSlot[];
   champGame: GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
@@ -138,17 +142,18 @@ function MobileBracket({
   tournamentStatus?: TournamentStatus;
 }) {
   const [activeTab, setActiveTab] = useState(0);
+  const tabs = [...regions.map((r) => r.name), "Final Four"];
 
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex overflow-x-auto gap-1 mb-4 pb-1 -mx-1 px-1">
-        {TABS.map((tab, i) => (
+      <div className="flex flex-wrap justify-center gap-1 mb-4">
+        {tabs.map((tab, i) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(i)}
-            className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+            className={`shrink-0 px-4 py-1.5 text-xs rounded-lg border transition-colors ${
               activeTab === i
                 ? "bg-accent text-white border-accent"
                 : "bg-bg-tertiary text-text-secondary border-border hover:bg-bg-hover"
@@ -160,18 +165,17 @@ function MobileBracket({
       </div>
 
       {/* Tab content */}
-      <div className="overflow-x-auto pb-2">
+      <div className="pb-2">
         {activeTab < 4 ? (
-          <BracketRegion
-            regionName={regions[activeTab]}
-            rounds={getRegionGames(activeTab)}
+          <MobileRegionLanes
+            regionName={regions[activeTab].name}
+            rounds={regions[activeTab].rounds}
             onPick={onPick}
             disabled={disabled}
-            compact
             tournamentStatus={tournamentStatus}
           />
         ) : (
-          <FinalFour
+          <MobileFinalFourLanes
             semifinal1={f4Games[0] ?? null}
             semifinal2={f4Games[1] ?? null}
             championship={champGame[0] ?? null}
@@ -181,6 +185,176 @@ function MobileBracket({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function MobileRegionLanes({
+  regionName,
+  rounds,
+  onPick,
+  disabled,
+  tournamentStatus,
+}: {
+  regionName: string;
+  rounds: GameSlot[][];
+  onPick: (gameIndex: number, pickTeam1: boolean) => void;
+  disabled: boolean;
+  tournamentStatus?: TournamentStatus;
+}) {
+  const reverseLaneColumns = (games: GameSlot[]) => {
+    if (games.length < 2) return games;
+    const out: GameSlot[] = [];
+    for (let i = 0; i < games.length; i += 2) {
+      if (i + 1 < games.length) out.push(games[i + 1]);
+      out.push(games[i]);
+    }
+    return out;
+  };
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-accent uppercase tracking-wider px-1">
+        {regionName}
+      </h3>
+      {rounds.map((roundGames, roundIdx) => {
+        const displayGames =
+          roundGames.length > 1 ? reverseLaneColumns(roundGames) : roundGames;
+
+        return (
+          <div key={roundIdx} className="space-y-2">
+            <section className="rounded-lg border border-border bg-bg-secondary/70 p-2.5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] text-text-muted uppercase tracking-wide">
+                  {ROUND_NAMES[roundIdx]}
+                </div>
+                <div className="text-[10px] text-text-muted">
+                  {roundGames.length} game{roundGames.length === 1 ? "" : "s"}
+                </div>
+              </div>
+              <div
+                className={`grid gap-2 ${roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+              >
+                {displayGames.map((game) => (
+                  <BracketGame
+                    key={game.gameIndex}
+                    team1={game.team1}
+                    team2={game.team2}
+                    winner={game.winner}
+                    onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                    disabled={disabled}
+                    compact={roundIdx === 0}
+                    mobile
+                    fullWidth
+                    gameStatus={tournamentStatus?.games[game.gameIndex]}
+                  />
+                ))}
+              </div>
+            </section>
+            {roundIdx < rounds.length - 1 && (
+              <div className="flex items-center justify-center gap-2 py-0.5">
+                <span className="h-px w-6 bg-border" />
+                <span className="text-[9px] uppercase tracking-wide text-text-muted">
+                  Advance
+                </span>
+                <span className="h-px w-6 bg-border" />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileFinalFourLanes({
+  semifinal1,
+  semifinal2,
+  championship,
+  onPick,
+  disabled,
+  tournamentStatus,
+}: {
+  semifinal1: GameSlot | null;
+  semifinal2: GameSlot | null;
+  championship: GameSlot | null;
+  onPick: (gameIndex: number, pickTeam1: boolean) => void;
+  disabled: boolean;
+  tournamentStatus?: TournamentStatus;
+}) {
+  const semifinalGames = [semifinal1, semifinal2].filter(
+    (g): g is GameSlot => g !== null,
+  );
+  const displaySemifinals =
+    semifinalGames.length === 2
+      ? [semifinalGames[1], semifinalGames[0]]
+      : semifinalGames;
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-accent uppercase tracking-wider px-1">
+        Final Four
+      </h3>
+
+      <section className="rounded-lg border border-border bg-bg-secondary/70 p-2.5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] text-text-muted uppercase tracking-wide">
+            {ROUND_NAMES[4]}
+          </div>
+          <div className="text-[10px] text-text-muted">2 games</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {displaySemifinals.map((game) => (
+            <BracketGame
+              key={game.gameIndex}
+              team1={game.team1}
+              team2={game.team2}
+              winner={game.winner}
+              onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+              disabled={disabled}
+              mobile
+              fullWidth
+              gameStatus={tournamentStatus?.games[game.gameIndex]}
+            />
+          ))}
+        </div>
+      </section>
+
+      <div className="flex items-center justify-center gap-2 py-0.5">
+        <span className="h-px w-6 bg-border" />
+        <span className="text-[9px] uppercase tracking-wide text-text-muted">
+          Championship
+        </span>
+        <span className="h-px w-6 bg-border" />
+      </div>
+
+      <section className="rounded-lg border border-border bg-bg-secondary/70 p-2.5">
+        <div className="text-[10px] text-text-muted uppercase tracking-wide mb-2">
+          {ROUND_NAMES[5]}
+        </div>
+        {championship && (
+          <BracketGame
+            team1={championship.team1}
+            team2={championship.team2}
+            winner={championship.winner}
+            onPick={(pickTeam1) => onPick(championship.gameIndex, pickTeam1)}
+            disabled={disabled}
+            mobile
+            fullWidth
+            gameStatus={tournamentStatus?.games[championship.gameIndex]}
+          />
+        )}
+      </section>
+
+      {championship?.winner && (
+        <div className="px-3 py-2 bg-gold/15 border border-gold/40 rounded-lg text-center">
+          <div className="text-[10px] text-gold/80 uppercase">Champion</div>
+          <div className="text-sm font-bold text-gold flex items-center justify-center gap-2">
+            <TeamLogo teamName={displayName(championship.winner)} mobile />
+            {championship.winner.seed} {displayName(championship.winner)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

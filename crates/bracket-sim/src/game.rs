@@ -80,7 +80,7 @@ impl Game {
     /// - `d = 1`: Poisson(mean)
     /// - `d > 1`: overdispersed → Gamma-Poisson mixture (negative binomial)
     ///   with shape r = mean / (d - 1)
-    pub fn sample_count(mean: f64, d: f64, rng: &mut impl Rng) -> f64 {
+    pub fn sample_count(mean: f64, d: f64, rng: &mut (impl Rng + ?Sized)) -> f64 {
         if mean < 0.01 || !mean.is_finite() {
             return 0.0;
         }
@@ -122,12 +122,16 @@ impl Game {
         }
     }
 
-    pub fn simulate(t1_metrics: Metrics, pace_d: f64, rng: &mut impl Rng) -> GameResult {
+    pub fn simulate(t1_metrics: Metrics, pace_d: f64, rng: &mut (impl Rng + ?Sized)) -> GameResult {
         let actual_pace = Self::sample_count(t1_metrics.pace, pace_d, rng);
         Self::simulate_with_pace(t1_metrics, actual_pace, rng)
     }
 
-    fn simulate_with_pace(t1_metrics: Metrics, actual_pace: f64, rng: &mut impl Rng) -> GameResult {
+    fn simulate_with_pace(
+        t1_metrics: Metrics,
+        actual_pace: f64,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> GameResult {
         let team1_expected = t1_metrics.ortg * actual_pace / 100.0;
         let team2_expected = t1_metrics.drtg * actual_pace / 100.0;
 
@@ -172,7 +176,12 @@ impl Game {
     /// Uses the same pace distribution as regulation — the dispersion parameter
     /// naturally scales variance with the mean, so low-possession OT periods
     /// get appropriately tighter distributions without special-casing.
-    fn resolve_overtime(&self, tied_score: u32, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
+    fn resolve_overtime(
+        &self,
+        tied_score: u32,
+        pace_d: f64,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> Option<&Team> {
         let base_metrics = self.expected_t1_metrics();
         let ot_metrics = Metrics {
             pace: base_metrics.pace * Self::OT_MINUTES / Self::REGULATION_MINUTES,
@@ -192,7 +201,87 @@ impl Game {
         None
     }
 
-    pub fn winner(&self, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
+    /// Compute total regulation seconds remaining from period + period clock.
+    ///
+    /// - Period 1 (first half): clock + full second half (1200s)
+    /// - Period 2 (second half): clock only
+    /// - Period 3+ (OT): 0 regulation remaining; OT seconds tracked separately
+    ///
+    /// Returns `(regulation_seconds, ot_seconds)`. Exactly one is nonzero.
+    fn remaining_seconds(seconds_remaining: i32, period: u8) -> (f64, f64) {
+        let seconds_remaining = seconds_remaining.max(0) as f64;
+        match period {
+            1 => (seconds_remaining + 1200.0, 0.0),
+            2 => (seconds_remaining, 0.0),
+            _ => (0.0, seconds_remaining), // OT period
+        }
+    }
+
+    /// Simulate the remaining portion of a live game from the current score.
+    ///
+    /// Uses the game's team metrics to derive expected scoring rates, then
+    /// simulates only the remaining possessions based on time left. Handles
+    /// both regulation remainder and overtime.
+    pub fn simulate_remaining(
+        &self,
+        current_score: (u32, u32),
+        seconds_remaining: i32,
+        period: u8,
+        pace_d: f64,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> GameResult {
+        let base_metrics = self.expected_t1_metrics();
+        let (reg_secs, ot_secs) = Self::remaining_seconds(seconds_remaining, period);
+
+        let (mut t1_total, mut t2_total) = current_score;
+
+        if reg_secs > 0.0 {
+            // Simulate remaining regulation possessions
+            let fraction = reg_secs / (Self::REGULATION_MINUTES * 60.0);
+            let remaining_pace = base_metrics.pace * fraction;
+            let remaining_metrics = Metrics {
+                pace: remaining_pace,
+                ..base_metrics
+            };
+            let result = Game::simulate(remaining_metrics, pace_d, rng);
+            t1_total += result.team1_score;
+            t2_total += result.team2_score;
+        } else if ot_secs > 0.0 {
+            // Simulate remaining OT possessions in the current period
+            let ot_fraction = ot_secs / (Self::OT_MINUTES * 60.0);
+            let ot_pace = base_metrics.pace * Self::OT_MINUTES / Self::REGULATION_MINUTES;
+            let remaining_ot_metrics = Metrics {
+                pace: ot_pace * ot_fraction,
+                ..base_metrics
+            };
+            let result = Game::simulate(remaining_ot_metrics, pace_d, rng);
+            t1_total += result.team1_score;
+            t2_total += result.team2_score;
+        }
+
+        // If tied after current period, resolve via overtime
+        if t1_total == t2_total {
+            if let Some(winner) = self.resolve_overtime(t1_total, pace_d, rng) {
+                if winner.team == self.team1.team {
+                    t1_total += 1; // just needs to be different
+                } else {
+                    t2_total += 1;
+                }
+            } else if rng.random::<bool>() {
+                t1_total += 1;
+            } else {
+                t2_total += 1;
+            }
+        }
+
+        GameResult {
+            team1_score: t1_total,
+            team2_score: t2_total,
+            pace: base_metrics.pace,
+        }
+    }
+
+    pub fn winner(&self, pace_d: f64, rng: &mut (impl Rng + ?Sized)) -> Option<&Team> {
         let result = self.result.as_ref()?;
 
         self.pick_by_score(result.team1_score, result.team2_score)
@@ -404,6 +493,91 @@ mod tests {
             "Poisson variance ({:.1}) should be close to mean ({:.1})",
             sample_var,
             mean
+        );
+    }
+
+    #[test]
+    fn remaining_seconds_first_half() {
+        let (reg, ot) = Game::remaining_seconds(600, 1);
+        assert!((reg - 1800.0).abs() < 0.01); // 600 + 1200
+        assert!((ot - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn remaining_seconds_second_half() {
+        let (reg, ot) = Game::remaining_seconds(300, 2);
+        assert!((reg - 300.0).abs() < 0.01);
+        assert!((ot - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn remaining_seconds_overtime() {
+        let (reg, ot) = Game::remaining_seconds(180, 3);
+        assert!((reg - 0.0).abs() < 0.01);
+        assert!((ot - 180.0).abs() < 0.01);
+    }
+
+    /// Run simulate_remaining N times and return team1 win fraction.
+    fn sim_remaining_win_rate(
+        game: &Game,
+        score: (u32, u32),
+        secs: i32,
+        period: u8,
+        n: u32,
+    ) -> f64 {
+        let mut rng = StdRng::seed_from_u64(42);
+        let mut t1_wins = 0u32;
+        for _ in 0..n {
+            let r = game.simulate_remaining(score, secs, period, DEFAULT_PACE_D, &mut rng);
+            if r.team1_score > r.team2_score {
+                t1_wins += 1;
+            }
+        }
+        t1_wins as f64 / n as f64
+    }
+
+    #[test]
+    fn simulate_remaining_with_big_lead_favors_leader() {
+        let t1 = make_team("Favorite", 1, 110.0, 100.0, 68.0);
+        let t2 = make_team("Underdog", 8, 100.0, 110.0, 68.0);
+        let game = Game::new(t1, t2);
+
+        // Team1 leads 60-40 with 5 minutes left in second half
+        let prob = sim_remaining_win_rate(&game, (60, 40), 300, 2, 5000);
+        assert!(
+            prob > 0.90,
+            "20-point lead with 5 min left should be >90% win, got {:.3}",
+            prob
+        );
+    }
+
+    #[test]
+    fn simulate_remaining_close_game_uses_team_strength() {
+        let t1 = make_team("Strong", 1, 120.0, 90.0, 68.0);
+        let t2 = make_team("Weak", 16, 90.0, 120.0, 68.0);
+        let game = Game::new(t1, t2);
+
+        // Tied game at halftime — strong team should win more often
+        let prob = sim_remaining_win_rate(&game, (35, 35), 1200, 2, 5000);
+        assert!(
+            prob > 0.55,
+            "Stronger team should win >55% when tied at half, got {:.3}",
+            prob
+        );
+    }
+
+    #[test]
+    fn simulate_remaining_end_of_game_locks_in_leader() {
+        let t1 = make_team("Team1", 1, 105.0, 105.0, 68.0);
+        let t2 = make_team("Team2", 16, 105.0, 105.0, 68.0);
+        let game = Game::new(t1, t2);
+
+        // Team1 leads 70-65 with 1 second left
+        let prob = sim_remaining_win_rate(&game, (70, 65), 1, 2, 5000);
+        assert!(
+            prob > 0.95,
+            "5-point lead with 1 second left should be >95% win, got {:.3}",
+            prob
         );
     }
 

@@ -84,7 +84,7 @@ sudo supervisorctl start all
 |---------|--------|-------------|
 | `server` | `target/release/march-madness-server` | HTTP API server (port 3000) |
 | `indexer` | `target/release/march-madness-indexer listen` | Chain event listener, writes to Redis |
-| `ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes `status.json` |
+| `ncaa-feed` | `target/release/ncaa-feed` | NCAA live score poller, writes to Redis (`mm:games`) |
 
 ### Initial backfill
 

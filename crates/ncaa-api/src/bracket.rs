@@ -115,6 +115,8 @@ pub struct BracketTeam {
     pub is_top: bool,
     #[serde(default)]
     pub seoname: String,
+    #[serde(default)]
+    pub is_winner: bool,
     /// Non-null when the team slot is TBA (e.g. awaiting a First Four result).
     #[serde(default)]
     pub text_override: Option<String>,

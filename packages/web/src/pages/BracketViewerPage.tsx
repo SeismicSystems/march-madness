@@ -14,7 +14,10 @@ export function BracketViewerPage() {
   const { entries, loading: entriesLoading } = useEntries();
   const { status: tournamentStatus } = useTournamentStatus();
 
-  const entry = address && entries ? entries[address.toLowerCase()] ?? entries[address] : null;
+  const entry =
+    address && entries
+      ? (entries[address.toLowerCase()] ?? entries[address])
+      : null;
   const bracketHex =
     entry?.bracket && validateBracket(entry.bracket)
       ? (entry.bracket as `0x${string}`)
@@ -33,7 +36,9 @@ export function BracketViewerPage() {
 
   if (entriesLoading) {
     return (
-      <div className="text-center py-12 text-text-muted">Loading bracket...</div>
+      <div className="text-center py-12 text-text-muted">
+        Loading bracket...
+      </div>
     );
   }
 
@@ -41,9 +46,14 @@ export function BracketViewerPage() {
     return (
       <div className="text-center py-12">
         <p className="text-text-muted mb-4">
-          {address ? `No bracket found for ${truncateAddress(address)}` : "Invalid address"}
+          {address
+            ? `No bracket found for ${truncateAddress(address)}`
+            : "Invalid address"}
         </p>
-        <Link to="/leaderboard" className="text-accent hover:text-accent-hover text-sm">
+        <Link
+          to="/leaderboard"
+          className="text-accent hover:text-accent-hover text-sm"
+        >
           Back to leaderboard
         </Link>
       </div>
@@ -74,8 +84,12 @@ export function BracketViewerPage() {
         </div>
         {score && (
           <div className="text-right">
-            <div className="text-2xl font-bold text-text-primary">{score.current}</div>
-            <div className="text-xs text-text-muted">max {score.maxPossible}</div>
+            <div className="text-2xl font-bold text-text-primary">
+              {score.current}
+            </div>
+            <div className="text-xs text-text-muted">
+              max {score.maxPossible}
+            </div>
           </div>
         )}
       </div>

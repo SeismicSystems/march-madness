@@ -1,0 +1,2 @@
+do issue 43 make a pr
+oh one change to spec: don't make calibrator aware of this... we'll only run calibrator at end of day

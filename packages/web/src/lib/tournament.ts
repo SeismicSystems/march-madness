@@ -1,12 +1,23 @@
 import tournamentData from "@data/2026/men/tournament.json";
 import { SEED_ORDER } from "./constants";
-import { getTeamAbbreviation } from "./espn-logos";
+
+export interface FirstFourTeam {
+  name: string;
+  abbrev: string;
+}
+
+export interface FirstFourEntry {
+  teams: [FirstFourTeam, FirstFourTeam];
+  winner?: string;
+}
 
 export interface Team {
-  name: string;
+  /** Null for First Four slots — use `displayName()` or check `firstFour`. */
+  name: string | null;
   seed: number;
   region: string;
   abbrev?: string;
+  firstFour?: FirstFourEntry;
 }
 
 export interface TournamentData {
@@ -15,13 +26,32 @@ export interface TournamentData {
   teams: Team[];
 }
 
-export const tournament: TournamentData = {
-  ...(tournamentData as TournamentData),
-  teams: (tournamentData as TournamentData).teams.map((team) => ({
-    ...team,
-    abbrev: team.abbrev ?? getTeamAbbreviation(team.name) ?? undefined,
-  })),
-};
+export const tournament: TournamentData = tournamentData as TournamentData;
+
+/** Resolved display name for a team: name, FF winner, or "A/B" combo. */
+export function displayName(team: Team): string {
+  if (team.name) return team.name;
+  if (team.firstFour) {
+    if (team.firstFour.winner) return team.firstFour.winner;
+    return team.firstFour.teams.map((t) => t.name).join("/");
+  }
+  return "TBD";
+}
+
+/** Resolved abbreviation: team abbrev, FF winner's abbrev, or combo abbrev. */
+export function displayAbbrev(team: Team): string {
+  if (team.name) return team.abbrev ?? team.name;
+  if (team.firstFour) {
+    if (team.firstFour.winner) {
+      const winner = team.firstFour.teams.find(
+        (t) => t.name === team.firstFour!.winner,
+      );
+      return winner?.abbrev ?? team.firstFour.winner;
+    }
+    return team.firstFour.teams.map((t) => t.abbrev).join("/");
+  }
+  return "TBD";
+}
 
 /**
  * Get teams for a region in bracket seed order.

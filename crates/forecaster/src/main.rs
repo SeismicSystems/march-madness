@@ -1,14 +1,18 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use clap::Parser;
 use eyre::bail;
 use tracing::info;
 
+use bracket_sim::Team;
+use bracket_sim::live_resolver::GameModelResolver;
+use seismic_march_madness::redis_keys::{DEFAULT_REDIS_URL, KEY_GAMES};
 use seismic_march_madness::{
     BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentData, TournamentStatus,
     build_reach_probs, compute_current_score, compute_max_possible, get_teams_in_bracket_order,
-    parse_bracket_hex, run_simulations,
+    kenpom_csv, parse_bracket_hex, run_simulations_with_resolver,
+    run_team_advance_simulations_with_resolver, tournament_json,
 };
 
 #[derive(Parser, Debug)]
@@ -21,9 +25,14 @@ struct Cli {
     #[arg(long, default_value = "data/entries.json")]
     entries_file: PathBuf,
 
+    /// Read live tournament status from Redis instead of a file.
+    #[arg(long, conflicts_with = "status_file")]
+    live: bool,
+
     /// Path to the tournament status JSON file.
-    #[arg(long, default_value = "data/2026/men/status.json")]
-    status_file: PathBuf,
+    /// Defaults to data/{year}/men/status.json.
+    #[arg(long = "status")]
+    status_file: Option<PathBuf>,
 
     /// Path to the tournament data JSON (team names in bracket order).
     /// If not specified, uses the embedded 2026 tournament data.
@@ -37,34 +46,100 @@ struct Cli {
     /// Number of Monte Carlo simulations to run.
     #[arg(long, default_value = "100000")]
     simulations: u32,
+
+    /// Tournament year (for loading embedded team data).
+    #[arg(long, default_value = "2026")]
+    year: u16,
+
+    /// Print per-team advance probabilities for each round (no entries needed).
+    #[arg(long)]
+    team_advance: bool,
 }
 
 fn main() -> eyre::Result<()> {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    let entries: EntryIndex = serde_json::from_str(&std::fs::read_to_string(&cli.entries_file)?)?;
-    let status: TournamentStatus =
-        serde_json::from_str(&std::fs::read_to_string(&cli.status_file)?)?;
+    let status: TournamentStatus = if cli.live {
+        info!("reading tournament status from Redis");
+        let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
+        let client = redis::Client::open(url.as_str())?;
+        let mut conn = client.get_connection()?;
+        let json: Option<String> = redis::Commands::get(&mut conn, KEY_GAMES)?;
+        let json =
+            json.ok_or_else(|| eyre::eyre!("no tournament status in Redis (key: {KEY_GAMES})"))?;
+        serde_json::from_str(&json)?
+    } else {
+        let status_path = cli
+            .status_file
+            .unwrap_or_else(|| PathBuf::from(format!("data/{}/men/status.json", cli.year)));
+        info!("reading tournament status from {}", status_path.display());
+        serde_json::from_str(&std::fs::read_to_string(&status_path)?)?
+    };
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
-        None => TournamentData::embedded(2026),
+        None => TournamentData::embedded(cli.year),
+    };
+
+    // Build team names in bracket order
+    let team_names = get_teams_in_bracket_order(&tournament);
+
+    // Load team metrics for live game simulation
+    let tj = tournament_json(cli.year)
+        .unwrap_or_else(|| panic!("no embedded tournament data for year {}", cli.year));
+    let kp = kenpom_csv(cli.year)
+        .unwrap_or_else(|| panic!("no embedded KenPom data for year {}", cli.year));
+    let teams = bracket_sim::team::load_teams_from_json_str(tj, kp)?;
+    let team_map: HashMap<String, Team> = teams.into_iter().map(|t| (t.team.clone(), t)).collect();
+
+    // Build resolver for live games — simulates remaining possessions directly
+    let live_count = status
+        .games
+        .iter()
+        .filter(|g| g.status == GameState::Live)
+        .count();
+    let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
+    let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
+        info!(
+            live_games = live_count,
+            "using game model resolver for live games"
+        );
+        Some(&resolver)
+    } else {
+        None
+    };
+
+    // Build reach probabilities from team names → bracket positions
+    let reach = match &status.team_reach_probabilities {
+        Some(reach_map) => build_reach_probs(&team_names, reach_map),
+        None => bail!("tournament status missing teamReachProbabilities — cannot simulate"),
     };
 
     info!(
-        entries = entries.len(),
         games = status.games.len(),
         simulations = cli.simulations,
         "loaded data"
     );
 
-    // Build reach probabilities from team names → bracket positions
-    let team_names = get_teams_in_bracket_order(&tournament);
-    let reach = match &status.team_reach_probabilities {
-        Some(reach_map) => build_reach_probs(&team_names, reach_map),
-        None => bail!("tournament status missing teamReachProbabilities — cannot simulate"),
-    };
+    // --team-advance: print per-team advance probabilities and exit
+    if cli.team_advance {
+        let results = run_team_advance_simulations_with_resolver(
+            &status,
+            &reach,
+            cli.simulations,
+            resolver_opt,
+        );
+        results.print_table(&team_names, |name| {
+            team_map.get(name).map(|t| t.seed).unwrap_or(0)
+        });
+        return Ok(());
+    }
+
+    // Normal forecast mode — needs entries
+    let entries: EntryIndex = serde_json::from_str(&std::fs::read_to_string(&cli.entries_file)?)?;
+    info!(entries = entries.len(), "loaded entries");
 
     // Parse all valid brackets
     let mut brackets: Vec<(String, u64, Option<String>)> = Vec::new();
@@ -106,7 +181,13 @@ fn main() -> eyre::Result<()> {
         .map(|&b| compute_max_possible(b, &status))
         .collect();
 
-    let sim_results = run_simulations(&bracket_bits, &status, &reach, cli.simulations);
+    let sim_results = run_simulations_with_resolver(
+        &bracket_bits,
+        &status,
+        &reach,
+        cli.simulations,
+        resolver_opt,
+    );
 
     let total_sims = cli.simulations as f64;
     let mut forecast: ForecastIndex = BTreeMap::new();

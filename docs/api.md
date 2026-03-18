@@ -54,7 +54,7 @@ Returns per-bracket win probabilities (written by the forecaster crate). No auth
 
 ## Tournament Status Schema
 
-The tournament status JSON file (`data/{year}/men/status.json`, written by `ncaa-feed`) has this shape:
+The tournament status (Redis key `mm:games`, written by `ncaa-feed`) has this shape:
 
 ```jsonc
 {
@@ -72,7 +72,9 @@ The tournament status JSON file (`data/{year}/men/status.json`, written by `ncaa
       "gameIndex": 12,
       "status": "live",
       "score": { "team1": 45, "team2": 38 },
-      "team1WinProbability": 0.72   // conditional on current score, 0-1
+      "team1WinProbability": 0.72,  // conditional on current score, 0-1 (model-computed when score+time present)
+      "secondsRemaining": 480,      // seconds left in current period (live only)
+      "period": 2                    // 1 = 1st half, 2 = 2nd half, 3+ = OT periods
     },
     // An upcoming game:
     {
@@ -191,8 +193,20 @@ Tennessee, Missouri, Gonzaga, Grand Canyon, Texas A&M, Ohio St., Houston, LSU
 ## `team1WinProbability` Field
 
 - Only relevant for `"live"` games
-- Should be **conditional** on the current in-game score (not the pre-game probability)
+- **Conditional** on the current in-game score (not the pre-game probability)
 - Range: 0.0 to 1.0
+- When `score`, `secondsRemaining`, and `period` are all present, the forecaster computes this automatically from the game model (KenPom-based simulation of remaining possessions). Any externally-set value is overridden.
+
+## `secondsRemaining` Field
+
+- Only relevant for `"live"` games
+- Seconds remaining on the game clock in the current period
+- Range: 0-1200 (20-minute college basketball halves) or 0-300 (5-minute OT periods)
+
+## `period` Field
+
+- Only relevant for `"live"` games
+- `1` = first half, `2` = second half, `3` = first overtime, `4` = second overtime, etc.
 
 ## Running the Server
 
@@ -209,16 +223,21 @@ cargo run --bin march-madness-server -- --port 3000
 After tournament status is posted, run the forecaster to generate win probabilities:
 
 ```bash
-cargo run --release --bin march-madness-forecaster
+# Live mode: read tournament status from Redis
+cargo run --release --bin march-madness-forecaster -- --live
+
+# File mode: read status from a file
+cargo run --release --bin march-madness-forecaster -- \
+  --status data/2026/men/status.json
 
 # Custom paths / simulation count
 cargo run --release --bin march-madness-forecaster -- \
+  --live \
   --entries-file data/entries.json \
-  --status-file data/2026/men/status.json \
   --tournament-file data/2026/men/tournament.json \
   --output-file data/2026/men/forecasts.json \
   --simulations 100000
 ```
 
-The forecaster reads `entries.json` + `data/2026/men/status.json` + `data/2026/men/tournament.json`, runs 100k Monte Carlo forward simulations, and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
+The forecaster reads entries from a file, tournament status from Redis (`--live`) or a file (`--status <path>`), and tournament structure from embedded data or `--tournament-file`. It runs 100k Monte Carlo forward simulations and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
 

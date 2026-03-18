@@ -22,11 +22,12 @@ const ENABLED_CHAINS = [sanvil, seismicTestnet];
 export const CHAINS = ENABLED_CHAINS.filter(({ id }) => id === CHAIN_ID);
 
 // Fallback to sanvil if no chain matched
-const resolvedChains = CHAINS.length > 0 ? CHAINS : [sanvil];
+export const APP_CHAINS = CHAINS.length > 0 ? CHAINS : [sanvil];
+export const REQUIRED_CHAIN = APP_CHAINS[0];
 
 export const config = createConfig({
   // @ts-expect-error: privy wagmi typing mismatch
-  chains: resolvedChains,
+  chains: APP_CHAINS,
   transports: {
     [sanvil.id]: http(),
     [seismicTestnet.id]: http(import.meta.env.VITE_RPC_URL),

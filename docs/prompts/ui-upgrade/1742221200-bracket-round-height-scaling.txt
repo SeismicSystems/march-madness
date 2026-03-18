@@ -1,0 +1,47 @@
+Implement the following plan:
+
+# Bracket Round Container Height Scaling
+
+## Context
+
+Currently all bracket game cards are ~22px tall regardless of round. The user wants later rounds' game containers to scale proportionally: an R32 game card should span the combined height of its two R64 feeder games, a Sweet 16 card should span two R32 cards (= 4× R64), and so on. This creates the classic ESPN bracket visual where winners naturally align with their matchup pairs.
+
+## Root Cause
+
+In `BracketRegion.tsx` line 61, games within a round use:
+
+```
+flex flex-col flex-1 justify-around gap-2
+```
+
+The `justify-around` distributes games evenly, but each `BracketGame` renders at its natural height (~22px). Games in R32/S16/E8 don't grow to fill the proportionally larger space.
+
+## Approach
+
+**File: `packages/web/src/components/BracketRegion.tsx`**
+
+1. Wrap each `BracketGame` in a `<div className="flex-1 flex items-center">` wrapper
+2. Change the round container from `justify-around gap-2` to just `gap-0.5` (minimal gap since `flex-1` handles spacing)
+3. Each game wrapper gets `flex-1`, so in R64 (8 games) each wrapper = 1/8 of column height; in R32 (4 games) each = 1/4 = 2× R64; Sweet 16 (2) = 1/2 = 4× R64; Elite 8 (1) = full height = 8× R64
+4. `items-center` vertically centers the game card within its proportional wrapper
+
+**File: `packages/web/src/components/BracketGame.tsx`**
+
+No changes needed — game cards stay at their natural size. The visual alignment comes from the wrapper centering, not from stretching the cards themselves. This keeps cards readable and consistent while the _spacing_ between rounds aligns correctly.
+
+## Result
+
+- R64: 8 compact game cards, tightly packed
+- R32: 4 game cards, each vertically centered in the space of 2 R64 slots
+- Sweet 16: 2 game cards, each vertically centered in the space of 4 R64 slots
+- Elite 8: 1 game card, centered in the space of 8 R64 slots
+
+Winners naturally align horizontally with the pair of games they won from.
+
+## Verification
+
+1. `bun run --filter @march-madness/web dev` — check desktop bracket layout
+2. Verify R32 games align vertically centered between their two R64 feeder games
+3. Verify Sweet 16 and Elite 8 scale proportionally
+4. Verify mobile (compact/tabbed) view still looks correct
+5. `./scripts/ci.sh` before pushing

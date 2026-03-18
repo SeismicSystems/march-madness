@@ -9,6 +9,72 @@ All notable changes to this project. Every PR must add an entry here.
 - **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
 - **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
 
+### 2026-03-18 — Restructure firstFour schema in tournament.json
+
+- **Schema change**: `firstFour` is now `{ teams: [{ name, abbrev? }, ...], winner? }` instead of `[string, string]`.
+- **fetch-bracket**: Detects FF game winners from NCAA API `isWinner` flag. Applies abbreviations to individual FF teams and builds combo abbreviation for the slot name.
+- **ncaa-api**: Added `is_winner` field to `BracketTeam`.
+- **bracket-sim**: Updated `TournamentJsonTeam.first_four` to new struct. KenPom averaging and FF→slot mapping use `ff.teams[].name`.
+- **ncaa-feed mapper**: Updated FF name extraction to new schema.
+- **scrape_kenpom.py**: Updated to read `firstFour.teams[].name`.
+- **Frontend**: Added `FirstFourEntry` and `FirstFourTeam` TypeScript interfaces.
+- **data/mappings.toml**: Added abbreviations for `Prairie View A&M` and `Miami (Ohio)`.
+
+### 2026-03-18 — Move team abbreviations to data/mappings.toml
+
+- **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.
+- **fetch-bracket**: Loads abbreviations from `mappings.toml`, writes `abbrev` field to `tournament.json` for teams whose name exceeds 9 characters. First Four combo names are never abbreviated (future iteration).
+- **Frontend**: Removed hardcoded `ESPN_ABBREVIATIONS` map and `getTeamAbbreviation()` — abbreviations now come entirely from `tournament.json`.
+- **Workspace**: Added `rustls-tls` feature to workspace `reqwest` (fixes HTTPS on machines where TLS wasn't unified from other crates). Made `toml` a workspace dependency.
+
+### 2026-03-18 — Move tournament status from file to Redis (#44)
+
+- **Breaking**: `ncaa-feed` now writes tournament status to Redis (`mm:games` key) instead of `data/{year}/men/status.json`. Removed `--output-file` CLI arg; added `--redis-url` (env: `REDIS_URL`).
+- **Server**: `/tournament-status` endpoint reads from Redis instead of file-based TTL cache. Removed `--tournament-status-file` CLI arg.
+- **Forecaster**: Added `--live` flag to read tournament status from Redis. Without it, falls back to `--status <path>` (file-based, default `data/{year}/men/status.json`).
+- **bracket-sim**: Added `--live` flag to read tournament status from Redis for conditioned simulation. `--status <path>` still works for file-based input.
+- **Shared**: Added `KEY_GAMES` constant (`mm:games`) to `redis_keys.rs`.
+
+### 2026-03-17 — Condition simulation on live game state (#43)
+
+- **New**: `Game::simulate_remaining()` in `bracket-sim/src/game.rs` — simulates only the remaining possessions of a live game from the current score, based on time remaining and period. Handles regulation remainder and overtime.
+- **New**: `Game::conditional_win_probability()` — Monte Carlo estimation of P(team1 wins | current score, time remaining) using the KenPom-based game model.
+- **Forecaster**: When live games have score + `secondsRemaining` + `period` data, the forecaster now computes model-derived conditional probabilities instead of relying on externally-set `team1WinProbability`. Loads team metrics from embedded KenPom data and traces bracket feeders to resolve which teams are playing in later rounds.
+- **Forecaster**: Added `--year` CLI flag (default 2026) for selecting embedded tournament data.
+- **Dependency**: `march-madness-forecaster` now depends on `bracket-sim` for game simulation.
+- **Docs**: Updated `docs/api.md` with `secondsRemaining` and `period` field documentation.
+- **Tests**: Added tests for `remaining_seconds`, `simulate_remaining` with big leads, close games, and end-of-game scenarios.
+
+### 2026-03-17 — Tighten encoded bracket copy icon spacing
+
+- **UI**: Reduced the dead space between the encoded bracket hex field and the copy/edit icon fan-out on desktop by replacing the fixed-width icon rail with a collapsing `max-width` transition.
+
+### 2026-03-17 — Mobile create-bracket layout overhaul (space + no-scroll lanes)
+
+- **Mobile UI**: Reclaimed top-of-page vertical space by moving the lock countdown into a compact inline mode beside "Brackets submitted" and removing the separate countdown card row.
+- **Mobile UI**: Repositioned controls so `Reset bracket` sits directly under `Submit Bracket`. Moved hex tools out of the main card into a subtle bottom `0x` debug toggle with copy + paste support.
+- **Mobile UI**: Reworked the mobile bracket tabs into stacked round lanes that fit screen width (no horizontal scrolling), with clearer matchup separation via per-game borders and reversed two-column lane order for visual flow.
+- **Mobile UI**: Applied the same lane treatment to the Final Four tab; current order is `Final Four` above `Championship`, with champion summary shown below.
+
+### 2026-03-17 — Move Reset Picks & hex input into SubmitPanel, center deadline
+
+- **UI**: Moved "Reset Picks" button, ConfirmDialog, and hex contract input from HomePage into SubmitPanel (desktop: new row below main bar; mobile: same placement). All hex state/handlers now live in SubmitPanel.
+- **UI**: Hex input is a fixed-width (`w-[10.5rem]`) input-styled container with single-click to edit (removed double-click fan-out flow). Copy button visible next to field when bracket exists.
+- **UI**: DeadlineCountdown is now centered (`flex justify-center`) above BracketView.
+- **Cleanup**: Removed unused `useCallback`, `useEffect`, `useRef` imports and stale hex/expand state from HomePage.
+
+### 2026-03-17 — Prompt external wallet users to add/switch to the Seismic network
+
+- **Wallet UX**: When an external wallet connected through Privy is on the wrong chain, the submit panel now shows a `Switch to ...` action and explains that MetaMask may need to add the Seismic network first.
+- **Wallet UX**: The app now attempts `wallet_addEthereumChain` when the required Seismic network is missing, then switches the wallet to that chain automatically.
+- **Fix**: After a successful external-wallet chain change, the active Privy/wagmi wallet is re-synced so the Seismic shielded wallet client refreshes without requiring a manual hard refresh.
+
+### 2026-03-17 — Fix submit bracket button UX
+
+- **UI**: Added `cursor-pointer` to the submit/update bracket button on both desktop and mobile so it shows the hand icon when hoverable.
+- **Fix**: Submit button now correctly reflects wallet readiness — disabled until the wallet client is fully initialized, not just when Privy auth is active. Prevents silent failures when `authenticated` is true but the embedded wallet hasn't loaded yet.
+- **Fix**: `submitBracket`, `updateBracket`, and `setTag` now display a visible error message ("Wallet not connected") instead of silently failing when the wallet client isn't ready.
+
 ### 2026-03-17 — Bracket submission counter on home page
 
 - **UI**: Added a bracket count indicator next to the deadline countdown on the home page, showing how many brackets have been submitted. Fetches from the `/stats` API endpoint, polls every 30s. Gracefully hidden when the API is unavailable.

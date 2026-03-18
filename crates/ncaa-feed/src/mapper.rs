@@ -15,9 +15,22 @@ use tracing::{debug, warn};
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TournamentTeam {
-    name: String,
     #[serde(default)]
-    first_four: Option<Vec<String>>,
+    name: Option<String>,
+    #[serde(default)]
+    first_four: Option<FirstFourEntry>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourEntry {
+    teams: Vec<FirstFourTeam>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourTeam {
+    name: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -60,14 +73,21 @@ impl GameMapper {
         let mut name_to_position = HashMap::new();
         for (i, team) in tournament.teams.iter().enumerate() {
             let pos = i as u8;
-            if let Some(ref ff_names) = team.first_four {
+            if let Some(ref ff) = team.first_four {
                 // First Four: map both individual names to this position.
-                for ff_name in ff_names {
-                    name_to_position.insert(ff_name.clone(), pos);
+                for ff_team in &ff.teams {
+                    name_to_position.insert(ff_team.name.clone(), pos);
+                }
+                // Also map the combo name for backwards compatibility.
+                if ff.teams.len() == 2 {
+                    let combo = format!("{}/{}", ff.teams[0].name, ff.teams[1].name);
+                    name_to_position.insert(combo, pos);
                 }
             }
-            // Also map the display name (e.g. "Texas/NC State" or normal name).
-            name_to_position.insert(team.name.clone(), pos);
+            // Map the display name if present.
+            if let Some(ref name) = team.name {
+                name_to_position.insert(name.clone(), pos);
+            }
         }
 
         Ok(Self {
@@ -246,12 +266,12 @@ mod tests {
     fn test_first_four_both_names_mapped() {
         let mapper = test_mapper();
 
-        // "Texas/NC State" is a First Four slot — both individual names
+        // "Prairie View A&M/Lehigh" is a First Four slot — both individual names
         // and the combo name should map to the same position.
-        let combo_pos = mapper.team_position("Texas/NC State");
+        let combo_pos = mapper.team_position("Prairie View A&M/Lehigh");
         assert!(combo_pos.is_some());
-        assert_eq!(mapper.team_position("Texas"), combo_pos);
-        assert_eq!(mapper.team_position("NC State"), combo_pos);
+        assert_eq!(mapper.team_position("Prairie View A&M"), combo_pos);
+        assert_eq!(mapper.team_position("Lehigh"), combo_pos);
     }
 
     #[test]

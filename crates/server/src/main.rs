@@ -21,10 +21,6 @@ struct Cli {
     #[arg(long, default_value = "3000")]
     port: u16,
 
-    /// Path to the tournament status JSON file.
-    #[arg(long, default_value = "data/2026/men/status.json")]
-    tournament_status_file: PathBuf,
-
     /// Path to the forecasts JSON file (from forecaster crate).
     #[arg(long, default_value = "data/2026/men/forecasts.json")]
     forecasts_file: PathBuf,
@@ -37,12 +33,7 @@ async fn main() -> eyre::Result<()> {
 
     let cli = Cli::parse();
 
-    let state = AppState::new(
-        cli.tournament_status_file.clone(),
-        cli.forecasts_file.clone(),
-        Duration::from_secs(5),
-    )
-    .await?;
+    let state = AppState::new(cli.forecasts_file.clone(), Duration::from_secs(5)).await?;
 
     let cors = CorsLayer::new()
         .allow_origin(Any)

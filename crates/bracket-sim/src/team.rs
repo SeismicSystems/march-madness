@@ -45,12 +45,42 @@ struct TournamentJson {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TournamentJsonTeam {
-    name: String,
+    /// Null for First Four slots.
+    #[serde(default)]
+    name: Option<String>,
     seed: u8,
     region: String,
     /// Present when this slot is decided by a First Four game.
     #[serde(default)]
-    first_four: Option<Vec<String>>,
+    first_four: Option<FirstFourEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourEntry {
+    teams: Vec<FirstFourTeam>,
+    winner: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstFourTeam {
+    name: String,
+}
+
+impl TournamentJsonTeam {
+    /// Resolved display name: the team name, or "A/B" combo for FF slots.
+    fn display_name(&self) -> String {
+        if let Some(ref name) = self.name {
+            return name.clone();
+        }
+        if let Some(ref ff) = self.first_four
+            && ff.teams.len() == 2
+        {
+            return format!("{}/{}", ff.teams[0].name, ff.teams[1].name);
+        }
+        String::from("TBD")
+    }
 }
 
 /// A bracket entry (name, seed, region) before joining with KenPom ratings.
@@ -152,17 +182,18 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
     let mut missing = Vec::new();
 
     for t in tournament.teams {
-        if let Some(ref ff_names) = t.first_four {
+        let display = t.display_name();
+        if let Some(ref ff) = t.first_four {
             // First Four: look up both teams and average their ratings.
             let mut found_metrics = Vec::new();
             let mut found_goose = Vec::new();
-            for ff_name in ff_names {
-                match kenpom_map.get(ff_name) {
+            for ff_team in &ff.teams {
+                match kenpom_map.get(&ff_team.name) {
                     Some((metrics, goose)) => {
                         found_metrics.push(*metrics);
                         found_goose.push(*goose);
                     }
-                    None => missing.push(ff_name.clone()),
+                    None => missing.push(ff_team.name.clone()),
                 }
             }
             if found_metrics.is_empty() {
@@ -177,7 +208,7 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
             };
             let avg_goose = found_goose.iter().sum::<f64>() / n;
             teams.push(Team {
-                team: t.name,
+                team: display,
                 seed: t.seed,
                 region: t.region,
                 metrics: avg_metrics,
@@ -185,17 +216,17 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
             });
         } else {
             // Normal team: direct lookup.
-            match kenpom_map.get(&t.name) {
+            match kenpom_map.get(&display) {
                 Some((metrics, goose)) => {
                     teams.push(Team {
-                        team: t.name,
+                        team: display,
                         seed: t.seed,
                         region: t.region,
                         metrics: *metrics,
                         goose: *goose,
                     });
                 }
-                None => missing.push(t.name),
+                None => missing.push(display),
             }
         }
     }
@@ -231,16 +262,17 @@ pub fn load_teams_from_json_str(json_content: &str, kenpom_csv: &str) -> io::Res
     let mut missing = Vec::new();
 
     for t in tournament.teams {
-        if let Some(ref ff_names) = t.first_four {
+        let display = t.display_name();
+        if let Some(ref ff) = t.first_four {
             let mut found_metrics = Vec::new();
             let mut found_goose = Vec::new();
-            for ff_name in ff_names {
-                match kenpom_map.get(ff_name) {
+            for ff_team in &ff.teams {
+                match kenpom_map.get(&ff_team.name) {
                     Some((metrics, goose)) => {
                         found_metrics.push(*metrics);
                         found_goose.push(*goose);
                     }
-                    None => missing.push(ff_name.clone()),
+                    None => missing.push(ff_team.name.clone()),
                 }
             }
             if found_metrics.is_empty() {
@@ -254,24 +286,24 @@ pub fn load_teams_from_json_str(json_content: &str, kenpom_csv: &str) -> io::Res
             };
             let avg_goose = found_goose.iter().sum::<f64>() / n;
             teams.push(Team {
-                team: t.name,
+                team: display,
                 seed: t.seed,
                 region: t.region,
                 metrics: avg_metrics,
                 goose: avg_goose,
             });
         } else {
-            match kenpom_map.get(&t.name) {
+            match kenpom_map.get(&display) {
                 Some((metrics, goose)) => {
                     teams.push(Team {
-                        team: t.name,
+                        team: display,
                         seed: t.seed,
                         region: t.region,
                         metrics: *metrics,
                         goose: *goose,
                     });
                 }
-                None => missing.push(t.name),
+                None => missing.push(display),
             }
         }
     }
@@ -450,9 +482,12 @@ pub fn build_first_four_map_from_json(json_content: &str) -> io::Result<HashMap<
 
     let mut ff_map = HashMap::new();
     for t in tournament.teams {
-        if let Some(ff_names) = t.first_four {
-            for ff_name in ff_names {
-                ff_map.insert(ff_name, t.name.clone());
+        if let Some(ff) = t.first_four {
+            let slot_name = t
+                .name
+                .unwrap_or_else(|| format!("{}/{}", ff.teams[0].name, ff.teams[1].name));
+            for ff_team in ff.teams {
+                ff_map.insert(ff_team.name, slot_name.clone());
             }
         }
     }
@@ -465,6 +500,54 @@ pub fn build_first_four_map(json_path: &Path) -> io::Result<HashMap<String, Stri
     let json_content = std::fs::read_to_string(json_path)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
     build_first_four_map_from_json(&json_content)
+}
+
+/// Info about a First Four slot, including which teams and whether a winner is decided.
+#[derive(Debug, Clone)]
+pub struct FirstFourSlotInfo {
+    /// The two individual team names.
+    pub teams: [String; 2],
+    /// The slot display name (e.g. "Texas/NC State").
+    pub slot_name: String,
+    /// Region this slot belongs to.
+    pub region: String,
+    /// The winning team name, if the FF game has been played.
+    pub winner: Option<String>,
+}
+
+/// Build structured First Four slot info from tournament.json.
+pub fn build_first_four_slots_from_json(json_content: &str) -> io::Result<Vec<FirstFourSlotInfo>> {
+    let tournament: TournamentJson = serde_json::from_str(json_content).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("tournament JSON parse error: {}", e),
+        )
+    })?;
+
+    let mut slots = Vec::new();
+    for t in tournament.teams {
+        if let Some(ff) = t.first_four
+            && ff.teams.len() == 2
+        {
+            let slot_name = t
+                .name
+                .unwrap_or_else(|| format!("{}/{}", ff.teams[0].name, ff.teams[1].name));
+            slots.push(FirstFourSlotInfo {
+                teams: [ff.teams[0].name.clone(), ff.teams[1].name.clone()],
+                slot_name,
+                region: t.region.clone(),
+                winner: ff.winner,
+            });
+        }
+    }
+    Ok(slots)
+}
+
+/// Build structured First Four slot info from a file path.
+pub fn build_first_four_slots(json_path: &Path) -> io::Result<Vec<FirstFourSlotInfo>> {
+    let json_content = std::fs::read_to_string(json_path)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", json_path.display(), e)))?;
+    build_first_four_slots_from_json(&json_content)
 }
 
 /// Save calibrated goose values back to a KenPom CSV while preserving individual team metrics.
@@ -631,5 +714,88 @@ mod tests {
             }
         }
         validate_bracket_structure(&teams);
+    }
+
+    #[test]
+    fn ff_map_pending_slot() {
+        let json = r#"{
+            "name": "T", "regions": ["E"],
+            "teams": [
+                {"name": null, "seed": 16, "region": "E",
+                 "firstFour": {"teams": [{"name": "TeamA"}, {"name": "TeamB"}]}}
+            ]
+        }"#;
+        let map = build_first_four_map_from_json(json).unwrap();
+        assert_eq!(map.get("TeamA").unwrap(), "TeamA/TeamB");
+        assert_eq!(map.get("TeamB").unwrap(), "TeamA/TeamB");
+    }
+
+    #[test]
+    fn ff_map_decided_slot() {
+        let json = r#"{
+            "name": "T", "regions": ["E"],
+            "teams": [
+                {"name": null, "seed": 11, "region": "E",
+                 "firstFour": {"teams": [{"name": "X"}, {"name": "Y"}], "winner": "X"}}
+            ]
+        }"#;
+        let map = build_first_four_map_from_json(json).unwrap();
+        assert_eq!(map.get("X").unwrap(), "X/Y");
+        assert_eq!(map.get("Y").unwrap(), "X/Y");
+    }
+
+    #[test]
+    fn ff_slots_pending_and_decided() {
+        let json = r#"{
+            "name": "T", "regions": ["E"],
+            "teams": [
+                {"name": null, "seed": 16, "region": "E",
+                 "firstFour": {"teams": [{"name": "A"}, {"name": "B"}]}},
+                {"name": null, "seed": 11, "region": "E",
+                 "firstFour": {"teams": [{"name": "X"}, {"name": "Y"}], "winner": "X"}}
+            ]
+        }"#;
+        let slots = build_first_four_slots_from_json(json).unwrap();
+        assert_eq!(slots.len(), 2);
+
+        // Pending slot
+        assert_eq!(slots[0].teams, ["A", "B"]);
+        assert!(slots[0].winner.is_none());
+        assert_eq!(slots[0].slot_name, "A/B");
+        assert_eq!(slots[0].region, "E");
+
+        // Decided slot
+        assert_eq!(slots[1].teams, ["X", "Y"]);
+        assert_eq!(slots[1].winner.as_deref(), Some("X"));
+        assert_eq!(slots[1].slot_name, "X/Y");
+        assert_eq!(slots[1].region, "E");
+    }
+
+    #[test]
+    fn ff_display_name_pending() {
+        let t = TournamentJsonTeam {
+            name: None,
+            seed: 16,
+            region: "E".into(),
+            first_four: Some(FirstFourEntry {
+                teams: vec![
+                    FirstFourTeam { name: "Foo".into() },
+                    FirstFourTeam { name: "Bar".into() },
+                ],
+                winner: None,
+            }),
+        };
+        assert_eq!(t.display_name(), "Foo/Bar");
+    }
+
+    #[test]
+    fn ff_no_first_four_no_name() {
+        let t = TournamentJsonTeam {
+            name: None,
+            seed: 1,
+            region: "E".into(),
+            first_four: None,
+        };
+        assert_eq!(t.display_name(), "TBD");
     }
 }

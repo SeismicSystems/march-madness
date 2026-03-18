@@ -36,6 +36,10 @@ pub const KEY_MIRROR_SLUGS: &str = "mm:mirror:slugs";
 /// Mirror entries: "mirrorId:entrySlug" → bracket_hex (HASH).
 pub const KEY_MIRROR_ENTRIES: &str = "mm:mirror:entries";
 
+/// Tournament game status: full TournamentStatus JSON blob (STRING).
+/// Written by ncaa-feed, read by server and CLI tools (forecaster, sim).
+pub const KEY_GAMES: &str = "mm:games";
+
 /// Build a composite key for mirror entries: "mirrorId:entrySlug".
 pub fn mirror_entry_field(mirror_id: u64, slug: &str) -> String {
     format!("{mirror_id}:{slug}")

@@ -5,6 +5,7 @@ mod bracket;
 pub mod bracket_config;
 pub mod calibration_mm;
 mod game;
+pub mod live_resolver;
 pub mod metrics;
 pub mod scoring;
 pub mod team;

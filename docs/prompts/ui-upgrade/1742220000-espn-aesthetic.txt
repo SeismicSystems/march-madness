@@ -1,0 +1,121 @@
+Implement the following plan:
+
+# UI Upgrade: ESPN-like Sports Aesthetic
+
+## Context
+
+The current UI uses Fira Mono (monospace), muted mauve accents, and flat dark grays — it reads as a developer tool, not a sports app. The goal is to make it feel like ESPN: bold, glossy, energetic, and unmistakably "sports". This is a purely visual overhaul — no functionality changes.
+
+## Approach: Theme-first, then components
+
+### Step 1: Foundation — Fonts + Color Palette
+
+**Files:** `packages/web/index.html`, `packages/web/src/index.css`
+
+**Fonts:**
+
+- **Inter** (body/UI) — clean modern sans-serif, great for data-heavy sports UIs
+- **Oswald** (display/headers) — condensed bold, very ESPN for section titles like "FINAL FOUR", region names, countdown numbers
+- Keep **Fira Mono** only for hex values, addresses, scores (`font-mono` class)
+
+**New color palette (replace entire `@theme` block):**
+
+- Backgrounds: navy-blacks (`#0a0e1a`, `#111827`, `#1e2a3a`) instead of flat grays
+- Text: clean whites/cool grays (`#f1f5f9`, `#94a3b8`) instead of sepia tones
+- Accent: vibrant orange (`#f97316`) instead of muted mauve
+- New: region colors (blue/red/green/purple for East/West/South/Midwest)
+- New: gold/silver/bronze for leaderboard podium
+- New: page gradient background (navy → deep purple-navy at 135°)
+
+**Add custom utility classes:**
+
+- `.bg-page` — diagonal gradient background for the app shell
+- `.text-display` — Oswald font family shortcut
+
+> This single step transforms ~60% of the visual feel since every component uses these CSS variables.
+
+### Step 2: App Shell Background
+
+**File:** `packages/web/src/App.tsx`
+
+- Replace flat `bg-bg-primary` with `bg-page min-h-screen` gradient background
+
+### Step 3: Header
+
+**File:** `packages/web/src/components/Header.tsx`
+
+- "March Madness" → Oswald, uppercase, bolder tracking
+- Nav links → orange underline active indicator (ESPN tab style) instead of bg change
+- Connect button → orange gradient with shadow
+- Thin gradient line at bottom (orange → transparent) replacing solid border
+- Gradient background on header bar
+
+### Step 4: Bracket Game Cards
+
+**File:** `packages/web/src/components/BracketGame.tsx`
+
+- Team slots: subtle gradient surface instead of flat bg
+- Winner state: orange accent glow instead of mauve
+- Hover: faint orange border glow (`shadow-[0_0_8px_rgba(249,115,22,0.15)]`)
+- Seeds: bolder, more visible
+- Overall: glossier card feel with inner highlight shadow
+
+### Step 5: Bracket Regions + Final Four
+
+**Files:** `packages/web/src/components/BracketRegion.tsx`, `packages/web/src/components/FinalFour.tsx`
+
+- Region headers: Oswald font, color-coded per region (East=blue, West=red, South=green, Midwest=purple)
+- Round labels: slightly larger, better contrast
+- Final Four: gold gradient behind championship, dramatic Oswald typography, gold glow on champion box
+
+### Step 6: Submit Panel + Deadline Countdown
+
+**Files:** `packages/web/src/components/SubmitPanel.tsx`, `packages/web/src/components/DeadlineCountdown.tsx`
+
+- Progress bar: orange-to-gold gradient fill
+- Submit button: orange gradient, slight hover scale, shadow
+- Countdown numbers: Oswald, big and bold
+- Urgent state: pulsing orange/red glow
+
+### Step 7: Leaderboard
+
+**File:** `packages/web/src/pages/LeaderboardPage.tsx`
+
+- Rank 1/2/3: gold/silver/bronze colored badges
+- Table header: uppercase tracking, darker row
+- Score: larger, bolder
+- Hover rows: subtle orange tint
+- Page title: Oswald, uppercase
+
+### Step 8: Groups + Remaining Pages
+
+**Files:** `packages/web/src/pages/GroupsPage.tsx`, `packages/web/src/components/GroupsSection.tsx`, `packages/web/src/components/MirrorsSection.tsx`
+
+- Form cards: glossy navy surfaces
+- Headers: Oswald display font
+- Inputs: orange focus ring
+- Buttons: orange gradient primary actions
+
+### Step 9: Remaining Components
+
+**Files:** `packages/web/src/pages/BracketViewerPage.tsx`, `packages/web/src/pages/HomePage.tsx`, `packages/web/src/components/ConfirmDialog.tsx`, `packages/web/src/components/FaucetBanner.tsx`, `packages/web/src/components/Scoreboard.tsx`
+
+- Apply established patterns: navy cards, orange accents, Oswald headers, glossy surfaces
+- Dialog: darker navy glassmorphism
+- Scoreboard stats: Oswald numbers, large sizing
+
+## Key Design Decisions
+
+- **Dark theme stays** — sports apps look great dark, and it matches the existing brand
+- **Orange accent** — ESPN's energy, universally "sports", high contrast on navy
+- **Inter + Oswald combo** — proven sports typography pairing (Inter for readability, Oswald for impact)
+- **Region color coding** — map region name → color inside BracketRegion.tsx (no prop changes needed)
+- **No layout changes** — all responsive breakpoints and component structure stay the same
+
+## Verification
+
+1. `bun run --filter @march-madness/web dev` — visual check all pages
+2. Verify mobile responsiveness (bracket tabs, hamburger menu, submit panel)
+3. Check text contrast on new navy backgrounds (especially muted text)
+4. Verify ESPN team logos still load correctly
+5. Run `./scripts/ci.sh` before pushing

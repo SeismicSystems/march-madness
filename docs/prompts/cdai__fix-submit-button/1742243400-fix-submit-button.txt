@@ -1,0 +1,5 @@
+hey a guy at the office is having trouble clicking "Submit bracket" on the ui. i'm unable to reproduce this locally. but first: i noticed that button doesnt have the intuitive pointer icon (both for me when it works and for him when it doesnt)
+
+so first fix that, should be easy
+
+but then when youre around that part of the code -- figure out why he's unable to press the submit button. i couldnt reproduce, i'm using same browser and also logged in with same method
