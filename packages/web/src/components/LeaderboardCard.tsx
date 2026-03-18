@@ -57,18 +57,12 @@ function CardInner({
 
             {/* Player */}
             <div className="min-w-0 flex-1">
-              {entry.tag ? (
-                <>
-                  <div className="text-text-primary font-medium truncate">
-                    {entry.tag}
-                  </div>
-                  <div className="text-[10px] text-text-muted font-mono">
-                    {truncateAddress(entry.address)}
-                  </div>
-                </>
-              ) : (
-                <div className="text-text-primary font-mono text-sm">
-                  {truncateAddress(entry.address)}
+              <div className="text-text-primary font-mono text-sm truncate">
+                {truncateAddress(entry.address)}
+              </div>
+              {entry.tag && (
+                <div className="text-[10px] text-gold truncate">
+                  GROUP: {entry.tag}
                 </div>
               )}
             </div>
