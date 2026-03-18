@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Bracket UI: fix Final Four overlap without horizontal scroll, add eliminated (red) and advancing (green) pick cascades, center bracket layout
+
+
 Refactor deadline fetching to read submission deadline from chain instead of using a hardcoded constant. DeadlineCountdown now shows a loading state until the on-chain value is available.
 
 
