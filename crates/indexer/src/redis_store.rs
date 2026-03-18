@@ -329,20 +329,6 @@ pub async fn get_group_by_slug(
     }
 }
 
-/// Get the group IDs for an address from the reverse mapping.
-#[expect(dead_code, reason = "read helper available for future indexer use")]
-pub async fn get_address_groups(
-    conn: &mut MultiplexedConnection,
-    address: &str,
-) -> Result<Vec<u32>> {
-    let addr = address.to_lowercase();
-    let json: Option<String> = conn.hget(KEY_ADDRESS_GROUPS, &addr).await?;
-    Ok(json
-        .as_deref()
-        .and_then(|s| serde_json::from_str(s).ok())
-        .unwrap_or_default())
-}
-
 /// Get the member list for a group by ID.
 pub async fn get_group_members(
     conn: &mut MultiplexedConnection,
