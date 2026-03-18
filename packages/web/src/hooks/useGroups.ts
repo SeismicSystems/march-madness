@@ -203,12 +203,9 @@ export function useGroups() {
     refreshGroups();
   }, [refreshGroups]);
 
-  /** Hydrate a single group from on-chain and add to local state. Call after tx is confirmed. */
-  const hydrateSingleGroup = useCallback(
-    async (groupId: number) => {
-      if (!groupsPublic) return;
-      const group = await groupsPublic.getGroup(groupId);
-      const members = await groupsPublic.getMembers(groupId);
+  /** Read on-chain group data and add to local state. */
+  const applyGroupToState = useCallback(
+    (groupId: number, group: GroupData, members: MemberData[]) => {
       const pp = passphrases[String(groupId)];
       const storedInfo: StoredGroupInfo = {
         ...(walletAddress && group.creator.toLowerCase() === walletAddress
@@ -224,19 +221,23 @@ export function useGroups() {
         return [...prev, { groupId, group, members, storedInfo }];
       });
     },
-    [groupsPublic, passphrases, walletAddress],
+    [passphrases, walletAddress],
   );
 
   /** Join a public group. */
   const joinGroup = useCallback(
     async (groupId: number, name: string, entryFee: bigint = 0n) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.joinGroup(groupId, name, entryFee);
-        await publicClient!.waitForTransactionReceipt({ hash });
-        await hydrateSingleGroup(groupId);
+        const [, group, members] = await Promise.all([
+          publicClient!.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -246,7 +247,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, publicClient, hydrateSingleGroup],
+    [groupsUser, groupsPublic, publicClient, applyGroupToState],
   );
 
   /** Join a password-protected group. Takes a human-readable passphrase. */
@@ -257,7 +258,7 @@ export function useGroups() {
       name: string,
       entryFee: bigint = 0n,
     ) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
@@ -269,8 +270,12 @@ export function useGroups() {
           entryFee,
         );
         storePassphrase(groupId, passphrase, password);
-        await publicClient!.waitForTransactionReceipt({ hash });
-        await hydrateSingleGroup(groupId);
+        const [, group, members] = await Promise.all([
+          publicClient!.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -280,7 +285,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, publicClient, storePassphrase, hydrateSingleGroup],
+    [groupsUser, groupsPublic, publicClient, storePassphrase, applyGroupToState],
   );
 
   /** Create a public group. Creator is auto-joined. */
@@ -293,7 +298,11 @@ export function useGroups() {
         const hash = await groupsUser.createGroup(slug, displayName, entryFee);
         await publicClient!.waitForTransactionReceipt({ hash });
         const [groupId] = await groupsPublic.getGroupBySlug(slug);
-        await hydrateSingleGroup(groupId);
+        const [group, members] = await Promise.all([
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -303,7 +312,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, publicClient, hydrateSingleGroup],
+    [groupsUser, groupsPublic, publicClient, applyGroupToState],
   );
 
   /** Create a password-protected group. Takes a human-readable passphrase. Creator is auto-joined. */
@@ -318,7 +327,11 @@ export function useGroups() {
         await publicClient!.waitForTransactionReceipt({ hash });
         const [groupId] = await groupsPublic.getGroupBySlug(slug);
         storePassphrase(groupId, passphrase, password);
-        await hydrateSingleGroup(groupId);
+        const [group, members] = await Promise.all([
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return { hash, password };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -328,7 +341,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, publicClient, storePassphrase, hydrateSingleGroup],
+    [groupsUser, groupsPublic, publicClient, storePassphrase, applyGroupToState],
   );
 
   /** Leave a group. */
@@ -362,10 +375,12 @@ export function useGroups() {
       setError(null);
       try {
         const hash = await groupsUser.editEntryName(groupId, name);
-        await publicClient.waitForTransactionReceipt({ hash });
         // Re-hydrate just this group from on-chain.
-        const group = await groupsPublic.getGroup(groupId);
-        const members = await groupsPublic.getMembers(groupId);
+        const [, group, members] = await Promise.all([
+          publicClient.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
         const pp = passphrases[String(groupId)];
         const storedInfo: StoredGroupInfo = {
           ...(walletAddress && group.creator.toLowerCase() === walletAddress
