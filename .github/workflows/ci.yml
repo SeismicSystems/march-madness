@@ -17,10 +17,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check docs/changeset.md was modified
+      - name: Check .changeset/*.md file was added
         run: |
-          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^docs/changeset.md$' \
-            || (echo "::error::docs/changeset.md must be updated in every PR" && exit 1)
+          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '^\.changeset/.*\.md$' \
+            | grep -v '^\.changeset/README\.md$' \
+            || (echo "::error::Every PR must include a changeset file in .changeset/ (run: bunx changeset)" && exit 1)
+
+      - name: Check docs/changeset.md was NOT modified
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^docs/changeset\.md$'; then
+            echo "::error::Do not edit docs/changeset.md directly — add a .changeset/*.md file instead (run: bunx changeset)"
+            exit 1
+          fi
 
   # ─── Contracts ──────────────────────────────────────────────────────
   contracts:
