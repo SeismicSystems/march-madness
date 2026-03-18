@@ -74,6 +74,7 @@ export function PrivateJoinForm({
         await groups.joinGroup(groupId, nameInput.trim(), entryFee);
       }
 
+      setAttempted(false);
       setSlugInput("");
       setNameInput("");
       setPassphraseInput("");

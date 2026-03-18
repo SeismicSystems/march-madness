@@ -61,6 +61,7 @@ function PublicGroupCard({
         return;
       }
       await groups.joinGroup(groupId, joinName.trim(), entryFee);
+      setAttempted(false);
       setJoining(false);
       setJoinName("");
     } catch (err) {

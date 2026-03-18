@@ -81,6 +81,7 @@ function CreateGroupForm({
       setCreateSuccess(
         `Group "${displayName.trim()}" created! Look it up by slug "/${slug}" to track it.`,
       );
+      setAttempted(false);
       setDisplayName("");
       setSlug("");
       setSlugManual(false);
