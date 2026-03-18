@@ -80,7 +80,7 @@ impl Game {
     /// - `d = 1`: Poisson(mean)
     /// - `d > 1`: overdispersed → Gamma-Poisson mixture (negative binomial)
     ///   with shape r = mean / (d - 1)
-    pub fn sample_count(mean: f64, d: f64, rng: &mut impl Rng) -> f64 {
+    pub fn sample_count(mean: f64, d: f64, rng: &mut (impl Rng + ?Sized)) -> f64 {
         if mean < 0.01 || !mean.is_finite() {
             return 0.0;
         }
@@ -122,12 +122,16 @@ impl Game {
         }
     }
 
-    pub fn simulate(t1_metrics: Metrics, pace_d: f64, rng: &mut impl Rng) -> GameResult {
+    pub fn simulate(t1_metrics: Metrics, pace_d: f64, rng: &mut (impl Rng + ?Sized)) -> GameResult {
         let actual_pace = Self::sample_count(t1_metrics.pace, pace_d, rng);
         Self::simulate_with_pace(t1_metrics, actual_pace, rng)
     }
 
-    fn simulate_with_pace(t1_metrics: Metrics, actual_pace: f64, rng: &mut impl Rng) -> GameResult {
+    fn simulate_with_pace(
+        t1_metrics: Metrics,
+        actual_pace: f64,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> GameResult {
         let team1_expected = t1_metrics.ortg * actual_pace / 100.0;
         let team2_expected = t1_metrics.drtg * actual_pace / 100.0;
 
@@ -172,7 +176,12 @@ impl Game {
     /// Uses the same pace distribution as regulation — the dispersion parameter
     /// naturally scales variance with the mean, so low-possession OT periods
     /// get appropriately tighter distributions without special-casing.
-    fn resolve_overtime(&self, tied_score: u32, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
+    fn resolve_overtime(
+        &self,
+        tied_score: u32,
+        pace_d: f64,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> Option<&Team> {
         let base_metrics = self.expected_t1_metrics();
         let ot_metrics = Metrics {
             pace: base_metrics.pace * Self::OT_MINUTES / Self::REGULATION_MINUTES,
@@ -219,7 +228,7 @@ impl Game {
         seconds_remaining: i32,
         period: u8,
         pace_d: f64,
-        rng: &mut impl Rng,
+        rng: &mut (impl Rng + ?Sized),
     ) -> GameResult {
         let base_metrics = self.expected_t1_metrics();
         let (reg_secs, ot_secs) = Self::remaining_seconds(seconds_remaining, period);
@@ -294,7 +303,7 @@ impl Game {
         t1_wins as f64 / num_sims as f64
     }
 
-    pub fn winner(&self, pace_d: f64, rng: &mut impl Rng) -> Option<&Team> {
+    pub fn winner(&self, pace_d: f64, rng: &mut (impl Rng + ?Sized)) -> Option<&Team> {
         let result = self.result.as_ref()?;
 
         self.pick_by_score(result.team1_score, result.team2_score)

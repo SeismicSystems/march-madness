@@ -2,7 +2,8 @@
 //!
 //! Simulates the tournament round-by-round. For each simulation:
 //! 1. For decided games: use known winner
-//! 2. For live games: flip coin using team1WinProbability (in-game conditional)
+//! 2. For live games: simulate remaining possessions via `LiveGameResolver`
+//!    (falls back to coin flip with team1WinProbability if no resolver provided)
 //! 3. For upcoming games: determine who's playing from earlier rounds in THIS sim,
 //!    then derive P(A beats B) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])
 //! 4. Build complete 64-bit results, score all brackets, find winner(s)
@@ -26,6 +27,30 @@ pub struct SimulationResults {
 /// reach_by_team[team_idx][round] = P(team reaches that round).
 /// round 0 = R64 (always 1.0), round 5 = champion.
 pub type ReachProbs = Vec<[f64; 6]>;
+
+/// Resolves live game outcomes by simulating remaining possessions.
+///
+/// Implementations have access to team metrics and game state, and return
+/// true if team1 wins for a given simulation trial.
+pub trait LiveGameResolver {
+    /// Simulate the remaining portion of a live game and return true if team1 wins.
+    ///
+    /// - `game_index`: 0-62 game index
+    /// - `team1_idx`, `team2_idx`: bracket position indices (0-63)
+    /// - `status`: full tournament status (for reading score/time/period)
+    /// - `rng`: random number generator for this trial
+    fn resolve(
+        &self,
+        game_index: usize,
+        team1_idx: usize,
+        team2_idx: usize,
+        status: &TournamentStatus,
+        rng: &mut dyn RngCore,
+    ) -> bool;
+}
+
+/// Trait alias for the rng trait object we need.
+use rand::RngCore;
 
 /// Get the two feeder game indices for a game in rounds 1-5.
 /// For game `g` in round `r`: feeders are in the previous round.
@@ -65,11 +90,38 @@ fn win_prob_from_reach(reach: &ReachProbs, team_a: usize, team_b: usize, round: 
     pa / (pa + pb)
 }
 
+/// Resolve a live game: use the resolver if provided, otherwise coin flip.
+fn resolve_live_game(
+    g: usize,
+    team1: usize,
+    team2: usize,
+    status: &TournamentStatus,
+    resolver: Option<&dyn LiveGameResolver>,
+    rng: &mut impl Rng,
+) -> bool {
+    if let Some(res) = resolver {
+        res.resolve(g, team1, team2, status, rng)
+    } else {
+        let p = status.games[g].team1_win_probability.unwrap_or(0.5);
+        rng.random::<f64>() < p
+    }
+}
+
 pub fn run_simulations(
     brackets: &[u64],
     status: &TournamentStatus,
     reach: &ReachProbs,
     num_sims: u32,
+) -> SimulationResults {
+    run_simulations_with_resolver(brackets, status, reach, num_sims, None)
+}
+
+pub fn run_simulations_with_resolver(
+    brackets: &[u64],
+    status: &TournamentStatus,
+    reach: &ReachProbs,
+    num_sims: u32,
+    resolver: Option<&dyn LiveGameResolver>,
 ) -> SimulationResults {
     let n = brackets.len();
     let mut wins = vec![0u32; n];
@@ -101,17 +153,11 @@ pub fn run_simulations(
 
                 // Resolve the game
                 let team1_wins = match game.status {
-                    GameState::Final => {
-                        // Already decided
-                        game.winner.unwrap_or(true)
-                    }
+                    GameState::Final => game.winner.unwrap_or(true),
                     GameState::Live => {
-                        // Use in-game conditional probability
-                        let p = game.team1_win_probability.unwrap_or(0.5);
-                        rng.random::<f64>() < p
+                        resolve_live_game(g, team1, team2, status, resolver, &mut rng)
                     }
                     GameState::Upcoming => {
-                        // Derive from reach probabilities
                         let p = win_prob_from_reach(reach, team1, team2, round);
                         rng.random::<f64>() < p
                     }
@@ -165,12 +211,20 @@ pub struct TeamAdvanceResults {
     pub num_sims: u32,
 }
 
-/// Run forward simulations tracking which teams advance to each round.
-/// Uses the same game resolution logic as `run_simulations` (Final/Live/Upcoming).
 pub fn run_team_advance_simulations(
     status: &TournamentStatus,
     reach: &ReachProbs,
     num_sims: u32,
+) -> TeamAdvanceResults {
+    run_team_advance_simulations_with_resolver(status, reach, num_sims, None)
+}
+
+/// Run forward simulations tracking which teams advance to each round.
+pub fn run_team_advance_simulations_with_resolver(
+    status: &TournamentStatus,
+    reach: &ReachProbs,
+    num_sims: u32,
+    resolver: Option<&dyn LiveGameResolver>,
 ) -> TeamAdvanceResults {
     let mut advance = vec![[0u32; 6]; 64];
     let mut rng = rand::rng();
@@ -196,8 +250,7 @@ pub fn run_team_advance_simulations(
                 let team1_wins = match game.status {
                     GameState::Final => game.winner.unwrap_or(true),
                     GameState::Live => {
-                        let p = game.team1_win_probability.unwrap_or(0.5);
-                        rng.random::<f64>() < p
+                        resolve_live_game(g, team1, team2, status, resolver, &mut rng)
                     }
                     GameState::Upcoming => {
                         let p = win_prob_from_reach(reach, team1, team2, round);
@@ -327,5 +380,37 @@ mod tests {
             e1,
             e2
         );
+    }
+
+    /// Test that a custom LiveGameResolver is called for live games.
+    #[test]
+    fn test_resolver_overrides_live_game() {
+        // Game 0 is live with team1WinProbability=0.1 (would usually lose)
+        // But our resolver always returns true (team1 wins)
+        let decided: Vec<(u8, bool)> = (1..63).map(|i| (i, true)).collect();
+        let status = make_status(&decided, &[(0, 0.1)]);
+        let reach = uniform_reach(0.5);
+
+        struct AlwaysTeam1;
+        impl LiveGameResolver for AlwaysTeam1 {
+            fn resolve(
+                &self,
+                _game_index: usize,
+                _team1_idx: usize,
+                _team2_idx: usize,
+                _status: &TournamentStatus,
+                _rng: &mut dyn RngCore,
+            ) -> bool {
+                true
+            }
+        }
+
+        let team1_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
+        let brackets = vec![team1_bracket];
+
+        let results =
+            run_simulations_with_resolver(&brackets, &status, &reach, 100, Some(&AlwaysTeam1));
+        // Resolver always picks team1, so team1 bracket should always win
+        assert_eq!(results.wins[0], 100);
     }
 }

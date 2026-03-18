@@ -5,16 +5,14 @@ use clap::Parser;
 use eyre::bail;
 use tracing::info;
 
-use bracket_sim::{DEFAULT_PACE_D, Game, Team};
+use bracket_sim::Team;
+use bracket_sim::live_resolver::GameModelResolver;
 use seismic_march_madness::{
-    BracketForecast, EntryIndex, ForecastIndex, GameState, ROUND_STARTS, TournamentData,
-    TournamentStatus, build_reach_probs, compute_current_score, compute_max_possible,
-    get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex, run_simulations,
-    run_team_advance_simulations, tournament_json,
+    BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentData, TournamentStatus,
+    build_reach_probs, compute_current_score, compute_max_possible, get_teams_in_bracket_order,
+    kenpom_csv, parse_bracket_hex, run_simulations_with_resolver,
+    run_team_advance_simulations_with_resolver, tournament_json,
 };
-
-/// Number of Monte Carlo sims for computing each live game's conditional probability.
-const LIVE_GAME_SIMS: u32 = 10_000;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -52,138 +50,12 @@ struct Cli {
     team_advance: bool,
 }
 
-/// For R64 game at index g (0-31), return the two team indices (0-63).
-fn r64_teams(g: usize) -> (usize, usize) {
-    (2 * g, 2 * g + 1)
-}
-
-/// Get the two feeder game indices for a game in rounds 1-5.
-fn feeder_games(g: usize, round: usize) -> (usize, usize) {
-    let offset_in_round = g - ROUND_STARTS[round];
-    let prev_start = ROUND_STARTS[round - 1];
-    (
-        prev_start + 2 * offset_in_round,
-        prev_start + 2 * offset_in_round + 1,
-    )
-}
-
-/// Determine which round a game index belongs to.
-fn game_round(g: usize) -> usize {
-    for r in (0..6).rev() {
-        if g >= ROUND_STARTS[r] {
-            return r;
-        }
-    }
-    0
-}
-
-/// Resolve the team index (0-63) that won a decided game, tracing back to R64.
-/// Returns None if the game is not Final.
-fn resolve_winner_team_idx(g: usize, status: &TournamentStatus) -> Option<usize> {
-    let game = &status.games[g];
-    if game.status != GameState::Final {
-        return None;
-    }
-    let winner_is_team1 = game.winner?;
-
-    let round = game_round(g);
-    if round == 0 {
-        let (t1, t2) = r64_teams(g);
-        return Some(if winner_is_team1 { t1 } else { t2 });
-    }
-
-    let (f1, f2) = feeder_games(g, round);
-    let team1_idx = resolve_winner_team_idx(f1, status)?;
-    let team2_idx = resolve_winner_team_idx(f2, status)?;
-    Some(if winner_is_team1 {
-        team1_idx
-    } else {
-        team2_idx
-    })
-}
-
-/// Resolve the two team indices playing in a game. For R64, this is direct.
-/// For later rounds, trace feeder games (which must be Final for this game to be Live).
-fn resolve_game_teams(g: usize, status: &TournamentStatus) -> Option<(usize, usize)> {
-    let round = game_round(g);
-    if round == 0 {
-        return Some(r64_teams(g));
-    }
-    let (f1, f2) = feeder_games(g, round);
-    let team1_idx = resolve_winner_team_idx(f1, status)?;
-    let team2_idx = resolve_winner_team_idx(f2, status)?;
-    Some((team1_idx, team2_idx))
-}
-
-/// Compute model-derived conditional win probabilities for live games that have
-/// score + time data. Patches the probabilities into the status in-place.
-fn compute_live_game_probabilities(
-    status: &mut TournamentStatus,
-    team_names: &[String],
-    team_map: &HashMap<String, Team>,
-) {
-    let mut computed = 0u32;
-    for g in 0..63 {
-        let game = &status.games[g];
-        if game.status != GameState::Live {
-            continue;
-        }
-
-        // Resolve the two teams playing
-        let (t1_idx, t2_idx) = match resolve_game_teams(g, status) {
-            Some(pair) => pair,
-            None => continue,
-        };
-        let t1_name = &team_names[t1_idx];
-        let t2_name = &team_names[t2_idx];
-        let (t1, t2) = match (team_map.get(t1_name), team_map.get(t2_name)) {
-            (Some(a), Some(b)) => (a, b),
-            _ => continue,
-        };
-
-        let game_model = Game::new(t1.clone(), t2.clone());
-
-        // If we have score + time data, simulate the remaining game.
-        // Otherwise fall back to pre-game probability from team metrics.
-        let (prob, method) = if let (Some(score), Some(secs), Some(per)) =
-            (&game.score, game.seconds_remaining, game.period)
-        {
-            let p = game_model.conditional_win_probability(
-                (score.team1, score.team2),
-                secs,
-                per,
-                DEFAULT_PACE_D,
-                LIVE_GAME_SIMS,
-            );
-            (p, "conditional")
-        } else {
-            (game_model.team1_win_probability(), "pre-game")
-        };
-
-        info!(
-            game_index = g,
-            team1 = t1_name,
-            team2 = t2_name,
-            method,
-            computed_prob = format!("{:.3}", prob),
-            "computed live game probability"
-        );
-
-        status.games[g].team1_win_probability = Some(prob);
-        computed += 1;
-    }
-
-    if computed > 0 {
-        info!(computed, "patched live game probabilities from game model");
-    }
-}
-
 fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    let mut status: TournamentStatus =
+    let status: TournamentStatus =
         serde_json::from_str(&std::fs::read_to_string(&cli.status_file)?)?;
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
@@ -193,7 +65,7 @@ fn main() -> eyre::Result<()> {
     // Build team names in bracket order
     let team_names = get_teams_in_bracket_order(&tournament);
 
-    // Load team metrics for computing live game conditional probabilities
+    // Load team metrics for live game simulation
     let tj = tournament_json(cli.year)
         .unwrap_or_else(|| panic!("no embedded tournament data for year {}", cli.year));
     let kp = kenpom_csv(cli.year)
@@ -201,19 +73,26 @@ fn main() -> eyre::Result<()> {
     let teams = bracket_sim::team::load_teams_from_json_str(tj, kp)?;
     let team_map: HashMap<String, Team> = teams.into_iter().map(|t| (t.team.clone(), t)).collect();
 
-    // Compute model-derived conditional probabilities for live games
+    // Build resolver for live games — simulates remaining possessions directly
     let live_count = status
         .games
         .iter()
         .filter(|g| g.status == GameState::Live)
         .count();
-    if live_count > 0 {
+    let resolver = GameModelResolver::new(
+        team_names.clone(),
+        team_map.clone(),
+        bracket_sim::DEFAULT_PACE_D,
+    );
+    let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
         info!(
             live_games = live_count,
-            "computing conditional probabilities for live games"
+            "using game model resolver for live games"
         );
-        compute_live_game_probabilities(&mut status, &team_names, &team_map);
-    }
+        Some(&resolver)
+    } else {
+        None
+    };
 
     // Build reach probabilities from team names → bracket positions
     let reach = match &status.team_reach_probabilities {
@@ -229,7 +108,12 @@ fn main() -> eyre::Result<()> {
 
     // --team-advance: print per-team advance probabilities and exit
     if cli.team_advance {
-        let results = run_team_advance_simulations(&status, &reach, cli.simulations);
+        let results = run_team_advance_simulations_with_resolver(
+            &status,
+            &reach,
+            cli.simulations,
+            resolver_opt,
+        );
         let sims = results.num_sims as f64;
 
         println!(
@@ -304,7 +188,13 @@ fn main() -> eyre::Result<()> {
         .map(|&b| compute_max_possible(b, &status))
         .collect();
 
-    let sim_results = run_simulations(&bracket_bits, &status, &reach, cli.simulations);
+    let sim_results = run_simulations_with_resolver(
+        &bracket_bits,
+        &status,
+        &reach,
+        cli.simulations,
+        resolver_opt,
+    );
 
     let total_sims = cli.simulations as f64;
     let mut forecast: ForecastIndex = BTreeMap::new();

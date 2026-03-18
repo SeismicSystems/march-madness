@@ -3,16 +3,15 @@ use std::io;
 use std::path::PathBuf;
 
 use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
-use bracket_sim::{DEFAULT_PACE_D, Game, Tournament, load_teams_for_year};
+use bracket_sim::live_resolver::GameModelResolver;
+use bracket_sim::{DEFAULT_PACE_D, Tournament, load_teams_for_year};
 use clap::Parser;
 use tracing::info;
 
 use seismic_march_madness::{
     GameState, TournamentData, TournamentStatus, build_reach_probs, get_teams_in_bracket_order,
-    run_team_advance_simulations,
+    run_team_advance_simulations_with_resolver,
 };
-
-const LIVE_GAME_SIMS: u32 = 10_000;
 
 #[derive(Parser, Debug)]
 #[command(name = "sim")]
@@ -40,109 +39,6 @@ struct SimArgs {
     /// on decided and live game states instead of simulating from scratch.
     #[arg(long)]
     status_file: Option<PathBuf>,
-}
-
-/// Resolve which team index (0-63) won a decided game, tracing feeders back to R64.
-fn resolve_winner_team_idx(g: usize, status: &TournamentStatus) -> Option<usize> {
-    let game = &status.games[g];
-    if game.status != GameState::Final {
-        return None;
-    }
-    let winner_is_team1 = game.winner?;
-    let round = game_round(g);
-    if round == 0 {
-        let (t1, t2) = (2 * g, 2 * g + 1);
-        return Some(if winner_is_team1 { t1 } else { t2 });
-    }
-    let starts: [usize; 6] = [0, 32, 48, 56, 60, 62];
-    let offset = g - starts[round];
-    let prev = starts[round - 1];
-    let (f1, f2) = (prev + 2 * offset, prev + 2 * offset + 1);
-    let team1_idx = resolve_winner_team_idx(f1, status)?;
-    let team2_idx = resolve_winner_team_idx(f2, status)?;
-    Some(if winner_is_team1 {
-        team1_idx
-    } else {
-        team2_idx
-    })
-}
-
-fn resolve_game_teams(g: usize, status: &TournamentStatus) -> Option<(usize, usize)> {
-    let round = game_round(g);
-    if round == 0 {
-        return Some((2 * g, 2 * g + 1));
-    }
-    let starts: [usize; 6] = [0, 32, 48, 56, 60, 62];
-    let offset = g - starts[round];
-    let prev = starts[round - 1];
-    let (f1, f2) = (prev + 2 * offset, prev + 2 * offset + 1);
-    let team1_idx = resolve_winner_team_idx(f1, status)?;
-    let team2_idx = resolve_winner_team_idx(f2, status)?;
-    Some((team1_idx, team2_idx))
-}
-
-fn game_round(g: usize) -> usize {
-    let starts: [usize; 6] = [0, 32, 48, 56, 60, 62];
-    for r in (0..6).rev() {
-        if g >= starts[r] {
-            return r;
-        }
-    }
-    0
-}
-
-/// Compute model-derived win probabilities for live games and patch into status.
-fn compute_live_game_probabilities(
-    status: &mut TournamentStatus,
-    team_names: &[String],
-    team_map: &HashMap<String, bracket_sim::Team>,
-    pace_d: f64,
-) {
-    for g in 0..63 {
-        let game = &status.games[g];
-        if game.status != GameState::Live {
-            continue;
-        }
-
-        let (t1_idx, t2_idx) = match resolve_game_teams(g, status) {
-            Some(pair) => pair,
-            None => continue,
-        };
-        let t1_name = &team_names[t1_idx];
-        let t2_name = &team_names[t2_idx];
-        let (t1, t2) = match (team_map.get(t1_name), team_map.get(t2_name)) {
-            (Some(a), Some(b)) => (a, b),
-            _ => continue,
-        };
-
-        let game_model = Game::new(t1.clone(), t2.clone());
-
-        let (prob, method) = if let (Some(score), Some(secs), Some(per)) =
-            (&game.score, game.seconds_remaining, game.period)
-        {
-            let p = game_model.conditional_win_probability(
-                (score.team1, score.team2),
-                secs,
-                per,
-                pace_d,
-                LIVE_GAME_SIMS,
-            );
-            (p, "conditional")
-        } else {
-            (game_model.team1_win_probability(), "pre-game")
-        };
-
-        info!(
-            game_index = g,
-            team1 = t1_name,
-            team2 = t2_name,
-            method,
-            prob = format!("{:.3}", prob),
-            "live game probability"
-        );
-
-        status.games[g].team1_win_probability = Some(prob);
-    }
 }
 
 fn print_table(
@@ -206,7 +102,7 @@ fn main() -> io::Result<()> {
         // Conditioned mode: use forward sim with status file
         let status_str = std::fs::read_to_string(status_path)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", status_path.display(), e)))?;
-        let mut status: TournamentStatus = serde_json::from_str(&status_str).map_err(|e| {
+        let status: TournamentStatus = serde_json::from_str(&status_str).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("{}: {}", status_path.display(), e),
@@ -220,8 +116,19 @@ fn main() -> io::Result<()> {
             "conditioned simulation (status file)"
         );
 
-        // Compute conditional probabilities for live games
-        compute_live_game_probabilities(&mut status, &team_names, &team_map, args.pace_d);
+        // Build resolver for live games
+        let live_count = status
+            .games
+            .iter()
+            .filter(|g| g.status == GameState::Live)
+            .count();
+        let resolver = GameModelResolver::new(team_names.clone(), team_map.clone(), args.pace_d);
+        let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
+            info!(live_games = live_count, "using game model resolver");
+            Some(&resolver)
+        } else {
+            None
+        };
 
         // Build reach probs: use status file's if present, otherwise compute from Poisson sim
         let reach = if let Some(reach_map) = &status.team_reach_probabilities {
@@ -235,7 +142,12 @@ fn main() -> io::Result<()> {
             compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
         };
 
-        let results = run_team_advance_simulations(&status, &reach, args.n_sims as u32);
+        let results = run_team_advance_simulations_with_resolver(
+            &status,
+            &reach,
+            args.n_sims as u32,
+            resolver_opt,
+        );
         let sims = results.num_sims as f64;
 
         let probs: Vec<[f64; 6]> = (0..64)
