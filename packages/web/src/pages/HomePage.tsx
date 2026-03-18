@@ -13,7 +13,7 @@ import { useStats } from "../hooks/useStats";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
 export function HomePage() {
-  const { authenticated } = usePrivy();
+  const { authenticated, login } = usePrivy();
   const contract = useContract();
   const requiredChain = useRequiredChain();
   const bracket = useBracket(contract.walletAddress);
@@ -38,6 +38,17 @@ export function HomePage() {
   return (
     <>
       {showFaucetBanner && <FaucetBanner address={contract.walletAddress!} />}
+
+      {!authenticated && (
+        <div className="mb-4 sm:mb-6">
+          <button
+            onClick={login}
+            className="w-full py-3 sm:py-2.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover transition-colors"
+          >
+            Connect Wallet
+          </button>
+        </div>
+      )}
 
       <div className="mb-6 sm:mb-8">
         <SubmitPanel
