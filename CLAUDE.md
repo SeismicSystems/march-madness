@@ -229,12 +229,12 @@ Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadli
 
 ### Seed Command (`cargo run -p march-madness-indexer -- seed`)
 
-Writes fake data directly to Redis for local frontend development. No chain or RPC needed — Redis only. Generates random entries (with brackets and tags), a mid-tournament status (24 final + 3 live games), and 3 sample groups with members.
+Writes fake data directly to Redis for local frontend development. No chain or RPC needed — Redis only. Generates random entries (with brackets and tags), a mid-tournament status (24 final + 3 live games), and 3 sample groups with members. Requires `DANGEROUSLY_SEED_REDIS=1` env var as a safety guard (never set on production).
 
 ```bash
-cargo run -p march-madness-indexer -- seed              # 50 entries (default)
-cargo run -p march-madness-indexer -- seed --entries 100 # custom count
-cargo run -p march-madness-indexer -- seed --clean       # wipe mm:* keys first
+DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed              # 50 entries (default)
+DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed --entries 100 # custom count
+DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed --clean       # clear seeded keys first
 ```
 
 After seeding, start the server (`cargo run -p march-madness-server`) and frontend (`cd packages/web && bun dev`) to see the leaderboard populated.

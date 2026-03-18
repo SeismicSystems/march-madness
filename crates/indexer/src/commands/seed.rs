@@ -5,11 +5,11 @@
 //! a running chain or real indexing.
 
 use crate::redis_store;
-use eyre::Result;
+use eyre::{Result, bail};
 use rand::Rng;
 use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
-use seismic_march_madness::redis_keys::KEY_GAMES;
+use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::types::{GameScore, GameState, GameStatus, TournamentStatus};
 use tracing::info;
 
@@ -45,6 +45,13 @@ const FINAL_GAMES: usize = 24;
 const LIVE_GAMES: usize = 3;
 
 pub async fn run(redis: &mut MultiplexedConnection, entries: usize, clean: bool) -> Result<()> {
+    if std::env::var("DANGEROUSLY_SEED_REDIS").as_deref() != Ok("1") {
+        bail!(
+            "seed command requires DANGEROUSLY_SEED_REDIS=1 env var.\n\
+             This is a safety guard — never set this on production machines."
+        );
+    }
+
     if clean {
         info!("cleaning existing data");
         clean_redis(redis).await?;
@@ -67,17 +74,17 @@ pub async fn run(redis: &mut MultiplexedConnection, entries: usize, clean: bool)
     Ok(())
 }
 
-/// Delete all mm:* keys from Redis.
+/// Delete only the Redis keys that the seed command writes.
 async fn clean_redis(redis: &mut MultiplexedConnection) -> Result<()> {
-    let keys: Vec<String> = redis::cmd("KEYS").arg("mm:*").query_async(redis).await?;
-    if !keys.is_empty() {
-        let mut cmd = redis::cmd("DEL");
-        for k in &keys {
-            cmd.arg(k);
-        }
-        cmd.query_async::<()>(redis).await?;
-        info!(deleted = keys.len(), "cleaned Redis keys");
-    }
+    let keys: &[&str] = &[
+        KEY_ENTRIES,
+        KEY_GROUPS,
+        KEY_GROUP_MEMBERS,
+        KEY_GROUP_SLUGS,
+        KEY_GAMES,
+    ];
+    let deleted: usize = redis::cmd("DEL").arg(keys).query_async(redis).await?;
+    info!(deleted, "cleaned seed-related Redis keys");
     Ok(())
 }
 
