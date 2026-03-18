@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Add Connect Wallet button to home page (#178)
+
+- **Frontend**: Added a prominent "Connect Wallet" button on the home/bracket page, visible when the user is not connected. Uses the same Privy `login()` as the nav bar. Especially helpful on mobile where the hamburger menu isn't discoverable.
+
 ### 2026-03-18 — Fix encoded bracket display position and styling (#179)
 
 - **Frontend**: Moved encoded bracket hex display from between "Reset Picks" and submit buttons to right of "Submitted" status badge on desktop.
