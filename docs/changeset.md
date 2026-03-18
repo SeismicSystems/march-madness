@@ -2,6 +2,17 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+### 2026-03-18 — Switch to @changesets/cli workflow
+
+- **Workflow**: PRs now add individual `.changeset/*.md` files instead of editing `docs/changeset.md` directly. On merge to main, the `merge-changesets` GitHub Action collects entries, prepends them to `docs/changeset.md`, and deletes the individual files. Eliminates changeset merge conflicts.
+- **CI**: Changeset check now verifies a `.changeset/*.md` file was added AND that `docs/changeset.md` was not directly modified. Both `ci.yml` and `ci.sh` updated.
+- **Deps**: Added `@changesets/cli` and `@changesets/changelog-github` as dev dependencies.
+
+### 2026-03-18 — Use PUSH_TOKEN in merge-changesets workflow
+
+- **CI**: merge-changesets workflow now checks out with `PUSH_TOKEN` (fine-grained PAT) instead of the default `GITHUB_TOKEN`, allowing it to push to `main` past branch protection rulesets.
+
+
 ### 2026-03-18 — Stabilize Privy embedded wallet session sync (#186)
 
 - **Wallet UX**: Unified Privy wallet selection logic across the app so embedded-wallet sessions consistently prefer the Privy-managed wallet over linked external wallets during refresh, chain sync, and logout.
