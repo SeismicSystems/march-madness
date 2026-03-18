@@ -45,7 +45,9 @@ struct TournamentJson {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TournamentJsonTeam {
-    name: String,
+    /// Null for First Four slots.
+    #[serde(default)]
+    name: Option<String>,
     seed: u8,
     region: String,
     /// Present when this slot is decided by a First Four game.
@@ -65,6 +67,21 @@ struct FirstFourEntry {
 #[serde(rename_all = "camelCase")]
 struct FirstFourTeam {
     name: String,
+}
+
+impl TournamentJsonTeam {
+    /// Resolved display name: the team name, or "A/B" combo for FF slots.
+    fn display_name(&self) -> String {
+        if let Some(ref name) = self.name {
+            return name.clone();
+        }
+        if let Some(ref ff) = self.first_four
+            && ff.teams.len() == 2
+        {
+            return format!("{}/{}", ff.teams[0].name, ff.teams[1].name);
+        }
+        String::from("TBD")
+    }
 }
 
 /// A bracket entry (name, seed, region) before joining with KenPom ratings.
@@ -166,6 +183,7 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
     let mut missing = Vec::new();
 
     for t in tournament.teams {
+        let display = t.display_name();
         if let Some(ref ff) = t.first_four {
             // First Four: look up both teams and average their ratings.
             let mut found_metrics = Vec::new();
@@ -191,7 +209,7 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
             };
             let avg_goose = found_goose.iter().sum::<f64>() / n;
             teams.push(Team {
-                team: t.name,
+                team: display,
                 seed: t.seed,
                 region: t.region,
                 metrics: avg_metrics,
@@ -199,17 +217,17 @@ pub fn load_teams_from_json(json_path: &Path, kenpom_path: &str) -> io::Result<V
             });
         } else {
             // Normal team: direct lookup.
-            match kenpom_map.get(&t.name) {
+            match kenpom_map.get(&display) {
                 Some((metrics, goose)) => {
                     teams.push(Team {
-                        team: t.name,
+                        team: display,
                         seed: t.seed,
                         region: t.region,
                         metrics: *metrics,
                         goose: *goose,
                     });
                 }
-                None => missing.push(t.name),
+                None => missing.push(display),
             }
         }
     }
@@ -245,6 +263,7 @@ pub fn load_teams_from_json_str(json_content: &str, kenpom_csv: &str) -> io::Res
     let mut missing = Vec::new();
 
     for t in tournament.teams {
+        let display = t.display_name();
         if let Some(ref ff) = t.first_four {
             let mut found_metrics = Vec::new();
             let mut found_goose = Vec::new();
@@ -268,24 +287,24 @@ pub fn load_teams_from_json_str(json_content: &str, kenpom_csv: &str) -> io::Res
             };
             let avg_goose = found_goose.iter().sum::<f64>() / n;
             teams.push(Team {
-                team: t.name,
+                team: display,
                 seed: t.seed,
                 region: t.region,
                 metrics: avg_metrics,
                 goose: avg_goose,
             });
         } else {
-            match kenpom_map.get(&t.name) {
+            match kenpom_map.get(&display) {
                 Some((metrics, goose)) => {
                     teams.push(Team {
-                        team: t.name,
+                        team: display,
                         seed: t.seed,
                         region: t.region,
                         metrics: *metrics,
                         goose: *goose,
                     });
                 }
-                None => missing.push(t.name),
+                None => missing.push(display),
             }
         }
     }
@@ -465,8 +484,11 @@ pub fn build_first_four_map_from_json(json_content: &str) -> io::Result<HashMap<
     let mut ff_map = HashMap::new();
     for t in tournament.teams {
         if let Some(ff) = t.first_four {
+            let slot_name = t
+                .name
+                .unwrap_or_else(|| format!("{}/{}", ff.teams[0].name, ff.teams[1].name));
             for ff_team in ff.teams {
-                ff_map.insert(ff_team.name, t.name.clone());
+                ff_map.insert(ff_team.name, slot_name.clone());
             }
         }
     }

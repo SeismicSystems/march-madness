@@ -98,7 +98,7 @@
       "region": "South"
     },
     {
-      "name": "Prairie View A&M/Lehigh",
+      "name": null,
       "seed": 16,
       "region": "South",
       "firstFour": {
@@ -111,8 +111,7 @@
             "name": "Lehigh"
           }
         ]
-      },
-      "abbrev": "PVAMU/Lehigh"
+      }
     },
     {
       "name": "Clemson",
@@ -234,20 +233,9 @@
       "region": "West"
     },
     {
-      "name": "Texas/NC State",
+      "name": "Texas",
       "seed": 11,
-      "region": "West",
-      "firstFour": {
-        "teams": [
-          {
-            "name": "Texas"
-          },
-          {
-            "name": "NC State"
-          }
-        ]
-      },
-      "abbrev": "Texas/NC State"
+      "region": "West"
     },
     {
       "name": "Gonzaga",
@@ -288,20 +276,9 @@
       "region": "Midwest"
     },
     {
-      "name": "UMBC/Howard",
+      "name": "Howard",
       "seed": 16,
-      "region": "Midwest",
-      "firstFour": {
-        "teams": [
-          {
-            "name": "UMBC"
-          },
-          {
-            "name": "Howard"
-          }
-        ]
-      },
-      "abbrev": "UMBC/Howard"
+      "region": "Midwest"
     },
     {
       "name": "Georgia",
@@ -341,7 +318,7 @@
       "region": "Midwest"
     },
     {
-      "name": "Miami (Ohio)/SMU",
+      "name": null,
       "seed": 11,
       "region": "Midwest",
       "firstFour": {
@@ -354,8 +331,7 @@
             "name": "SMU"
           }
         ]
-      },
-      "abbrev": "M-OH/SMU"
+      }
     },
     {
       "name": "Virginia",

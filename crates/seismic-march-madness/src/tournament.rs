@@ -18,12 +18,53 @@ pub struct TournamentData {
 
 /// A single team entry.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamData {
-    pub name: String,
+    /// Team name. None for First Four slots.
+    #[serde(default)]
+    pub name: Option<String>,
     pub seed: u32,
     pub region: String,
     #[serde(default)]
-    pub abbrev: String,
+    pub abbrev: Option<String>,
+    #[serde(default)]
+    pub first_four: Option<FirstFourData>,
+}
+
+/// First Four entry with individual teams and optional winner.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstFourData {
+    pub teams: Vec<FirstFourTeamData>,
+    #[serde(default)]
+    pub winner: Option<String>,
+}
+
+/// A team within a First Four entry.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstFourTeamData {
+    pub name: String,
+    #[serde(default)]
+    pub abbrev: Option<String>,
+}
+
+impl TeamData {
+    /// Resolved display name: the team name, the FF winner, or a "A/B" combo.
+    pub fn display_name(&self) -> String {
+        if let Some(ref name) = self.name {
+            return name.clone();
+        }
+        if let Some(ref ff) = self.first_four {
+            if let Some(ref winner) = ff.winner {
+                return winner.clone();
+            }
+            if ff.teams.len() == 2 {
+                return format!("{}/{}", ff.teams[0].name, ff.teams[1].name);
+            }
+        }
+        "TBD".to_string()
+    }
 }
 
 /// Get all 64 team names in bracket order (region by region, seed-ordered).
@@ -37,7 +78,7 @@ pub fn get_teams_in_bracket_order(data: &TournamentData) -> Vec<String> {
                 .iter()
                 .find(|t| t.seed == seed)
                 .expect("missing team for seed");
-            teams.push(team.name.clone());
+            teams.push(team.display_name());
         }
     }
     teams

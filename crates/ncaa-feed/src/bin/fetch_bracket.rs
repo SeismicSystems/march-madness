@@ -81,7 +81,8 @@ struct TournamentJson {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TeamEntry {
-    name: String,
+    /// Team name. Null for First Four slots (use `firstFour.teams` or `firstFour.winner`).
+    name: Option<String>,
     seed: u32,
     region: String,
     /// Short display abbreviation. Only present when `name` exceeds 9 characters.
@@ -264,8 +265,8 @@ fn build_tournament_data(
 
 /// A resolved team for a bracket slot — either a single team or a First Four pair.
 struct ResolvedTeam {
-    /// Display name (single team name, or "A/B" for First Four).
-    name: String,
+    /// Team name. None for First Four slots.
+    name: Option<String>,
     seed: u32,
     /// Short display abbreviation (if name > 9 chars and a mapping exists).
     abbrev: Option<String>,
@@ -302,13 +303,13 @@ fn extract_game_teams(
             };
             Ok((
                 ResolvedTeam {
-                    name: top.name_short.clone(),
+                    name: Some(top.name_short.clone()),
                     seed: top.seed.unwrap(),
                     abbrev: abbrev_for(&top.name_short, abbreviations),
                     first_four: None,
                 },
                 ResolvedTeam {
-                    name: bot.name_short.clone(),
+                    name: Some(bot.name_short.clone()),
                     seed: bot.seed.unwrap(),
                     abbrev: abbrev_for(&bot.name_short, abbreviations),
                     first_four: None,
@@ -331,7 +332,6 @@ fn extract_game_teams(
             );
 
             let ff_seed = ff_teams[0].seed.unwrap();
-            let ff_name = format!("{}/{}", ff_teams[0].name_short, ff_teams[1].name_short);
 
             // Detect winner from the FF game's isWinner flag.
             let winner = ff_teams
@@ -353,24 +353,15 @@ fn extract_game_teams(
                 winner,
             };
 
-            // Abbreviate the combo name from the individual abbreviations.
-            let combo_abbrev = match (&ff_entry.teams[0].abbrev, &ff_entry.teams[1].abbrev) {
-                (Some(a), Some(b)) => Some(format!("{a}/{b}")),
-                (Some(a), None) => Some(format!("{a}/{}", ff_teams[1].name_short)),
-                (None, Some(b)) => Some(format!("{}/{b}", ff_teams[0].name_short)),
-                (None, None) if ff_name.len() > 9 => None, // long but no abbreviations available
-                _ => None,
-            };
-
             let ff_resolved = ResolvedTeam {
-                name: ff_name,
+                name: None,
                 seed: ff_seed,
-                abbrev: combo_abbrev,
+                abbrev: None,
                 first_four: Some(ff_entry),
             };
 
             let known_resolved = ResolvedTeam {
-                name: known.name_short.clone(),
+                name: Some(known.name_short.clone()),
                 seed: known.seed.unwrap(),
                 abbrev: abbrev_for(&known.name_short, abbreviations),
                 first_four: None,
