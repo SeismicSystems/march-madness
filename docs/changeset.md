@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Fix encoded bracket display position and styling (#179)
+
+- **Frontend**: Moved encoded bracket hex display from between "Reset Picks" and submit buttons to right of "Submitted" status badge on desktop.
+- **Frontend**: Removed border from the encoded bracket hex element for a cleaner look.
+
 ### 2026-03-18 — Move team abbreviations to data/mappings.toml
 
 - **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.

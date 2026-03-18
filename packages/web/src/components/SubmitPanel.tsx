@@ -200,7 +200,7 @@ export function SubmitPanel({
               setHexExpanded((prev) => !prev);
               scheduleCollapse();
             }}
-            className={`min-w-0 flex-1 truncate rounded-lg border border-border/70 bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
+            className={`min-w-0 flex-1 truncate rounded-lg bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
             {encodedBracket ?? "0x"}
           </span>
@@ -315,6 +315,7 @@ export function SubmitPanel({
             Submitted
           </span>
         )}
+        {hasSubmitted && hexControl}
         {isLocked && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-danger/20 text-danger border border-danger/30 whitespace-nowrap">
             Locked
@@ -385,7 +386,6 @@ export function SubmitPanel({
         {/* Reset + Submit buttons */}
         {!isLocked && (
           <div className="flex items-center gap-2">
-            {hexControl}
             <button
               onClick={() => setResetOpen(true)}
               className="px-3 py-2 rounded-lg text-xs font-medium bg-bg-tertiary border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors whitespace-nowrap"
