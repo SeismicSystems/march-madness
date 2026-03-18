@@ -392,12 +392,6 @@ export function useGroups() {
     [groupsPublic],
   );
 
-  // Keep trackGroup/untrackGroup as no-ops for backward compat.
-  // Components that called these (e.g. PublicGroupsList after joinGroup)
-  // no longer need them since membership comes from the API.
-  const trackGroup = useCallback((_groupId: number, _info?: StoredGroupInfo) => {}, []);
-  const untrackGroup = useCallback((_groupId: number) => {}, []);
-
   return {
     hasContract,
     joinedGroups,
@@ -410,8 +404,6 @@ export function useGroups() {
     createGroupWithPassword,
     leaveGroup,
     editEntryName,
-    trackGroup,
-    untrackGroup,
     lookupGroupBySlug,
     lookupGroupById,
     refreshGroups,
