@@ -509,6 +509,8 @@ pub struct FirstFourSlotInfo {
     pub teams: [String; 2],
     /// The slot display name (e.g. "Texas/NC State").
     pub slot_name: String,
+    /// Region this slot belongs to.
+    pub region: String,
     /// The winning team name, if the FF game has been played.
     pub winner: Option<String>,
 }
@@ -533,6 +535,7 @@ pub fn build_first_four_slots_from_json(json_content: &str) -> io::Result<Vec<Fi
             slots.push(FirstFourSlotInfo {
                 teams: [ff.teams[0].name.clone(), ff.teams[1].name.clone()],
                 slot_name,
+                region: t.region.clone(),
                 winner: ff.winner,
             });
         }
@@ -759,11 +762,13 @@ mod tests {
         assert_eq!(slots[0].teams, ["A", "B"]);
         assert!(slots[0].winner.is_none());
         assert_eq!(slots[0].slot_name, "A/B");
+        assert_eq!(slots[0].region, "E");
 
         // Decided slot
         assert_eq!(slots[1].teams, ["X", "Y"]);
         assert_eq!(slots[1].winner.as_deref(), Some("X"));
         assert_eq!(slots[1].slot_name, "X/Y");
+        assert_eq!(slots[1].region, "E");
     }
 
     #[test]

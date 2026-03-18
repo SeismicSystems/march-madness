@@ -145,10 +145,10 @@ fn main() -> io::Result<()> {
                 .expect("FF slot must have 2 teams");
             ff_excluded_names.insert(loser.clone());
             info!(
+                region = slot.region.as_str(),
                 winner,
                 loser = loser.as_str(),
-                slot = slot.slot_name.as_str(),
-                "FF decided — including winner in calibration"
+                "FF decided"
             );
         } else {
             // Undecided: exclude both teams and the slot.
