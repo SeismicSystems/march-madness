@@ -98,13 +98,21 @@
       "region": "South"
     },
     {
-      "name": "Prairie View A&M/Lehigh",
+      "name": null,
       "seed": 16,
       "region": "South",
-      "firstFour": [
-        "Prairie View A&M",
-        "Lehigh"
-      ]
+      "firstFour": {
+        "teams": [
+          {
+            "name": "Prairie View A&M",
+            "abbrev": "PV A&M"
+          },
+          {
+            "name": "Lehigh",
+            "abbrev": "Lehigh"
+          }
+        ]
+      }
     },
     {
       "name": "Clemson",
@@ -226,9 +234,22 @@
       "region": "West"
     },
     {
-      "name": "Texas",
+      "name": null,
       "seed": 11,
-      "region": "West"
+      "region": "West",
+      "firstFour": {
+        "teams": [
+          {
+            "name": "Texas",
+            "abbrev": "Texas"
+          },
+          {
+            "name": "NC State",
+            "abbrev": "NCSU"
+          }
+        ],
+        "winner": "Texas"
+      }
     },
     {
       "name": "Gonzaga",
@@ -269,9 +290,22 @@
       "region": "Midwest"
     },
     {
-      "name": "Howard",
+      "name": null,
       "seed": 16,
-      "region": "Midwest"
+      "region": "Midwest",
+      "firstFour": {
+        "teams": [
+          {
+            "name": "UMBC",
+            "abbrev": "UMBC"
+          },
+          {
+            "name": "Howard",
+            "abbrev": "Howard"
+          }
+        ],
+        "winner": "Howard"
+      }
     },
     {
       "name": "Georgia",
@@ -311,13 +345,21 @@
       "region": "Midwest"
     },
     {
-      "name": "Miami (Ohio)/SMU",
+      "name": null,
       "seed": 11,
       "region": "Midwest",
-      "firstFour": [
-        "Miami (Ohio)",
-        "SMU"
-      ]
+      "firstFour": {
+        "teams": [
+          {
+            "name": "Miami (Ohio)",
+            "abbrev": "Miami OH"
+          },
+          {
+            "name": "SMU",
+            "abbrev": "SMU"
+          }
+        ]
+      }
     },
     {
       "name": "Virginia",

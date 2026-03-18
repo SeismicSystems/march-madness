@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { GameStatus } from "@march-madness/client";
-import type { Team } from "../lib/tournament";
+import { displayAbbrev, displayName, type Team } from "../lib/tournament";
 import { getTeamLogoUrl } from "../lib/espn-logos";
 
 interface BracketGameProps {
@@ -207,8 +207,8 @@ function TeamSlot({
         >
           {team.seed}
         </span>
-        <TeamLogo teamName={team.name} mobile={mobile} />
-        <span className="truncate">{team.abbrev ?? team.name}</span>
+        <TeamLogo teamName={displayName(team)} mobile={mobile} />
+        <span className="truncate">{displayAbbrev(team)}</span>
         {pickCorrect && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}

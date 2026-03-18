@@ -106,15 +106,14 @@ fn main() -> io::Result<()> {
     let mut teams = load_teams_for_year(args.input.as_deref(), args.year)?;
     let tournament_json_path = season_dir.join("tournament.json");
     let ff_to_slot = bracket_sim::team::build_first_four_map(&tournament_json_path)?;
+    let ff_slots = bracket_sim::team::build_first_four_slots(&tournament_json_path)?;
     info!(
         teams = teams.len(),
-        first_four = ff_to_slot.len() / 2,
+        first_four = ff_slots.len(),
         "loaded teams"
     );
 
     // Build team name lookup: maps canonical names to bracket slot names.
-    // Individual FF names map to their slot name, but FF slots are excluded
-    // from calibration (see below).
     let team_names: Vec<String> = teams.iter().map(|t| t.team.clone()).collect();
     let mut name_to_slot: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -125,10 +124,40 @@ fn main() -> io::Result<()> {
         name_to_slot.insert(individual.clone(), slot.clone());
     }
 
-    // First Four slot names (e.g. "Texas/NC State"). Kalshi has separate markets
-    // for each individual FF team, not a joint market for the slot. Including them
-    // would produce nonsense URLs and incorrect edge signals, so we skip them.
-    let ff_slot_names: std::collections::HashSet<String> = ff_to_slot.values().cloned().collect();
+    // Determine which FF teams to exclude from Kalshi calibration.
+    //
+    // - Undecided FF slots: exclude both teams (Kalshi has separate individual markets,
+    //   not a joint market for the bracket slot — including them would produce nonsense
+    //   edge signals).
+    // - Decided FF slots: include the WINNER (treat as a regular team mapped to the slot),
+    //   exclude the LOSER (no longer in the tournament).
+    let mut ff_excluded_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut ff_slot_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for slot in &ff_slots {
+        if let Some(ref winner) = slot.winner {
+            // Decided: winner maps to the slot name, loser is excluded.
+            name_to_slot.insert(winner.clone(), slot.slot_name.clone());
+            let loser = slot
+                .teams
+                .iter()
+                .find(|t| t != &winner)
+                .expect("FF slot must have 2 teams");
+            ff_excluded_names.insert(loser.clone());
+            info!(
+                region = slot.region.as_str(),
+                winner,
+                loser = loser.as_str(),
+                "FF decided"
+            );
+        } else {
+            // Undecided: exclude both teams and the slot.
+            ff_slot_names.insert(slot.slot_name.clone());
+            for team in &slot.teams {
+                ff_excluded_names.insert(team.clone());
+            }
+        }
+    }
 
     // 2. Load team name map for Kalshi → canonical name resolution
     let name_map = load_team_name_map();
@@ -160,8 +189,8 @@ fn main() -> io::Result<()> {
         };
 
         // Filter to only tournament teams before fetching orderbooks.
-        // Also exclude First Four teams — Kalshi has separate individual markets
-        // for each FF team, not a joint market for the bracket slot.
+        // Exclude undecided FF slot names and eliminated FF losers.
+        // Decided FF winners are included (they map to their slot name).
         let total_markets = markets.len();
         let mut ff_skipped = 0usize;
         let markets: Vec<_> = markets
@@ -169,6 +198,10 @@ fn main() -> io::Result<()> {
             .filter(|m| {
                 let raw_name = extract_team_name(m);
                 let canonical = name_map.get(&raw_name).cloned().unwrap_or(raw_name);
+                if ff_excluded_names.contains(&canonical) {
+                    ff_skipped += 1;
+                    return false;
+                }
                 match name_to_slot.get(&canonical) {
                     Some(slot) if ff_slot_names.contains(slot) => {
                         ff_skipped += 1;

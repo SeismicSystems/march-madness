@@ -5,7 +5,7 @@ import type { TournamentStatus } from "@march-madness/client";
 import type { GameSlot } from "../hooks/useBracket";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { ROUND_NAMES } from "../lib/constants";
-import { tournament } from "../lib/tournament";
+import { displayName, tournament } from "../lib/tournament";
 import { BracketGame, TeamLogo } from "./BracketGame";
 import { BracketRegion } from "./BracketRegion";
 import { FinalFour } from "./FinalFour";
@@ -350,8 +350,8 @@ function MobileFinalFourLanes({
         <div className="px-3 py-2 bg-gold/15 border border-gold/40 rounded-lg text-center">
           <div className="text-[10px] text-gold/80 uppercase">Champion</div>
           <div className="text-sm font-bold text-gold flex items-center justify-center gap-2">
-            <TeamLogo teamName={championship.winner.name} mobile />
-            {championship.winner.seed} {championship.winner.name}
+            <TeamLogo teamName={displayName(championship.winner)} mobile />
+            {championship.winner.seed} {displayName(championship.winner)}
           </div>
         </div>
       )}

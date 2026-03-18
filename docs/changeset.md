@@ -4,6 +4,17 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Restructure firstFour schema in tournament.json
+
+- **Schema change**: `firstFour` is now `{ teams: [{ name, abbrev? }, ...], winner? }` instead of `[string, string]`.
+- **fetch-bracket**: Detects FF game winners from NCAA API `isWinner` flag. Applies abbreviations to individual FF teams and builds combo abbreviation for the slot name.
+- **ncaa-api**: Added `is_winner` field to `BracketTeam`.
+- **bracket-sim**: Updated `TournamentJsonTeam.first_four` to new struct. KenPom averaging and FF→slot mapping use `ff.teams[].name`.
+- **ncaa-feed mapper**: Updated FF name extraction to new schema.
+- **scrape_kenpom.py**: Updated to read `firstFour.teams[].name`.
+- **Frontend**: Added `FirstFourEntry` and `FirstFourTeam` TypeScript interfaces.
+- **data/mappings.toml**: Added abbreviations for `Prairie View A&M` and `Miami (Ohio)`.
+
 ### 2026-03-18 — Move team abbreviations to data/mappings.toml
 
 - **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.
