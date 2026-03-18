@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { SUBMISSION_DEADLINE } from "../lib/constants";
-
 interface DeadlineCountdownProps {
-  /** Unix timestamp in seconds. Falls back to the hardcoded constant. */
-  deadline?: number;
+  /** Unix timestamp in seconds (DST-corrected). Returns null to show loading. */
+  deadline: number | null;
   /** Compact inline mode for mobile status rows. */
   compact?: boolean;
 }
@@ -13,13 +11,28 @@ export function DeadlineCountdown({
   deadline,
   compact = false,
 }: DeadlineCountdownProps) {
-  const effectiveDeadline = deadline ?? SUBMISSION_DEADLINE;
+  const effectiveDeadline = deadline;
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  if (effectiveDeadline === null) {
+    if (compact) {
+      return (
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          Loading…
+        </span>
+      );
+    }
+    return (
+      <div className="bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-center">
+        <span className="text-text-muted font-medium text-sm">Loading…</span>
+      </div>
+    );
+  }
 
   const deadlineMs = effectiveDeadline * 1000;
   const diff = deadlineMs - now;

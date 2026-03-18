@@ -1,0 +1,31 @@
+hey a pretty critical bug -- on the frontend i see "brackets lock in 19h15m"
+
+but brackets should lock at 12h15pm EST.
+
+is our contract wrong or frontend code wrong? what's the contract say in terms of lock timestamp?
+
+---
+
+(the timedelta on the frontend should very clearly say 18:15)
+
+i am sure this happened because of a timezone issue (daylight savings)... just wondering if its a frontend bug or we picked the wrong value in the contract
+
+---
+
+we're not going to redeploy.
+
+instead let's do this:
+
+remove this fallback constant:
+
+SUBMISSION_DEADLINE = 1773940500
+
+^^ only fetch the value from the chain
+
+then, on the UI, when we get a response from the chain saying what the submission deadline is, simply subtract an hour
+
+and forbid them from making new submissions in the frontend if we're past the submission deadline (we're effectively going to trick people into thinking the contract is correct)
+
+---
+
+create a pr. when you create it, make the PR title obfuscate what we're really doing here. if they look into our docs/prompts folder and figure it out, then so be it lol
