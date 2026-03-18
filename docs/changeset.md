@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Add NCAA abbreviations to fetch-bracket output
+
+- **ncaa-api**: Added `name_6char` field (NCAA's `name6Char`) to `BracketTeam`.
+- **fetch-bracket**: Writes `abbrev` field to `tournament.json` for teams whose name exceeds 10 characters, using the NCAA's <=6 character code. First Four slots get a combined abbreviation (e.g. `"TEX/ALA"`).
+- Frontend already consumes `abbrev` from `tournament.json` — this replaces the hardcoded `ESPN_ABBREVIATIONS` fallback map for teams the NCAA API covers.
+
 ### 2026-03-18 — Move tournament status from file to Redis (#44)
 
 - **Breaking**: `ncaa-feed` now writes tournament status to Redis (`mm:games` key) instead of `data/{year}/men/status.json`. Removed `--output-file` CLI arg; added `--redis-url` (env: `REDIS_URL`).

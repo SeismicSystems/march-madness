@@ -115,6 +115,9 @@ pub struct BracketTeam {
     pub is_top: bool,
     #[serde(default)]
     pub seoname: String,
+    /// NCAA's <=6 character abbreviation code (e.g. "DUKE", "GONZ", "UCONN").
+    #[serde(default, rename = "name6Char")]
+    pub name_6char: String,
     /// Non-null when the team slot is TBA (e.g. awaiting a First Four result).
     #[serde(default)]
     pub text_override: Option<String>,

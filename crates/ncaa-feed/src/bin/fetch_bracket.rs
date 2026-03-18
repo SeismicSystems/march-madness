@@ -84,6 +84,9 @@ struct TeamEntry {
     name: String,
     seed: u32,
     region: String,
+    /// NCAA's <=6 character abbreviation. Only present when `name` is longer than 10 characters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    abbrev: Option<String>,
     /// Present when this slot is decided by a First Four game.
     /// Contains the two team names competing for the slot.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -184,12 +187,14 @@ fn build_tournament_data(champ: &Championship) -> Result<TournamentJson> {
                 name: top_team.name,
                 seed: top_team.seed,
                 region: region_name.to_string(),
+                abbrev: top_team.abbrev,
                 first_four: top_team.first_four,
             });
             teams.push(TeamEntry {
                 name: bottom_team.name,
                 seed: bottom_team.seed,
                 region: region_name.to_string(),
+                abbrev: bottom_team.abbrev,
                 first_four: bottom_team.first_four,
             });
         }
@@ -207,8 +212,19 @@ struct ResolvedTeam {
     /// Display name (single team name, or "A/B" for First Four).
     name: String,
     seed: u32,
+    /// NCAA's <=6 char abbreviation (if name > 10 chars).
+    abbrev: Option<String>,
     /// If this is a First Four slot, the two team names.
     first_four: Option<[String; 2]>,
+}
+
+/// Return the NCAA 6-char abbreviation only if the name exceeds 10 characters.
+fn abbrev_if_long(name: &str, code: &str) -> Option<String> {
+    if name.len() > 10 && !code.is_empty() {
+        Some(code.to_string())
+    } else {
+        None
+    }
 }
 
 fn extract_game_teams(
@@ -232,11 +248,13 @@ fn extract_game_teams(
                 ResolvedTeam {
                     name: top.name_short.clone(),
                     seed: top.seed.unwrap(),
+                    abbrev: abbrev_if_long(&top.name_short, &top.name_6char),
                     first_four: None,
                 },
                 ResolvedTeam {
                     name: bot.name_short.clone(),
                     seed: bot.seed.unwrap(),
+                    abbrev: abbrev_if_long(&bot.name_short, &bot.name_6char),
                     first_four: None,
                 },
             ))
@@ -258,10 +276,21 @@ fn extract_game_teams(
 
             let ff_seed = ff_teams[0].seed.unwrap();
             let ff_name = format!("{}/{}", ff_teams[0].name_short, ff_teams[1].name_short);
+            // For FF slots, use combined abbrev (e.g. "TEX/ALA") if the combined name is long.
+            let ff_abbrev = {
+                let a = &ff_teams[0].name_6char;
+                let b = &ff_teams[1].name_6char;
+                if ff_name.len() > 10 && !a.is_empty() && !b.is_empty() {
+                    Some(format!("{a}/{b}"))
+                } else {
+                    None
+                }
+            };
 
             let ff_resolved = ResolvedTeam {
                 name: ff_name,
                 seed: ff_seed,
+                abbrev: ff_abbrev,
                 first_four: Some([
                     ff_teams[0].name_short.clone(),
                     ff_teams[1].name_short.clone(),
@@ -271,6 +300,7 @@ fn extract_game_teams(
             let known_resolved = ResolvedTeam {
                 name: known.name_short.clone(),
                 seed: known.seed.unwrap(),
+                abbrev: abbrev_if_long(&known.name_short, &known.name_6char),
                 first_four: None,
             };
 
