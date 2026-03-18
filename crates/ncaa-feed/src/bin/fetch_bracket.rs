@@ -276,21 +276,12 @@ fn extract_game_teams(
 
             let ff_seed = ff_teams[0].seed.unwrap();
             let ff_name = format!("{}/{}", ff_teams[0].name_short, ff_teams[1].name_short);
-            // For FF slots, use combined abbrev (e.g. "TEX/ALA") if the combined name is long.
-            let ff_abbrev = {
-                let a = &ff_teams[0].name_6char;
-                let b = &ff_teams[1].name_6char;
-                if ff_name.len() > 10 && !a.is_empty() && !b.is_empty() {
-                    Some(format!("{a}/{b}"))
-                } else {
-                    None
-                }
-            };
+            // TODO: abbreviate First Four combo names (e.g. "PVAMU/LEH") in a future iteration.
 
             let ff_resolved = ResolvedTeam {
                 name: ff_name,
                 seed: ff_seed,
-                abbrev: ff_abbrev,
+                abbrev: None,
                 first_four: Some([
                     ff_teams[0].name_short.clone(),
                     ff_teams[1].name_short.clone(),
