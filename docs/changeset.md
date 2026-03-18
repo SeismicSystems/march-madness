@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix groups UI not updating after join/create/leave: wait for tx receipt, then hydrate group from on-chain data instead of relying on potentially stale API. Also remove inline member list from Your Groups (members are on the group leaderboard).
+
+
 Add bracket count display to the desktop header, showing the total number of submissions to the left of the Faucet link.
 
 
