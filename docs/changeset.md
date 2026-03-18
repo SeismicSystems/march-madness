@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Move group membership tracking from frontend localStorage to Redis. Add `mm:address_groups` reverse mapping (address → group IDs) maintained by the indexer on join/leave events. New server endpoint `GET /address/:address/groups`. Frontend now fetches membership from API; localStorage only stores passphrases (client-side secrets).
+
+
 Fix public groups showing as free: add entry_fee to indexer → Redis → server API pipeline
 
 The GroupCreated event doesn't include entryFee, so the indexer now reads it from the
