@@ -18,12 +18,52 @@ pub struct TournamentData {
 
 /// A single team entry.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamData {
-    pub name: String,
+    /// Team name. None for First Four slots.
+    #[serde(default)]
+    pub name: Option<String>,
     pub seed: u32,
     pub region: String,
     #[serde(default)]
+    pub abbrev: Option<String>,
+    #[serde(default)]
+    pub first_four: Option<FirstFourData>,
+}
+
+/// First Four entry with individual teams and optional winner.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstFourData {
+    pub teams: Vec<FirstFourTeamData>,
+    #[serde(default)]
+    pub winner: Option<String>,
+}
+
+/// A team within a First Four entry.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstFourTeamData {
+    pub name: String,
     pub abbrev: String,
+}
+
+impl TeamData {
+    /// Resolved display name: the team name, the FF winner, or a "A/B" combo.
+    pub fn display_name(&self) -> String {
+        if let Some(ref name) = self.name {
+            return name.clone();
+        }
+        if let Some(ref ff) = self.first_four {
+            if let Some(ref winner) = ff.winner {
+                return winner.clone();
+            }
+            if ff.teams.len() == 2 {
+                return format!("{}/{}", ff.teams[0].name, ff.teams[1].name);
+            }
+        }
+        "TBD".to_string()
+    }
 }
 
 /// Get all 64 team names in bracket order (region by region, seed-ordered).
@@ -37,7 +77,7 @@ pub fn get_teams_in_bracket_order(data: &TournamentData) -> Vec<String> {
                 .iter()
                 .find(|t| t.seed == seed)
                 .expect("missing team for seed");
-            teams.push(team.name.clone());
+            teams.push(team.display_name());
         }
     }
     teams
@@ -122,4 +162,98 @@ pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u
     }
 
     score
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_name_regular_team() {
+        let team = TeamData {
+            name: Some("Duke".to_string()),
+            seed: 1,
+            region: "East".to_string(),
+            abbrev: None,
+            first_four: None,
+        };
+        assert_eq!(team.display_name(), "Duke");
+    }
+
+    #[test]
+    fn display_name_ff_pending() {
+        let team = TeamData {
+            name: None,
+            seed: 16,
+            region: "South".to_string(),
+            abbrev: None,
+            first_four: Some(FirstFourData {
+                teams: vec![
+                    FirstFourTeamData {
+                        name: "Prairie View A&M".to_string(),
+                        abbrev: "PV A&M".to_string(),
+                    },
+                    FirstFourTeamData {
+                        name: "Lehigh".to_string(),
+                        abbrev: "Lehigh".to_string(),
+                    },
+                ],
+                winner: None,
+            }),
+        };
+        assert_eq!(team.display_name(), "Prairie View A&M/Lehigh");
+    }
+
+    #[test]
+    fn display_name_ff_decided() {
+        let team = TeamData {
+            name: None,
+            seed: 16,
+            region: "Midwest".to_string(),
+            abbrev: None,
+            first_four: Some(FirstFourData {
+                teams: vec![
+                    FirstFourTeamData {
+                        name: "UMBC".to_string(),
+                        abbrev: "UMBC".to_string(),
+                    },
+                    FirstFourTeamData {
+                        name: "Howard".to_string(),
+                        abbrev: "Howard".to_string(),
+                    },
+                ],
+                winner: Some("Howard".to_string()),
+            }),
+        };
+        assert_eq!(team.display_name(), "Howard");
+    }
+
+    #[test]
+    fn deserialize_null_name_ff() {
+        let json = r#"{"name": null, "seed": 16, "region": "S", "firstFour": {"teams": [{"name": "A", "abbrev": "A"}, {"name": "B", "abbrev": "B"}]}}"#;
+        let team: TeamData = serde_json::from_str(json).unwrap();
+        assert!(team.name.is_none());
+        assert!(team.first_four.is_some());
+        assert_eq!(team.display_name(), "A/B");
+    }
+
+    #[test]
+    fn deserialize_mixed_tournament() {
+        let json = r#"{
+            "name": "Test", "regions": ["East"],
+            "teams": [
+                {"name": "Duke", "seed": 1, "region": "East"},
+                {"name": null, "seed": 16, "region": "East",
+                 "firstFour": {"teams": [{"name": "A", "abbrev": "A"}, {"name": "B", "abbrev": "B"}]}},
+                {"name": "Kansas", "seed": 8, "region": "East"},
+                {"name": null, "seed": 9, "region": "East",
+                 "firstFour": {"teams": [{"name": "X", "abbrev": "X"}, {"name": "Y", "abbrev": "Y"}], "winner": "X"}}
+            ]
+        }"#;
+        let data: TournamentData = serde_json::from_str(json).unwrap();
+        assert_eq!(data.teams[0].display_name(), "Duke");
+        assert_eq!(data.teams[1].display_name(), "A/B");
+        assert_eq!(data.teams[2].display_name(), "Kansas");
+        assert_eq!(data.teams[3].display_name(), "X");
+    }
 }
