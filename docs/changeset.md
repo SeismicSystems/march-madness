@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Change default Kalshi calibrator edge threshold to $1000
+
+- **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
+
 ### 2026-03-18 — Move team abbreviations to data/mappings.toml
 
 - **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.
