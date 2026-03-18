@@ -1,53 +1,78 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
+import { API_BASE } from "../lib/api";
 
-/**
- * Fetch group member addresses from the server API.
- * Returns null when slug is undefined (global leaderboard mode).
- */
+class GroupLeaderboardError extends Error {
+  constructor(
+    message: string,
+    readonly notFound: boolean = false,
+  ) {
+    super(message);
+    this.name = "GroupLeaderboardError";
+  }
+}
+
+interface GroupMembersResult {
+  groupName: string;
+  members: Set<string>;
+}
+
+async function fetchGroupMembers(slug: string): Promise<GroupMembersResult> {
+  const [membersRes, groupRes] = await Promise.all([
+    fetch(`${API_BASE}/groups/${slug}/members`),
+    fetch(`${API_BASE}/groups/${slug}`),
+  ]);
+
+  if (membersRes.status === 404 || groupRes.status === 404) {
+    throw new GroupLeaderboardError(`Group "/${slug}" not found.`, true);
+  }
+
+  if (!membersRes.ok) {
+    throw new GroupLeaderboardError(
+      `Failed to fetch group members (${membersRes.status})`,
+    );
+  }
+
+  if (!groupRes.ok) {
+    throw new GroupLeaderboardError(
+      `Failed to fetch group (${groupRes.status})`,
+    );
+  }
+
+  const [addresses, group] = (await Promise.all([
+    membersRes.json() as Promise<string[]>,
+    groupRes.json() as Promise<{ display_name?: string }>,
+  ])) as [string[], { display_name?: string }];
+
+  return {
+    groupName: group.display_name ?? slug,
+    members: new Set(addresses.map((address) => address.toLowerCase())),
+  };
+}
+
 export function useGroupMembers(slug: string | undefined) {
-  const [members, setMembers] = useState<Set<string> | null>(null);
-  const [groupName, setGroupName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["group-members", slug],
+    queryFn: () => fetchGroupMembers(slug!),
+    enabled: !!slug,
+    retry: false,
+  });
 
-  const fetchMembers = useCallback(async () => {
-    if (!slug) {
-      setMembers(null);
-      setGroupName(null);
-      return;
-    }
+  const error =
+    query.error instanceof GroupLeaderboardError
+      ? query.error.message
+      : query.error instanceof Error
+        ? query.error.message
+        : null;
+  const notFound =
+    query.error instanceof GroupLeaderboardError && query.error.notFound;
 
-    setLoading(true);
-    setError(null);
-    try {
-      // Fetch members and group metadata in parallel.
-      const [membersRes, groupRes] = await Promise.all([
-        fetch(`${API_BASE}/groups/${slug}/members`),
-        fetch(`${API_BASE}/groups/${slug}`),
-      ]);
-
-      if (!membersRes.ok) {
-        throw new Error(`Failed to fetch group members (${membersRes.status})`);
-      }
-      const addrs: string[] = await membersRes.json();
-      setMembers(new Set(addrs.map((a) => a.toLowerCase())));
-
-      if (groupRes.ok) {
-        const data = await groupRes.json();
-        setGroupName(data.display_name ?? slug);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch group");
-    } finally {
-      setLoading(false);
-    }
-  }, [slug]);
-
-  useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
-
-  return { members, groupName, loading, error };
+  return {
+    members: query.data?.members ?? null,
+    groupName: query.data?.groupName ?? null,
+    loading: query.isPending,
+    error,
+    notFound,
+    refetch: query.refetch,
+  };
 }
