@@ -1,0 +1,5 @@
+we just added some form validation in our latest PR.
+
+there's a minor bug with it:
+
+when i create a group (and maybe when i join a group), after it successfully goes through, i see the error that i would otherwise see for a form validation error. fix it and make a pr
