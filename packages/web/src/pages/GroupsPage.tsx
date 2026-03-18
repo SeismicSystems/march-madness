@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GroupsSection } from "../components/GroupsSection";
 import { PublicGroupsList } from "../components/PublicGroupsList";
@@ -243,8 +243,6 @@ function MobileLayout({
   publicGroups,
   publicLoading,
   publicError,
-  initialSlug,
-  initialPassphrase,
 }: {
   groups: ReturnType<typeof useGroups>;
   contract: ReturnType<typeof useContract>;
@@ -252,8 +250,6 @@ function MobileLayout({
   publicGroups: ReturnType<typeof usePublicGroups>["publicGroups"];
   publicLoading: boolean;
   publicError: string | null;
-  initialSlug: string;
-  initialPassphrase: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("your-groups");
 
@@ -270,13 +266,6 @@ function MobileLayout({
       : []),
   ];
 
-  // Auto-switch to join tab when arriving via invite link
-  const hasInvite = !!(initialSlug || initialPassphrase);
-  const effectiveTab =
-    activeTab === "your-groups" && hasInvite && canCreateOrJoin
-      ? "join-group"
-      : activeTab;
-
   return (
     <div className="space-y-4">
       {/* Tab bar */}
@@ -286,7 +275,7 @@ function MobileLayout({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-3 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
-              effectiveTab === tab.id
+              activeTab === tab.id
                 ? "text-accent border-b-2 border-accent"
                 : "text-text-secondary hover:text-text-primary"
             }`}
@@ -297,7 +286,7 @@ function MobileLayout({
       </div>
 
       {/* Tab content */}
-      {effectiveTab === "your-groups" &&
+      {activeTab === "your-groups" &&
         (groups.joinedGroups.length > 0 ? (
           <GroupsSection
             groups={groups}
@@ -309,7 +298,7 @@ function MobileLayout({
           <YourGroupsEmpty onSwitchTab={setActiveTab} />
         ))}
 
-      {effectiveTab === "public-groups" && (
+      {activeTab === "public-groups" && (
         <PublicGroupsList
           publicGroups={publicGroups}
           isLoading={publicLoading}
@@ -321,19 +310,16 @@ function MobileLayout({
         />
       )}
 
-      {effectiveTab === "join-group" && canCreateOrJoin && (
+      {activeTab === "join-group" && canCreateOrJoin && (
         <PrivateJoinForm
           groups={groups}
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           walletBalance={contract.balance}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
-          highlight={hasInvite}
         />
       )}
 
-      {effectiveTab === "create-group" && canCreateOrJoin && (
+      {activeTab === "create-group" && canCreateOrJoin && (
         <CreateGroupForm groups={groups} />
       )}
     </div>
@@ -346,17 +332,12 @@ function DesktopLayout({
   groups,
   contract,
   authenticated,
-  initialSlug,
-  initialPassphrase,
 }: {
   groups: ReturnType<typeof useGroups>;
   contract: ReturnType<typeof useContract>;
   authenticated: boolean;
-  initialSlug: string;
-  initialPassphrase: string;
 }) {
   const canCreateOrJoin = authenticated && contract.isBeforeDeadline;
-  const hasInvite = !!(initialSlug || initialPassphrase);
 
   return (
     <div className="grid grid-cols-2 gap-6">
@@ -368,9 +349,6 @@ function DesktopLayout({
             isBeforeDeadline={contract.isBeforeDeadline}
             walletConnected={authenticated}
             walletBalance={contract.balance}
-            initialSlug={initialSlug}
-            initialPassphrase={initialPassphrase}
-            highlight={hasInvite}
           />
         )}
 
@@ -431,6 +409,7 @@ export function GroupsPage() {
     error: publicError,
   } = usePublicGroups();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const initialSlug = useMemo(
     () => searchParams.get("slug") ?? "",
@@ -441,6 +420,8 @@ export function GroupsPage() {
     [searchParams],
   );
 
+  const isSplash = !!(initialSlug || initialPassphrase);
+
   if (!groups.hasContract) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -450,6 +431,29 @@ export function GroupsPage() {
             Groups contract not deployed on this network.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Invite link splash: show only the join form
+  if (isSplash) {
+    return (
+      <div className="max-w-md mx-auto mt-8 sm:mt-16">
+        <PrivateJoinForm
+          groups={groups}
+          isBeforeDeadline={contract.isBeforeDeadline}
+          walletConnected={authenticated}
+          walletBalance={contract.balance}
+          initialSlug={initialSlug}
+          initialPassphrase={initialPassphrase}
+          onSuccess={() => navigate("/groups", { replace: true })}
+        />
+        <button
+          onClick={() => navigate("/groups", { replace: true })}
+          className="mt-4 w-full text-center text-sm text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+        >
+          Skip &mdash; go to Groups
+        </button>
       </div>
     );
   }
@@ -467,8 +471,6 @@ export function GroupsPage() {
           publicGroups={publicGroups}
           publicLoading={publicLoading}
           publicError={publicError}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
         />
       </div>
 
@@ -478,8 +480,6 @@ export function GroupsPage() {
           groups={groups}
           contract={contract}
           authenticated={authenticated}
-          initialSlug={initialSlug}
-          initialPassphrase={initialPassphrase}
         />
       </div>
     </div>

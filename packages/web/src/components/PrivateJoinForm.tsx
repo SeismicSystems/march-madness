@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { formatEther } from "viem";
-import { useSearchParams } from "react-router-dom";
 import type { UseGroupsReturn } from "../hooks/useGroups";
 
 interface PrivateJoinFormProps {
@@ -10,7 +9,7 @@ interface PrivateJoinFormProps {
   walletBalance: bigint | null;
   initialSlug?: string;
   initialPassphrase?: string;
-  highlight?: boolean;
+  onSuccess?: () => void;
 }
 
 export function PrivateJoinForm({
@@ -20,15 +19,13 @@ export function PrivateJoinForm({
   walletBalance,
   initialSlug = "",
   initialPassphrase = "",
-  highlight: initialHighlight = false,
+  onSuccess,
 }: PrivateJoinFormProps) {
-  const [, setSearchParams] = useSearchParams();
   const [slugInput, setSlugInput] = useState(initialSlug);
   const [nameInput, setNameInput] = useState("");
   const [isPrivateJoin, setIsPrivateJoin] = useState(true);
   const [passphraseInput, setPassphraseInput] = useState(initialPassphrase);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [highlighted, setHighlighted] = useState(initialHighlight);
 
   const [attempted, setAttempted] = useState(false);
 
@@ -81,9 +78,7 @@ export function PrivateJoinForm({
       setNameInput("");
       setPassphraseInput("");
       setIsPrivateJoin(false);
-      setHighlighted(false);
-      // Clean invite params from URL
-      setSearchParams({}, { replace: true });
+      onSuccess?.();
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Failed to join");
     }
@@ -92,13 +87,7 @@ export function PrivateJoinForm({
   if (!walletConnected || !isBeforeDeadline) return null;
 
   return (
-    <div
-      className={`rounded-xl p-4 sm:p-6 ${
-        highlighted
-          ? "bg-yellow-50 border-4 border-yellow-400 ring-4 ring-yellow-300/50 shadow-lg shadow-yellow-200/40"
-          : "bg-bg-secondary border border-border"
-      }`}
-    >
+    <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-text-primary mb-1">
         Join Group
       </h2>
