@@ -19,6 +19,10 @@ interface BracketGameProps {
   reversed?: boolean;
   /** Stretch game card to its container width (used by mobile stacked lanes). */
   fullWidth?: boolean;
+  /** Teams that have been eliminated from the tournament */
+  eliminatedTeams?: Set<string>;
+  /** Teams still alive (won at least one game, not yet eliminated) */
+  advancedTeams?: Set<string>;
 }
 
 export function BracketGame({
@@ -32,6 +36,8 @@ export function BracketGame({
   gameStatus,
   reversed = false,
   fullWidth = false,
+  eliminatedTeams,
+  advancedTeams,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -44,7 +50,7 @@ export function BracketGame({
     py = compact ? "py-0.5" : "py-1";
     px = compact ? "px-2" : "px-3";
     textSize = compact ? "text-xs" : "text-sm";
-    minW = compact ? "min-w-[120px]" : "min-w-[160px]";
+    minW = "w-full min-w-0";
   }
 
   // Determine if each team's pick was correct/wrong based on game result
@@ -65,9 +71,45 @@ export function BracketGame({
     gameStatus.winner === true &&
     winner === team2;
 
+  // "Busted" = user picked this team but it was already eliminated in a prior round.
+  // Only applies when the team is the user's pick (isWinner) and not already shown as pickWrong.
+  const eliminatedTeam1 =
+    !pickWrongTeam1 &&
+    !pickCorrectTeam1 &&
+    winner === team1 &&
+    team1 !== null &&
+    !!eliminatedTeams?.has(displayName(team1));
+  const eliminatedTeam2 =
+    !pickWrongTeam2 &&
+    !pickCorrectTeam2 &&
+    winner === team2 &&
+    team2 !== null &&
+    !!eliminatedTeams?.has(displayName(team2));
+
+  // "Advancing" = user picked this team and the team is still alive in the tournament.
+  // Only for games not yet decided — shows green to indicate the pick is still on track.
+  const advancingTeam1 =
+    !pickCorrectTeam1 &&
+    !pickWrongTeam1 &&
+    !eliminatedTeam1 &&
+    winner === team1 &&
+    team1 !== null &&
+    !!advancedTeams?.has(displayName(team1));
+  const advancingTeam2 =
+    !pickCorrectTeam2 &&
+    !pickWrongTeam2 &&
+    !eliminatedTeam2 &&
+    winner === team2 &&
+    team2 !== null &&
+    !!advancedTeams?.has(displayName(team2));
+
   return (
     <div
-      className={`flex flex-col ${fullWidth ? "w-full min-w-0 rounded-md border border-border/70 bg-bg-primary/20 p-1" : minW} gap-0.5 relative`}
+      className={`flex flex-col ${
+        fullWidth
+          ? "w-full min-w-0 rounded-md border border-border/70 bg-bg-primary/20 p-1"
+          : minW
+      } gap-0.5 relative`}
     >
       {/* Live indicator */}
       {gameStatus?.status === "live" && (
@@ -91,6 +133,8 @@ export function BracketGame({
         gameScore={gameStatus?.score?.team1}
         pickCorrect={pickCorrectTeam1}
         pickWrong={pickWrongTeam1}
+        isEliminated={eliminatedTeam1}
+        isAdvancing={advancingTeam1}
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
@@ -112,6 +156,8 @@ export function BracketGame({
         gameScore={gameStatus?.score?.team2}
         pickCorrect={pickCorrectTeam2}
         pickWrong={pickWrongTeam2}
+        isEliminated={eliminatedTeam2}
+        isAdvancing={advancingTeam2}
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
@@ -139,6 +185,8 @@ interface TeamSlotProps {
   gameScore?: number;
   pickCorrect?: boolean;
   pickWrong?: boolean;
+  isEliminated?: boolean;
+  isAdvancing?: boolean;
   isLive?: boolean;
   winProbability?: number;
   reversed?: boolean;
@@ -157,6 +205,8 @@ function TeamSlot({
   gameScore,
   pickCorrect = false,
   pickWrong = false,
+  isEliminated = false,
+  isAdvancing = false,
   isLive = false,
   winProbability,
   reversed = false,
@@ -164,30 +214,38 @@ function TeamSlot({
   if (!team) {
     return (
       <div
-        className={`${py} ${px} ${textSize} rounded border border-border border-opacity-10 text-text-muted italic text-center `}
+        className={`${py} ${px} ${textSize} rounded-lg border border-border/30 backdrop-blur-md bg-bg-secondary/30 text-text-muted italic text-center`}
       >
         TBD
       </div>
     );
   }
 
-  let className = `${py} ${px} ${textSize} rounded cursor-pointer transition-all border flex items-center justify-between `;
+  let className = `${py} ${px} ${textSize} rounded-lg cursor-pointer transition-all border backdrop-blur-md flex items-center justify-between `;
 
   if (pickCorrect) {
     className +=
-      "bg-green-500/15 border-green-500/50 text-text-primary font-semibold";
+      "bg-green-500/10 border-green-500/40 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (pickWrong) {
     className +=
-      "bg-red-500/10 border-red-500/30 text-text-muted line-through opacity-60";
+      "bg-red-500/10 border-red-500/25 text-text-muted line-through opacity-60";
+  } else if (isEliminated) {
+    className +=
+      "bg-red-500/10 border-red-500/25 text-red-400/80 font-semibold";
+  } else if (isAdvancing) {
+    className +=
+      "bg-green-500/10 border-green-500/40 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isLive && isWinner) {
-    className += "bg-accent/20 border-accent text-text-primary font-semibold";
+    className +=
+      "bg-accent/15 border-accent/60 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isWinner) {
-    className += "bg-accent/20 border-accent text-text-primary font-semibold";
+    className +=
+      "bg-accent/15 border-accent/60 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isLoser) {
-    className += "bg-bg-secondary border-border text-text-muted";
+    className += "bg-bg-secondary/40 border-border/30 text-text-muted";
   } else {
     className +=
-      "bg-bg-tertiary border-border hover:border-accent/50 hover:bg-bg-hover text-text-primary";
+      "bg-bg-tertiary/40 border-border/30 hover:border-accent/40 hover:bg-bg-hover/50 text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
   }
 
   if (disabled) {
@@ -203,7 +261,9 @@ function TeamSlot({
     >
       <span className="flex items-center gap-2 min-w-0">
         <span
-          className={`text-text-muted ${mobile ? "w-4" : "w-5"} text-right font-normal flex-shrink-0`}
+          className={`text-text-muted ${
+            mobile ? "w-4" : "w-5"
+          } text-right font-normal flex-shrink-0`}
         >
           {team.seed}
         </span>
@@ -215,11 +275,19 @@ function TeamSlot({
         {pickWrong && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
+        {isAdvancing && (
+          <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
+        )}
+        {isEliminated && (
+          <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
+        )}
       </span>
       <span className="flex items-center gap-1">
         {gameScore !== undefined && (
           <span
-            className={`font-mono text-[10px] ${isLive ? "text-green-400" : "text-text-muted"}`}
+            className={`font-mono text-[10px] ${
+              isLive ? "text-green-400" : "text-text-muted"
+            }`}
           >
             {gameScore}
           </span>

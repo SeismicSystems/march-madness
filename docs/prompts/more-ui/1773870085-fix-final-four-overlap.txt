@@ -1,0 +1,28 @@
+Implement the following plan:
+
+# Fix: Final Four team slots overlapping in the center
+
+## Context
+
+When clicking from the leaderboard to view a user's bracket (`/bracket/:address`), the two **semifinal** BracketGame cards in the Final Four section overlap slightly where they meet in the middle. This is a desktop layout issue in the center column of the bracket grid.
+
+## Root Cause
+
+In `FinalFour.tsx` (line 33), the two semifinal games sit in a `grid grid-cols-2 gap-6` inside a container with only `min-w-[200px]`. Each BracketGame has `min-w-[160px]` (from `BracketGame.tsx` line 48), so the content needs at least **160 + 24 + 160 = 344px**, but the parent center column (`auto` in the `grid-cols-[1fr_auto_1fr]` layout in `BracketView.tsx` line 76) can squeeze the FinalFour narrower than needed, causing the two game cards to overlap in the middle.
+
+The recent `rounded-lg` + `backdrop-blur-md` glass effects make this more visually apparent since the blur radius bleeds beyond element edges.
+
+## Fix
+
+**File: `packages/web/src/components/FinalFour.tsx`**
+
+1. **Line 25** — Increase `min-w-[200px]` → `min-w-[380px]` on the FinalFour outer container to guarantee both 160px games + gap fit without the `auto` grid column squeezing them
+2. **Line 33** — Increase the semifinal grid gap from `gap-4 md:gap-6` → `gap-6 md:gap-8` for more breathing room between the two game cards
+
+Two class changes, one file.
+
+## Verification
+
+1. `bunx tsc --noEmit` — typecheck passes
+2. `bun p:post` — start local dev with post-submission data (brackets visible in Final Four)
+3. Navigate to `/leaderboard`, click an entry → confirm the two semifinal game cards in the center no longer overlap
