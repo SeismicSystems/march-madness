@@ -142,8 +142,8 @@ export function PrivateJoinForm({
         <div>
           <button
             onClick={handleJoin}
-            disabled={isDisabled}
-            className={`px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+            disabled={groups.isLoading}
+            className={`px-4 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
           >
             {groups.isLoading ? "Joining..." : "Join"}
           </button>

@@ -172,8 +172,8 @@ function CreateGroupForm({
         <div className="flex items-center gap-3">
           <button
             onClick={handleCreate}
-            disabled={isDisabled}
-            className={`px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+            disabled={groups.isLoading}
+            className={`px-4 py-2 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
           >
             {groups.isLoading ? "Creating..." : "Create Group"}
           </button>
