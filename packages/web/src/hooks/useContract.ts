@@ -51,17 +51,24 @@ export function useContract() {
   const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
     useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [existingBracket, setExistingBracket] = useState<`0x${string}` | null>(
-    null,
-  );
+  const [hasSubmittedState, setHasSubmittedState] = useState<{
+    owner: string | null;
+    value: boolean;
+  }>({ owner: null, value: false });
+  const [existingBracketState, setExistingBracketState] = useState<{
+    owner: string | null;
+    value: `0x${string}` | null;
+  }>({ owner: null, value: null });
   const [isLoading, setIsLoading] = useState(false);
   const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState<bigint | null>(null);
+  const [balanceState, setBalanceState] = useState<{
+    owner: string | null;
+    value: bigint | null;
+  }>({ owner: null, value: null });
   const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
-  const [hasResolvedEntryState, setHasResolvedEntryState] = useState(false);
-  const [hasResolvedBalance, setHasResolvedBalance] = useState(false);
+  const [resolvedEntryStateOwner, setResolvedEntryStateOwner] = useState<string | null>(null);
+  const [resolvedBalanceOwner, setResolvedBalanceOwner] = useState<string | null>(null);
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -103,6 +110,25 @@ export function useContract() {
   const walletAddress = authenticated
     ? (walletClient?.account?.address ?? null)
     : null;
+  const walletKey = walletAddress?.toLowerCase() ?? null;
+  const hasSubmitted =
+    walletKey && hasSubmittedState.owner === walletKey
+      ? hasSubmittedState.value
+      : false;
+  const existingBracket =
+    walletKey && existingBracketState.owner === walletKey
+      ? existingBracketState.value
+      : null;
+  const balance =
+    walletKey && balanceState.owner === walletKey
+      ? balanceState.value
+      : null;
+  const hasResolvedEntryState =
+    !authenticated ||
+    (walletKey !== null && resolvedEntryStateOwner === walletKey);
+  const hasResolvedBalance =
+    !authenticated ||
+    (walletKey !== null && resolvedBalanceOwner === walletKey);
 
   // Construct client library instances from seismic-react wallet/public clients
   const mmPublic = useMemo(() => {
@@ -130,14 +156,6 @@ export function useContract() {
   }, []);
   const isBeforeDeadline = now / 1000 < submissionDeadline;
 
-  useEffect(() => {
-    setHasSubmitted(false);
-    setExistingBracket(null);
-    setBalance(null);
-    setHasResolvedEntryState(!authenticated);
-    setHasResolvedBalance(!authenticated);
-  }, [authenticated, walletAddress]);
-
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {
     if (!mmPublic) return;
@@ -151,20 +169,18 @@ export function useContract() {
 
   // Check if user has submitted (public read — no signing needed)
   const checkHasEntry = useCallback(async () => {
-    if (!mmPublic || !walletAddress) {
-      setHasSubmitted(false);
-      setHasResolvedEntryState(true);
+    if (!mmPublic || !walletAddress || !walletKey) {
       return;
     }
     try {
       const has = await mmPublic.getHasEntry(walletAddress);
-      setHasSubmitted(has);
+      setHasSubmittedState({ owner: walletKey, value: has });
     } catch {
       // Contract might not be deployed yet
     } finally {
-      setHasResolvedEntryState(true);
+      setResolvedEntryStateOwner(walletKey);
     }
-  }, [mmPublic, walletAddress]);
+  }, [mmPublic, walletAddress, walletKey]);
 
   // Fetch entry fee from contract
   const fetchEntryFee = useCallback(async () => {
@@ -179,20 +195,18 @@ export function useContract() {
 
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
-    if (!publicClient || !walletAddress) {
-      setBalance(null);
-      setHasResolvedBalance(true);
+    if (!publicClient || !walletAddress || !walletKey) {
       return;
     }
     try {
       const bal = await publicClient.getBalance({ address: walletAddress });
-      setBalance(bal);
+      setBalanceState({ owner: walletKey, value: bal });
     } catch {
       // ignore
     } finally {
-      setHasResolvedBalance(true);
+      setResolvedBalanceOwner(walletKey);
     }
-  }, [publicClient, walletAddress]);
+  }, [publicClient, walletAddress, walletKey]);
 
   useEffect(() => {
     fetchEntryCount();
@@ -224,7 +238,9 @@ export function useContract() {
         bracketHex !== "0x0000000000000000" &&
         BigInt(bracketHex) !== BigInt(0)
       ) {
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
         return bracketHex;
       }
     } catch (err) {
@@ -235,7 +251,7 @@ export function useContract() {
       setIsBracketLoading(false);
     }
     return null;
-  }, [mmUser]);
+  }, [mmUser, walletKey]);
 
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
@@ -249,8 +265,10 @@ export function useContract() {
 
       try {
         const hash = await mmUser.submitBracket(bracketHex);
-        setHasSubmitted(true);
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setHasSubmittedState({ owner: walletKey, value: true });
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
         await fetchEntryCount();
         await fetchBalance();
         return hash;
@@ -262,7 +280,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [mmUser, fetchEntryCount, fetchBalance],
+    [mmUser, fetchEntryCount, fetchBalance, walletKey],
   );
 
   // Update bracket (shielded write, no additional fee)
@@ -277,7 +295,9 @@ export function useContract() {
 
       try {
         const hash = await mmUser.updateBracket(bracketHex);
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
         return hash;
       } catch (err) {
         const msg = extractErrorMessage(err, "Failed to update bracket");
@@ -287,7 +307,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [mmUser],
+    [mmUser, walletKey],
   );
 
   // Set tag (transparent write via client library)
