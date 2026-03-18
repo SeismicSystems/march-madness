@@ -72,7 +72,9 @@ The tournament status JSON file (`data/{year}/men/status.json`, written by `ncaa
       "gameIndex": 12,
       "status": "live",
       "score": { "team1": 45, "team2": 38 },
-      "team1WinProbability": 0.72   // conditional on current score, 0-1
+      "team1WinProbability": 0.72,  // conditional on current score, 0-1 (model-computed when score+time present)
+      "secondsRemaining": 480,      // seconds left in current period (live only)
+      "period": 2                    // 1 = 1st half, 2 = 2nd half, 3+ = OT periods
     },
     // An upcoming game:
     {
@@ -191,8 +193,20 @@ Tennessee, Missouri, Gonzaga, Grand Canyon, Texas A&M, Ohio St., Houston, LSU
 ## `team1WinProbability` Field
 
 - Only relevant for `"live"` games
-- Should be **conditional** on the current in-game score (not the pre-game probability)
+- **Conditional** on the current in-game score (not the pre-game probability)
 - Range: 0.0 to 1.0
+- When `score`, `secondsRemaining`, and `period` are all present, the forecaster computes this automatically from the game model (KenPom-based simulation of remaining possessions). Any externally-set value is overridden.
+
+## `secondsRemaining` Field
+
+- Only relevant for `"live"` games
+- Seconds remaining on the game clock in the current period
+- Range: 0-1200 (20-minute college basketball halves) or 0-300 (5-minute OT periods)
+
+## `period` Field
+
+- Only relevant for `"live"` games
+- `1` = first half, `2` = second half, `3` = first overtime, `4` = second overtime, etc.
 
 ## Running the Server
 

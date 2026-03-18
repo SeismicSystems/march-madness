@@ -1,9 +1,17 @@
-use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
-use bracket_sim::{Tournament, load_teams_for_year};
-use clap::Parser;
+use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
+
+use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
+use bracket_sim::live_resolver::GameModelResolver;
+use bracket_sim::{DEFAULT_PACE_D, Tournament, load_teams_for_year};
+use clap::Parser;
 use tracing::info;
+
+use seismic_march_madness::{
+    GameState, TournamentData, TournamentStatus, build_reach_probs, get_teams_in_bracket_order,
+    run_team_advance_simulations_with_resolver,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "sim")]
@@ -24,8 +32,49 @@ struct SimArgs {
 
     /// Pace dispersion ratio (variance / mean).
     /// <1 = underdispersed (binomial), 1 = Poisson, >1 = overdispersed (NB).
-    #[arg(long, default_value_t = bracket_sim::DEFAULT_PACE_D)]
+    #[arg(long, default_value_t = DEFAULT_PACE_D)]
     pace_d: f64,
+
+    /// Condition on live/decided game state from a status JSON file.
+    /// Pass --status alone to use the default (data/{year}/men/status.json),
+    /// or --status <path> for a custom file. Omit to simulate from scratch.
+    #[arg(long = "status", num_args = 0..=1, default_missing_value = "")]
+    status: Option<String>,
+}
+
+fn print_table(
+    team_names: &[String],
+    team_map: &HashMap<String, bracket_sim::Team>,
+    probs: &[[f64; 6]],
+) {
+    println!(
+        "\n{:<25} {:>4}  {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}",
+        "Team", "Seed", "R64", "R32", "S16", "E8", "F4", "Champ"
+    );
+    println!("{}", "-".repeat(82));
+
+    let mut indices: Vec<usize> = (0..64).collect();
+    indices.sort_by(|&a, &b| {
+        probs[b][5]
+            .partial_cmp(&probs[a][5])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    for &idx in &indices {
+        let name = &team_names[idx];
+        let seed = team_map.get(name).map(|t| t.seed).unwrap_or(0);
+        println!(
+            "{:<25} {:>4}  {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}%",
+            name,
+            seed,
+            probs[idx][0] * 100.0,
+            probs[idx][1] * 100.0,
+            probs[idx][2] * 100.0,
+            probs[idx][3] * 100.0,
+            probs[idx][4] * 100.0,
+            probs[idx][5] * 100.0,
+        );
+    }
 }
 
 fn main() -> io::Result<()> {
@@ -42,46 +91,121 @@ fn main() -> io::Result<()> {
     let args = SimArgs::parse();
     let bracket_config = BracketConfig::for_year(args.year);
 
-    info!(
-        year = args.year,
-        n_sims = args.n_sims,
-        pace_d = args.pace_d,
-        "starting simulation"
-    );
-
     let teams = load_teams_for_year(args.input.as_deref(), args.year)?;
+    let team_map: HashMap<String, bracket_sim::Team> =
+        teams.iter().map(|t| (t.team.clone(), t.clone())).collect();
 
-    let mut tournament = Tournament::new().with_pace_d(args.pace_d);
-    tournament.setup_tournament(teams, &bracket_config);
-    let win_probs = tournament.calculate_team_win_probabilities(args.n_sims);
+    // Get team names in bracket order
+    let tournament_data = TournamentData::embedded(args.year);
+    let team_names = get_teams_in_bracket_order(&tournament_data);
 
-    println!(
-        "\n{:<20} {:<5} {:<8} {:<8} {:<8} {:<8} {:<8} {:<8}",
-        "Team", "Seed", "Rd1", "Rd2", "Sweet16", "Elite8", "Final4", "Champ"
-    );
-
-    let mut sorted_teams: Vec<_> = tournament.get_teams().clone();
-    sorted_teams.sort_by(|a, b| a.seed.cmp(&b.seed).then(a.region.cmp(&b.region)));
-
-    for team in &sorted_teams {
-        if let Some(probs) = win_probs.get(&team.team) {
-            let mut cumulative = [0.0f64; 6];
-            for r in 0..6 {
-                cumulative[r] = probs[r..].iter().sum::<f64>();
-            }
-            println!(
-                "{:<20} {:<5} {:<8.1} {:<8.1} {:<8.1} {:<8.1} {:<8.1} {:<8.1}",
-                team.team,
-                team.seed,
-                cumulative[0] * 100.0,
-                cumulative[1] * 100.0,
-                cumulative[2] * 100.0,
-                cumulative[3] * 100.0,
-                cumulative[4] * 100.0,
-                cumulative[5] * 100.0,
-            );
+    let status_path = args.status.as_ref().map(|s| {
+        if s.is_empty() {
+            PathBuf::from(format!("data/{}/men/status.json", args.year))
+        } else {
+            PathBuf::from(s)
         }
+    });
+
+    if let Some(status_path) = &status_path {
+        // Conditioned mode: use forward sim with status file
+        let status_str = std::fs::read_to_string(status_path)
+            .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", status_path.display(), e)))?;
+        let status: TournamentStatus = serde_json::from_str(&status_str).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{}: {}", status_path.display(), e),
+            )
+        })?;
+
+        info!(
+            year = args.year,
+            n_sims = args.n_sims,
+            pace_d = args.pace_d,
+            "conditioned simulation (status file)"
+        );
+
+        // Build resolver for live games
+        let live_count = status
+            .games
+            .iter()
+            .filter(|g| g.status == GameState::Live)
+            .count();
+        let resolver = GameModelResolver::new(&team_names, &team_map, args.pace_d);
+        let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
+            info!(live_games = live_count, "using game model resolver");
+            Some(&resolver)
+        } else {
+            None
+        };
+
+        // Build reach probs: use status file's if present, otherwise compute from full tournament sim
+        let reach = if let Some(reach_map) = &status.team_reach_probabilities {
+            if !reach_map.is_empty() {
+                info!("using reach probs from status file");
+                build_reach_probs(&team_names, reach_map)
+            } else {
+                compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
+            }
+        } else {
+            compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
+        };
+
+        let results = run_team_advance_simulations_with_resolver(
+            &status,
+            &reach,
+            args.n_sims as u32,
+            resolver_opt,
+        );
+        results.print_table(&team_names, |name| {
+            team_map.get(name).map(|t| t.seed).unwrap_or(0)
+        });
+    } else {
+        // Unconditioned mode: full Poisson tournament sim (original behavior)
+        info!(
+            year = args.year,
+            n_sims = args.n_sims,
+            pace_d = args.pace_d,
+            "unconditioned simulation"
+        );
+
+        let mut tournament = Tournament::new().with_pace_d(args.pace_d);
+        tournament.setup_tournament(teams, &bracket_config);
+        let win_probs = tournament.calculate_team_win_probabilities(args.n_sims);
+
+        // Convert to bracket-order array
+        let probs: Vec<[f64; 6]> = team_names
+            .iter()
+            .map(|name| {
+                if let Some(raw) = win_probs.get(name) {
+                    let mut cum = [0.0; 6];
+                    for (r, val) in cum.iter_mut().enumerate() {
+                        *val = raw[r..].iter().sum::<f64>();
+                    }
+                    cum
+                } else {
+                    [0.0; 6]
+                }
+            })
+            .collect();
+
+        print_table(&team_names, &team_map, &probs);
     }
 
     Ok(())
+}
+
+/// Compute reach probs from a full Poisson tournament sim.
+fn compute_reach_probs(
+    teams: &[bracket_sim::Team],
+    bracket_config: &BracketConfig,
+    team_names: &[String],
+    n_sims: usize,
+) -> seismic_march_madness::ReachProbs {
+    info!(n_sims, "computing reach probs from full tournament sim");
+    let mut tournament = Tournament::new();
+    tournament.setup_tournament(teams.to_vec(), bracket_config);
+    let cum_probs = tournament.cumulative_win_probabilities(n_sims);
+    let reach_map: HashMap<String, Vec<f64>> = cum_probs.into_iter().collect();
+    build_reach_probs(team_names, &reach_map)
 }
