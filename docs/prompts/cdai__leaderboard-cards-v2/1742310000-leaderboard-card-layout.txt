@@ -1,0 +1,11 @@
+Implement the following plan:
+
+# Leaderboard: Table → Card Layout with @fab-ui/card
+
+Replace the leaderboard table with stacked cards using @fab-ui/card from shadcn registry.
+Add team logos next to champion picks. Cards 3/4 width on desktop, full width mobile.
+
+Follow-ups:
+- Use @fab-ui/card instead of @cardcn/card-14
+- Add team logos next to champion name, w-3/4 on non-mobile
+- CI fix: rebase onto main, use .changeset/*.md instead of editing docs/changeset.md
