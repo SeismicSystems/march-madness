@@ -27,6 +27,10 @@ pub const KEY_GROUP_MEMBERS: &str = "mm:group_members";
 /// Group slug reverse lookup: slug → groupId (HASH).
 pub const KEY_GROUP_SLUGS: &str = "mm:group:slugs";
 
+/// Address → groups reverse lookup: address → JSON([groupId1, groupId2, ...]) (HASH).
+/// Maintained alongside KEY_GROUP_MEMBERS for fast "my groups" queries.
+pub const KEY_ADDRESS_GROUPS: &str = "mm:address_groups";
+
 /// Mirrors: mirrorId → JSON({ slug, display_name, admin }) (HASH).
 pub const KEY_MIRRORS: &str = "mm:mirrors";
 

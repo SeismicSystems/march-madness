@@ -182,6 +182,37 @@ impl AppState {
         }
     }
 
+    /// Get groups that an address belongs to (from reverse mapping).
+    pub async fn get_address_groups(&self, address: &str) -> Result<Vec<GroupResponse>> {
+        let addr = address.to_lowercase();
+        let mut conn = self.redis();
+
+        // Read group IDs from reverse mapping.
+        let json: Option<String> = conn.hget(KEY_ADDRESS_GROUPS, &addr).await?;
+        let group_ids: Vec<u32> = json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+
+        if group_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Fetch group metadata for each ID.
+        let mut groups = Vec::with_capacity(group_ids.len());
+        for id in group_ids {
+            let id_str = id.to_string();
+            let meta_json: Option<String> = conn.hget(KEY_GROUPS, &id_str).await?;
+            if let Some(s) = meta_json {
+                match serde_json::from_str::<GroupData>(&s) {
+                    Ok(data) => groups.push(group_to_response(&id_str, &data)),
+                    Err(e) => tracing::warn!(group_id = %id, error = %e, "corrupt group in Redis"),
+                }
+            }
+        }
+        Ok(groups)
+    }
+
     // ── Mirror queries ───────────────────────────────────────────────
 
     pub async fn get_mirrors(&self) -> Result<Vec<MirrorResponse>> {

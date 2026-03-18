@@ -167,22 +167,6 @@ export function GroupsSection({
   groups,
   isBeforeDeadline,
 }: GroupsSectionProps) {
-  const [trackSlugInput, setTrackSlugInput] = useState("");
-  const [trackError, setTrackError] = useState("");
-
-  const handleTrackBySlug = async () => {
-    const slug = trackSlugInput.trim();
-    if (!slug) return;
-    setTrackError("");
-    const result = await groups.lookupGroupBySlug(slug);
-    if (result) {
-      groups.trackGroup(result[0]);
-      setTrackSlugInput("");
-    } else {
-      setTrackError(`No group found with slug "${slug}"`);
-    }
-  };
-
   const handleEditName = async (groupId: number, name: string) => {
     try {
       await groups.editEntryName(groupId, name);
@@ -208,7 +192,7 @@ export function GroupsSection({
         </div>
       )}
 
-      <div className="space-y-3 mb-4">
+      <div className="space-y-3">
         {groups.joinedGroups.map((joined) => (
           <JoinedGroupCard
             key={joined.groupId}
@@ -219,34 +203,6 @@ export function GroupsSection({
             onLeave={(id) => groups.leaveGroup(id)}
           />
         ))}
-      </div>
-
-      <div className="pt-3 border-t border-border">
-        <h4 className="text-xs text-text-tertiary mb-1">
-          Already a member? Track by slug
-        </h4>
-        <div className="flex gap-2 max-w-md">
-          <input
-            type="text"
-            value={trackSlugInput}
-            onChange={(v) => {
-              setTrackSlugInput(v.target.value);
-              setTrackError("");
-            }}
-            placeholder="group-slug"
-            className="w-full max-w-md px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-          />
-          <button
-            onClick={handleTrackBySlug}
-            disabled={!trackSlugInput.trim()}
-            className="px-3 py-1.5 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors whitespace-nowrap"
-          >
-            Track
-          </button>
-        </div>
-        {trackError && (
-          <p className="text-xs text-red-400 mt-1">{trackError}</p>
-        )}
       </div>
     </div>
   );

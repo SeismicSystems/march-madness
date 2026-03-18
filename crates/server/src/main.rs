@@ -51,6 +51,8 @@ async fn main() -> eyre::Result<()> {
         .route("/groups", get(routes::get_groups))
         .route("/groups/{slug}", get(routes::get_group))
         .route("/groups/{slug}/members", get(routes::get_group_members))
+        // Address routes
+        .route("/address/{address}/groups", get(routes::get_address_groups))
         // Mirror routes
         .route("/mirrors", get(routes::get_mirrors))
         .route("/mirrors/{slug}", get(routes::get_mirror))

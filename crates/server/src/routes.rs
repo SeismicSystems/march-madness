@@ -147,6 +147,24 @@ pub async fn get_group_members(
     }
 }
 
+/// GET /address/:address/groups — get groups an address belongs to.
+pub async fn get_address_groups(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+) -> impl IntoResponse {
+    match state.get_address_groups(&address).await {
+        Ok(groups) => Json(groups).into_response(),
+        Err(e) => {
+            tracing::error!("failed to read address groups: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read address groups",
+            )
+                .into_response()
+        }
+    }
+}
+
 // ── Mirror routes ────────────────────────────────────────────────────
 
 /// GET /mirrors — list all mirrors from Redis.

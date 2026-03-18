@@ -81,6 +81,7 @@ async fn clean_redis(redis: &mut MultiplexedConnection) -> Result<()> {
         KEY_GROUPS,
         KEY_GROUP_MEMBERS,
         KEY_GROUP_SLUGS,
+        KEY_ADDRESS_GROUPS,
         KEY_GAMES,
     ];
     let deleted: usize = redis::cmd("DEL").arg(keys).query_async(redis).await?;
