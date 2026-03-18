@@ -34,6 +34,10 @@ Returns a single group by slug. 404 if not found.
 
 Returns an array of member addresses for the group. 404 if group not found.
 
+### `GET /api/address/:address/groups`
+
+Returns groups that an address belongs to. Response is an array of group objects (same schema as `GET /api/groups`). Uses the `mm:address_groups` Redis reverse mapping for fast lookups.
+
 ### `GET /api/mirrors`
 
 Returns all mirrors (from Redis). Each mirror has: `id`, `slug`, `display_name`, `admin`, `entry_count`.

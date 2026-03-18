@@ -9,7 +9,7 @@ If the user is invoking this skill, it means you have likely been sloppy about r
 ## Rules Checklist (mirrored from CLAUDE.md)
 
 1. **After every change**, update `README.md` and `CLAUDE.md` if the change affects documented behavior, architecture, or setup.
-2. **Every PR** must include an entry in `docs/changeset.md` describing what was added/changed.
+2. **Every PR** must include a changeset file. Run `bunx changeset` to create one in `.changeset/`. Do NOT edit `docs/changeset.md` directly — it is auto-generated on merge by the `merge-changesets` workflow.
 3. **Every prompt** from the user must be saved verbatim to `docs/prompts/<branch-name>/` as a `.txt` file. Filename format: `{timestamp-seconds}-{slug}.txt`. Organize by feature branch name.
 4. **When submitting PRs**, write them in the chat for user review. User may leave comments here or on GitHub.
 5. **Branch strategy**: Be intentional about what branch you're working off of. Usually `main`, but agents may stack on each other when dependencies exist.
@@ -24,7 +24,7 @@ Go through each item and verify compliance for the current branch/task:
 
 - [ ] Read `CLAUDE.md` rules section fresh
 - [ ] Check all user prompts in this conversation are saved to `docs/prompts/<branch-name>/`
-- [ ] Check `docs/changeset.md` has an entry for this PR
+- [ ] Check `.changeset/` has a changeset file for this PR (run `bunx changeset` if not)
 - [ ] Check `README.md` and `CLAUDE.md` are updated if behavior/architecture/setup changed
 - [ ] Verify branch name has `cdai__` prefix
 - [ ] If `scripts/ci.sh` or `.github/workflows/ci.yml` was modified, verify they are in sync

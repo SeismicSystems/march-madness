@@ -50,6 +50,7 @@ pub struct GroupResponse {
     pub creator: String,
     pub has_password: bool,
     pub member_count: usize,
+    pub entry_fee: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -179,6 +180,37 @@ impl AppState {
             Some(s) => Ok(Some((id, serde_json::from_str(&s)?))),
             None => Ok(None),
         }
+    }
+
+    /// Get groups that an address belongs to (from reverse mapping).
+    pub async fn get_address_groups(&self, address: &str) -> Result<Vec<GroupResponse>> {
+        let addr = address.to_lowercase();
+        let mut conn = self.redis();
+
+        // Read group IDs from reverse mapping.
+        let json: Option<String> = conn.hget(KEY_ADDRESS_GROUPS, &addr).await?;
+        let group_ids: Vec<u32> = json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+
+        if group_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Fetch group metadata for each ID.
+        let mut groups = Vec::with_capacity(group_ids.len());
+        for id in group_ids {
+            let id_str = id.to_string();
+            let meta_json: Option<String> = conn.hget(KEY_GROUPS, &id_str).await?;
+            if let Some(s) = meta_json {
+                match serde_json::from_str::<GroupData>(&s) {
+                    Ok(data) => groups.push(group_to_response(&id_str, &data)),
+                    Err(e) => tracing::warn!(group_id = %id, error = %e, "corrupt group in Redis"),
+                }
+            }
+        }
+        Ok(groups)
     }
 
     // ── Mirror queries ───────────────────────────────────────────────
@@ -331,5 +363,6 @@ fn group_to_response(id: &str, data: &GroupData) -> GroupResponse {
         creator: data.creator.clone(),
         has_password: data.has_password,
         member_count: data.member_count as usize,
+        entry_fee: data.entry_fee.clone(),
     }
 }

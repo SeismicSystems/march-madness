@@ -57,8 +57,9 @@ export function LeaderboardPage() {
         tag: entry.name,
         bracket: bracketHex,
         score,
-        championName: getChampionName(bracketHex),
+        championName: bracketHex ? getChampionName(bracketHex) : null,
         forecast,
+        sortLabel: (entry.name ?? address).toLowerCase(),
       });
     }
 
@@ -73,18 +74,34 @@ export function LeaderboardPage() {
 
   const loading = entriesLoading || statusLoading || groupLoading;
 
-  if (loading) {
+    return rows;
+  }, [entries, forecasts, groupMembers, status]);
+
+  if (slug && (groupNotFound || groupError)) {
     return (
-      <div className="text-center py-12 text-text-muted">
-        Loading leaderboard...
+      <div className="max-w-xl mx-auto text-center py-12">
+        <h2 className="text-lg font-bold text-text-primary mb-2">
+          Group leaderboard unavailable
+        </h2>
+        <p className="text-text-muted mb-4">
+          {groupError ?? `Group "/${slug}" not found.`}
+        </p>
+        <Link
+          to="/groups"
+          className="text-sm text-accent hover:text-accent-hover transition-colors"
+        >
+          Back to groups
+        </Link>
       </div>
     );
   }
 
-  if (!status) {
+  const loading = entriesLoading || statusLoading || groupLoading;
+
+  if (loading) {
     return (
       <div className="text-center py-12 text-text-muted">
-        Tournament status not available yet.
+        Loading leaderboard...
       </div>
     );
   }
@@ -95,8 +112,10 @@ export function LeaderboardPage() {
     );
   }
 
-  const decidedCount = status.games.filter((g) => g.status === "final").length;
-  const liveCount = status.games.filter((g) => g.status === "live").length;
+  const decidedCount =
+    status?.games.filter((g) => g.status === "final").length ?? 0;
+  const liveCount =
+    status?.games.filter((g) => g.status === "live").length ?? 0;
 
   return (
     <div className="w-full mx-auto">
@@ -119,7 +138,18 @@ export function LeaderboardPage() {
           {liveCount > 0 && (
             <span className="text-green-400">{liveCount} live</span>
           )}
+          <h2 className="text-lg font-bold text-text-primary">
+            {slug ? `${groupName ?? slug} Leaderboard` : "Leaderboard"}
+          </h2>
         </div>
+        {status && (
+          <div className="flex gap-3 text-xs text-text-muted">
+            <span>{decidedCount}/63 games decided</span>
+            {liveCount > 0 && (
+              <span className="text-green-400">{liveCount} live</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:w-3/4 sm:mx-auto">

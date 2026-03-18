@@ -1,0 +1,1 @@
+hey so right now there's a very clear frontend bug that thinks all public groups are free -- and therefore it tries to submit transactions to join them with 0 value and then it reverts. diagnose this and put up a PR

@@ -2,7 +2,47 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
-## [Unreleased]
+Fix groups UI not updating after join/create/leave: wait for tx receipt, then hydrate group from on-chain data instead of relying on potentially stale API. Also remove inline member list from Your Groups (members are on the group leaderboard).
+
+
+Add bracket count display to the desktop header, showing the total number of submissions to the left of the Faucet link.
+
+
+Move group membership tracking from frontend localStorage to Redis. Add `mm:address_groups` reverse mapping (address → group IDs) maintained by the indexer on join/leave events. New server endpoint `GET /address/:address/groups`. Frontend now fetches membership from API; localStorage only stores passphrases (client-side secrets).
+
+
+Fix public groups showing as free: add entry_fee to indexer → Redis → server API pipeline
+
+The GroupCreated event doesn't include entryFee, so the indexer now reads it from the
+contract via getGroup() after seeing the event. The field flows through GroupData (Redis),
+GroupResponse (server API), and is consumed by the frontend's usePublicGroups hook.
+
+
+### 2026-03-18 — Add indexer seed command + group leaderboard
+
+- **indexer**: New `seed` subcommand writes fake entries, tournament status, and groups to Redis for local dev. Supports `--entries N` and `--clean` flags.
+- **web**: Added `/groups/:slug/leaderboard` and links from joined group cards and public group cards.
+- **web**: Group leaderboards now show submitted addresses and tags before reveal, leaving score, max, forecast, champion, and bracket view blank until a revealed bracket exists.
+- **web**: Invalid group leaderboard slugs now show an error page instead of falling back to the global leaderboard.
+- **web**: Leaderboard-related API polling now uses React Query hooks instead of manual `useEffect` fetch loops.
+
+
+### 2026-03-18 — Switch to @changesets/cli workflow
+
+- **Workflow**: PRs now add individual `.changeset/*.md` files instead of editing `docs/changeset.md` directly. On merge to main, the `merge-changesets` GitHub Action collects entries, prepends them to `docs/changeset.md`, and deletes the individual files. Eliminates changeset merge conflicts.
+- **CI**: Changeset check now verifies a `.changeset/*.md` file was added AND that `docs/changeset.md` was not directly modified. Both `ci.yml` and `ci.sh` updated.
+- **Deps**: Added `@changesets/cli` and `@changesets/changelog-github` as dev dependencies.
+
+### 2026-03-18 — Use PUSH_TOKEN in merge-changesets workflow
+
+- **CI**: merge-changesets workflow now checks out with `PUSH_TOKEN` (fine-grained PAT) instead of the default `GITHUB_TOKEN`, allowing it to push to `main` past branch protection rulesets.
+
+
+### 2026-03-18 — Stabilize Privy embedded wallet session sync (#186)
+
+- **Wallet UX**: Unified Privy wallet selection logic across the app so embedded-wallet sessions consistently prefer the Privy-managed wallet over linked external wallets during refresh, chain sync, and logout.
+- **Wallet UX**: Removed wagmi render-time wallet activation and moved wallet syncing to an effect-driven flow, eliminating the React hydration warning and preventing Google/embedded logout from falling through to MetaMask.
+- **Bracket UX**: Deferred bracket local-storage hydration until wallet session setup has settled, and kept the submit bar in `Loading wallet...` until the shielded wallet actually matches the Privy-selected wallet. This removes the startup flicker through transient `Connect`/submit states and prevents the first `Load my bracket` click from incorrectly jumping to MetaMask.
 
 ### 2026-03-18 — Leaderboard table → card layout
 
@@ -29,7 +69,7 @@ All notable changes to this project. Every PR must add an entry here.
 
 - **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
 
-### 2026-03-17 — Fix maxPossible elimination cascade in partial scoring (#116)
+### 2026-03-18 — Fix maxPossible elimination cascade in partial scoring (#116)
 
 - **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
 - **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.

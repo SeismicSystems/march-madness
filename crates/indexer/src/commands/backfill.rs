@@ -128,6 +128,10 @@ pub async fn run(
                         let (id, slug, display_name, creator, has_password) =
                             provider::parse_group_created(log)?;
                         let creator_str = format!("{creator:#x}");
+                        let entry_fee = p.get_group_entry_fee(groups, id).await.unwrap_or_else(|e| {
+                            warn!(group_id = id, error = %e, "failed to read group entry fee, defaulting to 0");
+                            "0".to_string()
+                        });
                         redis_store::create_group(
                             redis,
                             id,
@@ -135,6 +139,7 @@ pub async fn run(
                             &display_name,
                             &creator_str,
                             has_password,
+                            &entry_fee,
                         )
                         .await?;
                     }

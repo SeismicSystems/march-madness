@@ -7,6 +7,7 @@ import {
 import type { GroupData, MemberData } from "@march-madness/client";
 import { type Hex, keccak256, toHex } from "viem";
 
+import { API_BASE } from "../lib/api";
 import { GROUPS_CONTRACT_ADDRESS } from "../lib/constants";
 
 /** Hash a human-readable passphrase into sbytes12: take first 12 bytes of keccak256. */
@@ -16,38 +17,66 @@ export function passphraseToBytes12(passphrase: string): Hex {
   return `0x${hash.slice(2, 26)}` as Hex;
 }
 
-const STORAGE_KEY = "mm-groups";
+// ── Passphrase-only localStorage (client-side secrets) ──────────────
 
-/**
- * Per-group localStorage entry.
- * - `admin` (optional): true if user created this group
- * - `passphrase` (optional): human-readable passphrase for private groups (what users share)
- * - `password` (optional): hex bytes12 derived from passphrase (what the contract sees)
- */
-export interface StoredGroupInfo {
-  admin?: true;
-  passphrase?: string;
-  password?: Hex;
-  /** Entry fee in wei (hex string for JSON serialization). */
-  entryFee?: string;
-  slug?: string;
-  displayName?: string;
+const PASSPHRASE_KEY = "mm-group-passphrases";
+
+interface StoredPassphrase {
+  passphrase: string;
+  password: Hex;
 }
 
-/** Full localStorage dict: groupId → StoredGroupInfo */
-type StoredGroups = Record<string, StoredGroupInfo>;
+type PassphraseStore = Record<string, StoredPassphrase>;
 
-function loadStoredGroups(): StoredGroups {
+function loadPassphrases(): PassphraseStore {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(PASSPHRASE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
 }
 
-function saveStoredGroups(groups: StoredGroups) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+function savePassphrases(store: PassphraseStore) {
+  localStorage.setItem(PASSPHRASE_KEY, JSON.stringify(store));
+}
+
+// Migrate old "mm-groups" localStorage to new passphrase-only store.
+// This runs once and cleans up the old key.
+function migrateOldStorage(): void {
+  try {
+    const old = localStorage.getItem("mm-groups");
+    if (!old) return;
+    const parsed = JSON.parse(old) as Record<string, { passphrase?: string; password?: Hex }>;
+    const existing = loadPassphrases();
+    let migrated = false;
+    for (const [id, info] of Object.entries(parsed)) {
+      if (info.passphrase && info.password && !existing[id]) {
+        existing[id] = { passphrase: info.passphrase, password: info.password };
+        migrated = true;
+      }
+    }
+    if (migrated) savePassphrases(existing);
+    localStorage.removeItem("mm-groups");
+  } catch {
+    // Best-effort migration; don't block on errors.
+    localStorage.removeItem("mm-groups");
+  }
+}
+
+// Run migration on module load.
+migrateOldStorage();
+
+// ── Types ────────────────────────────────────────────────────────────
+
+/**
+ * Per-group metadata for components. `admin` is derived from on-chain
+ * creator address; `passphrase`/`password` come from local storage.
+ */
+export interface StoredGroupInfo {
+  admin?: true;
+  passphrase?: string;
+  password?: Hex;
 }
 
 export interface JoinedGroup {
@@ -60,19 +89,42 @@ export interface JoinedGroup {
 const isZeroAddress = (addr: string) =>
   !addr || addr === "0x0000000000000000000000000000000000000000";
 
+// ── API fetch ────────────────────────────────────────────────────────
+
+interface ApiGroupResponse {
+  id: string;
+  slug: string;
+  display_name: string;
+  creator: string;
+  has_password: boolean;
+  member_count: number;
+}
+
+/** Fetch group IDs for an address from the server API. */
+async function fetchMyGroupIds(address: string): Promise<number[]> {
+  const res = await fetch(`${API_BASE}/address/${address.toLowerCase()}/groups`);
+  if (!res.ok) return [];
+  const groups: ApiGroupResponse[] = await res.json();
+  return groups.map((g) => Number(g.id));
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────
+
 /**
  * Hook for interacting with BracketGroups contract.
- * Tracks joined groups in localStorage as a JSON dict with optional admin/password metadata.
+ * Group membership is sourced from the server API (Redis-backed).
+ * Only passphrases (client-side secrets) are stored in localStorage.
  */
 export function useGroups() {
   const { walletClient, publicClient } = useShieldedWallet();
-  const [storedGroups, setStoredGroups] = useState<StoredGroups>(loadStoredGroups);
+  const [joinedGroupIds, setJoinedGroupIds] = useState<number[]>([]);
   const [joinedGroups, setJoinedGroups] = useState<JoinedGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passphrases, setPassphrases] = useState<PassphraseStore>(loadPassphrases);
 
   const hasContract = !isZeroAddress(GROUPS_CONTRACT_ADDRESS);
-  const joinedGroupIds = useMemo(() => Object.keys(storedGroups).map(Number), [storedGroups]);
+  const walletAddress = walletClient?.account?.address?.toLowerCase();
 
   const groupsPublic = useMemo(() => {
     if (!publicClient || !hasContract) return null;
@@ -88,20 +140,36 @@ export function useGroups() {
     );
   }, [publicClient, walletClient, hasContract]);
 
-  // Refresh group data for all joined groups
-  const refreshGroups = useCallback(async () => {
-    if (!groupsPublic || joinedGroupIds.length === 0) {
-      setJoinedGroups([]);
-      return;
-    }
+  /** Save a passphrase to localStorage. */
+  const storePassphrase = useCallback(
+    (groupId: number, passphrase: string, password: Hex) => {
+      const updated = { ...passphrases, [String(groupId)]: { passphrase, password } };
+      setPassphrases(updated);
+      savePassphrases(updated);
+    },
+    [passphrases],
+  );
 
-    try {
+  /** Hydrate group IDs with on-chain data + local passphrases. */
+  const hydrateGroups = useCallback(
+    async (ids: number[]) => {
+      if (!groupsPublic || ids.length === 0) {
+        setJoinedGroups([]);
+        return;
+      }
+
       const results = await Promise.all(
-        joinedGroupIds.map(async (groupId) => {
+        ids.map(async (groupId) => {
           try {
             const group = await groupsPublic.getGroup(groupId);
             const members = await groupsPublic.getMembers(groupId);
-            const storedInfo = storedGroups[String(groupId)] ?? {};
+            const pp = passphrases[String(groupId)];
+            const storedInfo: StoredGroupInfo = {
+              ...(walletAddress && group.creator.toLowerCase() === walletAddress
+                ? { admin: true as const }
+                : {}),
+              ...(pp ? { passphrase: pp.passphrase, password: pp.password } : {}),
+            };
             return { groupId, group, members, storedInfo };
           } catch {
             return null;
@@ -109,46 +177,67 @@ export function useGroups() {
         }),
       );
       setJoinedGroups(results.filter((r): r is JoinedGroup => r !== null));
+    },
+    [groupsPublic, passphrases, walletAddress],
+  );
+
+  /** Fetch group membership from API and hydrate with on-chain data. */
+  const refreshGroups = useCallback(async () => {
+    if (!walletAddress || !groupsPublic) {
+      setJoinedGroupIds([]);
+      setJoinedGroups([]);
+      return;
+    }
+
+    try {
+      const ids = await fetchMyGroupIds(walletAddress);
+      setJoinedGroupIds(ids);
+      await hydrateGroups(ids);
     } catch {
       // ignore refresh errors
     }
-  }, [groupsPublic, joinedGroupIds, storedGroups]);
+  }, [walletAddress, groupsPublic, hydrateGroups]);
 
+  // Fetch on wallet connect / address change.
   useEffect(() => {
     refreshGroups();
   }, [refreshGroups]);
 
-  /** Track a group in localStorage. */
-  const trackGroup = useCallback(
-    (groupId: number, info: StoredGroupInfo = {}) => {
-      const updated = { ...storedGroups, [String(groupId)]: { ...storedGroups[String(groupId)], ...info } };
-      setStoredGroups(updated);
-      saveStoredGroups(updated);
+  /** Read on-chain group data and add to local state. */
+  const applyGroupToState = useCallback(
+    (groupId: number, group: GroupData, members: MemberData[]) => {
+      const pp = passphrases[String(groupId)];
+      const storedInfo: StoredGroupInfo = {
+        ...(walletAddress && group.creator.toLowerCase() === walletAddress
+          ? { admin: true as const }
+          : {}),
+        ...(pp ? { passphrase: pp.passphrase, password: pp.password } : {}),
+      };
+      setJoinedGroupIds((prev) =>
+        prev.includes(groupId) ? prev : [...prev, groupId],
+      );
+      setJoinedGroups((prev) => {
+        if (prev.some((g) => g.groupId === groupId)) return prev;
+        return [...prev, { groupId, group, members, storedInfo }];
+      });
     },
-    [storedGroups],
-  );
-
-  /** Remove a group from localStorage. */
-  const untrackGroup = useCallback(
-    (groupId: number) => {
-      const updated = { ...storedGroups };
-      delete updated[String(groupId)];
-      setStoredGroups(updated);
-      saveStoredGroups(updated);
-    },
-    [storedGroups],
+    [passphrases, walletAddress],
   );
 
   /** Join a public group. */
   const joinGroup = useCallback(
     async (groupId: number, name: string, entryFee: bigint = 0n) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.joinGroup(groupId, name, entryFee);
-        trackGroup(groupId);
-        await refreshGroups();
+        const [, group, members] = await Promise.all([
+          publicClient!.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -158,7 +247,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, trackGroup, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, applyGroupToState],
   );
 
   /** Join a password-protected group. Takes a human-readable passphrase. */
@@ -169,7 +258,7 @@ export function useGroups() {
       name: string,
       entryFee: bigint = 0n,
     ) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
@@ -180,8 +269,13 @@ export function useGroups() {
           name,
           entryFee,
         );
-        trackGroup(groupId, { passphrase, password });
-        await refreshGroups();
+        storePassphrase(groupId, passphrase, password);
+        const [, group, members] = await Promise.all([
+          publicClient!.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -191,10 +285,10 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, trackGroup, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, storePassphrase, applyGroupToState],
   );
 
-  /** Create a public group. Creator is auto-joined. Tracks as admin. */
+  /** Create a public group. Creator is auto-joined. */
   const createGroup = useCallback(
     async (slug: string, displayName: string, entryFee: bigint) => {
       if (!groupsUser || !groupsPublic) throw new Error("Wallet not connected");
@@ -202,10 +296,13 @@ export function useGroups() {
       setError(null);
       try {
         const hash = await groupsUser.createGroup(slug, displayName, entryFee);
-        // Look up group by slug to get the ID and track it
-        const result = await groupsPublic.getGroupBySlug(slug);
-        trackGroup(result[0], { admin: true, slug, displayName, entryFee: entryFee.toString() });
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        const [groupId] = await groupsPublic.getGroupBySlug(slug);
+        const [group, members] = await Promise.all([
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -215,7 +312,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, trackGroup, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, applyGroupToState],
   );
 
   /** Create a password-protected group. Takes a human-readable passphrase. Creator is auto-joined. */
@@ -227,10 +324,14 @@ export function useGroups() {
       try {
         const password = passphraseToBytes12(passphrase);
         const hash = await groupsUser.createGroupWithPassword(slug, displayName, entryFee, password);
-        // Look up group by slug to get the ID and track it
-        const result = await groupsPublic.getGroupBySlug(slug);
-        trackGroup(result[0], { admin: true, passphrase, password, slug, displayName, entryFee: entryFee.toString() });
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        const [groupId] = await groupsPublic.getGroupBySlug(slug);
+        storePassphrase(groupId, passphrase, password);
+        const [group, members] = await Promise.all([
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        applyGroupToState(groupId, group, members);
         return { hash, password };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -240,19 +341,20 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, trackGroup, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, storePassphrase, applyGroupToState],
   );
 
   /** Leave a group. */
   const leaveGroup = useCallback(
     async (groupId: number) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !publicClient) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.leaveGroup(groupId);
-        untrackGroup(groupId);
-        await refreshGroups();
+        await publicClient.waitForTransactionReceipt({ hash });
+        setJoinedGroupIds((prev) => prev.filter((id) => id !== groupId));
+        setJoinedGroups((prev) => prev.filter((g) => g.groupId !== groupId));
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to leave group";
@@ -262,18 +364,35 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, untrackGroup, refreshGroups],
+    [groupsUser, publicClient],
   );
 
   /** Edit display name in a group. */
   const editEntryName = useCallback(
     async (groupId: number, name: string) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !publicClient || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.editEntryName(groupId, name);
-        await refreshGroups();
+        // Re-hydrate just this group from on-chain.
+        const [, group, members] = await Promise.all([
+          publicClient.waitForTransactionReceipt({ hash }),
+          groupsPublic.getGroup(groupId),
+          groupsPublic.getMembers(groupId),
+        ]);
+        const pp = passphrases[String(groupId)];
+        const storedInfo: StoredGroupInfo = {
+          ...(walletAddress && group.creator.toLowerCase() === walletAddress
+            ? { admin: true as const }
+            : {}),
+          ...(pp ? { passphrase: pp.passphrase, password: pp.password } : {}),
+        };
+        setJoinedGroups((prev) =>
+          prev.map((g) =>
+            g.groupId === groupId ? { groupId, group, members, storedInfo } : g,
+          ),
+        );
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to edit name";
@@ -283,7 +402,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, publicClient, groupsPublic, passphrases, walletAddress],
   );
 
   /** Look up a group by slug. Returns [groupId, groupData] or null. */
@@ -305,7 +424,6 @@ export function useGroups() {
       if (!groupsPublic) return null;
       try {
         const group = await groupsPublic.getGroup(groupId);
-        // Zero-address creator means group doesn't exist
         if (!group.creator || group.creator === "0x0000000000000000000000000000000000000000") {
           return null;
         }
@@ -329,8 +447,6 @@ export function useGroups() {
     createGroupWithPassword,
     leaveGroup,
     editEntryName,
-    trackGroup,
-    untrackGroup,
     lookupGroupBySlug,
     lookupGroupById,
     refreshGroups,

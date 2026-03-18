@@ -3,7 +3,7 @@
 ## Rules (MUST FOLLOW)
 
 1. **After every change**, update `README.md` and this `CLAUDE.md` if the change affects documented behavior, architecture, or setup.
-2. **Every PR** must include an entry in `docs/changeset.md` describing what was added/changed.
+2. **Every PR** must include a changeset file. Run `bunx changeset` to create one in `.changeset/`. Do NOT edit `docs/changeset.md` directly — it is auto-generated on merge by the `merge-changesets` workflow.
 3. **Every prompt** from the user must be saved verbatim to `docs/prompts/<branch-name>/` as a `.txt` file. Filename format: `{timestamp-seconds}-{slug}.txt`. Organize by feature branch name.
 4. **When submitting PRs**, write them in the chat for user review. User may leave comments here or on GitHub.
 5. **Branch strategy**: Be intentional about what branch you're working off of. Usually `main`, but agents may stack on each other when dependencies exist.
@@ -59,9 +59,10 @@ crates/
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
+.changeset/          — Pending changeset files (merged into docs/changeset.md on merge to main)
 deploy/             — Production deploy configs (nginx, supervisor, README)
-docs/               — Technical docs, changeset, prompts
-.github/workflows/  — CI: tests, lint, typecheck, build
+docs/               — Technical docs, changeset (auto-generated), prompts
+.github/workflows/  — CI: tests, lint, typecheck, build; merge-changesets workflow
 ```
 
 ## KenPom CSV Format
@@ -166,6 +167,7 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and 
 - `GET /groups` — list all groups (from Redis)
 - `GET /groups/:slug` — group details by slug
 - `GET /groups/:slug/members` — group member addresses
+- `GET /address/:address/groups` — groups an address belongs to (from `mm:address_groups` reverse mapping)
 - `GET /mirrors` — list all mirrors (from Redis)
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)

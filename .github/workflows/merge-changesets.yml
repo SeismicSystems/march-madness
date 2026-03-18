@@ -1,0 +1,84 @@
+name: Merge Changesets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.changeset/**'
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    name: Merge changesets into docs/changeset.md
+    runs-on: ubuntu-latest
+    # Don't run on commits made by this workflow (avoid infinite loop)
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PUSH_TOKEN }}
+
+      - name: Collect and merge changesets
+        run: |
+          # Find all changeset files (exclude README.md and config.json)
+          shopt -s nullglob
+          files=(.changeset/*.md)
+          changeset_files=()
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            if [ "$base" != "README.md" ]; then
+              changeset_files+=("$f")
+            fi
+          done
+
+          if [ ${#changeset_files[@]} -eq 0 ]; then
+            echo "No changeset files to merge"
+            exit 0
+          fi
+
+          echo "Found ${#changeset_files[@]} changeset(s) to merge"
+
+          # Extract content from each changeset (strip YAML frontmatter)
+          entries=""
+          for f in "${changeset_files[@]}"; do
+            # Strip the --- frontmatter block ---
+            content="$(awk '/^---$/{c++;next} c>=2' "$f")"
+            # Trim leading/trailing blank lines
+            content="$(echo "$content" | sed '/./,$!d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+            if [ -n "$content" ]; then
+              entries="${entries}${content}"$'\n\n'
+            fi
+          done
+
+          if [ -z "$entries" ]; then
+            echo "All changesets were empty"
+            exit 0
+          fi
+
+          # Insert entries after the header line in docs/changeset.md
+          # Header is: "All notable changes to this project..."
+          # We insert after line 3 (blank line after header)
+          head -3 docs/changeset.md > /tmp/changeset-new.md
+          printf '\n%s' "$entries" >> /tmp/changeset-new.md
+          tail -n +4 docs/changeset.md >> /tmp/changeset-new.md
+          mv /tmp/changeset-new.md docs/changeset.md
+
+          # Delete the merged changeset files
+          for f in "${changeset_files[@]}"; do
+            rm "$f"
+          done
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/changeset.md .changeset/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: merge changesets into docs/changeset.md"
+          git push

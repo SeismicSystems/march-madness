@@ -16,7 +16,7 @@ pub const KEY_LAST_BLOCK: &str = "mm:indexer:last_block";
 /// Entries: addr → JSON({ name?, bracket?, block, ts }) (HASH).
 pub const KEY_ENTRIES: &str = "mm:entries";
 
-/// Groups metadata: groupId → JSON({ slug, display_name, creator, has_password, member_count }) (HASH).
+/// Groups metadata: groupId → JSON({ slug, display_name, creator, has_password, member_count, entry_fee }) (HASH).
 /// Lightweight — no member list. Queried often for group listings.
 pub const KEY_GROUPS: &str = "mm:groups";
 
@@ -26,6 +26,10 @@ pub const KEY_GROUP_MEMBERS: &str = "mm:group_members";
 
 /// Group slug reverse lookup: slug → groupId (HASH).
 pub const KEY_GROUP_SLUGS: &str = "mm:group:slugs";
+
+/// Address → groups reverse lookup: address → JSON([groupId1, groupId2, ...]) (HASH).
+/// Maintained alongside KEY_GROUP_MEMBERS for fast "my groups" queries.
+pub const KEY_ADDRESS_GROUPS: &str = "mm:address_groups";
 
 /// Mirrors: mirrorId → JSON({ slug, display_name, admin }) (HASH).
 pub const KEY_MIRRORS: &str = "mm:mirrors";
@@ -66,6 +70,8 @@ pub struct GroupData {
     pub creator: String,
     pub has_password: bool,
     pub member_count: u32,
+    /// Entry fee in wei as a decimal string.
+    pub entry_fee: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
