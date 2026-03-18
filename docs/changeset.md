@@ -2,6 +2,13 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix public groups showing as free: add entry_fee to indexer → Redis → server API pipeline
+
+The GroupCreated event doesn't include entryFee, so the indexer now reads it from the
+contract via getGroup() after seeing the event. The field flows through GroupData (Redis),
+GroupResponse (server API), and is consumed by the frontend's usePublicGroups hook.
+
+
 ### 2026-03-18 — Add indexer seed command + group leaderboard
 
 - **indexer**: New `seed` subcommand writes fake entries, tournament status, and groups to Redis for local dev. Supports `--entries N` and `--clean` flags.
