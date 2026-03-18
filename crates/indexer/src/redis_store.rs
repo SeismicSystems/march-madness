@@ -104,6 +104,7 @@ pub async fn create_group(
     display_name: &str,
     creator: &str,
     has_password: bool,
+    entry_fee: &str,
 ) -> Result<()> {
     let data = GroupData {
         slug: slug.to_string(),
@@ -111,6 +112,7 @@ pub async fn create_group(
         creator: creator.to_lowercase(),
         has_password,
         member_count: 0,
+        entry_fee: entry_fee.to_string(),
     };
     let meta_json = serde_json::to_string(&data)?;
     let members_json = serde_json::to_string(&Vec::<String>::new())?;

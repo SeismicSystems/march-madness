@@ -32,11 +32,11 @@ const TAGS: &[&str] = &[
     "NothingButNet",
 ];
 
-/// Group definitions: (slug, display_name, member_count).
-const GROUPS: &[(&str, &str, usize)] = &[
-    ("office-pool", "Office Pool", 10),
-    ("crypto-degens", "Crypto Degens", 15),
-    ("family", "Family Bracket", 5),
+/// Group definitions: (slug, display_name, member_count, entry_fee_wei).
+const GROUPS: &[(&str, &str, usize, &str)] = &[
+    ("office-pool", "Office Pool", 10, "100000000000000000"), // 0.1 ETH
+    ("crypto-degens", "Crypto Degens", 15, "500000000000000000"), // 0.5 ETH
+    ("family", "Family Bracket", 5, "0"),                     // Free
 ];
 
 /// How many of the 63 games should be "final" in the seed scenario.
@@ -190,11 +190,20 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
 
 /// Create sample groups and assign members from the entry pool.
 async fn seed_groups(redis: &mut MultiplexedConnection, addresses: &[String]) -> Result<()> {
-    for (group_id, &(slug, display_name, member_count)) in GROUPS.iter().enumerate() {
+    for (group_id, &(slug, display_name, member_count, entry_fee)) in GROUPS.iter().enumerate() {
         let group_id = group_id as u32 + 1;
         let creator = addresses.first().map(|a| a.as_str()).unwrap_or("0x0");
 
-        redis_store::create_group(redis, group_id, slug, display_name, creator, false).await?;
+        redis_store::create_group(
+            redis,
+            group_id,
+            slug,
+            display_name,
+            creator,
+            false,
+            entry_fee,
+        )
+        .await?;
 
         // Add members from the address pool (wrapping if needed).
         let members_to_add = member_count.min(addresses.len());

@@ -50,6 +50,7 @@ pub struct GroupResponse {
     pub creator: String,
     pub has_password: bool,
     pub member_count: usize,
+    pub entry_fee: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -331,5 +332,6 @@ fn group_to_response(id: &str, data: &GroupData) -> GroupResponse {
         creator: data.creator.clone(),
         has_password: data.has_password,
         member_count: data.member_count as usize,
+        entry_fee: data.entry_fee.clone(),
     }
 }

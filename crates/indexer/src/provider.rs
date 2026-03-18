@@ -16,7 +16,7 @@ use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 use crate::contract::{
     BracketSubmitted, EntryAdded, EntryRemoved, GroupCreated, MemberJoined, MemberLeft,
-    MirrorCreated, TagSet, getBracketCall, getEntryBySlugCall, getEntryCountCall,
+    MirrorCreated, TagSet, getBracketCall, getEntryBySlugCall, getEntryCountCall, getGroupCall,
 };
 
 /// Network-agnostic indexer provider that wraps either a SeismicReth or SeismicFoundry
@@ -245,6 +245,26 @@ impl IndexerProvider {
             bail!("getBracket returned zero for {}", account);
         }
         Ok(bracket)
+    }
+
+    /// Call `getGroup(groupId)` on the BracketGroups contract and return the entry fee as a
+    /// decimal string (wei).
+    pub async fn get_group_entry_fee(&self, contract: Address, group_id: u32) -> Result<String> {
+        let calldata = getGroupCall { groupId: group_id }.abi_encode();
+        let response = match self {
+            Self::Reth(p) => {
+                let tx = build_reth_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+            Self::Foundry(p) => {
+                let tx = build_foundry_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+        }
+        .wrap_err("getGroup call failed")?;
+        let decoded = getGroupCall::abi_decode_returns(&response)
+            .wrap_err("failed to decode getGroup result")?;
+        Ok(decoded.entryFee.to_string())
     }
 
     /// Call `getEntryBySlug(mirrorId, slug)` on the BracketMirror contract.
