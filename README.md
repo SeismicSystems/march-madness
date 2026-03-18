@@ -98,8 +98,8 @@ crates/
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
 data/               — Tournament data, seed configs
-.changeset/          — Pending changeset entries (merged on PR merge)
 docs/               — Technical docs, changeset log (auto-generated), prompt archive
+.changeset/         — Pending changeset entries (merged on PR merge)
 ```
 
 ## Development
