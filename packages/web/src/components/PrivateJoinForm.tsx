@@ -88,7 +88,7 @@ export function PrivateJoinForm({
     <div
       className={`rounded-xl p-4 sm:p-6 ${
         highlighted
-          ? "bg-accent/10 border-2 border-accent ring-2 ring-accent/30"
+          ? "bg-yellow-50 border-4 border-yellow-400 ring-4 ring-yellow-300/50 shadow-lg shadow-yellow-200/40"
           : "bg-bg-secondary border border-border"
       }`}
     >
