@@ -5,6 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { FAUCET_URL } from "../lib/constants";
 import { truncateAddress } from "../lib/tournament";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useStats } from "../hooks/useStats";
 
 export function Header() {
   const { login, logout, authenticated, user } = usePrivy();
@@ -12,6 +13,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const { totalEntries } = useStats();
   const location = useLocation();
 
   const address = user?.wallet?.address;
@@ -76,6 +78,12 @@ export function Header() {
         {/* Desktop: inline buttons */}
         {!isMobile && (
           <div className="flex items-center gap-3 shrink-0">
+            {totalEntries != null && (
+              <div className="flex flex-col items-center leading-none px-2">
+                <span className="text-lg font-bold text-text-primary">{totalEntries}</span>
+                <span className="text-[10px] text-text-secondary">Brackets</span>
+              </div>
+            )}
             <a
               href={FAUCET_URL}
               target="_blank"
