@@ -50,8 +50,15 @@ function CreateGroupForm({
 
   const slugAtLimit = slug.length >= MAX_SLUG_LENGTH;
 
+  const [attempted, setAttempted] = useState(false);
+
+  const missingName = !displayName.trim();
+  const missingSlug = !slug.trim();
+  const isDisabled = groups.isLoading || missingName || missingSlug;
+
   const handleCreate = async () => {
-    if (!displayName.trim() || !slug.trim()) return;
+    setAttempted(true);
+    if (missingName || missingSlug) return;
     setCreateError(null);
     setCreateSuccess(null);
 
@@ -165,8 +172,8 @@ function CreateGroupForm({
         <div className="flex items-center gap-3">
           <button
             onClick={handleCreate}
-            disabled={groups.isLoading || !displayName.trim() || !slug.trim()}
-            className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+            disabled={isDisabled}
+            className={`px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
           >
             {groups.isLoading ? "Creating..." : "Create Group"}
           </button>
@@ -177,6 +184,12 @@ function CreateGroupForm({
           )}
         </div>
 
+        {attempted && missingName && (
+          <p className="text-xs text-red-400">Please enter a display name.</p>
+        )}
+        {attempted && missingSlug && (
+          <p className="text-xs text-red-400">Please enter a slug.</p>
+        )}
         {createError && <p className="text-xs text-red-400">{createError}</p>}
         {createSuccess && (
           <p className="text-xs text-green-400">{createSuccess}</p>
@@ -200,19 +213,19 @@ function YourGroupsEmpty({ onSwitchTab }: { onSwitchTab: (tab: Tab) => void }) {
       <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
         <button
           onClick={() => onSwitchTab("public-groups")}
-          className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors font-medium cursor-pointer"
         >
           Browse Public Groups
         </button>
         <button
           onClick={() => onSwitchTab("join-group")}
-          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium cursor-pointer"
         >
           Join a Group
         </button>
         <button
           onClick={() => onSwitchTab("create-group")}
-          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium"
+          className="px-4 py-2 text-sm rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-text-primary transition-colors font-medium cursor-pointer"
         >
           Create a Group
         </button>

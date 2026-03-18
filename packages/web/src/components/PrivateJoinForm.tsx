@@ -30,8 +30,15 @@ export function PrivateJoinForm({
   const [joinError, setJoinError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState(initialHighlight);
 
+  const [attempted, setAttempted] = useState(false);
+
+  const missingSlug = !slugInput.trim();
+  const missingName = !nameInput.trim();
+  const isDisabled = groups.isLoading || missingSlug || missingName;
+
   const handleJoin = async () => {
-    if (!slugInput.trim() || !nameInput.trim()) return;
+    setAttempted(true);
+    if (missingSlug || missingName) return;
     setJoinError(null);
 
     try {
@@ -135,14 +142,18 @@ export function PrivateJoinForm({
         <div>
           <button
             onClick={handleJoin}
-            disabled={
-              groups.isLoading || !slugInput.trim() || !nameInput.trim()
-            }
-            className="px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium"
+            disabled={isDisabled}
+            className={`px-4 py-1.5 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors font-medium ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}
           >
             {groups.isLoading ? "Joining..." : "Join"}
           </button>
         </div>
+        {attempted && missingName && (
+          <p className="text-xs text-red-400">Please enter a display name.</p>
+        )}
+        {attempted && missingSlug && (
+          <p className="text-xs text-red-400">Please enter a group slug.</p>
+        )}
       </div>
       {joinError && (
         <p className="text-xs text-red-400 mt-2">{joinError}</p>
