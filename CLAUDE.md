@@ -167,6 +167,7 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and 
 - `GET /groups` — list all groups (from Redis)
 - `GET /groups/:slug` — group details by slug
 - `GET /groups/:slug/members` — group member addresses
+- `GET /address/:address/groups` — groups an address belongs to (from `mm:address_groups` reverse mapping)
 - `GET /mirrors` — list all mirrors (from Redis)
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)

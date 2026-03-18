@@ -147,7 +147,7 @@ pub async fn member_joined(
     if members.contains(&addr) {
         return Ok(());
     }
-    members.push(addr);
+    members.push(addr.clone());
 
     // Write updated members + increment metadata count atomically.
     let new_members_json = serde_json::to_string(&members)?;
@@ -158,6 +158,15 @@ pub async fn member_joined(
     let () = conn
         .hset(KEY_GROUP_MEMBERS, &id_str, &new_members_json)
         .await?;
+
+    // Update reverse mapping: address → group IDs.
+    modify_hash_field(conn, KEY_ADDRESS_GROUPS, &addr, Vec::<u32>::new, |ids| {
+        if !ids.contains(&group_id) {
+            ids.push(group_id);
+        }
+    })
+    .await?;
+
     Ok(())
 }
 
@@ -199,6 +208,13 @@ pub async fn member_left(
     let () = conn
         .hset(KEY_GROUP_MEMBERS, &id_str, &new_members_json)
         .await?;
+
+    // Update reverse mapping: address → group IDs.
+    modify_hash_field(conn, KEY_ADDRESS_GROUPS, &addr, Vec::<u32>::new, |ids| {
+        ids.retain(|id| *id != group_id);
+    })
+    .await?;
+
     Ok(())
 }
 

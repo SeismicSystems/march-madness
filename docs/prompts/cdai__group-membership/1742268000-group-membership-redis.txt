@@ -1,0 +1,5 @@
+in the frontend, we store group membership locally. however this isn't great -- we should really not be doing any of that. instead we should add to redis a key mm:address_groups which will do the reverse mapping: [address] => ids or slugs of groups they've joined.
+
+unclear if it should be keyed by ID or slug -- depends on what we will want in the frontend. it seems like we store ids in localstorage now so it should probably be that.
+
+when you're done, put up a pr that gives me precise deploy instructions. see the aliases we have available in scripts/alias.sh
