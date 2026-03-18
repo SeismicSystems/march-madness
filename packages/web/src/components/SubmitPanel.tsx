@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { useIsMobile } from "../hooks/useIsMobile";
 import type { UseContractReturn } from "../hooks/useContract";
@@ -45,6 +46,7 @@ export function SubmitPanel({
   const [tagSaved, setTagSaved] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const isMobile = useIsMobile();
+  const { login } = usePrivy();
 
   const isLocked = !contract.isBeforeDeadline;
 
@@ -277,6 +279,7 @@ export function SubmitPanel({
         onTagChange={setTag}
         onResetOpen={setResetOpen}
         onResetPicks={bracket.resetPicks}
+        onLogin={login}
       />
     );
   }
@@ -408,17 +411,23 @@ export function SubmitPanel({
             />
             <button
               onClick={
-                requiresChainSwitch ? () => void onSwitchChain() : handleSubmit
+                !walletConnected
+                  ? login
+                  : requiresChainSwitch
+                    ? () => void onSwitchChain()
+                    : handleSubmit
               }
               disabled={
                 requiresChainSwitch
                   ? isSwitchingChain
-                  : !isComplete || isLoading || !walletConnected
+                  : walletConnected && (!isComplete || isLoading)
               }
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                requiresChainSwitch
+                !walletConnected
+                  ? "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
+                  : requiresChainSwitch
                   ? "bg-warning text-black hover:brightness-110 ring-2 ring-warning/30 cursor-pointer"
-                  : !isComplete || !walletConnected
+                  : !isComplete
                   ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
                   : isLoading
                     ? "bg-accent/50 text-white cursor-wait"
@@ -427,7 +436,7 @@ export function SubmitPanel({
                       : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
               }`}
             >
-              {requiresChainSwitch
+              {requiresChainSwitch && walletConnected
                 ? isSwitchingChain
                   ? `Switching to ${requiredChainName}...`
                   : `Switch to ${requiredChainName}`
@@ -497,6 +506,7 @@ function MobileSubmitPanel({
   onTagChange,
   onResetOpen,
   onResetPicks,
+  onLogin,
 }: {
   isComplete: boolean;
   pickCount: number;
@@ -523,6 +533,7 @@ function MobileSubmitPanel({
   onTagChange: (v: string) => void;
   onResetOpen: (v: boolean) => void;
   onResetPicks: () => void;
+  onLogin: () => void;
 }) {
   const feeDisplay = entryFeeDisplay ?? "...";
   const displayError = chainSwitchError ?? error;
@@ -598,16 +609,24 @@ function MobileSubmitPanel({
       {/* Submit button */}
       {!isLocked && (
         <button
-          onClick={requiresChainSwitch ? () => void onSwitchChain() : onSubmit}
+          onClick={
+            !walletConnected
+              ? onLogin
+              : requiresChainSwitch
+                ? () => void onSwitchChain()
+                : onSubmit
+          }
           disabled={
             requiresChainSwitch
               ? isSwitchingChain
-              : !isComplete || isLoading || !walletConnected
+              : walletConnected && (!isComplete || isLoading)
           }
           className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            requiresChainSwitch
+            !walletConnected
+              ? "bg-accent text-white hover:bg-accent-hover cursor-pointer"
+              : requiresChainSwitch
               ? "bg-warning text-black cursor-pointer"
-              : !isComplete || !walletConnected
+              : !isComplete
               ? "bg-bg-tertiary text-text-muted cursor-not-allowed border border-border"
               : isLoading
                 ? "bg-accent/50 text-white cursor-wait"
@@ -616,7 +635,7 @@ function MobileSubmitPanel({
                   : "bg-accent text-white hover:bg-accent-hover"
           }`}
         >
-          {requiresChainSwitch
+          {requiresChainSwitch && walletConnected
             ? isSwitchingChain
               ? `Switching to ${requiredChainName}...`
               : `Switch to ${requiredChainName}`
