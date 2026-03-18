@@ -21,6 +21,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 - **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
 
+### 2026-03-18 — Fix maxPossible elimination cascade in partial scoring (#116)
+
+- **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
+- **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
+
 ### 2026-03-18 — Restructure firstFour schema in tournament.json
 
 - **Schema change**: `firstFour` is now `{ teams: [{ name, abbrev? }, ...], winner? }` instead of `[string, string]`.
@@ -46,11 +51,6 @@ All notable changes to this project. Every PR must add an entry here.
 - **Forecaster**: Added `--live` flag to read tournament status from Redis. Without it, falls back to `--status <path>` (file-based, default `data/{year}/men/status.json`).
 - **bracket-sim**: Added `--live` flag to read tournament status from Redis for conditioned simulation. `--status <path>` still works for file-based input.
 - **Shared**: Added `KEY_GAMES` constant (`mm:games`) to `redis_keys.rs`.
-
-### 2026-03-18 — Fix maxPossible elimination cascade in partial scoring (#116)
-
-- **Scoring**: `scoreBracketPartial()` now tracks elimination cascades for `maxPossible`. When a bracket's pick is wrong, downstream games that depend on that eliminated team are zeroed out of `maxPossible`, giving an accurate ceiling instead of an overstated one.
-- **Tests**: Added comprehensive cascade tests: single wrong pick cascade, sibling branch isolation, path-specific cascading, multi-region cascades, R32+ cascades, all-R64-wrong total elimination, and coincidental match handling.
 
 ### 2026-03-17 — Condition simulation on live game state (#43)
 
