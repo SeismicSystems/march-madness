@@ -1,0 +1,17 @@
+Implement the following plan:
+
+# Leaderboard: Table → Card Layout with @cardcn/card-14
+
+## Context
+
+The `/leaderboard` page currently renders a plain HTML `<table>`. The user wants to install the `@cardcn/card-14` shadcn community component and display each leaderboard entry as a card instead. card-14 is a card with layered radial gradient backgrounds from the [cardcn.dev](https://cardcn.dev) registry.
+
+[Plan details truncated — see full plan in conversation]
+
+---
+
+Follow-up: i actually want to use this particular lib instead, revert what you did and use this bunx --bun shadcn@latest add @fab-ui/card
+
+Follow-up: right now we display the winning team each use has picked which is nice, can we get the logo there too? also lets not w-full lets do w-3/4 unless on mobile
+
+Follow-up: ci and PR on a new branch

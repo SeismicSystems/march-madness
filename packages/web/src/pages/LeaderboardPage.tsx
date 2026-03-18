@@ -6,26 +6,16 @@ import {
   scoreBracketPartial,
   validateBracket,
 } from "@march-madness/client";
-import type { BracketForecast, PartialScore } from "@march-madness/client";
 
+import {
+  LeaderboardCard,
+  type LeaderboardEntry,
+} from "../components/LeaderboardCard";
 import { useEntries } from "../hooks/useEntries";
 import { useForecasts } from "../hooks/useForecasts";
 import { useGroupMembers } from "../hooks/useGroupMembers";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
-import {
-  displayName,
-  getAllTeamsInBracketOrder,
-  truncateAddress,
-} from "../lib/tournament";
-
-interface ScoredEntry {
-  address: string;
-  tag?: string;
-  bracket: `0x${string}`;
-  score: PartialScore;
-  championName: string;
-  forecast?: BracketForecast;
-}
+import { displayName, getAllTeamsInBracketOrder } from "../lib/tournament";
 
 const teamNames = getAllTeamsInBracketOrder().map((t) => displayName(t));
 
@@ -50,10 +40,10 @@ export function LeaderboardPage() {
 
   const hasForecasts = forecasts !== null && Object.keys(forecasts).length > 0;
 
-  const leaderboard = useMemo((): ScoredEntry[] => {
+  const leaderboard = useMemo((): LeaderboardEntry[] => {
     if (!entries || !status) return [];
 
-    const scored: ScoredEntry[] = [];
+    const scored: LeaderboardEntry[] = [];
     for (const [address, entry] of Object.entries(entries)) {
       // Filter by group membership when viewing a group leaderboard.
       if (groupMembers && !groupMembers.has(address.toLowerCase())) continue;
@@ -109,9 +99,9 @@ export function LeaderboardPage() {
   const liveCount = status.games.filter((g) => g.status === "live").length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+    <div className="w-full mx-auto">
+      <div className="flex items-center justify-between mb-4  mx-2 md:mx-auto md:w-3/4">
+        <div className="flex items-center gap-2 ">
           {slug && (
             <Link
               to="/leaderboard"
@@ -132,116 +122,16 @@ export function LeaderboardPage() {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-text-muted">
-              <th className="py-2 pr-2 w-10">#</th>
-              <th className="py-2 px-2">Player</th>
-              <th className="py-2 px-2 text-right">Score</th>
-              <th className="py-2 px-2 text-right hidden sm:table-cell">Max</th>
-              {hasForecasts && (
-                <>
-                  <th className="py-2 px-2 text-right hidden sm:table-cell">
-                    E[Score]
-                  </th>
-                  <th className="py-2 px-2 text-right hidden md:table-cell">
-                    P(Win)
-                  </th>
-                </>
-              )}
-              <th className="py-2 px-2 hidden lg:table-cell">Champion</th>
-              <th className="py-2 pl-2 w-16"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((entry, i) => (
-              <LeaderboardRow
-                key={entry.address}
-                entry={entry}
-                rank={i + 1}
-                hasForecasts={hasForecasts}
-              />
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-3 sm:w-3/4 sm:mx-auto">
+        {leaderboard.map((entry, i) => (
+          <LeaderboardCard
+            key={entry.address}
+            entry={entry}
+            rank={i + 1}
+            hasForecasts={hasForecasts}
+          />
+        ))}
       </div>
     </div>
-  );
-}
-
-function LeaderboardRow({
-  entry,
-  rank,
-  hasForecasts,
-}: {
-  entry: ScoredEntry;
-  rank: number;
-  hasForecasts: boolean;
-}) {
-  return (
-    <tr className="border-b border-border/50 hover:bg-bg-hover/50 transition-colors">
-      <td className="py-2.5 pr-2 text-text-muted font-mono">{rank}</td>
-      <td className="py-2.5 px-2">
-        <div className="flex flex-col">
-          {entry.tag ? (
-            <>
-              <span className="text-text-primary font-medium">{entry.tag}</span>
-              <span className="text-[10px] text-text-muted font-mono">
-                {truncateAddress(entry.address)}
-              </span>
-            </>
-          ) : (
-            <span className="text-text-primary font-mono">
-              {truncateAddress(entry.address)}
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="py-2.5 px-2 text-right">
-        <span className="text-text-primary font-bold">
-          {entry.score.current}
-        </span>
-        <span className="text-text-muted sm:hidden">
-          /{entry.score.maxPossible}
-        </span>
-      </td>
-      <td className="py-2.5 px-2 text-right text-text-muted hidden sm:table-cell">
-        {entry.score.maxPossible}
-      </td>
-      {hasForecasts && (
-        <>
-          <td className="py-2.5 px-2 text-right text-text-secondary hidden sm:table-cell">
-            {entry.forecast ? entry.forecast.expectedScore.toFixed(1) : "—"}
-          </td>
-          <td className="py-2.5 px-2 text-right hidden md:table-cell">
-            {entry.forecast ? (
-              <span
-                className={
-                  entry.forecast.winProbability > 0.1
-                    ? "text-green-400 font-medium"
-                    : "text-text-muted"
-                }
-              >
-                {(entry.forecast.winProbability * 100).toFixed(1)}%
-              </span>
-            ) : (
-              "—"
-            )}
-          </td>
-        </>
-      )}
-      <td className="py-2.5 px-2 text-text-secondary hidden lg:table-cell">
-        {entry.championName}
-      </td>
-      <td className="py-2.5 pl-2">
-        <Link
-          to={`/bracket/${entry.address}`}
-          className="text-xs text-accent hover:text-accent-hover transition-colors"
-        >
-          View
-        </Link>
-      </td>
-    </tr>
   );
 }
