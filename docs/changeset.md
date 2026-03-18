@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Parallelize Monte Carlo simulation in `calculate_team_win_probabilities` using rayon parallel iterators. Each simulation now runs on its own thread with a thread-local RNG, and results are reduced via HashMap merge. This speeds up the Kalshi calibrator and all other callers (sim, forecaster) proportionally to available CPU cores.
+
+
 Fix groups UI not updating after join/create/leave: wait for tx receipt, then hydrate group from on-chain data instead of relying on potentially stale API. Also remove inline member list from Your Groups (members are on the group leaderboard).
 
 
