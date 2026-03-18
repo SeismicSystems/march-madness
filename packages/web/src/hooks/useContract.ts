@@ -6,6 +6,7 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
 } from "@march-madness/client";
+import { usePrivy } from "@privy-io/react-auth";
 
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 
@@ -45,6 +46,7 @@ function useSubmissionDeadline(
  * clicks "Load my bracket".
  */
 export function useContract() {
+  const { authenticated } = usePrivy();
   const { walletClient, publicClient } = useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -94,7 +96,9 @@ export function useContract() {
     return deduped.join(" → ") || fallback;
   };
 
-  const walletAddress = walletClient?.account?.address ?? null;
+  const walletAddress = authenticated
+    ? (walletClient?.account?.address ?? null)
+    : null;
 
   // Construct client library instances from seismic-react wallet/public clients
   const mmPublic = useMemo(() => {
@@ -103,13 +107,13 @@ export function useContract() {
   }, [publicClient]);
 
   const mmUser = useMemo(() => {
-    if (!publicClient || !walletClient) return null;
+    if (!authenticated || !publicClient || !walletClient) return null;
     return new MarchMadnessUserClient(
       publicClient,
       walletClient,
       CONTRACT_ADDRESS,
     );
-  }, [publicClient, walletClient]);
+  }, [authenticated, publicClient, walletClient]);
 
   // On-chain deadline (seconds), with hardcoded fallback
   const submissionDeadline = useSubmissionDeadline(mmPublic);
@@ -121,6 +125,12 @@ export function useContract() {
     return () => clearInterval(id);
   }, []);
   const isBeforeDeadline = now / 1000 < submissionDeadline;
+
+  useEffect(() => {
+    setHasSubmitted(false);
+    setExistingBracket(null);
+    setBalance(null);
+  }, [authenticated, walletAddress]);
 
   // Fetch entry count
   const fetchEntryCount = useCallback(async () => {
@@ -135,7 +145,10 @@ export function useContract() {
 
   // Check if user has submitted (public read — no signing needed)
   const checkHasEntry = useCallback(async () => {
-    if (!mmPublic || !walletAddress) return;
+    if (!mmPublic || !walletAddress) {
+      setHasSubmitted(false);
+      return;
+    }
     try {
       const has = await mmPublic.getHasEntry(walletAddress);
       setHasSubmitted(has);
@@ -157,7 +170,10 @@ export function useContract() {
 
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
-    if (!publicClient || !walletAddress) return;
+    if (!publicClient || !walletAddress) {
+      setBalance(null);
+      return;
+    }
     try {
       const bal = await publicClient.getBalance({ address: walletAddress });
       setBalance(bal);

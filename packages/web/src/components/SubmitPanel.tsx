@@ -348,7 +348,7 @@ export function SubmitPanel({
         <div className="flex-1" />
 
         {/* Load existing bracket */}
-        {hasSubmitted && !existingBracket && (
+        {walletConnected && hasSubmitted && !existingBracket && (
           <button
             onClick={onLoadBracket}
             disabled={isBracketLoading}
@@ -626,7 +626,7 @@ function MobileSubmitPanel({
       )}
 
       {/* Load existing bracket */}
-      {hasSubmitted && !existingBracket && (
+      {walletConnected && hasSubmitted && !existingBracket && (
         <button
           onClick={onLoadBracket}
           disabled={isBracketLoading}

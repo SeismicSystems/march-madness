@@ -1,4 +1,9 @@
-import { usePrivy, useWallets, type ConnectedWallet } from "@privy-io/react-auth";
+import {
+  useActiveWallet,
+  usePrivy,
+  useWallets,
+  type ConnectedWallet,
+} from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BaseError, SwitchChainError, numberToHex, type Chain } from "viem";
@@ -93,35 +98,90 @@ const isPrivyManagedWallet = (wallet: ConnectedWallet | null): boolean =>
     wallet.walletClientType === "privy" ||
     wallet.walletClientType === "privy-v2");
 
+const normalizeAddress = (address?: string | null): string | null =>
+  address?.toLowerCase() ?? null;
+
+const findWalletByAddress = (
+  wallets: ConnectedWallet[],
+  address?: string | null,
+): ConnectedWallet | null => {
+  const normalizedAddress = normalizeAddress(address);
+  if (!normalizedAddress) return null;
+
+  return (
+    wallets.find(
+      (wallet) => normalizeAddress(wallet.address) === normalizedAddress,
+    ) ?? null
+  );
+};
+
 export function useRequiredChain() {
-  const { authenticated } = usePrivy();
+  const { authenticated, user } = usePrivy();
+  const { wallet: privyActiveWallet } = useActiveWallet();
   const { wallets, ready } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
-  const { address } = useAccount();
+  const { address, chainId: wagmiChainId } = useAccount();
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const lastWalletSyncRef = useRef<string | null>(null);
   const lastSyncedWalletRef = useRef<string | null>(null);
 
+  const privyWallet = useMemo(() => {
+    if (privyActiveWallet?.type !== "ethereum") return null;
+    return findWalletByAddress(wallets, privyActiveWallet.address);
+  }, [privyActiveWallet, wallets]);
+  const verifiedWallet = useMemo(
+    () => privyWallet ?? findWalletByAddress(wallets, user?.wallet?.address),
+    [privyWallet, user?.wallet?.address, wallets],
+  );
+  const wagmiWallet = useMemo(
+    () => findWalletByAddress(wallets, address),
+    [address, wallets],
+  );
   const activeWallet = useMemo(() => {
-    if (!address) return null;
+    if (verifiedWallet) return verifiedWallet;
+    if (wagmiWallet) return wagmiWallet;
+    return wallets.find(isPrivyManagedWallet) ?? null;
+  }, [verifiedWallet, wagmiWallet, wallets]);
 
-    return (
-      wallets.find(
-        (wallet) => wallet.address.toLowerCase() === address.toLowerCase(),
-      ) ?? null
-    );
-  }, [address, wallets]);
-
-  const activeChainId = parseCaipChainId(activeWallet?.chainId);
-  const isOnRequiredChain = activeChainId === REQUIRED_CHAIN.id;
   const isExternalActiveWallet =
     !!activeWallet && !isPrivyManagedWallet(activeWallet);
+  const walletChainId = parseCaipChainId(activeWallet?.chainId);
+  const activeChainId = isExternalActiveWallet ? wagmiChainId : walletChainId;
+  const isOnRequiredChain = activeChainId === REQUIRED_CHAIN.id;
   const requiresChainSwitch =
     authenticated &&
     ready &&
     isExternalActiveWallet &&
+    activeChainId !== undefined &&
     activeChainId !== null &&
     !isOnRequiredChain;
+
+  useEffect(() => {
+    if (!authenticated || !ready || !activeWallet) return;
+
+    const activeWalletAddress = normalizeAddress(activeWallet.address);
+    const wagmiAddress = normalizeAddress(address);
+    if (!activeWalletAddress || activeWalletAddress === wagmiAddress) {
+      lastWalletSyncRef.current = null;
+      return;
+    }
+
+    const syncKey = `${activeWalletAddress}:${activeChainId ?? "unknown"}`;
+    if (lastWalletSyncRef.current === syncKey) return;
+    lastWalletSyncRef.current = syncKey;
+
+    void setActiveWallet(activeWallet).catch(() => {
+      lastWalletSyncRef.current = null;
+    });
+  }, [
+    activeChainId,
+    activeWallet,
+    address,
+    authenticated,
+    ready,
+    setActiveWallet,
+  ]);
 
   useEffect(() => {
     if (!isExternalActiveWallet || !activeWallet) return;
@@ -138,7 +198,7 @@ export function useRequiredChain() {
 
   useEffect(() => {
     setSwitchError(null);
-  }, [activeWallet?.address, activeWallet?.chainId]);
+  }, [activeWallet?.address, activeWallet?.chainId, wagmiChainId]);
 
   const switchToRequiredChain = useCallback(async () => {
     if (!activeWallet || !isExternalActiveWallet) {
