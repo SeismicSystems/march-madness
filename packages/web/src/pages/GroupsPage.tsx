@@ -257,6 +257,13 @@ function MobileLayout({
       : []),
   ];
 
+  // Auto-switch to join tab when arriving via invite link
+  const hasInvite = !!(initialSlug || initialPassphrase);
+  const effectiveTab =
+    activeTab === "your-groups" && hasInvite && canCreateOrJoin
+      ? "join-group"
+      : activeTab;
+
   return (
     <div className="space-y-4">
       {/* Tab bar */}
@@ -266,7 +273,7 @@ function MobileLayout({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-3 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
-              activeTab === tab.id
+              effectiveTab === tab.id
                 ? "text-accent border-b-2 border-accent"
                 : "text-text-secondary hover:text-text-primary"
             }`}
@@ -277,7 +284,7 @@ function MobileLayout({
       </div>
 
       {/* Tab content */}
-      {activeTab === "your-groups" &&
+      {effectiveTab === "your-groups" &&
         (groups.joinedGroups.length > 0 ? (
           <GroupsSection
             groups={groups}
@@ -289,7 +296,7 @@ function MobileLayout({
           <YourGroupsEmpty onSwitchTab={setActiveTab} />
         ))}
 
-      {activeTab === "public-groups" && (
+      {effectiveTab === "public-groups" && (
         <PublicGroupsList
           publicGroups={publicGroups}
           isLoading={publicLoading}
@@ -301,7 +308,7 @@ function MobileLayout({
         />
       )}
 
-      {activeTab === "join-group" && canCreateOrJoin && (
+      {effectiveTab === "join-group" && canCreateOrJoin && (
         <PrivateJoinForm
           groups={groups}
           isBeforeDeadline={contract.isBeforeDeadline}
@@ -309,10 +316,11 @@ function MobileLayout({
           walletBalance={contract.balance}
           initialSlug={initialSlug}
           initialPassphrase={initialPassphrase}
+          highlight={hasInvite}
         />
       )}
 
-      {activeTab === "create-group" && canCreateOrJoin && (
+      {effectiveTab === "create-group" && canCreateOrJoin && (
         <CreateGroupForm groups={groups} />
       )}
     </div>
@@ -335,13 +343,12 @@ function DesktopLayout({
   initialPassphrase: string;
 }) {
   const canCreateOrJoin = authenticated && contract.isBeforeDeadline;
+  const hasInvite = !!(initialSlug || initialPassphrase);
 
   return (
     <div className="grid grid-cols-2 gap-6">
-      {/* Left column: Create + Join + Browse Public stacked */}
+      {/* Left column: Join + Create + Browse Public stacked */}
       <div className="space-y-6">
-        {canCreateOrJoin && <CreateGroupForm groups={groups} />}
-
         {canCreateOrJoin && (
           <PrivateJoinForm
             groups={groups}
@@ -350,8 +357,11 @@ function DesktopLayout({
             walletBalance={contract.balance}
             initialSlug={initialSlug}
             initialPassphrase={initialPassphrase}
+            highlight={hasInvite}
           />
         )}
+
+        {canCreateOrJoin && <CreateGroupForm groups={groups} />}
 
         <Link
           to="/groups/public"

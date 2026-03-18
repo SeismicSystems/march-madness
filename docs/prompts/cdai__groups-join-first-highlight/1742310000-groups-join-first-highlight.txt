@@ -1,0 +1,15 @@
+Two changes we want to make to the "Groups" page
+
+Move "Join a group" above "Create a group"
+
+And if user joins with an invite link like: "https://brackets.seismictest.net/groups?slug=seismic-team&password=Quake100"
+
+we should highlight the "Join group" form that gets auto-populated to be some obvious color so they know to just click the button
+
+---
+
+when you're done, create a PR.
+
+---
+
+make sure that the page doesn't stay on highlighted after they submit the form, or say go to a different page and then come here.

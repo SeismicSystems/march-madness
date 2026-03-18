@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatEther } from "viem";
+import { useSearchParams } from "react-router-dom";
 import type { UseGroupsReturn } from "../hooks/useGroups";
 
 interface PrivateJoinFormProps {
@@ -9,6 +10,7 @@ interface PrivateJoinFormProps {
   walletBalance: bigint | null;
   initialSlug?: string;
   initialPassphrase?: string;
+  highlight?: boolean;
 }
 
 export function PrivateJoinForm({
@@ -18,12 +20,15 @@ export function PrivateJoinForm({
   walletBalance,
   initialSlug = "",
   initialPassphrase = "",
+  highlight: initialHighlight = false,
 }: PrivateJoinFormProps) {
+  const [, setSearchParams] = useSearchParams();
   const [slugInput, setSlugInput] = useState(initialSlug);
   const [nameInput, setNameInput] = useState("");
   const [isPrivateJoin, setIsPrivateJoin] = useState(true);
   const [passphraseInput, setPassphraseInput] = useState(initialPassphrase);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState(initialHighlight);
 
   const handleJoin = async () => {
     if (!slugInput.trim() || !nameInput.trim()) return;
@@ -69,6 +74,9 @@ export function PrivateJoinForm({
       setNameInput("");
       setPassphraseInput("");
       setIsPrivateJoin(false);
+      setHighlighted(false);
+      // Clean invite params from URL
+      setSearchParams({}, { replace: true });
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Failed to join");
     }
@@ -77,7 +85,13 @@ export function PrivateJoinForm({
   if (!walletConnected || !isBeforeDeadline) return null;
 
   return (
-    <div className="rounded-xl bg-bg-secondary border border-border p-4 sm:p-6">
+    <div
+      className={`rounded-xl p-4 sm:p-6 ${
+        highlighted
+          ? "bg-accent/10 border-2 border-accent ring-2 ring-accent/30"
+          : "bg-bg-secondary border border-border"
+      }`}
+    >
       <h2 className="text-lg font-semibold text-text-primary mb-1">
         Join Group
       </h2>
