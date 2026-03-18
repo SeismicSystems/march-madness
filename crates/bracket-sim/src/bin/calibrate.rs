@@ -61,7 +61,7 @@ struct CalibrateArgs {
     cache_ttl: u64,
 
     /// Convergence threshold in dollars of total edge
-    #[arg(long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = 1000.0)]
     edge_threshold: f64,
 
     /// Sleep between API requests in milliseconds

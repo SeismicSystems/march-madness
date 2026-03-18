@@ -34,7 +34,7 @@ impl Default for MmCalibrationConfig {
         MmCalibrationConfig {
             max_iterations: 100,
             sims_per_iteration: 10_000,
-            edge_threshold: 1.0,
+            edge_threshold: 1000.0,
             base_learning_rate: 1.0,
             decay_factor: 0.3,
             max_goose: 15.0,
