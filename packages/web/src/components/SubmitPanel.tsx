@@ -578,34 +578,6 @@ function MobileSubmitPanel({
         )}
       </div>
 
-      {/* Load existing bracket */}
-      {hasSubmitted && !existingBracket && (
-        <button
-          onClick={onLoadBracket}
-          disabled={isBracketLoading}
-          className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all border ${
-            isBracketLoading
-              ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
-              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
-          }`}
-        >
-          {isBracketLoading ? "Loading..." : "Load my bracket"}
-        </button>
-      )}
-
-      {/* Entry fee */}
-      {!hasSubmitted && !isLocked && (
-        <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
-          <div className="text-xs text-text-muted mb-1">Entry fee</div>
-          <div className="text-lg font-bold text-text-primary">
-            {feeDisplay}
-          </div>
-          <div className="text-xs text-text-muted mt-1">
-            Prize pool split equally among highest-scoring brackets
-          </div>
-        </div>
-      )}
-
       {/* Submit button */}
       {!isLocked && (
         <button
@@ -651,6 +623,34 @@ function MobileSubmitPanel({
                       ? "Update Bracket"
                       : `Submit Bracket (${feeDisplay})`}
         </button>
+      )}
+
+      {/* Load existing bracket */}
+      {hasSubmitted && !existingBracket && (
+        <button
+          onClick={onLoadBracket}
+          disabled={isBracketLoading}
+          className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all border ${
+            isBracketLoading
+              ? "bg-bg-tertiary text-text-muted cursor-wait border-border"
+              : "bg-bg-tertiary text-text-primary border-border hover:bg-bg-hover hover:border-accent/50"
+          }`}
+        >
+          {isBracketLoading ? "Loading..." : "Load my bracket"}
+        </button>
+      )}
+
+      {/* Entry fee */}
+      {!hasSubmitted && !isLocked && (
+        <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
+          <div className="text-xs text-text-muted mb-1">Entry fee</div>
+          <div className="text-lg font-bold text-text-primary">
+            {feeDisplay}
+          </div>
+          <div className="text-xs text-text-muted mt-1">
+            Prize pool split equally among highest-scoring brackets
+          </div>
+        </div>
       )}
 
       {!isLocked && (
