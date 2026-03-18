@@ -139,7 +139,7 @@ fn main() -> io::Result<()> {
             None
         };
 
-        // Build reach probs: use status file's if present, otherwise compute from Poisson sim
+        // Build reach probs: use status file's if present, otherwise compute from full tournament sim
         let reach = if let Some(reach_map) = &status.team_reach_probabilities {
             if !reach_map.is_empty() {
                 info!("using reach probs from status file");
@@ -202,7 +202,7 @@ fn compute_reach_probs(
     team_names: &[String],
     n_sims: usize,
 ) -> seismic_march_madness::ReachProbs {
-    info!(n_sims, "computing reach probs from Poisson sim");
+    info!(n_sims, "computing reach probs from full tournament sim");
     let mut tournament = Tournament::new();
     tournament.setup_tournament(teams.to_vec(), bracket_config);
     let cum_probs = tournament.cumulative_win_probabilities(n_sims);
