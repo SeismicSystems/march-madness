@@ -6,9 +6,52 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
 } from "@march-madness/client";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import {
+  useActiveWallet,
+  usePrivy,
+  useWallets,
+  type ConnectedWallet,
+} from "@privy-io/react-auth";
 
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+
+const normalizeAddress = (address?: string | null): string | null =>
+  address?.toLowerCase() ?? null;
+
+const isPrivyManagedWallet = (
+  wallet?: {
+    connectorType?: string;
+    walletClientType?: string;
+  } | null,
+): boolean =>
+  !!wallet &&
+  (wallet.connectorType === "embedded" ||
+    wallet.walletClientType === "privy" ||
+    wallet.walletClientType === "privy-v2");
+
+const getEmbeddedWalletAddresses = (
+  linkedAccounts?: NonNullable<ReturnType<typeof usePrivy>["user"]>["linkedAccounts"],
+): string[] =>
+  (linkedAccounts ?? [])
+    .filter(
+      (account): account is Extract<typeof account, { type: "wallet" }> =>
+        account.type === "wallet" && isPrivyManagedWallet(account),
+    )
+    .map((account) => account.address);
+
+const findWalletByAddress = (
+  wallets: ConnectedWallet[],
+  address?: string | null,
+): ConnectedWallet | null => {
+  const normalizedAddress = normalizeAddress(address);
+  if (!normalizedAddress) return null;
+
+  return (
+    wallets.find(
+      (wallet) => normalizeAddress(wallet.address) === normalizedAddress,
+    ) ?? null
+  );
+};
 
 /**
  * Fetch the on-chain submission deadline once, falling back to the
@@ -46,8 +89,9 @@ function useSubmissionDeadline(
  * clicks "Load my bracket".
  */
 export function useContract() {
-  const { authenticated, ready: privyReady } = usePrivy();
-  const { ready: walletsReady } = useWallets();
+  const { authenticated, ready: privyReady, user } = usePrivy();
+  const { wallet: privyActiveWallet } = useActiveWallet();
+  const { ready: walletsReady, wallets } = useWallets();
   const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
     useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
@@ -107,9 +151,43 @@ export function useContract() {
     return deduped.join(" → ") || fallback;
   };
 
-  const walletAddress = authenticated
+  const preferredWalletAddress = useMemo(() => {
+    if (!authenticated || !privyReady || !walletsReady || !user) {
+      return null;
+    }
+
+    if (privyActiveWallet?.type === "ethereum") {
+      const activeWallet = findWalletByAddress(wallets, privyActiveWallet.address);
+      if (activeWallet) return normalizeAddress(activeWallet.address);
+    }
+
+    const embeddedWalletAddresses = getEmbeddedWalletAddresses(user.linkedAccounts);
+    for (const address of embeddedWalletAddresses) {
+      const embeddedWallet = findWalletByAddress(wallets, address);
+      if (embeddedWallet) return normalizeAddress(embeddedWallet.address);
+    }
+
+    const anyEmbeddedWallet = wallets.find(isPrivyManagedWallet);
+    if (anyEmbeddedWallet) return normalizeAddress(anyEmbeddedWallet.address);
+
+    return normalizeAddress(user.wallet?.address);
+  }, [
+    authenticated,
+    privyActiveWallet,
+    privyReady,
+    user,
+    wallets,
+    walletsReady,
+  ]);
+
+  const rawWalletAddress = authenticated
     ? (walletClient?.account?.address ?? null)
     : null;
+  const walletAddress =
+    preferredWalletAddress &&
+    normalizeAddress(rawWalletAddress) === preferredWalletAddress
+      ? rawWalletAddress
+      : null;
   const walletKey = walletAddress?.toLowerCase() ?? null;
   const hasSubmitted =
     walletKey && hasSubmittedState.owner === walletKey
@@ -137,13 +215,13 @@ export function useContract() {
   }, [publicClient]);
 
   const mmUser = useMemo(() => {
-    if (!authenticated || !publicClient || !walletClient) return null;
+    if (!authenticated || !publicClient || !walletClient || !walletAddress) return null;
     return new MarchMadnessUserClient(
       publicClient,
       walletClient,
       CONTRACT_ADDRESS,
     );
-  }, [authenticated, publicClient, walletClient]);
+  }, [authenticated, publicClient, walletAddress, walletClient]);
 
   // On-chain deadline (seconds), with hardcoded fallback
   const submissionDeadline = useSubmissionDeadline(mmPublic);
@@ -219,7 +297,8 @@ export function useContract() {
     !privyReady ||
     !walletsReady ||
     (authenticated &&
-      ((!walletAddress && !shieldedLoaded && !shieldedError) ||
+      (((!preferredWalletAddress || !walletAddress || !shieldedLoaded) &&
+        !shieldedError) ||
         (walletAddress && (!hasResolvedEntryState || !hasResolvedBalance))));
 
   /**
