@@ -11,7 +11,7 @@
 #   packages    — typecheck, lint, build, test (via mise)
 #   crates      — build, test, fmt, clippy (cargo)
 #   python      — deps install, script smoke tests (via uv)
-#   changeset   — verify docs/changeset.md is modified (vs main)
+#   changeset   — verify .changeset/*.md added + docs/changeset.md untouched
 #
 # KEEP IN SYNC with .github/workflows/ci.yml — see CLAUDE.md rule #8.
 # ──────────────────────────────────────────────────────────────────────
@@ -56,11 +56,26 @@ run_changeset() {
   echo ""
   echo "━━━ Changeset ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
-    skip_step "changeset modified" "on main branch"
-  elif git diff --name-only main...HEAD 2>/dev/null | grep -q '^docs/changeset.md$'; then
-    run_step "changeset modified" true
+    skip_step "changeset added" "on main branch"
+    skip_step "changeset.md untouched" "on main branch"
   else
-    run_step "changeset modified" false
+    # Check that at least one .changeset/*.md was added (excluding README.md)
+    local has_changeset=false
+    while IFS= read -r f; do
+      base="$(basename "$f")"
+      if [ "$base" != "README.md" ]; then
+        has_changeset=true
+        break
+      fi
+    done < <(git diff --name-only main...HEAD 2>/dev/null | grep '^\.changeset/.*\.md$' || true)
+    run_step "changeset added" "$has_changeset"
+
+    # Check that docs/changeset.md was NOT directly modified
+    if git diff --name-only main...HEAD 2>/dev/null | grep -q '^docs/changeset.md$'; then
+      run_step "changeset.md untouched" false
+    else
+      run_step "changeset.md untouched" true
+    fi
   fi
 }
 

@@ -6,8 +6,12 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
 } from "@march-madness/client";
+import { usePrivy } from "@privy-io/react-auth";
 
+import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
+import { debugLog, useDebugValueChanges } from "./useDebugValueChanges";
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+import { normalizeAddress } from "../lib/privyWallets";
 
 /**
  * Fetch the on-chain submission deadline once, falling back to the
@@ -45,17 +49,30 @@ function useSubmissionDeadline(
  * clicks "Load my bracket".
  */
 export function useContract() {
-  const { walletClient, publicClient } = useShieldedWallet();
+  const { authenticated } = usePrivy();
+  const { preferredWalletAddress, privyReady, walletsReady } =
+    usePrivyWalletSelection();
+  const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
+    useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [existingBracket, setExistingBracket] = useState<`0x${string}` | null>(
-    null,
-  );
+  const [hasSubmittedState, setHasSubmittedState] = useState<{
+    owner: string | null;
+    value: boolean;
+  }>({ owner: null, value: false });
+  const [existingBracketState, setExistingBracketState] = useState<{
+    owner: string | null;
+    value: `0x${string}` | null;
+  }>({ owner: null, value: null });
   const [isLoading, setIsLoading] = useState(false);
   const [isBracketLoading, setIsBracketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState<bigint | null>(null);
+  const [balanceState, setBalanceState] = useState<{
+    owner: string | null;
+    value: bigint | null;
+  }>({ owner: null, value: null });
   const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
+  const [resolvedEntryStateOwner, setResolvedEntryStateOwner] = useState<string | null>(null);
+  const [resolvedBalanceOwner, setResolvedBalanceOwner] = useState<string | null>(null);
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -94,7 +111,33 @@ export function useContract() {
     return deduped.join(" → ") || fallback;
   };
 
-  const walletAddress = walletClient?.account?.address ?? null;
+  const rawWalletAddress = authenticated
+    ? (walletClient?.account?.address ?? null)
+    : null;
+  const walletAddress =
+    preferredWalletAddress &&
+    normalizeAddress(rawWalletAddress) === preferredWalletAddress
+      ? rawWalletAddress
+      : null;
+  const walletKey = walletAddress?.toLowerCase() ?? null;
+  const hasSubmitted =
+    walletKey && hasSubmittedState.owner === walletKey
+      ? hasSubmittedState.value
+      : false;
+  const existingBracket =
+    walletKey && existingBracketState.owner === walletKey
+      ? existingBracketState.value
+      : null;
+  const balance =
+    walletKey && balanceState.owner === walletKey
+      ? balanceState.value
+      : null;
+  const hasResolvedEntryState =
+    !authenticated ||
+    (walletKey !== null && resolvedEntryStateOwner === walletKey);
+  const hasResolvedBalance =
+    !authenticated ||
+    (walletKey !== null && resolvedBalanceOwner === walletKey);
 
   // Construct client library instances from seismic-react wallet/public clients
   const mmPublic = useMemo(() => {
@@ -103,13 +146,13 @@ export function useContract() {
   }, [publicClient]);
 
   const mmUser = useMemo(() => {
-    if (!publicClient || !walletClient) return null;
+    if (!authenticated || !publicClient || !walletClient || !walletAddress) return null;
     return new MarchMadnessUserClient(
       publicClient,
       walletClient,
       CONTRACT_ADDRESS,
     );
-  }, [publicClient, walletClient]);
+  }, [authenticated, publicClient, walletAddress, walletClient]);
 
   // On-chain deadline (seconds), with hardcoded fallback
   const submissionDeadline = useSubmissionDeadline(mmPublic);
@@ -135,14 +178,18 @@ export function useContract() {
 
   // Check if user has submitted (public read — no signing needed)
   const checkHasEntry = useCallback(async () => {
-    if (!mmPublic || !walletAddress) return;
+    if (!mmPublic || !walletAddress || !walletKey) {
+      return;
+    }
     try {
       const has = await mmPublic.getHasEntry(walletAddress);
-      setHasSubmitted(has);
+      setHasSubmittedState({ owner: walletKey, value: has });
     } catch {
       // Contract might not be deployed yet
+    } finally {
+      setResolvedEntryStateOwner(walletKey);
     }
-  }, [mmPublic, walletAddress]);
+  }, [mmPublic, walletAddress, walletKey]);
 
   // Fetch entry fee from contract
   const fetchEntryFee = useCallback(async () => {
@@ -157,14 +204,18 @@ export function useContract() {
 
   // Fetch wallet ETH balance
   const fetchBalance = useCallback(async () => {
-    if (!publicClient || !walletAddress) return;
+    if (!publicClient || !walletAddress || !walletKey) {
+      return;
+    }
     try {
       const bal = await publicClient.getBalance({ address: walletAddress });
-      setBalance(bal);
+      setBalanceState({ owner: walletKey, value: bal });
     } catch {
       // ignore
+    } finally {
+      setResolvedBalanceOwner(walletKey);
     }
-  }, [publicClient, walletAddress]);
+  }, [publicClient, walletAddress, walletKey]);
 
   useEffect(() => {
     fetchEntryCount();
@@ -173,11 +224,45 @@ export function useContract() {
     fetchEntryFee();
   }, [fetchEntryCount, checkHasEntry, fetchBalance, fetchEntryFee]);
 
+  const isSessionHydrating =
+    !privyReady ||
+    !walletsReady ||
+    (authenticated &&
+      ((!preferredWalletAddress || !walletAddress || !shieldedLoaded) ||
+        (walletAddress && (!hasResolvedEntryState || !hasResolvedBalance))));
+
+  useDebugValueChanges("useContract", {
+    authenticated,
+    privyReady,
+    walletsReady,
+    preferredWalletAddress,
+    rawWalletAddress: normalizeAddress(rawWalletAddress),
+    walletAddress: normalizeAddress(walletAddress),
+    shieldedLoaded,
+    shieldedError: shieldedError ? String(shieldedError) : null,
+    hasResolvedEntryState,
+    hasResolvedBalance,
+    hasSubmitted,
+    hasExistingBracket: !!existingBracket,
+    balance: balance?.toString() ?? null,
+    isLoading,
+    isBracketLoading,
+    isSessionHydrating,
+  });
+
   /**
    * Load user's bracket via signed read (before deadline) or transparent read (after).
    * This is the expensive operation that requires wallet signing — only call on user action.
    */
   const loadMyBracket = useCallback(async () => {
+    debugLog("useContract loadMyBracket start", {
+      authenticated,
+      preferredWalletAddress,
+      rawWalletAddress: normalizeAddress(rawWalletAddress),
+      walletAddress: normalizeAddress(walletAddress),
+      shieldedLoaded,
+      hasMmUser: !!mmUser,
+    });
     if (!mmUser) throw new Error("Wallet not connected");
     setIsBracketLoading(true);
     setError(null);
@@ -189,18 +274,40 @@ export function useContract() {
         bracketHex !== "0x0000000000000000" &&
         BigInt(bracketHex) !== BigInt(0)
       ) {
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
+        debugLog("useContract loadMyBracket success", {
+          walletAddress: normalizeAddress(walletAddress),
+          hasBracket: true,
+        });
         return bracketHex;
       }
+      debugLog("useContract loadMyBracket empty", {
+        walletAddress: normalizeAddress(walletAddress),
+      });
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to load bracket");
+      debugLog("useContract loadMyBracket error", {
+        walletAddress: normalizeAddress(walletAddress),
+        error: msg,
+      });
       setError(msg);
       throw err;
     } finally {
       setIsBracketLoading(false);
     }
     return null;
-  }, [mmUser]);
+  }, [
+    authenticated,
+    extractErrorMessage,
+    mmUser,
+    preferredWalletAddress,
+    rawWalletAddress,
+    shieldedLoaded,
+    walletAddress,
+    walletKey,
+  ]);
 
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(
@@ -214,8 +321,10 @@ export function useContract() {
 
       try {
         const hash = await mmUser.submitBracket(bracketHex);
-        setHasSubmitted(true);
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setHasSubmittedState({ owner: walletKey, value: true });
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
         await fetchEntryCount();
         await fetchBalance();
         return hash;
@@ -227,7 +336,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [mmUser, fetchEntryCount, fetchBalance],
+    [mmUser, fetchEntryCount, fetchBalance, walletKey],
   );
 
   // Update bracket (shielded write, no additional fee)
@@ -242,7 +351,9 @@ export function useContract() {
 
       try {
         const hash = await mmUser.updateBracket(bracketHex);
-        setExistingBracket(bracketHex);
+        if (walletKey) {
+          setExistingBracketState({ owner: walletKey, value: bracketHex });
+        }
         return hash;
       } catch (err) {
         const msg = extractErrorMessage(err, "Failed to update bracket");
@@ -252,7 +363,7 @@ export function useContract() {
         setIsLoading(false);
       }
     },
-    [mmUser],
+    [mmUser, walletKey],
   );
 
   // Set tag (transparent write via client library)
@@ -286,6 +397,7 @@ export function useContract() {
     isLoading,
     isBracketLoading,
     error,
+    isSessionHydrating,
     isBeforeDeadline,
     submissionDeadline,
     balance,

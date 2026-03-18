@@ -1,0 +1,3 @@
+and the CI check should also make sure you DIDNT modify changeset.md
+
+let's use the full changesets/cli

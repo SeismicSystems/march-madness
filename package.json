@@ -11,6 +11,11 @@
     "p:grading": "bun run --filter @march-madness/localdev populate -- --phase post-grading",
     "deploy:testnet": "./scripts/deploy-testnet.sh",
     "build:web": "bun run --filter @march-madness/web build",
-    "gen:abis": "bun run scripts/generate-abis.ts"
+    "gen:abis": "bun run scripts/generate-abis.ts",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0"
   }
 }
