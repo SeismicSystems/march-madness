@@ -193,14 +193,14 @@ export function SubmitPanel({
       ) : (
         <div
           ref={expandRef}
-          className="flex items-center w-[12rem] sm:w-[13.5rem]"
+          className="flex items-center"
         >
           <span
             onDoubleClick={() => {
               setHexExpanded((prev) => !prev);
               scheduleCollapse();
             }}
-            className={`min-w-0 flex-1 truncate rounded-lg bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
+            className={`shrink-0 rounded-lg bg-transparent px-2 py-2 text-[11px] font-mono select-none cursor-default ${encodedBracket ? "text-text-muted" : "text-text-muted/30"}`}
           >
             {encodedBracket ?? "0x"}
           </span>
