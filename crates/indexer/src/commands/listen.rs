@@ -151,7 +151,11 @@ async fn process_groups(
                 let (id, slug, display_name, creator, has_password) =
                     provider::parse_group_created(log)?;
                 let creator_str = format!("{creator:#x}");
-                info!(event = "GroupCreated", id, slug = %slug);
+                let entry_fee = p.get_group_entry_fee(contract, id).await.unwrap_or_else(|e| {
+                    tracing::warn!(group_id = id, error = %e, "failed to read group entry fee, defaulting to 0");
+                    "0".to_string()
+                });
+                info!(event = "GroupCreated", id, slug = %slug, entry_fee = %entry_fee);
                 redis_store::create_group(
                     redis,
                     id,
@@ -159,6 +163,7 @@ async fn process_groups(
                     &display_name,
                     &creator_str,
                     has_password,
+                    &entry_fee,
                 )
                 .await?;
             }

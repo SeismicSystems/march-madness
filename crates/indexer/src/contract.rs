@@ -19,6 +19,17 @@ sol! {
     event GroupCreated(uint32 indexed groupId, string slug, string displayName, address creator, bool hasPassword);
     event MemberJoined(uint32 indexed groupId, address indexed addr);
     event MemberLeft(uint32 indexed groupId, address indexed addr);
+
+    struct Group {
+        string slug;
+        string displayName;
+        address creator;
+        uint32 entryCount;
+        uint256 entryFee;
+        bool hasPassword;
+    }
+
+    function getGroup(uint32 groupId) external view returns (Group memory);
 }
 
 // ── BracketMirror ────────────────────────────────────────────────────
