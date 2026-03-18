@@ -3,10 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "../lib/api";
 
 class GroupLeaderboardError extends Error {
-  constructor(
-    message: string,
-    readonly notFound: boolean = false,
-  ) {
+  constructor(message: string, readonly notFound: boolean = false) {
     super(message);
     this.name = "GroupLeaderboardError";
   }
@@ -29,13 +26,13 @@ async function fetchGroupMembers(slug: string): Promise<GroupMembersResult> {
 
   if (!membersRes.ok) {
     throw new GroupLeaderboardError(
-      `Failed to fetch group members (${membersRes.status})`,
+      `Failed to fetch group members (${membersRes.status})`
     );
   }
 
   if (!groupRes.ok) {
     throw new GroupLeaderboardError(
-      `Failed to fetch group (${groupRes.status})`,
+      `Failed to fetch group (${groupRes.status})`
     );
   }
 
@@ -62,15 +59,15 @@ export function useGroupMembers(slug: string | undefined) {
     query.error instanceof GroupLeaderboardError
       ? query.error.message
       : query.error instanceof Error
-        ? query.error.message
-        : null;
+      ? query.error.message
+      : null;
   const notFound =
     query.error instanceof GroupLeaderboardError && query.error.notFound;
 
   return {
     members: query.data?.members ?? null,
     groupName: query.data?.groupName ?? null,
-    loading: query.isPending,
+    loading: query.isLoading,
     error,
     notFound,
     refetch: query.refetch,
