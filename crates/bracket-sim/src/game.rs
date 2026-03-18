@@ -281,28 +281,6 @@ impl Game {
         }
     }
 
-    /// Estimate P(team1 wins) conditional on current score and time remaining
-    /// via Monte Carlo simulation of the remaining game.
-    pub fn conditional_win_probability(
-        &self,
-        current_score: (u32, u32),
-        seconds_remaining: i32,
-        period: u8,
-        pace_d: f64,
-        num_sims: u32,
-    ) -> f64 {
-        let mut rng = rand::rng();
-        let mut t1_wins = 0u32;
-        for _ in 0..num_sims {
-            let result =
-                self.simulate_remaining(current_score, seconds_remaining, period, pace_d, &mut rng);
-            if result.team1_score > result.team2_score {
-                t1_wins += 1;
-            }
-        }
-        t1_wins as f64 / num_sims as f64
-    }
-
     pub fn winner(&self, pace_d: f64, rng: &mut (impl Rng + ?Sized)) -> Option<&Team> {
         let result = self.result.as_ref()?;
 
@@ -539,6 +517,25 @@ mod tests {
         assert!((ot - 180.0).abs() < 0.01);
     }
 
+    /// Run simulate_remaining N times and return team1 win fraction.
+    fn sim_remaining_win_rate(
+        game: &Game,
+        score: (u32, u32),
+        secs: i32,
+        period: u8,
+        n: u32,
+    ) -> f64 {
+        let mut rng = StdRng::seed_from_u64(42);
+        let mut t1_wins = 0u32;
+        for _ in 0..n {
+            let r = game.simulate_remaining(score, secs, period, DEFAULT_PACE_D, &mut rng);
+            if r.team1_score > r.team2_score {
+                t1_wins += 1;
+            }
+        }
+        t1_wins as f64 / n as f64
+    }
+
     #[test]
     fn simulate_remaining_with_big_lead_favors_leader() {
         let t1 = make_team("Favorite", 1, 110.0, 100.0, 68.0);
@@ -546,7 +543,7 @@ mod tests {
         let game = Game::new(t1, t2);
 
         // Team1 leads 60-40 with 5 minutes left in second half
-        let prob = game.conditional_win_probability((60, 40), 300, 2, DEFAULT_PACE_D, 5000);
+        let prob = sim_remaining_win_rate(&game, (60, 40), 300, 2, 5000);
         assert!(
             prob > 0.90,
             "20-point lead with 5 min left should be >90% win, got {:.3}",
@@ -561,7 +558,7 @@ mod tests {
         let game = Game::new(t1, t2);
 
         // Tied game at halftime — strong team should win more often
-        let prob = game.conditional_win_probability((35, 35), 1200, 2, DEFAULT_PACE_D, 5000);
+        let prob = sim_remaining_win_rate(&game, (35, 35), 1200, 2, 5000);
         assert!(
             prob > 0.55,
             "Stronger team should win >55% when tied at half, got {:.3}",
@@ -576,7 +573,7 @@ mod tests {
         let game = Game::new(t1, t2);
 
         // Team1 leads 70-65 with 1 second left
-        let prob = game.conditional_win_probability((70, 65), 1, 2, DEFAULT_PACE_D, 5000);
+        let prob = sim_remaining_win_rate(&game, (70, 65), 1, 2, 5000);
         assert!(
             prob > 0.95,
             "5-point lead with 1 second left should be >95% win, got {:.3}",
