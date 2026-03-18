@@ -246,12 +246,12 @@ mod tests {
     fn test_first_four_both_names_mapped() {
         let mapper = test_mapper();
 
-        // "Texas/NC State" is a First Four slot — both individual names
+        // "Prairie View A&M/Lehigh" is a First Four slot — both individual names
         // and the combo name should map to the same position.
-        let combo_pos = mapper.team_position("Texas/NC State");
+        let combo_pos = mapper.team_position("Prairie View A&M/Lehigh");
         assert!(combo_pos.is_some());
-        assert_eq!(mapper.team_position("Texas"), combo_pos);
-        assert_eq!(mapper.team_position("NC State"), combo_pos);
+        assert_eq!(mapper.team_position("Prairie View A&M"), combo_pos);
+        assert_eq!(mapper.team_position("Lehigh"), combo_pos);
     }
 
     #[test]
