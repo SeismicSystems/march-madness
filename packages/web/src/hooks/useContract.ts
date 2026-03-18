@@ -6,7 +6,7 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
 } from "@march-madness/client";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 
@@ -46,8 +46,10 @@ function useSubmissionDeadline(
  * clicks "Load my bracket".
  */
 export function useContract() {
-  const { authenticated } = usePrivy();
-  const { walletClient, publicClient } = useShieldedWallet();
+  const { authenticated, ready: privyReady } = usePrivy();
+  const { ready: walletsReady } = useWallets();
+  const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
+    useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [existingBracket, setExistingBracket] = useState<`0x${string}` | null>(
@@ -58,6 +60,8 @@ export function useContract() {
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [entryFeeDisplay, setEntryFeeDisplay] = useState<string | null>(null);
+  const [hasResolvedEntryState, setHasResolvedEntryState] = useState(false);
+  const [hasResolvedBalance, setHasResolvedBalance] = useState(false);
 
   // Extract full error detail from nested/wrapped errors (Privy, viem, etc.)
   // Returns all messages in the cause chain so we can debug on mobile.
@@ -130,6 +134,8 @@ export function useContract() {
     setHasSubmitted(false);
     setExistingBracket(null);
     setBalance(null);
+    setHasResolvedEntryState(!authenticated);
+    setHasResolvedBalance(!authenticated);
   }, [authenticated, walletAddress]);
 
   // Fetch entry count
@@ -147,6 +153,7 @@ export function useContract() {
   const checkHasEntry = useCallback(async () => {
     if (!mmPublic || !walletAddress) {
       setHasSubmitted(false);
+      setHasResolvedEntryState(true);
       return;
     }
     try {
@@ -154,6 +161,8 @@ export function useContract() {
       setHasSubmitted(has);
     } catch {
       // Contract might not be deployed yet
+    } finally {
+      setHasResolvedEntryState(true);
     }
   }, [mmPublic, walletAddress]);
 
@@ -172,6 +181,7 @@ export function useContract() {
   const fetchBalance = useCallback(async () => {
     if (!publicClient || !walletAddress) {
       setBalance(null);
+      setHasResolvedBalance(true);
       return;
     }
     try {
@@ -179,6 +189,8 @@ export function useContract() {
       setBalance(bal);
     } catch {
       // ignore
+    } finally {
+      setHasResolvedBalance(true);
     }
   }, [publicClient, walletAddress]);
 
@@ -188,6 +200,13 @@ export function useContract() {
     fetchBalance();
     fetchEntryFee();
   }, [fetchEntryCount, checkHasEntry, fetchBalance, fetchEntryFee]);
+
+  const isSessionHydrating =
+    !privyReady ||
+    !walletsReady ||
+    (authenticated &&
+      ((!walletAddress && !shieldedLoaded && !shieldedError) ||
+        (walletAddress && (!hasResolvedEntryState || !hasResolvedBalance))));
 
   /**
    * Load user's bracket via signed read (before deadline) or transparent read (after).
@@ -302,6 +321,7 @@ export function useContract() {
     isLoading,
     isBracketLoading,
     error,
+    isSessionHydrating,
     isBeforeDeadline,
     submissionDeadline,
     balance,

@@ -35,6 +35,7 @@ export function SubmitPanel({
     hasSubmitted,
     isLoading,
     isBracketLoading,
+    isSessionHydrating,
     error,
     existingBracket,
     entryFeeDisplay,
@@ -259,6 +260,7 @@ export function SubmitPanel({
         hasSubmitted={hasSubmitted}
         isLoading={isLoading}
         isBracketLoading={isBracketLoading}
+        isSessionHydrating={isSessionHydrating}
         error={error}
         chainSwitchError={chainSwitchError}
         existingBracket={existingBracket}
@@ -287,7 +289,7 @@ export function SubmitPanel({
   // Desktop: compact horizontal bar
   return (
     <div className="bg-bg-secondary border border-border rounded-xl px-4 py-3 space-y-2">
-      {requiresChainSwitch && (
+      {!isSessionHydrating && requiresChainSwitch && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Switch your wallet to {requiredChainName} to submit. If the network
           is missing, we&apos;ll prompt MetaMask to add it first.
@@ -313,12 +315,12 @@ export function SubmitPanel({
         </div>
 
         {/* Status badges */}
-        {hasSubmitted && (
+        {!isSessionHydrating && hasSubmitted && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-success/20 text-success border border-success/30 whitespace-nowrap">
             Submitted
           </span>
         )}
-        {hasSubmitted && hexControl}
+        {!isSessionHydrating && hasSubmitted && hexControl}
         {isLocked && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-danger/20 text-danger border border-danger/30 whitespace-nowrap">
             Locked
@@ -326,7 +328,7 @@ export function SubmitPanel({
         )}
 
         {/* Entry fee (before first submission) */}
-        {!hasSubmitted && !isLocked && (
+        {!isSessionHydrating && !hasSubmitted && !isLocked && (
           <div className="flex items-center gap-4 whitespace-nowrap">
             <span className="text-xs text-text-muted">
               Entry:{" "}
@@ -348,7 +350,7 @@ export function SubmitPanel({
         <div className="flex-1" />
 
         {/* Load existing bracket */}
-        {walletConnected && hasSubmitted && !existingBracket && (
+        {!isSessionHydrating && walletConnected && hasSubmitted && !existingBracket && (
           <button
             onClick={onLoadBracket}
             disabled={isBracketLoading}
@@ -363,7 +365,7 @@ export function SubmitPanel({
         )}
 
         {/* Tag input (after submission) */}
-        {hasSubmitted && !isLocked && (
+        {!isSessionHydrating && hasSubmitted && !isLocked && (
           <div className="flex items-center gap-1.5">
             <input
               type="text"
@@ -384,7 +386,7 @@ export function SubmitPanel({
         )}
 
         {/* Divider between tag and submit */}
-        {hasSubmitted && !isLocked && <div className="w-px h-6 bg-border" />}
+        {!isSessionHydrating && hasSubmitted && !isLocked && <div className="w-px h-6 bg-border" />}
 
         {/* Reset + Submit buttons */}
         {!isLocked && (
@@ -411,19 +413,25 @@ export function SubmitPanel({
             />
             <button
               onClick={
-                !walletConnected
+                isSessionHydrating
+                  ? undefined
+                  : !walletConnected
                   ? login
                   : requiresChainSwitch
                     ? () => void onSwitchChain()
                     : handleSubmit
               }
               disabled={
-                requiresChainSwitch
+                isSessionHydrating
+                  ? true
+                  : requiresChainSwitch
                   ? isSwitchingChain
                   : walletConnected && (!isComplete || isLoading)
               }
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                !walletConnected
+                isSessionHydrating
+                  ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
+                  : !walletConnected
                   ? "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
                   : requiresChainSwitch
                   ? "bg-warning text-black hover:brightness-110 ring-2 ring-warning/30 cursor-pointer"
@@ -436,7 +444,9 @@ export function SubmitPanel({
                       : "bg-accent text-white hover:bg-accent-hover ring-2 ring-accent/30 cursor-pointer"
               }`}
             >
-              {requiresChainSwitch && walletConnected
+              {isSessionHydrating
+                ? "Loading wallet..."
+                : requiresChainSwitch && walletConnected
                 ? isSwitchingChain
                   ? `Switching to ${requiredChainName}...`
                   : `Switch to ${requiredChainName}`
@@ -486,6 +496,7 @@ function MobileSubmitPanel({
   hasSubmitted,
   isLoading,
   isBracketLoading,
+  isSessionHydrating,
   error,
   chainSwitchError,
   existingBracket,
@@ -513,6 +524,7 @@ function MobileSubmitPanel({
   hasSubmitted: boolean;
   isLoading: boolean;
   isBracketLoading: boolean;
+  isSessionHydrating: boolean;
   error: string | null;
   chainSwitchError: string | null;
   existingBracket: `0x${string}` | null;
@@ -539,7 +551,7 @@ function MobileSubmitPanel({
   const displayError = chainSwitchError ?? error;
   return (
     <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-4">
-      {requiresChainSwitch && (
+      {!isSessionHydrating && requiresChainSwitch && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Switch your wallet to {requiredChainName} to submit. If MetaMask
           doesn&apos;t have it yet, we&apos;ll ask to add it.
@@ -566,7 +578,7 @@ function MobileSubmitPanel({
 
       {/* Status badges */}
       <div className="flex flex-wrap gap-2">
-        {hasSubmitted && (
+        {!isSessionHydrating && hasSubmitted && (
           <span className="text-xs px-2 py-1 rounded-full bg-success/20 text-success border border-success/30">
             Bracket submitted
           </span>
@@ -582,19 +594,25 @@ function MobileSubmitPanel({
       {!isLocked && (
         <button
           onClick={
-            !walletConnected
+            isSessionHydrating
+              ? undefined
+              : !walletConnected
               ? onLogin
               : requiresChainSwitch
                 ? () => void onSwitchChain()
                 : onSubmit
           }
           disabled={
-            requiresChainSwitch
+            isSessionHydrating
+              ? true
+              : requiresChainSwitch
               ? isSwitchingChain
               : walletConnected && (!isComplete || isLoading)
           }
           className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            !walletConnected
+            isSessionHydrating
+              ? "bg-bg-tertiary text-text-muted cursor-wait border border-border"
+              : !walletConnected
               ? "bg-accent text-white hover:bg-accent-hover cursor-pointer"
               : requiresChainSwitch
               ? "bg-warning text-black cursor-pointer"
@@ -607,7 +625,9 @@ function MobileSubmitPanel({
                   : "bg-accent text-white hover:bg-accent-hover"
           }`}
         >
-          {requiresChainSwitch && walletConnected
+          {isSessionHydrating
+            ? "Loading wallet..."
+            : requiresChainSwitch && walletConnected
             ? isSwitchingChain
               ? `Switching to ${requiredChainName}...`
               : `Switch to ${requiredChainName}`
@@ -626,7 +646,7 @@ function MobileSubmitPanel({
       )}
 
       {/* Load existing bracket */}
-      {walletConnected && hasSubmitted && !existingBracket && (
+      {!isSessionHydrating && walletConnected && hasSubmitted && !existingBracket && (
         <button
           onClick={onLoadBracket}
           disabled={isBracketLoading}
@@ -641,7 +661,7 @@ function MobileSubmitPanel({
       )}
 
       {/* Entry fee */}
-      {!hasSubmitted && !isLocked && (
+      {!isSessionHydrating && !hasSubmitted && !isLocked && (
         <div className="bg-bg-tertiary rounded-lg p-3 border border-border">
           <div className="text-xs text-text-muted mb-1">Entry fee</div>
           <div className="text-lg font-bold text-text-primary">
@@ -679,7 +699,7 @@ function MobileSubmitPanel({
       )}
 
       {/* Tag input */}
-      {hasSubmitted && !isLocked && (
+      {!isSessionHydrating && hasSubmitted && !isLocked && (
         <div className="space-y-2">
           <label className="text-xs text-text-muted">
             Display name (optional)
