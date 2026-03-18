@@ -75,16 +75,14 @@ function CardInner({
 
             {/* Champion */}
             {entry.championName ? (
-              <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <TeamLogo teamName={entry.championName} />
                 <span className="text-text-secondary text-xs">
                   {entry.championName}
                 </span>
               </div>
             ) : (
-              <span className="text-text-muted text-xs hidden sm:block shrink-0">
-                —
-              </span>
+              <span className="text-text-muted text-xs shrink-0">—</span>
             )}
 
             {/* Forecast stats */}
