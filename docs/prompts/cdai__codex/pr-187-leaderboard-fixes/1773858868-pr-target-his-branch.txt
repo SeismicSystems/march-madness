@@ -1,0 +1,4 @@
+well let's also:
+- pull main into our branch
+- remove his manual edits to docs/changeset.md; instead write changeset into a .changeset file -- after you pull in, there's context on how to do this in CLAUDE.md
+- open a PR targeting his branch

@@ -1,36 +1,27 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { EntryIndex } from "@march-madness/client";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
+import { API_BASE } from "../lib/api";
+
 const POLL_INTERVAL = 30_000; // 30s
 
 export function useEntries() {
-  const [entries, setEntries] = useState<EntryIndex | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetch_ = useCallback(async () => {
-    try {
+  const query = useQuery({
+    queryKey: ["entries"],
+    queryFn: async () => {
       const res = await fetch(`${API_BASE}/entries`);
-      if (res.ok) {
-        const data: EntryIndex = await res.json();
-        setEntries(data);
-        setError(null);
-      } else {
-        setError(`Failed to fetch entries: ${res.status}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch entries: ${res.status}`);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return (await res.json()) as EntryIndex;
+    },
+    refetchInterval: POLL_INTERVAL,
+  });
 
-  useEffect(() => {
-    fetch_();
-    const id = setInterval(fetch_, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [fetch_]);
-
-  return { entries, loading, error, refetch: fetch_ };
+  return {
+    entries: query.data ?? null,
+    loading: query.isPending,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: query.refetch,
+  };
 }
