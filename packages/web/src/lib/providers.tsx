@@ -7,6 +7,7 @@ import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useDisconnect } from "wagmi";
 
+import { debugLog, useDebugValueChanges } from "../hooks/useDebugValueChanges";
 import { usePrivyWalletSelection } from "../hooks/usePrivyWalletSelection";
 import { APP_CHAINS, REQUIRED_CHAIN, config, queryClient } from "./config";
 
@@ -75,12 +76,23 @@ function PrivyWalletSync() {
   const { disconnect } = useDisconnect();
   const lastSyncRef = useRef<string | null>(null);
 
+  useDebugValueChanges("PrivyWalletSync", {
+    authenticated,
+    privyReady,
+    walletsReady,
+    hasUser: !!user,
+    preferredWalletAddress: preferredWallet?.address?.toLowerCase() ?? null,
+    preferredWalletChainId: preferredWallet?.chainId ?? null,
+    lastSyncKey: lastSyncRef.current,
+  });
+
   useEffect(() => {
     if (!privyReady || !walletsReady) return;
 
     if (!authenticated || !user) {
       if (lastSyncRef.current === "disconnected") return;
       lastSyncRef.current = "disconnected";
+      debugLog("PrivyWalletSync disconnect");
       disconnect();
       return;
     }
@@ -93,6 +105,10 @@ function PrivyWalletSync() {
     const syncKey = `${preferredWallet.address.toLowerCase()}:${preferredWallet.chainId ?? "unknown"}`;
     if (lastSyncRef.current === syncKey) return;
     lastSyncRef.current = syncKey;
+    debugLog("PrivyWalletSync setActiveWallet", {
+      address: preferredWallet.address.toLowerCase(),
+      chainId: preferredWallet.chainId ?? null,
+    });
 
     void setActiveWallet(preferredWallet).catch(() => {
       lastSyncRef.current = null;

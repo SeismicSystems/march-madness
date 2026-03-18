@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BaseError, SwitchChainError, numberToHex, type Chain } from "viem";
 import { useAccount } from "wagmi";
 
+import { useDebugValueChanges } from "./useDebugValueChanges";
 import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
 import { REQUIRED_CHAIN } from "../lib/config";
 import {
@@ -125,6 +126,20 @@ export function useRequiredChain() {
     activeChainId !== undefined &&
     activeChainId !== null &&
     !isOnRequiredChain;
+
+  useDebugValueChanges("useRequiredChain", {
+    authenticated,
+    walletsReady,
+    wagmiAddress: normalizeAddress(address),
+    wagmiChainId: wagmiChainId ?? null,
+    activeWalletAddress: normalizeAddress(activeWallet?.address),
+    activeWalletChainId: activeWallet?.chainId ?? null,
+    activeChainId: activeChainId ?? null,
+    isExternalActiveWallet,
+    isOnRequiredChain,
+    requiresChainSwitch,
+    switchError,
+  });
 
   useEffect(() => {
     if (!authenticated || !walletsReady || !activeWallet) return;

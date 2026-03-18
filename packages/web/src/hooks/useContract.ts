@@ -9,6 +9,7 @@ import {
 import { usePrivy } from "@privy-io/react-auth";
 
 import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
+import { debugLog, useDebugValueChanges } from "./useDebugValueChanges";
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
 import { normalizeAddress } from "../lib/privyWallets";
 
@@ -231,11 +232,38 @@ export function useContract() {
         !shieldedError) ||
         (walletAddress && (!hasResolvedEntryState || !hasResolvedBalance))));
 
+  useDebugValueChanges("useContract", {
+    authenticated,
+    privyReady,
+    walletsReady,
+    preferredWalletAddress,
+    rawWalletAddress: normalizeAddress(rawWalletAddress),
+    walletAddress: normalizeAddress(walletAddress),
+    shieldedLoaded,
+    shieldedError: shieldedError ? String(shieldedError) : null,
+    hasResolvedEntryState,
+    hasResolvedBalance,
+    hasSubmitted,
+    hasExistingBracket: !!existingBracket,
+    balance: balance?.toString() ?? null,
+    isLoading,
+    isBracketLoading,
+    isSessionHydrating,
+  });
+
   /**
    * Load user's bracket via signed read (before deadline) or transparent read (after).
    * This is the expensive operation that requires wallet signing — only call on user action.
    */
   const loadMyBracket = useCallback(async () => {
+    debugLog("useContract loadMyBracket start", {
+      authenticated,
+      preferredWalletAddress,
+      rawWalletAddress: normalizeAddress(rawWalletAddress),
+      walletAddress: normalizeAddress(walletAddress),
+      shieldedLoaded,
+      hasMmUser: !!mmUser,
+    });
     if (!mmUser) throw new Error("Wallet not connected");
     setIsBracketLoading(true);
     setError(null);
@@ -250,17 +278,37 @@ export function useContract() {
         if (walletKey) {
           setExistingBracketState({ owner: walletKey, value: bracketHex });
         }
+        debugLog("useContract loadMyBracket success", {
+          walletAddress: normalizeAddress(walletAddress),
+          hasBracket: true,
+        });
         return bracketHex;
       }
+      debugLog("useContract loadMyBracket empty", {
+        walletAddress: normalizeAddress(walletAddress),
+      });
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to load bracket");
+      debugLog("useContract loadMyBracket error", {
+        walletAddress: normalizeAddress(walletAddress),
+        error: msg,
+      });
       setError(msg);
       throw err;
     } finally {
       setIsBracketLoading(false);
     }
     return null;
-  }, [mmUser, walletKey]);
+  }, [
+    authenticated,
+    extractErrorMessage,
+    mmUser,
+    preferredWalletAddress,
+    rawWalletAddress,
+    shieldedLoaded,
+    walletAddress,
+    walletKey,
+  ]);
 
   // Submit bracket (shielded write via client library)
   const submitBracket = useCallback(

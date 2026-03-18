@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { useActiveWallet, usePrivy, useWallets } from "@privy-io/react-auth";
 
+import { useDebugValueChanges } from "./useDebugValueChanges";
 import {
   getPreferredPrivyWallet,
   normalizeAddress,
@@ -31,6 +32,23 @@ export function usePrivyWalletSelection() {
     wallets,
     walletsReady,
   ]);
+
+  useDebugValueChanges("usePrivyWalletSelection", {
+    authenticated,
+    privyReady,
+    walletsReady,
+    linkedWalletCount: user?.linkedAccounts?.filter(
+      (account) => account.type === "wallet",
+    ).length ?? 0,
+    privyActiveWalletAddress:
+      privyActiveWallet?.type === "ethereum"
+        ? normalizeAddress(privyActiveWallet.address)
+        : null,
+    privyUserWalletAddress: normalizeAddress(user?.wallet?.address),
+    preferredWalletAddress: normalizeAddress(preferredWallet?.address),
+    preferredWalletChainId: preferredWallet?.chainId ?? null,
+    walletCount: wallets.length,
+  });
 
   return {
     authenticated,
