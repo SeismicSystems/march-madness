@@ -228,8 +228,7 @@ export function useContract() {
     !privyReady ||
     !walletsReady ||
     (authenticated &&
-      (((!preferredWalletAddress || !walletAddress || !shieldedLoaded) &&
-        !shieldedError) ||
+      ((!preferredWalletAddress || !walletAddress || !shieldedLoaded) ||
         (walletAddress && (!hasResolvedEntryState || !hasResolvedBalance))));
 
   useDebugValueChanges("useContract", {
