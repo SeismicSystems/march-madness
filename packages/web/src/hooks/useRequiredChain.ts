@@ -92,11 +92,26 @@ const switchWalletChain = async (
   await wallet.switchChain(chain.id);
 };
 
-const isPrivyManagedWallet = (wallet: ConnectedWallet | null): boolean =>
+const isPrivyManagedWallet = (
+  wallet?: {
+    connectorType?: string;
+    walletClientType?: string;
+  } | null,
+): boolean =>
   !!wallet &&
   (wallet.connectorType === "embedded" ||
     wallet.walletClientType === "privy" ||
     wallet.walletClientType === "privy-v2");
+
+const getEmbeddedWalletAddresses = (
+  linkedAccounts?: NonNullable<ReturnType<typeof usePrivy>["user"]>["linkedAccounts"],
+): string[] =>
+  (linkedAccounts ?? [])
+    .filter(
+      (account): account is Extract<typeof account, { type: "wallet" }> =>
+        account.type === "wallet" && isPrivyManagedWallet(account),
+    )
+    .map((account) => account.address);
 
 const normalizeAddress = (address?: string | null): string | null =>
   address?.toLowerCase() ?? null;
@@ -130,9 +145,17 @@ export function useRequiredChain() {
     if (privyActiveWallet?.type !== "ethereum") return null;
     return findWalletByAddress(wallets, privyActiveWallet.address);
   }, [privyActiveWallet, wallets]);
+  const embeddedWallet = useMemo(() => {
+    const embeddedAddresses = getEmbeddedWalletAddresses(user?.linkedAccounts);
+    for (const address of embeddedAddresses) {
+      const wallet = findWalletByAddress(wallets, address);
+      if (wallet) return wallet;
+    }
+    return wallets.find(isPrivyManagedWallet) ?? null;
+  }, [user?.linkedAccounts, wallets]);
   const verifiedWallet = useMemo(
-    () => privyWallet ?? findWalletByAddress(wallets, user?.wallet?.address),
-    [privyWallet, user?.wallet?.address, wallets],
+    () => privyWallet ?? embeddedWallet,
+    [embeddedWallet, privyWallet],
   );
   const wagmiWallet = useMemo(
     () => findWalletByAddress(wallets, address),
