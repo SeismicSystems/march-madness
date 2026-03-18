@@ -37,7 +37,7 @@ struct SimArgs {
     pace_d: f64,
 
     /// Condition on live tournament status from Redis.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "status")]
     live: bool,
 
     /// Condition on game state from a status JSON file.

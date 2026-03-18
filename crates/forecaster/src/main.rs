@@ -26,11 +26,11 @@ struct Cli {
     entries_file: PathBuf,
 
     /// Read live tournament status from Redis instead of a file.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "status_file")]
     live: bool,
 
     /// Path to the tournament status JSON file.
-    /// Defaults to data/{year}/men/status.json. Ignored when --live is set.
+    /// Defaults to data/{year}/men/status.json.
     #[arg(long = "status")]
     status_file: Option<PathBuf>,
 
