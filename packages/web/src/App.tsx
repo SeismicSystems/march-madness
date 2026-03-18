@@ -16,6 +16,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route
+            path="/groups/:slug/leaderboard"
+            element={<LeaderboardPage />}
+          />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/groups/public" element={<PublicGroupsPage />} />
           <Route path="/bracket/:address" element={<BracketViewerPage />} />

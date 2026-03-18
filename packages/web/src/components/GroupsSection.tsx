@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { JoinedGroup, UseGroupsReturn } from "../hooks/useGroups";
 import { formatEther } from "viem";
 
@@ -56,9 +57,7 @@ function JoinedGroupCard({
           <span className="font-medium text-text-primary">
             {group.displayName}
           </span>
-          <span className="ml-2 text-xs text-text-tertiary">
-            /{group.slug}
-          </span>
+          <span className="ml-2 text-xs text-text-tertiary">/{group.slug}</span>
           {storedInfo.admin && (
             <span className="ml-2 text-xs text-accent">Admin</span>
           )}
@@ -98,11 +97,16 @@ function JoinedGroupCard({
           </div>
         ))}
         {members.length > 5 && (
-          <div className="text-text-tertiary">
-            +{members.length - 5} more
-          </div>
+          <div className="text-text-tertiary">+{members.length - 5} more</div>
         )}
       </div>
+
+      <Link
+        to={`/groups/${group.slug}/leaderboard`}
+        className="inline-block mb-2 text-xs text-accent hover:text-accent-hover transition-colors"
+      >
+        View Leaderboard
+      </Link>
 
       {isBeforeDeadline && (
         <div className="flex gap-2 mt-2">
