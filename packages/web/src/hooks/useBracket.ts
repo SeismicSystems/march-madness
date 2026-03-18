@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { encodeBracket, validateBracket } from "@march-madness/client";
 
@@ -24,6 +31,7 @@ const storageKey = (addr: string) => `${STORAGE_PREFIX}${addr.toLowerCase()}`;
 
 /** Sentinel prefix for incomplete (partial) brackets in localStorage. */
 const PARTIAL_PREFIX = "partial:";
+const createEmptyPicks = (): (boolean | null)[] => new Array(63).fill(null);
 
 /**
  * Load picks from localStorage. Supports two formats:
@@ -89,20 +97,28 @@ function savePicks(addr: string, picks: (boolean | null)[]) {
  * Teams can be advanced multiple rounds without their opponent decided —
  * e.g., pick Duke all the way to the championship without filling in the rest.
  */
-export function useBracket(walletAddress?: string | null) {
+export function useBracket(
+  walletAddress?: string | null,
+  storageEnabled = true,
+) {
   const allTeams = useMemo(() => getAllTeamsInBracketOrder(), []);
   const effectiveAddr = walletAddress || ZERO_ADDR;
-  const prevAddrRef = useRef(effectiveAddr);
+  const hydratedAddrRef = useRef<string | null>(null);
 
   // picks[i] = true means team1 wins, false means team2 wins, null means no pick
-  const [picks, setPicks] = useState<(boolean | null)[]>(() => {
-    return loadPicks(effectiveAddr) ?? new Array(63).fill(null);
-  });
+  const [picks, setPicks] = useState<(boolean | null)[]>(createEmptyPicks);
 
-  // Handle address changes (login/logout) — migrate zero-address picks on login
   useEffect(() => {
-    if (prevAddrRef.current === effectiveAddr) return;
-    prevAddrRef.current = effectiveAddr;
+    if (storageEnabled) return;
+    hydratedAddrRef.current = null;
+    setPicks(createEmptyPicks());
+  }, [effectiveAddr, storageEnabled]);
+
+  // Handle address changes (login/logout) once the wallet session has settled.
+  useLayoutEffect(() => {
+    if (!storageEnabled) return;
+    if (hydratedAddrRef.current === effectiveAddr) return;
+    hydratedAddrRef.current = effectiveAddr;
 
     // Migrate zero-address picks to real address on login
     if (effectiveAddr !== ZERO_ADDR) {
@@ -114,10 +130,11 @@ export function useBracket(walletAddress?: string | null) {
       localStorage.removeItem(storageKey(ZERO_ADDR));
     }
 
-    // Load picks for the new address
+    // Load picks for the new address before paint so the bracket UI
+    // doesn't flash an empty state between wallet hydration steps.
     const saved = loadPicks(effectiveAddr);
-    setPicks(saved ?? new Array(63).fill(null));
-  }, [effectiveAddr]);
+    setPicks(saved ?? createEmptyPicks());
+  }, [effectiveAddr, storageEnabled]);
 
   /**
    * Compute all game slots based on current picks.
@@ -209,7 +226,7 @@ export function useBracket(walletAddress?: string | null) {
 
   /** Reset all picks */
   const resetPicks = useCallback(() => {
-    const empty = new Array(63).fill(null) as (boolean | null)[];
+    const empty = createEmptyPicks();
     setPicks(empty);
     savePicks(effectiveAddr, empty);
   }, [effectiveAddr]);

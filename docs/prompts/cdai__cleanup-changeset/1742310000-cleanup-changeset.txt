@@ -1,0 +1,14 @@
+hey right now we have this changeset file in docs/ and it always causes merge conflicts. the repo in ~/code/viem has a nice CI workflow for this. basically you submit this specific changeset file and then github will insert it uniformly in the changeset file, so you dont actually modify changeset yourself. and then that file you add gets deleted after merge.
+
+how would we set up a similar system?
+
+related: we have this section in changeset saying "Unreleased" which i don't think we want. there's also inconsistent spacing between sections, from merge conflicts we resolved sloppily.
+
+let's:
+- remove "unreleased"
+- format the file consistently in terms of spacing
+- fix any funny inconsistencies you see in the file
+
+^ then push a PR with just that
+
+then i will merge it, and we will work on doing changesets the viem way
