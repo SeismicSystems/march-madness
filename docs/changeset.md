@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Refactor deadline fetching to read submission deadline from chain instead of using a hardcoded constant. DeadlineCountdown now shows a loading state until the on-chain value is available.
+
+
 Fix validation errors flashing after successful group create/join by resetting `attempted` state on success
 
 
