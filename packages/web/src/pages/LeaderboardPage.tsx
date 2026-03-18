@@ -11,7 +11,11 @@ import type { BracketForecast, PartialScore } from "@march-madness/client";
 import { useEntries } from "../hooks/useEntries";
 import { useForecasts } from "../hooks/useForecasts";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
-import { getAllTeamsInBracketOrder, truncateAddress } from "../lib/tournament";
+import {
+  displayName,
+  getAllTeamsInBracketOrder,
+  truncateAddress,
+} from "../lib/tournament";
 
 interface ScoredEntry {
   address: string;
@@ -22,7 +26,7 @@ interface ScoredEntry {
   forecast?: BracketForecast;
 }
 
-const teamNames = getAllTeamsInBracketOrder().map((t) => t.name);
+const teamNames = getAllTeamsInBracketOrder().map((t) => displayName(t));
 
 function getChampionName(hex: `0x${string}`): string {
   try {
