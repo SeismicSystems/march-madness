@@ -79,11 +79,7 @@ fn main() -> eyre::Result<()> {
         .iter()
         .filter(|g| g.status == GameState::Live)
         .count();
-    let resolver = GameModelResolver::new(
-        team_names.clone(),
-        team_map.clone(),
-        bracket_sim::DEFAULT_PACE_D,
-    );
+    let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
     let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
         info!(
             live_games = live_count,
@@ -114,33 +110,9 @@ fn main() -> eyre::Result<()> {
             cli.simulations,
             resolver_opt,
         );
-        let sims = results.num_sims as f64;
-
-        println!(
-            "\n{:<25} {:>4}  {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}",
-            "Team", "Seed", "R64", "R32", "S16", "E8", "F4", "Champ"
-        );
-        println!("{}", "-".repeat(82));
-
-        // Sort by championship probability
-        let mut indices: Vec<usize> = (0..64).collect();
-        indices.sort_by(|&a, &b| {
-            results.advance[b][5]
-                .partial_cmp(&results.advance[a][5])
-                .unwrap()
+        results.print_table(&team_names, |name| {
+            team_map.get(name).map(|t| t.seed).unwrap_or(0)
         });
-
-        for &idx in &indices {
-            let name = &team_names[idx];
-            let seed = team_map.get(name).map(|t| t.seed).unwrap_or(0);
-            let probs: Vec<f64> = (0..6)
-                .map(|r| results.advance[idx][r] as f64 / sims * 100.0)
-                .collect();
-            println!(
-                "{:<25} {:>4}  {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}%",
-                name, seed, probs[0], probs[1], probs[2], probs[3], probs[4], probs[5]
-            );
-        }
         return Ok(());
     }
 

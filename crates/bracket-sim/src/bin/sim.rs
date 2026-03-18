@@ -122,7 +122,7 @@ fn main() -> io::Result<()> {
             .iter()
             .filter(|g| g.status == GameState::Live)
             .count();
-        let resolver = GameModelResolver::new(team_names.clone(), team_map.clone(), args.pace_d);
+        let resolver = GameModelResolver::new(&team_names, &team_map, args.pace_d);
         let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
             info!(live_games = live_count, "using game model resolver");
             Some(&resolver)
@@ -148,19 +148,9 @@ fn main() -> io::Result<()> {
             args.n_sims as u32,
             resolver_opt,
         );
-        let sims = results.num_sims as f64;
-
-        let probs: Vec<[f64; 6]> = (0..64)
-            .map(|idx| {
-                let mut p = [0.0; 6];
-                for (r, val) in p.iter_mut().enumerate() {
-                    *val = results.advance[idx][r] as f64 / sims;
-                }
-                p
-            })
-            .collect();
-
-        print_table(&team_names, &team_map, &probs);
+        results.print_table(&team_names, |name| {
+            team_map.get(name).map(|t| t.seed).unwrap_or(0)
+        });
     } else {
         // Unconditioned mode: full Poisson tournament sim (original behavior)
         info!(
