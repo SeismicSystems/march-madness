@@ -1,0 +1,1 @@
+quick one: in the ncaa command, edit the fetch-bracket binary to insert an "abbrev" record for teams IF and only if their name is > 10 characters. you should also do this for the first four teams. the abbrev should be ncaa's <=6 char code they already returnin the api

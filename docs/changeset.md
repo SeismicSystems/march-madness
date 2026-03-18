@@ -4,6 +4,13 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Move team abbreviations to data/mappings.toml
+
+- **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.
+- **fetch-bracket**: Loads abbreviations from `mappings.toml`, writes `abbrev` field to `tournament.json` for teams whose name exceeds 9 characters. First Four combo names are never abbreviated (future iteration).
+- **Frontend**: Removed hardcoded `ESPN_ABBREVIATIONS` map and `getTeamAbbreviation()` — abbreviations now come entirely from `tournament.json`.
+- **Workspace**: Added `rustls-tls` feature to workspace `reqwest` (fixes HTTPS on machines where TLS wasn't unified from other crates). Made `toml` a workspace dependency.
+
 ### 2026-03-18 — Move tournament status from file to Redis (#44)
 
 - **Breaking**: `ncaa-feed` now writes tournament status to Redis (`mm:games` key) instead of `data/{year}/men/status.json`. Removed `--output-file` CLI arg; added `--redis-url` (env: `REDIS_URL`).

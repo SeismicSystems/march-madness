@@ -35,7 +35,8 @@
     {
       "name": "Northern Iowa",
       "seed": 12,
-      "region": "East"
+      "region": "East",
+      "abbrev": "UNI"
     },
     {
       "name": "Kansas",
@@ -45,7 +46,8 @@
     {
       "name": "Cal Baptist",
       "seed": 13,
-      "region": "East"
+      "region": "East",
+      "abbrev": "CBU"
     },
     {
       "name": "Louisville",
@@ -55,17 +57,20 @@
     {
       "name": "South Florida",
       "seed": 11,
-      "region": "East"
+      "region": "East",
+      "abbrev": "USF"
     },
     {
       "name": "Michigan St.",
       "seed": 3,
-      "region": "East"
+      "region": "East",
+      "abbrev": "Mich St"
     },
     {
       "name": "North Dakota St.",
       "seed": 14,
-      "region": "East"
+      "region": "East",
+      "abbrev": "NDSU"
     },
     {
       "name": "UCLA",
@@ -134,7 +139,8 @@
     {
       "name": "North Carolina",
       "seed": 6,
-      "region": "South"
+      "region": "South",
+      "abbrev": "UNC"
     },
     {
       "name": "VCU",
@@ -154,7 +160,8 @@
     {
       "name": "Saint Mary's",
       "seed": 7,
-      "region": "South"
+      "region": "South",
+      "abbrev": "St Mary's"
     },
     {
       "name": "Texas A&M",
@@ -179,7 +186,8 @@
     {
       "name": "Long Island",
       "seed": 16,
-      "region": "West"
+      "region": "West",
+      "abbrev": "LIU"
     },
     {
       "name": "Villanova",
@@ -199,7 +207,8 @@
     {
       "name": "High Point",
       "seed": 12,
-      "region": "West"
+      "region": "West",
+      "abbrev": "High Pt"
     },
     {
       "name": "Arkansas",
@@ -217,13 +226,9 @@
       "region": "West"
     },
     {
-      "name": "Texas/NC State",
+      "name": "Texas",
       "seed": 11,
-      "region": "West",
-      "firstFour": [
-        "Texas",
-        "NC State"
-      ]
+      "region": "West"
     },
     {
       "name": "Gonzaga",
@@ -233,12 +238,14 @@
     {
       "name": "Kennesaw St.",
       "seed": 14,
-      "region": "West"
+      "region": "West",
+      "abbrev": "Kennesaw"
     },
     {
       "name": "Miami (FL)",
       "seed": 7,
-      "region": "West"
+      "region": "West",
+      "abbrev": "Miami FL"
     },
     {
       "name": "Missouri",
@@ -253,7 +260,8 @@
     {
       "name": "Queens (N.C.)",
       "seed": 15,
-      "region": "West"
+      "region": "West",
+      "abbrev": "Queens NC"
     },
     {
       "name": "Michigan",
@@ -261,13 +269,9 @@
       "region": "Midwest"
     },
     {
-      "name": "UMBC/Howard",
+      "name": "Howard",
       "seed": 16,
-      "region": "Midwest",
-      "firstFour": [
-        "UMBC",
-        "Howard"
-      ]
+      "region": "Midwest"
     },
     {
       "name": "Georgia",
@@ -277,12 +281,14 @@
     {
       "name": "Saint Louis",
       "seed": 9,
-      "region": "Midwest"
+      "region": "Midwest",
+      "abbrev": "SLU"
     },
     {
       "name": "Texas Tech",
       "seed": 5,
-      "region": "Midwest"
+      "region": "Midwest",
+      "abbrev": "TT"
     },
     {
       "name": "Akron",
@@ -321,7 +327,8 @@
     {
       "name": "Wright St.",
       "seed": 14,
-      "region": "Midwest"
+      "region": "Midwest",
+      "abbrev": "Wright"
     },
     {
       "name": "Kentucky",
@@ -331,7 +338,8 @@
     {
       "name": "Santa Clara",
       "seed": 10,
-      "region": "Midwest"
+      "region": "Midwest",
+      "abbrev": "SCU"
     },
     {
       "name": "Iowa St.",
@@ -341,7 +349,8 @@
     {
       "name": "Tennessee St.",
       "seed": 15,
-      "region": "Midwest"
+      "region": "Midwest",
+      "abbrev": "Tenn St"
     }
   ]
 }

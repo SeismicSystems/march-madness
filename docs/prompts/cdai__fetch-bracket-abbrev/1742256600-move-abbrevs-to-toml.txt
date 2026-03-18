@@ -1,0 +1,9 @@
+Let's move espn abbreviations to the data/mappings.toml, section [abbreviations] and then load that file in fetch-bracket, use those values instead of ours, applying our len > 10 logic to all teams aside from first 4
+
+also if abbrev file isnt there give a warning... and make toml a workspace dep
+
+remove getTeamAbbreviation from frontend as well as the mapping bc wemoved that to toml. should just be team.abbrev ?? team.name
+
+oh i see frontend looked up abbrev if len was > 9,,,. change our fetch-bracket bin to match that logic
+
+update the pr description too to reflect new logic

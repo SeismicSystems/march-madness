@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use clap::Parser;
 use eyre::{Context, Result, bail, ensure};
 use ncaa_api::{BracketGame, Championship, NcaaClient};
-use serde::Serialize;
-use tracing::info;
+use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 /// Current year from system time.
 fn current_year() -> i32 {
@@ -84,10 +84,42 @@ struct TeamEntry {
     name: String,
     seed: u32,
     region: String,
+    /// Short display abbreviation. Only present when `name` exceeds 9 characters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    abbrev: Option<String>,
     /// Present when this slot is decided by a First Four game.
     /// Contains the two team names competing for the slot.
     #[serde(skip_serializing_if = "Option::is_none")]
     first_four: Option<[String; 2]>,
+}
+
+// ── Mappings ──────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct MappingsConfig {
+    #[serde(default)]
+    abbreviations: HashMap<String, String>,
+}
+
+fn load_abbreviations() -> HashMap<String, String> {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let toml_path = PathBuf::from(manifest_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|root| root.join("data").join("mappings.toml"))
+        .expect("could not resolve workspace root");
+
+    match std::fs::read_to_string(&toml_path) {
+        Ok(content) => {
+            let config: MappingsConfig = toml::from_str(&content)
+                .unwrap_or_else(|e| panic!("failed to parse {}: {e}", toml_path.display()));
+            config.abbreviations
+        }
+        Err(_) => {
+            warn!("data/mappings.toml not found, no abbreviations will be applied");
+            HashMap::new()
+        }
+    }
 }
 
 // ── Main ───────────────────────────────────────────────────────────
@@ -104,6 +136,12 @@ async fn main() -> Result<()> {
 
     let client = NcaaClient::new(args.requests_per_sec).wrap_err("failed to create NCAA client")?;
 
+    let abbreviations = load_abbreviations();
+    info!(
+        "loaded {} abbreviations from mappings.toml",
+        abbreviations.len()
+    );
+
     let sport = args.sport_url();
     info!(
         "fetching bracket for {sport} d{} {}",
@@ -113,7 +151,7 @@ async fn main() -> Result<()> {
         .await
         .wrap_err("failed to fetch bracket")?;
 
-    let tournament = build_tournament_data(&champ)?;
+    let tournament = build_tournament_data(&champ, &abbreviations)?;
 
     if args.dry_run {
         println!("{}", serde_json::to_string_pretty(&tournament)?);
@@ -133,7 +171,10 @@ async fn main() -> Result<()> {
 
 // ── Core logic ─────────────────────────────────────────────────────
 
-fn build_tournament_data(champ: &Championship) -> Result<TournamentJson> {
+fn build_tournament_data(
+    champ: &Championship,
+    abbreviations: &HashMap<String, String>,
+) -> Result<TournamentJson> {
     // 1. Determine region order from F4 pairings.
     let region_order = champ
         .bracket_region_order()
@@ -177,19 +218,22 @@ fn build_tournament_data(champ: &Championship) -> Result<TournamentJson> {
         );
 
         for game in &r64_games {
-            let (top_team, bottom_team) = extract_game_teams(game, &first_four_by_target)?;
+            let (top_team, bottom_team) =
+                extract_game_teams(game, &first_four_by_target, abbreviations)?;
 
             // Top team (higher seed) goes first in bracket order.
             teams.push(TeamEntry {
                 name: top_team.name,
                 seed: top_team.seed,
                 region: region_name.to_string(),
+                abbrev: top_team.abbrev,
                 first_four: top_team.first_four,
             });
             teams.push(TeamEntry {
                 name: bottom_team.name,
                 seed: bottom_team.seed,
                 region: region_name.to_string(),
+                abbrev: bottom_team.abbrev,
                 first_four: bottom_team.first_four,
             });
         }
@@ -207,13 +251,25 @@ struct ResolvedTeam {
     /// Display name (single team name, or "A/B" for First Four).
     name: String,
     seed: u32,
+    /// Short display abbreviation (if name > 10 chars and a mapping exists).
+    abbrev: Option<String>,
     /// If this is a First Four slot, the two team names.
     first_four: Option<[String; 2]>,
+}
+
+/// Look up an abbreviation from mappings.toml, only if the name exceeds 9 characters.
+fn abbrev_for(name: &str, abbreviations: &HashMap<String, String>) -> Option<String> {
+    if name.len() > 9 {
+        abbreviations.get(name).cloned()
+    } else {
+        None
+    }
 }
 
 fn extract_game_teams(
     game: &BracketGame,
     first_four_map: &HashMap<u32, &BracketGame>,
+    abbreviations: &HashMap<String, String>,
 ) -> Result<(ResolvedTeam, ResolvedTeam)> {
     let bid = game.bracket_position_id;
 
@@ -232,11 +288,13 @@ fn extract_game_teams(
                 ResolvedTeam {
                     name: top.name_short.clone(),
                     seed: top.seed.unwrap(),
+                    abbrev: abbrev_for(&top.name_short, abbreviations),
                     first_four: None,
                 },
                 ResolvedTeam {
                     name: bot.name_short.clone(),
                     seed: bot.seed.unwrap(),
+                    abbrev: abbrev_for(&bot.name_short, abbreviations),
                     first_four: None,
                 },
             ))
@@ -258,10 +316,12 @@ fn extract_game_teams(
 
             let ff_seed = ff_teams[0].seed.unwrap();
             let ff_name = format!("{}/{}", ff_teams[0].name_short, ff_teams[1].name_short);
+            // TODO: abbreviate First Four combo names in a future iteration.
 
             let ff_resolved = ResolvedTeam {
                 name: ff_name,
                 seed: ff_seed,
+                abbrev: None,
                 first_four: Some([
                     ff_teams[0].name_short.clone(),
                     ff_teams[1].name_short.clone(),
@@ -271,6 +331,7 @@ fn extract_game_teams(
             let known_resolved = ResolvedTeam {
                 name: known.name_short.clone(),
                 seed: known.seed.unwrap(),
+                abbrev: abbrev_for(&known.name_short, abbreviations),
                 first_four: None,
             };
 
