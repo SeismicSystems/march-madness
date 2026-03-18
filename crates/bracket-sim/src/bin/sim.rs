@@ -35,10 +35,11 @@ struct SimArgs {
     #[arg(long, default_value_t = DEFAULT_PACE_D)]
     pace_d: f64,
 
-    /// Path to tournament status JSON. When provided, conditions the simulation
-    /// on decided and live game states instead of simulating from scratch.
-    #[arg(long)]
-    status_file: Option<PathBuf>,
+    /// Condition on live/decided game state from a status JSON file.
+    /// Pass --status alone to use the default (data/{year}/men/status.json),
+    /// or --status <path> for a custom file. Omit to simulate from scratch.
+    #[arg(long = "status", num_args = 0..=1, default_missing_value = "")]
+    status: Option<String>,
 }
 
 fn print_table(
@@ -98,7 +99,15 @@ fn main() -> io::Result<()> {
     let tournament_data = TournamentData::embedded(args.year);
     let team_names = get_teams_in_bracket_order(&tournament_data);
 
-    if let Some(status_path) = &args.status_file {
+    let status_path = args.status.as_ref().map(|s| {
+        if s.is_empty() {
+            PathBuf::from(format!("data/{}/men/status.json", args.year))
+        } else {
+            PathBuf::from(s)
+        }
+    });
+
+    if let Some(status_path) = &status_path {
         // Conditioned mode: use forward sim with status file
         let status_str = std::fs::read_to_string(status_path)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", status_path.display(), e)))?;

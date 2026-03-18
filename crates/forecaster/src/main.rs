@@ -25,8 +25,9 @@ struct Cli {
     entries_file: PathBuf,
 
     /// Path to the tournament status JSON file.
-    #[arg(long, default_value = "data/2026/men/status.json")]
-    status_file: PathBuf,
+    /// Defaults to data/{year}/men/status.json.
+    #[arg(long = "status")]
+    status_file: Option<PathBuf>,
 
     /// Path to the tournament data JSON (team names in bracket order).
     /// If not specified, uses the embedded 2026 tournament data.
@@ -55,8 +56,10 @@ fn main() -> eyre::Result<()> {
 
     let cli = Cli::parse();
 
-    let status: TournamentStatus =
-        serde_json::from_str(&std::fs::read_to_string(&cli.status_file)?)?;
+    let status_path = cli
+        .status_file
+        .unwrap_or_else(|| PathBuf::from(format!("data/{}/men/status.json", cli.year)));
+    let status: TournamentStatus = serde_json::from_str(&std::fs::read_to_string(&status_path)?)?;
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
         None => TournamentData::embedded(cli.year),
