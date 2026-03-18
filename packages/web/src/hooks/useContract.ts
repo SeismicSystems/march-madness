@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNow } from "./useNow";
 import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
 import { debugLog, useDebugValueChanges } from "./useDebugValueChanges";
-import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
+import { CONTRACT_ADDRESS } from "../lib/constants";
 import { normalizeAddress } from "../lib/privyWallets";
 
 const contractQueryKeys = {
@@ -140,7 +140,7 @@ export function useContract() {
   const chainId = publicClient?.chain?.id ?? null;
   const now = useNow();
 
-  const { data: submissionDeadline = SUBMISSION_DEADLINE } = useQuery({
+  const { data: submissionDeadline = null } = useQuery({
     queryKey: contractQueryKeys.submissionDeadline(chainId),
     enabled: !!mmPublic,
     queryFn: async () => Number(await mmPublic!.getSubmissionDeadline()),
@@ -185,7 +185,8 @@ export function useContract() {
     !authenticated || (walletKey !== null && hasEntryQuery.isFetched);
   const hasResolvedBalance =
     !authenticated || (walletKey !== null && balanceQuery.isFetched);
-  const isBeforeDeadline = now / 1000 < submissionDeadline;
+  const isBeforeDeadline =
+    submissionDeadline !== null && now / 1000 < submissionDeadline;
   const fetchEntryCount = useCallback(async () => {
     await refetchEntryCount();
   }, [refetchEntryCount]);

@@ -4,8 +4,6 @@ import deployments from "@data/deployments.json";
 
 // ── Tournament season ────────────────────────────────────
 const YEAR = "2026";
-/** Unix timestamp for bracket lock: Thursday March 19, 2026 at 12:15 PM EST */
-export const SUBMISSION_DEADLINE = 1773940500;
 
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? String(sanvil.id);
 
