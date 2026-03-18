@@ -23,3 +23,25 @@
 "Mississippi State" = "Mississippi St."
 "North Carolina St." = "NC State"
 "Queens University" = "Queens (N.C.)"
+
+# Short display names for teams whose NCAA name exceeds 9 characters.
+# Used by fetch-bracket to populate the "abbrev" field in tournament.json.
+# Key = NCAA nameShort (canonical name), Value = abbreviated display name.
+[abbreviations]
+"Cal Baptist" = "CBU"
+"High Point" = "High Pt."
+"Kennesaw St." = "Kennesaw"
+"Long Island" = "LIU"
+"Michigan St." = "Mich. St."
+"Miami (FL)" = "Miami FL"
+"North Carolina" = "UNC"
+"North Dakota St." = "NDSU"
+"Northern Iowa" = "UNI"
+"Queens (N.C.)" = "Queens"
+"Saint Louis" = "SLU"
+"Saint Mary's" = "St. Mary's"
+"Santa Clara" = "S. Clara"
+"South Florida" = "USF"
+"Tennessee St." = "Tenn. St."
+"Texas Tech" = "Tex. Tech"
+"Wright St." = "Wright"

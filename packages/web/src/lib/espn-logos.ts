@@ -75,47 +75,6 @@ const ESPN_TEAM_IDS: Record<string, number> = {
   Howard: 47,
 };
 
-/**
- * ESPN shortDisplayName abbreviations for teams whose tournament.json
- * name exceeds 10 characters. Only long names get abbreviated — short
- * names are already readable at bracket scale.
- */
-const ESPN_ABBREVIATIONS: Record<string, string> = {
-  "Cal Baptist": "CBU",
-  "Kennesaw St.": "Kennesaw",
-  "Long Island": "LIU",
-  "Michigan St.": "Mich. St.",
-  "North Carolina": "UNC",
-  "North Dakota St.": "NDSU",
-  "Northern Iowa": "UNI",
-  "Queens (N.C.)": "Queens",
-  "Saint Louis": "SLU",
-  "Saint Mary's": "St. Mary's",
-  "Santa Clara": "S. Clara",
-  "South Florida": "USF",
-  "Tennessee St.": "Tenn. St.",
-  "Texas Tech": "Tex. Tech",
-  "Miami (FL)": "Miami FL",
-  "High Point": "High Pt.",
-  "Wright St.": "Wright",
-  "Tenn. St.": "Tenn",
-
-  // First Four combo names
-  "Miami (Ohio)/SMU": "M-OH/SMU",
-  "Prairie View A&M/Lehigh": "PVAMU/LEH",
-  "Texas/NC State": "TEX/NCST",
-  "UMBC/Howard": "UMBC/HOW",
-};
-
-/**
- * Returns an ESPN shortDisplayName abbreviation for teams with names
- * longer than 10 characters. Returns null for short names (already readable).
- */
-export function getTeamAbbreviation(teamName: string): string | null {
-  if (teamName.length <= 9) return null;
-  return ESPN_ABBREVIATIONS[teamName] ?? null;
-}
-
 export function getTeamLogoUrl(teamName: string): string | null {
   const id = ESPN_TEAM_IDS[teamName];
   if (id === undefined) return null;

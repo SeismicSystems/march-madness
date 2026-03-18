@@ -4,11 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
-### 2026-03-18 — Add NCAA abbreviations to fetch-bracket output
+### 2026-03-18 — Move team abbreviations to data/mappings.toml
 
-- **ncaa-api**: Added `name_6char` field (NCAA's `name6Char`) to `BracketTeam`.
-- **fetch-bracket**: Writes `abbrev` field to `tournament.json` for teams whose name exceeds 10 characters, using the NCAA's <=6 character code. First Four slots get a combined abbreviation (e.g. `"TEX/ALA"`).
-- Frontend already consumes `abbrev` from `tournament.json` — this replaces the hardcoded `ESPN_ABBREVIATIONS` fallback map for teams the NCAA API covers.
+- **data/mappings.toml**: Added `[abbreviations]` section with short display names for long team names.
+- **fetch-bracket**: Loads abbreviations from `mappings.toml`, writes `abbrev` field to `tournament.json` for teams whose name exceeds 9 characters. First Four combo names are never abbreviated (future iteration).
+- **Frontend**: Removed hardcoded `ESPN_ABBREVIATIONS` map and `getTeamAbbreviation()` — abbreviations now come entirely from `tournament.json`.
+- **Workspace**: Added `rustls-tls` feature to workspace `reqwest` (fixes HTTPS on machines where TLS wasn't unified from other crates). Made `toml` a workspace dependency.
 
 ### 2026-03-18 — Move tournament status from file to Redis (#44)
 
