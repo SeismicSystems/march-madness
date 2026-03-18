@@ -4,6 +4,10 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Add export-tournament CLI binary
+
+- **Rust**: Added `export-tournament` binary to `seismic-march-madness` crate behind an optional `cli` feature. Writes embedded `tournament.json` to a user-specified path. Usage: `cargo run -p seismic-march-madness --features cli --bin export-tournament -- -o ./tournament.json`
+
 ### 2026-03-18 — Add Connect Wallet button to home page (#178)
 
 - **Frontend**: Added a prominent "Connect Wallet" button on the home/bracket page, visible when the user is not connected. Uses the same Privy `login()` as the nav bar. Especially helpful on mobile where the hamburger menu isn't discoverable.

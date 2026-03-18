@@ -10,3 +10,12 @@ serde_json.workspace = true
 eyre.workspace = true
 csv = "1.2"
 rand = "0.9"
+clap = { version = "4", features = ["derive"], optional = true }
+
+[[bin]]
+name = "export-tournament"
+path = "src/bin/export_tournament.rs"
+required-features = ["cli"]
+
+[features]
+cli = ["clap"]

@@ -1,0 +1,1 @@
+add a subcommand in rust that allows the user to write a local copy of the "tournaments.json" file that we have included with include_str! they should be forced to specify a location locally on where to write it.
