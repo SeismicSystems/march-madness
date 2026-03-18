@@ -18,6 +18,8 @@ redis.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 dotenvy.workspace = true
+rand = "0.9"
+chrono.workspace = true
 
 # Alloy
 alloy-provider.workspace = true

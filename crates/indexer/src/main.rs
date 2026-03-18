@@ -128,6 +128,17 @@ enum Command {
         #[arg(long)]
         all_groups: bool,
     },
+
+    /// Seed Redis with fake bracket data for local development
+    Seed {
+        /// Number of fake entries to generate
+        #[arg(long, default_value = "50")]
+        entries: usize,
+
+        /// Clear existing data before seeding
+        #[arg(long)]
+        clean: bool,
+    },
 }
 
 fn rpc_url(command: &Command) -> Option<&str> {
@@ -136,7 +147,7 @@ fn rpc_url(command: &Command) -> Option<&str> {
         | Command::Backfill { rpc_url, .. }
         | Command::Reveal { rpc_url }
         | Command::SanityCheck { rpc_url } => Some(rpc_url),
-        Command::CheckRedis { .. } => None,
+        Command::CheckRedis { .. } | Command::Seed { .. } => None,
     }
 }
 
@@ -192,19 +203,24 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut redis_conn = redis_store::connect().await?;
 
-    // check-redis is Redis-only — no provider or contract addresses needed.
-    if let Command::CheckRedis {
-        group, all_groups, ..
-    } = cli.command
-    {
-        let mode = if let Some(slug) = group {
-            commands::check_redis::CheckMode::Group(slug)
-        } else if all_groups {
-            commands::check_redis::CheckMode::AllGroups
-        } else {
-            commands::check_redis::CheckMode::Total
-        };
-        return commands::check_redis::run(&mut redis_conn, mode).await;
+    // Redis-only commands — no provider or contract addresses needed.
+    match &cli.command {
+        Command::CheckRedis {
+            group, all_groups, ..
+        } => {
+            let mode = if let Some(slug) = group {
+                commands::check_redis::CheckMode::Group(slug.clone())
+            } else if *all_groups {
+                commands::check_redis::CheckMode::AllGroups
+            } else {
+                commands::check_redis::CheckMode::Total
+            };
+            return commands::check_redis::run(&mut redis_conn, mode).await;
+        }
+        Command::Seed { entries, clean } => {
+            return commands::seed::run(&mut redis_conn, *entries, *clean).await;
+        }
+        _ => {}
     }
 
     let rpc = rpc_url(&cli.command).expect("rpc_url required for this command");
@@ -229,7 +245,7 @@ async fn main() -> Result<()> {
             let mm = format!("{:#x}", addrs.march_madness);
             commands::check::run(&provider, &mut redis_conn, &mm).await?;
         }
-        Command::CheckRedis { .. } => unreachable!(),
+        Command::CheckRedis { .. } | Command::Seed { .. } => unreachable!(),
     }
 
     Ok(())

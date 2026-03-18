@@ -4,6 +4,12 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Add indexer seed command + group leaderboard
+
+- **indexer**: New `seed` subcommand writes fake entries, tournament status, and groups to Redis for local dev. Supports `--entries N` and `--clean` flags.
+- **web**: `/groups/:slug/leaderboard` route shows leaderboard filtered to group members. Reuses existing `LeaderboardPage` with group filtering via `useGroupMembers` hook.
+- **web**: Added "Leaderboard" links to joined group cards and public group cards.
+
 ### 2026-03-18 — Change default Kalshi calibrator edge threshold to $1000
 
 - **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.

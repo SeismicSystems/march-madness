@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { formatEther } from "viem";
 import type { PublicGroup } from "../hooks/usePublicGroups";
 import type { UseGroupsReturn } from "../hooks/useGroups";
@@ -69,11 +70,15 @@ function PublicGroupCard({
           <span className="font-medium text-text-primary">
             {group.display_name}
           </span>
-          <span className="ml-2 text-xs text-text-tertiary">
-            /{group.slug}
-          </span>
+          <span className="ml-2 text-xs text-text-tertiary">/{group.slug}</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
+          <Link
+            to={`/groups/${group.slug}/leaderboard`}
+            className="text-xs text-accent hover:text-accent-hover transition-colors"
+          >
+            Leaderboard
+          </Link>
           <span className="text-xs text-text-secondary">
             {group.member_count} member
             {group.member_count !== 1 ? "s" : ""}
@@ -143,9 +148,7 @@ function PublicGroupCard({
               Cancel
             </button>
           </div>
-          {joinError && (
-            <p className="text-xs text-red-400">{joinError}</p>
-          )}
+          {joinError && <p className="text-xs text-red-400">{joinError}</p>}
         </div>
       )}
     </div>

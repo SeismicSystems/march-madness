@@ -25,6 +25,7 @@ On regular blockchains, bracket picks would be visible to everyone — giving la
 ### Scoring
 
 Scoring follows jimpo's ByteBracket algorithm:
+
 - **Round of 64**: 1 point per correct pick (32 games)
 - **Round of 32**: 2 points per correct pick (16 games)
 - **Sweet 16**: 4 points per correct pick (8 games)
@@ -50,26 +51,27 @@ Two separate contracts for side pools alongside the main contest:
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Smart Contracts | Seismic Solidity (ssolc) + sforge |
-| Client Library | TypeScript + seismic-viem |
-| Frontend | React + Vite + Tailwind + seismic-react |
-| Auth | Privy (social login → embedded wallet) |
-| Indexer | Rust (event listener + backfill) |
-| Server | Rust (HTTP, serves indexed data + tournament status + forecasts) |
-| Forecaster | Rust (Monte Carlo bracket win probability simulator) |
-| Calibrator | Rust (goose fitting via market-making loss against Kalshi orderbooks) |
-| NCAA Feed | Rust (live score polling → Redis) |
+| Layer           | Technology                                                            |
+| --------------- | --------------------------------------------------------------------- |
+| Smart Contracts | Seismic Solidity (ssolc) + sforge                                     |
+| Client Library  | TypeScript + seismic-viem                                             |
+| Frontend        | React + Vite + Tailwind + seismic-react                               |
+| Auth            | Privy (social login → embedded wallet)                                |
+| Indexer         | Rust (event listener + backfill)                                      |
+| Server          | Rust (HTTP, serves indexed data + tournament status + forecasts)      |
+| Forecaster      | Rust (Monte Carlo bracket win probability simulator)                  |
+| Calibrator      | Rust (goose fitting via market-making loss against Kalshi orderbooks) |
+| NCAA Feed       | Rust (live score polling → Redis)                                     |
 
 ## Pages
 
-| Route | Description |
-|-------|-------------|
-| `/` | Bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline) |
-| `/leaderboard` | All entries ranked by score with current/max points, champion pick |
-| `/groups` | Create and join bracket groups (public or private with passphrase) |
-| `/bracket/:address` | Read-only bracket view for any player with tournament status overlay |
+| Route                       | Description                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `/`                         | Bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline) |
+| `/leaderboard`              | All entries ranked by score with current/max points, champion pick                   |
+| `/groups/:slug/leaderboard` | Group-scoped leaderboard showing only that group's members                           |
+| `/groups`                   | Create and join bracket groups (public or private with passphrase)                   |
+| `/bracket/:address`         | Read-only bracket view for any player with tournament status overlay                 |
 
 ## Mirrors & Groups
 

@@ -1,0 +1,76 @@
+Implement the following plan:
+
+# Plan: Populate Leaderboard with Local Data + Group Leaderboard
+
+## Context
+
+The leaderboard at `/leaderboard` scores brackets client-side via `scoreBracketPartial`, but needs data in Redis (entries + tournament status) served by the Rust backend. The frontend never touches Redis — it only talks to the Rust HTTP server. We need a way to seed Redis with fake data for local dev, and extend the leaderboard to work scoped to a group.
+
+## Two Workstreams
+
+### A. Rust `seed` command (fake data → Redis → Server → Frontend)
+
+### B. Group Leaderboard (frontend filtering via server API)
+
+---
+
+## Workstream A: Add `seed` Subcommand to Indexer
+
+### Step 1: Add `Seed` variant to indexer CLI
+
+**File: `crates/indexer/src/main.rs`**
+
+Add a new `Seed` subcommand to the `Command` enum (no RPC needed, Redis-only like `CheckRedis`):
+
+```rust
+/// Seed Redis with fake bracket data for local development
+Seed {
+    /// Number of fake entries to generate
+    #[arg(long, default_value = "50")]
+    entries: usize,
+
+    /// Clear existing data before seeding
+    #[arg(long)]
+    clean: bool,
+},
+```
+
+### Step 2: Create `crates/indexer/src/commands/seed.rs`
+
+New module that writes fake data to Redis using the existing `redis_store` functions.
+
+**What it generates:**
+
+1. **Entries (`mm:entries`)** — N fake entries (default 50)
+   - Random addresses: `0x0000...0001` through `0x0000...00{N}`
+   - Brackets: random 63-bit values with sentinel bit set (`(random_u64() & 0x7FFF_FFFF_FFFF_FFFF) | 0x8000_0000_0000_0000`)
+   - Tags: mix of fun names ("Duke4Lyfe", "BracketBuster", etc.) + some untagged
+   - Uses existing `redis_store::upsert_bracket_submitted()`, `redis_store::update_tag()`, `redis_store::set_bracket()`
+
+2. **Tournament status (`mm:games`)** — mid-tournament scenario
+   - 63 games: first ~24 `"final"` (random winners), 2-3 `"live"`, rest `"upcoming"`
+   - Written directly as JSON string to `mm:games` key
+   - Format matches `TournamentStatus` from `crates/seismic-march-madness/src/types.rs`
+   - This is what makes `scoreBracketPartial` produce non-zero, differentiated scores
+
+3. **Groups** — 3 fake groups using existing `redis_store::create_group()` + `redis_store::member_joined()`
+   - "office-pool" (10 members), "crypto-degens" (15 members), "family" (5 members)
+   - Members drawn from the entry addresses (so they have brackets to score)
+
+### Step 3: Register module + wire up main.rs
+
+### Step 4: Run flow
+
+```bash
+redis-server                                    # terminal 1
+cargo run -p march-madness-indexer -- seed      # one-shot, populates Redis
+cargo run -p march-madness-server               # serves from Redis on :3000
+cd packages/web && bun dev                      # frontend on :5173
+```
+
+## Workstream B: Group Leaderboard
+
+### Step 5: Add route `/groups/:slug/leaderboard`
+### Step 6: Add `useGroupMembers` hook
+### Step 7: Modify `LeaderboardPage` to support group filtering
+### Step 8: Add navigation links from group cards

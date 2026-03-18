@@ -17,12 +17,14 @@
 ## Tech Stack
 
 ### Contracts
+
 - **Language**: Seismic Solidity (ssolc) — the only shielded type we use is `sbytes8` for bracket storage. All other data is unshielded (use normal Solidity types).
 - **Framework**: sforge (seismic foundry fork) for build, test, deploy
 - **Local node**: sanvil (seismic anvil fork)
 - **Key pattern**: `sbytes8` values are shielded on-chain; nodes won't reveal underlying values unless contract explicitly exposes them
 
 ### TypeScript / Frontend
+
 - **Runtime**: Bun
 - **Blockchain client**: seismic-viem (peer dep: viem)
 - **React hooks**: seismic-react (peer deps: wagmi, @tanstack/react-query)
@@ -31,6 +33,7 @@
 - **UI**: React + Tailwind CSS
 
 ### Rust (Crates)
+
 - **indexer**: Listens for on-chain events (MarchMadness, BracketGroups, BracketMirror), writes to Redis
 - **server**: Serves indexed data from Redis + file-based tournament status/forecasts via HTTP
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
@@ -76,6 +79,7 @@ docs/               — Technical docs, changeset, prompts
 The `seismic-march-madness` crate embeds tournament data at compile time via `include_str!` for all available years (currently 2025 and 2026 men's). This is primarily for **external consumers** who import the crate without access to the repo's data files. Internal crates like `bracket-sim` continue reading from the filesystem. `forecaster` and `ncaa-feed` use embedded data as a convenience (they already depend on the crate). CLI flags (`--tournament-file`, `--input`, etc.) still work as overrides.
 
 Key accessors (year-parameterized, no defaults):
+
 - `TournamentData::embedded(year)` — parse embedded tournament JSON for the given year
 - `KenpomRatings::embedded(year)` — parse embedded KenPom CSV for the given year
 - `tournament_json(year)` / `kenpom_csv(year)` — raw `Option<&'static str>` accessors
@@ -85,6 +89,7 @@ Key accessors (year-parameterized, no defaults):
 Constructor: `MarchMadness(uint16 year, uint256 entryFee, uint256 submissionDeadline)`
 
 Key functions:
+
 - `submitBracket(sbytes8 bracket)` — submit shielded bracket, 1 ETH buy-in
 - `updateBracket(sbytes8 bracket)` — update bracket before deadline
 - `setTag(string tag)` — set/update optional display name (separate from bracket submission)
@@ -97,6 +102,7 @@ Key functions:
 - `getEntryCount()` → `uint32` — number of entries (capped at uint32 max with overflow check)
 
 Events:
+
 - `BracketSubmitted(address indexed account)` — emitted on submit AND update
 
 ## BracketMirror Contract (BracketMirror.sol)
@@ -153,6 +159,7 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 ## Server API
 
 Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and tournament status from Redis; forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
+
 - `GET /entries` — full entry index (from Redis)
 - `GET /entries/:address` — single entry by address
 - `GET /stats` — total entries + scored count
@@ -177,6 +184,7 @@ See `docs/api.md` for full API documentation including schema, game index layout
 
 - `/` — Home: bracket picker (pre-deadline) or own bracket with tournament overlay (post-deadline)
 - `/leaderboard` — All entries ranked by `scoreBracketPartial` (current score, max possible)
+- `/groups/:slug/leaderboard` — Group-scoped leaderboard (reuses `LeaderboardPage` with member filtering via `useGroupMembers` hook)
 - `/groups` — Groups hub: mobile uses tab layout (Your Groups, Public Groups, Join Group, Create Group); desktop uses 2-column layout with Create/Join forms on left, Your Groups + link to public groups on right
 - `/groups/public` — Browse public groups (dedicated page, linked from desktop hub)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
@@ -206,6 +214,7 @@ Single `.env` file at repo root — see `.env.example` for all variables. Never 
 Spawns a sanvil node (if not already running), deploys the MarchMadness contract via sforge, populates it with data for the requested phase, then starts the Vite dev server with the contract address injected automatically. Use `--no-vite` to skip starting Vite (e.g. for CI or scripting).
 
 Three phases:
+
 - **`pre-submission`** (default) — deploys contract with future deadline (1 hour). No brackets submitted. Use for testing bracket picker UI and submission flow.
 - **`post-submission`** — deploys, submits brackets from anvil test accounts, fast-forwards past deadline, posts results, scores first 3 brackets. Use for testing bracket viewing, scoring UI, off-chain preview. Remaining brackets are left unscored for manual testing.
 - **`post-grading`** — full lifecycle: deploy, submit, score all, fast-forward past scoring window. Use for testing payout collection and final leaderboard.
@@ -218,6 +227,18 @@ bun p:grading                 # post-grading: full lifecycle including payouts
 
 Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadline), `RPC_URL`.
 
+### Seed Command (`cargo run -p march-madness-indexer -- seed`)
+
+Writes fake data directly to Redis for local frontend development. No chain or RPC needed — Redis only. Generates random entries (with brackets and tags), a mid-tournament status (24 final + 3 live games), and 3 sample groups with members.
+
+```bash
+cargo run -p march-madness-indexer -- seed              # 50 entries (default)
+cargo run -p march-madness-indexer -- seed --entries 100 # custom count
+cargo run -p march-madness-indexer -- seed --clean       # wipe mm:* keys first
+```
+
+After seeding, start the server (`cargo run -p march-madness-server`) and frontend (`cd packages/web && bun dev`) to see the leaderboard populated.
+
 ### Integration Tests (`packages/localdev/test/integration.test.ts`)
 
 Runs against an already-running sanvil node (started externally, e.g. by CI or the populate script). Deploys via sforge, then tests the full contract lifecycle.
@@ -229,18 +250,22 @@ bun run --filter @march-madness/localdev test
 Tests cover the full contract lifecycle (submit, update, deadline enforcement, scoring, payouts) using the client library against a live sanvil node.
 
 ## Key Dates
+
 - **Bracket lock**: Thursday March 19, 2026 at 12:15 PM EST (1773940500 unix)
 - **No-contest deadline**: 28 days after results posted
 - **Entry fee**: 0.1 ETH (testnet)
 
 ## Error Handling
+
 - **Use rich error types** — don't swallow errors to `String`. Use `#[from]` with `thiserror` to preserve original error types (e.g. `reqwest::Error`, `serde_json::Error`). Structured error variants (e.g. `HttpStatus { status, url }`) are better than `Http(String)`.
 - **Propagate errors** — prefer `?` and `Result` over `unwrap_or_default()` when missing data indicates a real problem. If the NCAA API returns empty data, that's an error worth surfacing.
 
 ## Seismic RPC Quirks
+
 - **Block timestamps**: Seismic RPC returns **millisecond** timestamps (e.g. via `eth_getBlockByNumber`), but Solidity's `block.timestamp` is still in **seconds**. If you read block timestamps from JS via the RPC, divide by 1000.
 
 ## Reference
+
 - Original contract logic: [jimpo/march-madness-dapp](https://github.com/jimpo/march-madness-dapp) — treat his logic as source of truth
 - ByteBracket algorithm: by [pursuingpareto](https://gist.github.com/pursuingpareto/b15f1197d96b1a2bbc48)
 - Seismic docs: https://docs.seismic.systems

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import {
   decodeBracket,
@@ -10,6 +10,7 @@ import type { BracketForecast, PartialScore } from "@march-madness/client";
 
 import { useEntries } from "../hooks/useEntries";
 import { useForecasts } from "../hooks/useForecasts";
+import { useGroupMembers } from "../hooks/useGroupMembers";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 import {
   displayName,
@@ -37,9 +38,15 @@ function getChampionName(hex: `0x${string}`): string {
 }
 
 export function LeaderboardPage() {
+  const { slug } = useParams<{ slug?: string }>();
   const { entries, loading: entriesLoading } = useEntries();
   const { status, loading: statusLoading } = useTournamentStatus();
   const { forecasts } = useForecasts();
+  const {
+    members: groupMembers,
+    groupName,
+    loading: groupLoading,
+  } = useGroupMembers(slug);
 
   const hasForecasts = forecasts !== null && Object.keys(forecasts).length > 0;
 
@@ -48,10 +55,13 @@ export function LeaderboardPage() {
 
     const scored: ScoredEntry[] = [];
     for (const [address, entry] of Object.entries(entries)) {
+      // Filter by group membership when viewing a group leaderboard.
+      if (groupMembers && !groupMembers.has(address.toLowerCase())) continue;
       if (!entry.bracket || !validateBracket(entry.bracket)) continue;
       const bracketHex = entry.bracket as `0x${string}`;
       const score = scoreBracketPartial(bracketHex, status);
-      const forecast = forecasts?.[address] ?? forecasts?.[address.toLowerCase()];
+      const forecast =
+        forecasts?.[address] ?? forecasts?.[address.toLowerCase()];
       scored.push({
         address,
         tag: entry.name,
@@ -63,14 +73,15 @@ export function LeaderboardPage() {
     }
 
     scored.sort((a, b) => {
-      if (b.score.current !== a.score.current) return b.score.current - a.score.current;
+      if (b.score.current !== a.score.current)
+        return b.score.current - a.score.current;
       return b.score.maxPossible - a.score.maxPossible;
     });
 
     return scored;
-  }, [entries, status, forecasts]);
+  }, [entries, status, forecasts, groupMembers]);
 
-  const loading = entriesLoading || statusLoading;
+  const loading = entriesLoading || statusLoading || groupLoading;
 
   if (loading) {
     return (
@@ -90,9 +101,7 @@ export function LeaderboardPage() {
 
   if (leaderboard.length === 0) {
     return (
-      <div className="text-center py-12 text-text-muted">
-        No entries found.
-      </div>
+      <div className="text-center py-12 text-text-muted">No entries found.</div>
     );
   }
 
@@ -102,7 +111,19 @@ export function LeaderboardPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-text-primary">Leaderboard</h2>
+        <div className="flex items-center gap-2">
+          {slug && (
+            <Link
+              to="/leaderboard"
+              className="text-xs text-accent hover:text-accent-hover transition-colors"
+            >
+              All
+            </Link>
+          )}
+          <h2 className="text-lg font-bold text-text-primary">
+            {slug ? `${groupName ?? slug} Leaderboard` : "Leaderboard"}
+          </h2>
+        </div>
         <div className="flex gap-3 text-xs text-text-muted">
           <span>{decidedCount}/63 games decided</span>
           {liveCount > 0 && (
@@ -121,8 +142,12 @@ export function LeaderboardPage() {
               <th className="py-2 px-2 text-right hidden sm:table-cell">Max</th>
               {hasForecasts && (
                 <>
-                  <th className="py-2 px-2 text-right hidden sm:table-cell">E[Score]</th>
-                  <th className="py-2 px-2 text-right hidden md:table-cell">P(Win)</th>
+                  <th className="py-2 px-2 text-right hidden sm:table-cell">
+                    E[Score]
+                  </th>
+                  <th className="py-2 px-2 text-right hidden md:table-cell">
+                    P(Win)
+                  </th>
                 </>
               )}
               <th className="py-2 px-2 hidden lg:table-cell">Champion</th>
@@ -174,8 +199,12 @@ function LeaderboardRow({
         </div>
       </td>
       <td className="py-2.5 px-2 text-right">
-        <span className="text-text-primary font-bold">{entry.score.current}</span>
-        <span className="text-text-muted sm:hidden">/{entry.score.maxPossible}</span>
+        <span className="text-text-primary font-bold">
+          {entry.score.current}
+        </span>
+        <span className="text-text-muted sm:hidden">
+          /{entry.score.maxPossible}
+        </span>
       </td>
       <td className="py-2.5 px-2 text-right text-text-muted hidden sm:table-cell">
         {entry.score.maxPossible}
