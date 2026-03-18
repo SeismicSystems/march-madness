@@ -1,0 +1,9 @@
+hey right now in the frontend, when i join a group, either from the public groups page OR the "join group" feature:
+
+it doesn't update "YOUR GROUPS" page, nor does it change the button on Public Groups to say "Joined" instead of "Join"
+
+i think we probably have enough info to add this to the local groups storage without making a refresh of the backend -- we only want to do that if our transaction was successful (wait for the receipt)
+
+if there's not enough info on the group to add to local state then let me know but i feel like there must be
+
+oh and while we're at it... on the YOUR GROUPS page, don't display the list of members there -- they should need to go to the group leaderboard to view that

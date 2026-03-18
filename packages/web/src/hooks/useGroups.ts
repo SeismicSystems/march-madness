@@ -203,6 +203,30 @@ export function useGroups() {
     refreshGroups();
   }, [refreshGroups]);
 
+  /** Hydrate a single group from on-chain and add to local state. Call after tx is confirmed. */
+  const hydrateSingleGroup = useCallback(
+    async (groupId: number) => {
+      if (!groupsPublic) return;
+      const group = await groupsPublic.getGroup(groupId);
+      const members = await groupsPublic.getMembers(groupId);
+      const pp = passphrases[String(groupId)];
+      const storedInfo: StoredGroupInfo = {
+        ...(walletAddress && group.creator.toLowerCase() === walletAddress
+          ? { admin: true as const }
+          : {}),
+        ...(pp ? { passphrase: pp.passphrase, password: pp.password } : {}),
+      };
+      setJoinedGroupIds((prev) =>
+        prev.includes(groupId) ? prev : [...prev, groupId],
+      );
+      setJoinedGroups((prev) => {
+        if (prev.some((g) => g.groupId === groupId)) return prev;
+        return [...prev, { groupId, group, members, storedInfo }];
+      });
+    },
+    [groupsPublic, passphrases, walletAddress],
+  );
+
   /** Join a public group. */
   const joinGroup = useCallback(
     async (groupId: number, name: string, entryFee: bigint = 0n) => {
@@ -211,11 +235,8 @@ export function useGroups() {
       setError(null);
       try {
         const hash = await groupsUser.joinGroup(groupId, name, entryFee);
-        // Optimistic: add ID to local state, then refresh from API.
-        setJoinedGroupIds((prev) =>
-          prev.includes(groupId) ? prev : [...prev, groupId],
-        );
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        await hydrateSingleGroup(groupId);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -225,7 +246,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, publicClient, hydrateSingleGroup],
   );
 
   /** Join a password-protected group. Takes a human-readable passphrase. */
@@ -248,10 +269,8 @@ export function useGroups() {
           entryFee,
         );
         storePassphrase(groupId, passphrase, password);
-        setJoinedGroupIds((prev) =>
-          prev.includes(groupId) ? prev : [...prev, groupId],
-        );
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        await hydrateSingleGroup(groupId);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to join group";
@@ -261,7 +280,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, storePassphrase, refreshGroups],
+    [groupsUser, publicClient, storePassphrase, hydrateSingleGroup],
   );
 
   /** Create a public group. Creator is auto-joined. */
@@ -272,12 +291,9 @@ export function useGroups() {
       setError(null);
       try {
         const hash = await groupsUser.createGroup(slug, displayName, entryFee);
-        // Look up group by slug to get the ID.
-        const result = await groupsPublic.getGroupBySlug(slug);
-        setJoinedGroupIds((prev) =>
-          prev.includes(result[0]) ? prev : [...prev, result[0]],
-        );
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        const [groupId] = await groupsPublic.getGroupBySlug(slug);
+        await hydrateSingleGroup(groupId);
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -287,7 +303,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, hydrateSingleGroup],
   );
 
   /** Create a password-protected group. Takes a human-readable passphrase. Creator is auto-joined. */
@@ -299,12 +315,10 @@ export function useGroups() {
       try {
         const password = passphraseToBytes12(passphrase);
         const hash = await groupsUser.createGroupWithPassword(slug, displayName, entryFee, password);
-        const result = await groupsPublic.getGroupBySlug(slug);
-        storePassphrase(result[0], passphrase, password);
-        setJoinedGroupIds((prev) =>
-          prev.includes(result[0]) ? prev : [...prev, result[0]],
-        );
-        await refreshGroups();
+        await publicClient!.waitForTransactionReceipt({ hash });
+        const [groupId] = await groupsPublic.getGroupBySlug(slug);
+        storePassphrase(groupId, passphrase, password);
+        await hydrateSingleGroup(groupId);
         return { hash, password };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create group";
@@ -314,21 +328,20 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, groupsPublic, storePassphrase, refreshGroups],
+    [groupsUser, groupsPublic, publicClient, storePassphrase, hydrateSingleGroup],
   );
 
   /** Leave a group. */
   const leaveGroup = useCallback(
     async (groupId: number) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !publicClient) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.leaveGroup(groupId);
-        // Optimistic: remove from local state.
+        await publicClient.waitForTransactionReceipt({ hash });
         setJoinedGroupIds((prev) => prev.filter((id) => id !== groupId));
         setJoinedGroups((prev) => prev.filter((g) => g.groupId !== groupId));
-        await refreshGroups();
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to leave group";
@@ -338,18 +351,33 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, publicClient],
   );
 
   /** Edit display name in a group. */
   const editEntryName = useCallback(
     async (groupId: number, name: string) => {
-      if (!groupsUser) throw new Error("Wallet not connected");
+      if (!groupsUser || !publicClient || !groupsPublic) throw new Error("Wallet not connected");
       setIsLoading(true);
       setError(null);
       try {
         const hash = await groupsUser.editEntryName(groupId, name);
-        await refreshGroups();
+        await publicClient.waitForTransactionReceipt({ hash });
+        // Re-hydrate just this group from on-chain.
+        const group = await groupsPublic.getGroup(groupId);
+        const members = await groupsPublic.getMembers(groupId);
+        const pp = passphrases[String(groupId)];
+        const storedInfo: StoredGroupInfo = {
+          ...(walletAddress && group.creator.toLowerCase() === walletAddress
+            ? { admin: true as const }
+            : {}),
+          ...(pp ? { passphrase: pp.passphrase, password: pp.password } : {}),
+        };
+        setJoinedGroups((prev) =>
+          prev.map((g) =>
+            g.groupId === groupId ? { groupId, group, members, storedInfo } : g,
+          ),
+        );
         return hash;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to edit name";
@@ -359,7 +387,7 @@ export function useGroups() {
         setIsLoading(false);
       }
     },
-    [groupsUser, refreshGroups],
+    [groupsUser, publicClient, groupsPublic, passphrases, walletAddress],
   );
 
   /** Look up a group by slug. Returns [groupId, groupData] or null. */
