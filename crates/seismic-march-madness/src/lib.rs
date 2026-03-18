@@ -13,6 +13,9 @@ pub mod types;
 
 pub use data::{KenpomRatings, kenpom_csv, tournament_json};
 pub use scoring::*;
-pub use simulate::{ReachProbs, SimulationResults, run_simulations};
+pub use simulate::{
+    ROUND_SIZES, ROUND_STARTS, ReachProbs, SimulationResults, TeamAdvanceResults, run_simulations,
+    run_team_advance_simulations,
+};
 pub use tournament::*;
 pub use types::*;

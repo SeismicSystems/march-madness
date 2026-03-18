@@ -12,8 +12,8 @@ use crate::types::{GameState, TournamentStatus};
 use rand::Rng;
 
 /// Round start offsets: R64=0, R32=32, S16=48, E8=56, F4=60, Champ=62
-const ROUND_STARTS: [usize; 6] = [0, 32, 48, 56, 60, 62];
-const ROUND_SIZES: [usize; 6] = [32, 16, 8, 4, 2, 1];
+pub const ROUND_STARTS: [usize; 6] = [0, 32, 48, 56, 60, 62];
+pub const ROUND_SIZES: [usize; 6] = [32, 16, 8, 4, 2, 1];
 
 pub struct SimulationResults {
     /// Number of times each bracket finished with the highest score.
@@ -155,6 +155,64 @@ pub fn run_simulations(
         wins,
         expected_scores,
     }
+}
+
+/// Per-team advance counts: `advance[team_idx][round]` = number of sims where
+/// the team won their game in that round (i.e., advanced past it).
+pub struct TeamAdvanceResults {
+    /// 64 teams x 6 rounds. `advance[team][round]` = count of sims team won in round.
+    pub advance: Vec<[u32; 6]>,
+    pub num_sims: u32,
+}
+
+/// Run forward simulations tracking which teams advance to each round.
+/// Uses the same game resolution logic as `run_simulations` (Final/Live/Upcoming).
+pub fn run_team_advance_simulations(
+    status: &TournamentStatus,
+    reach: &ReachProbs,
+    num_sims: u32,
+) -> TeamAdvanceResults {
+    let mut advance = vec![[0u32; 6]; 64];
+    let mut rng = rand::rng();
+
+    for _ in 0..num_sims {
+        let mut game_winner: [usize; 63] = [usize::MAX; 63];
+
+        for round in 0..6 {
+            let start = ROUND_STARTS[round];
+            let count = ROUND_SIZES[round];
+
+            for i in 0..count {
+                let g = start + i;
+                let game = &status.games[g];
+
+                let (team1, team2) = if round == 0 {
+                    r64_teams(g)
+                } else {
+                    let (f1, f2) = feeder_games(g, round);
+                    (game_winner[f1], game_winner[f2])
+                };
+
+                let team1_wins = match game.status {
+                    GameState::Final => game.winner.unwrap_or(true),
+                    GameState::Live => {
+                        let p = game.team1_win_probability.unwrap_or(0.5);
+                        rng.random::<f64>() < p
+                    }
+                    GameState::Upcoming => {
+                        let p = win_prob_from_reach(reach, team1, team2, round);
+                        rng.random::<f64>() < p
+                    }
+                };
+
+                let winner = if team1_wins { team1 } else { team2 };
+                game_winner[g] = winner;
+                advance[winner][round] += 1;
+            }
+        }
+    }
+
+    TeamAdvanceResults { advance, num_sims }
 }
 
 #[cfg(test)]

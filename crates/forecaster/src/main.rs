@@ -7,13 +7,12 @@ use tracing::info;
 
 use bracket_sim::{DEFAULT_PACE_D, Game, Team};
 use seismic_march_madness::{
-    BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentData, TournamentStatus,
-    build_reach_probs, compute_current_score, compute_max_possible, get_teams_in_bracket_order,
-    kenpom_csv, parse_bracket_hex, run_simulations, tournament_json,
+    BracketForecast, EntryIndex, ForecastIndex, GameState, ROUND_STARTS, TournamentData,
+    TournamentStatus, build_reach_probs, compute_current_score, compute_max_possible,
+    get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex, run_simulations,
+    run_team_advance_simulations, tournament_json,
 };
 
-/// Round start offsets (mirrors simulate.rs).
-const ROUND_STARTS: [usize; 6] = [0, 32, 48, 56, 60, 62];
 /// Number of Monte Carlo sims for computing each live game's conditional probability.
 const LIVE_GAME_SIMS: u32 = 10_000;
 
@@ -47,6 +46,10 @@ struct Cli {
     /// Tournament year (for loading embedded team data).
     #[arg(long, default_value = "2026")]
     year: u16,
+
+    /// Print per-team advance probabilities for each round (no entries needed).
+    #[arg(long)]
+    team_advance: bool,
 }
 
 /// For R64 game at index g (0-31), return the two team indices (0-63).
@@ -180,20 +183,12 @@ fn main() -> eyre::Result<()> {
 
     let cli = Cli::parse();
 
-    let entries: EntryIndex = serde_json::from_str(&std::fs::read_to_string(&cli.entries_file)?)?;
     let mut status: TournamentStatus =
         serde_json::from_str(&std::fs::read_to_string(&cli.status_file)?)?;
     let tournament: TournamentData = match &cli.tournament_file {
         Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
         None => TournamentData::embedded(cli.year),
     };
-
-    info!(
-        entries = entries.len(),
-        games = status.games.len(),
-        simulations = cli.simulations,
-        "loaded data"
-    );
 
     // Build team names in bracket order
     let team_names = get_teams_in_bracket_order(&tournament);
@@ -225,6 +220,49 @@ fn main() -> eyre::Result<()> {
         Some(reach_map) => build_reach_probs(&team_names, reach_map),
         None => bail!("tournament status missing teamReachProbabilities — cannot simulate"),
     };
+
+    info!(
+        games = status.games.len(),
+        simulations = cli.simulations,
+        "loaded data"
+    );
+
+    // --team-advance: print per-team advance probabilities and exit
+    if cli.team_advance {
+        let results = run_team_advance_simulations(&status, &reach, cli.simulations);
+        let sims = results.num_sims as f64;
+
+        println!(
+            "\n{:<25} {:>4}  {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}",
+            "Team", "Seed", "R64", "R32", "S16", "E8", "F4", "Champ"
+        );
+        println!("{}", "-".repeat(82));
+
+        // Sort by championship probability
+        let mut indices: Vec<usize> = (0..64).collect();
+        indices.sort_by(|&a, &b| {
+            results.advance[b][5]
+                .partial_cmp(&results.advance[a][5])
+                .unwrap()
+        });
+
+        for &idx in &indices {
+            let name = &team_names[idx];
+            let seed = team_map.get(name).map(|t| t.seed).unwrap_or(0);
+            let probs: Vec<f64> = (0..6)
+                .map(|r| results.advance[idx][r] as f64 / sims * 100.0)
+                .collect();
+            println!(
+                "{:<25} {:>4}  {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}% {:>6.1}%",
+                name, seed, probs[0], probs[1], probs[2], probs[3], probs[4], probs[5]
+            );
+        }
+        return Ok(());
+    }
+
+    // Normal forecast mode — needs entries
+    let entries: EntryIndex = serde_json::from_str(&std::fs::read_to_string(&cli.entries_file)?)?;
+    info!(entries = entries.len(), "loaded entries");
 
     // Parse all valid brackets
     let mut brackets: Vec<(String, u64, Option<String>)> = Vec::new();
