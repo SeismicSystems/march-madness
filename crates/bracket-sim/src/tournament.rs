@@ -1,4 +1,5 @@
 use rand::Rng;
+use rayon::prelude::*;
 
 use crate::bracket_config::{BRACKET_SEED_ORDER, BracketConfig};
 use crate::game::Game;
@@ -214,48 +215,53 @@ impl Tournament {
         &self,
         num_simulations: usize,
     ) -> HashMap<String, Vec<f64>> {
-        let mut rng = rand::rng();
-        let mut team_wins: HashMap<String, Vec<u32>> = HashMap::new();
+        // Run simulations in parallel with rayon, each thread using its own RNG.
+        // Each task returns a local HashMap of team advancement counts, then we
+        // reduce by summing across all threads.
+        let team_wins = (0..num_simulations)
+            .into_par_iter()
+            .map_init(rand::rng, |rng, _| {
+                let mut tournament_clone = self.clone();
+                let results = tournament_clone.simulate_tournament(rng);
 
-        // Initialize counts for each team at each round (6 rounds)
-        for team in &self.teams {
-            team_wins.insert(team.team.clone(), vec![0; 6]);
-        }
-
-        // Run simulations
-        for _ in 0..num_simulations {
-            let mut tournament_clone = self.clone();
-            let results = tournament_clone.simulate_tournament(&mut rng);
-
-            // Track how far each team advanced using game_index_to_round
-            let mut teams_advanced: HashMap<String, usize> = HashMap::new();
-
-            for (game_index, (winner, _loser)) in results.iter().enumerate() {
-                let round = self.game_index_to_round(game_index);
-                let prev = teams_advanced.get(winner).copied().unwrap_or(0);
-                if round + 1 > prev {
-                    teams_advanced.insert(winner.clone(), round + 1);
+                // Track how far each team advanced using game_index_to_round
+                let mut teams_advanced: HashMap<String, usize> = HashMap::new();
+                for (game_index, (winner, _loser)) in results.iter().enumerate() {
+                    let round = self.game_index_to_round(game_index);
+                    let prev = teams_advanced.get(winner).copied().unwrap_or(0);
+                    if round + 1 > prev {
+                        teams_advanced.insert(winner.clone(), round + 1);
+                    }
                 }
-            }
 
-            // Update team win counts
-            for (team_name, max_round) in teams_advanced {
-                if let Some(counts) = team_wins.get_mut(&team_name) {
+                // Build per-simulation counts
+                let mut local_wins: HashMap<String, Vec<u32>> = HashMap::new();
+                for (team_name, max_round) in teams_advanced {
+                    let counts = local_wins.entry(team_name).or_insert_with(|| vec![0; 6]);
                     counts[max_round - 1] += 1;
                 }
-            }
-        }
+
+                local_wins
+            })
+            .reduce(HashMap::new, |mut acc, local| {
+                for (team, counts) in local {
+                    let entry = acc.entry(team).or_insert_with(|| vec![0; 6]);
+                    for (i, c) in counts.iter().enumerate() {
+                        entry[i] += c;
+                    }
+                }
+                acc
+            });
 
         // Convert counts to probabilities
-        let mut probabilities: HashMap<String, Vec<f64>> = HashMap::new();
         let num_sims_f64 = num_simulations as f64;
-
-        for (team_name, counts) in team_wins {
-            let probs: Vec<f64> = counts.iter().map(|&c| c as f64 / num_sims_f64).collect();
-            probabilities.insert(team_name, probs);
-        }
-
-        probabilities
+        team_wins
+            .into_iter()
+            .map(|(team_name, counts)| {
+                let probs: Vec<f64> = counts.iter().map(|&c| c as f64 / num_sims_f64).collect();
+                (team_name, probs)
+            })
+            .collect()
     }
 
     pub fn generate_bracket(&self, rng: &mut impl Rng) -> Bracket {
