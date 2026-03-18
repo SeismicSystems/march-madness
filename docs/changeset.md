@@ -19,12 +19,6 @@ All notable changes to this project. Every PR must add an entry here.
 - **Wallet UX**: Removed wagmi render-time wallet activation and moved wallet syncing to an effect-driven flow, eliminating the React hydration warning and preventing Google/embedded logout from falling through to MetaMask.
 - **Bracket UX**: Deferred bracket local-storage hydration until wallet session setup has settled, and kept the submit bar in `Loading wallet...` until the shielded wallet actually matches the Privy-selected wallet. This removes the startup flicker through transient `Connect`/submit states and prevents the first `Load my bracket` click from incorrectly jumping to MetaMask.
 
-### 2026-03-18 — Add indexer seed command + group leaderboard
-
-- **indexer**: New `seed` subcommand writes fake entries, tournament status, and groups to Redis for local dev. Supports `--entries N` and `--clean` flags.
-- **web**: `/groups/:slug/leaderboard` route shows leaderboard filtered to group members. Reuses existing `LeaderboardPage` with group filtering via `useGroupMembers` hook.
-- **web**: Added "Leaderboard" links to joined group cards and public group cards.
-
 ### 2026-03-18 — Add Connect Wallet button to home page (#178)
 
 - **Frontend**: Added a prominent "Connect Wallet" button on the home/bracket page, visible when the user is not connected. Uses the same Privy `login()` as the nav bar. Especially helpful on mobile where the hamburger menu isn't discoverable.
