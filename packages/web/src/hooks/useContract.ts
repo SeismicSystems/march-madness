@@ -6,52 +6,11 @@ import {
   MarchMadnessPublicClient,
   MarchMadnessUserClient,
 } from "@march-madness/client";
-import {
-  useActiveWallet,
-  usePrivy,
-  useWallets,
-  type ConnectedWallet,
-} from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 
+import { usePrivyWalletSelection } from "./usePrivyWalletSelection";
 import { CONTRACT_ADDRESS, SUBMISSION_DEADLINE } from "../lib/constants";
-
-const normalizeAddress = (address?: string | null): string | null =>
-  address?.toLowerCase() ?? null;
-
-const isPrivyManagedWallet = (
-  wallet?: {
-    connectorType?: string;
-    walletClientType?: string;
-  } | null,
-): boolean =>
-  !!wallet &&
-  (wallet.connectorType === "embedded" ||
-    wallet.walletClientType === "privy" ||
-    wallet.walletClientType === "privy-v2");
-
-const getEmbeddedWalletAddresses = (
-  linkedAccounts?: NonNullable<ReturnType<typeof usePrivy>["user"]>["linkedAccounts"],
-): string[] =>
-  (linkedAccounts ?? [])
-    .filter(
-      (account): account is Extract<typeof account, { type: "wallet" }> =>
-        account.type === "wallet" && isPrivyManagedWallet(account),
-    )
-    .map((account) => account.address);
-
-const findWalletByAddress = (
-  wallets: ConnectedWallet[],
-  address?: string | null,
-): ConnectedWallet | null => {
-  const normalizedAddress = normalizeAddress(address);
-  if (!normalizedAddress) return null;
-
-  return (
-    wallets.find(
-      (wallet) => normalizeAddress(wallet.address) === normalizedAddress,
-    ) ?? null
-  );
-};
+import { normalizeAddress } from "../lib/privyWallets";
 
 /**
  * Fetch the on-chain submission deadline once, falling back to the
@@ -89,9 +48,9 @@ function useSubmissionDeadline(
  * clicks "Load my bracket".
  */
 export function useContract() {
-  const { authenticated, ready: privyReady, user } = usePrivy();
-  const { wallet: privyActiveWallet } = useActiveWallet();
-  const { ready: walletsReady, wallets } = useWallets();
+  const { authenticated } = usePrivy();
+  const { preferredWalletAddress, privyReady, walletsReady } =
+    usePrivyWalletSelection();
   const { walletClient, publicClient, loaded: shieldedLoaded, error: shieldedError } =
     useShieldedWallet();
   const [entryCount, setEntryCount] = useState<number>(0);
@@ -150,35 +109,6 @@ export function useContract() {
     const deduped = parts.filter((m, i) => i === 0 || m !== parts[i - 1]);
     return deduped.join(" → ") || fallback;
   };
-
-  const preferredWalletAddress = useMemo(() => {
-    if (!authenticated || !privyReady || !walletsReady || !user) {
-      return null;
-    }
-
-    if (privyActiveWallet?.type === "ethereum") {
-      const activeWallet = findWalletByAddress(wallets, privyActiveWallet.address);
-      if (activeWallet) return normalizeAddress(activeWallet.address);
-    }
-
-    const embeddedWalletAddresses = getEmbeddedWalletAddresses(user.linkedAccounts);
-    for (const address of embeddedWalletAddresses) {
-      const embeddedWallet = findWalletByAddress(wallets, address);
-      if (embeddedWallet) return normalizeAddress(embeddedWallet.address);
-    }
-
-    const anyEmbeddedWallet = wallets.find(isPrivyManagedWallet);
-    if (anyEmbeddedWallet) return normalizeAddress(anyEmbeddedWallet.address);
-
-    return normalizeAddress(user.wallet?.address);
-  }, [
-    authenticated,
-    privyActiveWallet,
-    privyReady,
-    user,
-    wallets,
-    walletsReady,
-  ]);
 
   const rawWalletAddress = authenticated
     ? (walletClient?.account?.address ?? null)
