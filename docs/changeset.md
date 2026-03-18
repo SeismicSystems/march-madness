@@ -2,6 +2,15 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+### 2026-03-18 — Add indexer seed command + group leaderboard
+
+- **indexer**: New `seed` subcommand writes fake entries, tournament status, and groups to Redis for local dev. Supports `--entries N` and `--clean` flags.
+- **web**: Added `/groups/:slug/leaderboard` and links from joined group cards and public group cards.
+- **web**: Group leaderboards now show submitted addresses and tags before reveal, leaving score, max, forecast, champion, and bracket view blank until a revealed bracket exists.
+- **web**: Invalid group leaderboard slugs now show an error page instead of falling back to the global leaderboard.
+- **web**: Leaderboard-related API polling now uses React Query hooks instead of manual `useEffect` fetch loops.
+
+
 ### 2026-03-18 — Switch to @changesets/cli workflow
 
 - **Workflow**: PRs now add individual `.changeset/*.md` files instead of editing `docs/changeset.md` directly. On merge to main, the `merge-changesets` GitHub Action collects entries, prepends them to `docs/changeset.md`, and deletes the individual files. Eliminates changeset merge conflicts.
