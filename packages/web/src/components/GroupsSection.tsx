@@ -31,7 +31,6 @@ function CopyButton({ text }: { text: string }) {
 function JoinedGroupCard({
   groupId,
   group,
-  members,
   storedInfo,
   isBeforeDeadline,
   isLoading,
@@ -86,20 +85,6 @@ function JoinedGroupCard({
           </div>
         </div>
       )}
-
-      <div className="text-xs text-text-secondary space-y-0.5 mb-2">
-        {members.slice(0, 5).map((m, i) => (
-          <div key={i} className="flex justify-between">
-            <span>{m.name || m.addr.slice(0, 10) + "..."}</span>
-            {m.isScored && (
-              <span className="text-text-tertiary">Score: {m.score}</span>
-            )}
-          </div>
-        ))}
-        {members.length > 5 && (
-          <div className="text-text-tertiary">+{members.length - 5} more</div>
-        )}
-      </div>
 
       <Link
         to={`/groups/${group.slug}/leaderboard`}

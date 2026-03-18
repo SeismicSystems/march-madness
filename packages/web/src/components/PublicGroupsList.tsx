@@ -32,8 +32,10 @@ function PublicGroupCard({
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const isJoined = useMemo(
-    () => groups.joinedGroups.some((jg) => jg.groupId === Number(group.id)),
-    [groups.joinedGroups, group.id],
+    () =>
+      groups.joinedGroupIds.includes(Number(group.id)) ||
+      groups.joinedGroups.some((jg) => jg.groupId === Number(group.id)),
+    [groups.joinedGroupIds, groups.joinedGroups, group.id],
   );
 
   const entryFeeDisplay = useMemo(() => {
