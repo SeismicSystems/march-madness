@@ -4,6 +4,11 @@ All notable changes to this project. Every PR must add an entry here.
 
 ## [Unreleased]
 
+### 2026-03-18 — Fix encoded bracket display position and styling (#179)
+
+- **Frontend**: Moved encoded bracket hex display from between "Reset Picks" and submit buttons to right of "Submitted" status badge on desktop.
+- **Frontend**: Removed border from the encoded bracket hex element for a cleaner look.
+
 ### 2026-03-18 — Change default Kalshi calibrator edge threshold to $1000
 
 - **bracket-sim**: Changed `--edge-threshold` default from $1.00 to $1000.00 in the `calibrate` binary. The previous default caused premature convergence on noise.
