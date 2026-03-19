@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Show "submit a bracket first" warning in Join Group, Create Group, and Public Groups join flows when the connected wallet has no on-chain bracket entry. Links to homepage for bracket submission. Reactive to wallet switches.
+
+
 Remove SMS login method from Privy config (disabled on Privy side)
 
 
