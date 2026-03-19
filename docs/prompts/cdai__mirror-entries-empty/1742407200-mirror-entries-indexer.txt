@@ -1,0 +1,3 @@
+hey i just realized, there's no way for the indexer to populate our mirror entries key. for normal brackets, we populated it with a one time reveal subcommand in the indexer. can we add something to the listener that will pick up on mirrors as they are added? and another option to backfill an existing mirror id
+
+when youre done make a pr

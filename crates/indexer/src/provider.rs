@@ -15,8 +15,9 @@ use seismic_alloy_provider::{SeismicProviderBuilder, SeismicUnsignedProvider};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 use crate::contract::{
-    BracketSubmitted, EntryAdded, EntryRemoved, GroupCreated, MemberJoined, MemberLeft,
-    MirrorCreated, TagSet, getBracketCall, getEntryBySlugCall, getEntryCountCall, getGroupCall,
+    BracketSubmitted, BracketUpdated, EntryAdded, EntryRemoved, GroupCreated, MemberJoined,
+    MemberLeft, MirrorCreated, MirrorEntry, TagSet, getBracketCall, getEntriesCall,
+    getEntryBySlugCall, getEntryCountCall, getGroupCall,
 };
 
 /// Network-agnostic indexer provider that wraps either a SeismicReth or SeismicFoundry
@@ -203,6 +204,22 @@ impl IndexerProvider {
             .wrap_err("failed to fetch EntryRemoved logs")
     }
 
+    pub async fn get_bracket_updated_logs(
+        &self,
+        contract: Address,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<Log>> {
+        self.get_logs_for_event(
+            contract,
+            BracketUpdated::SIGNATURE_HASH,
+            from_block,
+            to_block,
+        )
+        .await
+        .wrap_err("failed to fetch BracketUpdated logs")
+    }
+
     // ── Contract calls ───────────────────────────────────────────────
 
     /// Call `getEntryCount()` on the MarchMadness contract.
@@ -265,6 +282,32 @@ impl IndexerProvider {
         let decoded = getGroupCall::abi_decode_returns(&response)
             .wrap_err("failed to decode getGroup result")?;
         Ok(decoded.entryFee.to_string())
+    }
+
+    /// Call `getEntries(mirrorId)` on the BracketMirror contract.
+    pub async fn get_mirror_entries(
+        &self,
+        contract: Address,
+        mirror_id: alloy_primitives::U256,
+    ) -> Result<Vec<MirrorEntry>> {
+        let calldata = getEntriesCall {
+            mirrorId: mirror_id,
+        }
+        .abi_encode();
+        let response = match self {
+            Self::Reth(p) => {
+                let tx = build_reth_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+            Self::Foundry(p) => {
+                let tx = build_foundry_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+        }
+        .wrap_err("getEntries call failed")?;
+        let decoded = getEntriesCall::abi_decode_returns(&response)
+            .wrap_err("failed to decode getEntries result")?;
+        Ok(decoded)
     }
 
     /// Call `getEntryBySlug(mirrorId, slug)` on the BracketMirror contract.
@@ -369,6 +412,17 @@ pub fn parse_entry_added(log: &Log) -> Result<(u64, String)> {
 pub fn parse_entry_removed(log: &Log) -> Result<(u64, String)> {
     let decoded = EntryRemoved::decode_log(log.inner.as_ref())
         .wrap_err("failed to decode EntryRemoved event")?;
+    let id: u64 = decoded
+        .mirrorId
+        .try_into()
+        .wrap_err("mirrorId exceeds u64")?;
+    Ok((id, decoded.slug.clone()))
+}
+
+/// Parse a BracketUpdated log.
+pub fn parse_bracket_updated(log: &Log) -> Result<(u64, String)> {
+    let decoded = BracketUpdated::decode_log(log.inner.as_ref())
+        .wrap_err("failed to decode BracketUpdated event")?;
     let id: u64 = decoded
         .mirrorId
         .try_into()

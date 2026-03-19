@@ -181,9 +181,10 @@ pub async fn run(
             let created = p.get_mirror_created_logs(mirror, from, to).await?;
             let added = p.get_entry_added_logs(mirror, from, to).await?;
             let removed = p.get_entry_removed_logs(mirror, from, to).await?;
+            let updated = p.get_bracket_updated_logs(mirror, from, to).await?;
 
             let mut events: Vec<((u64, u64), MirrorEvent)> =
-                Vec::with_capacity(created.len() + added.len() + removed.len());
+                Vec::with_capacity(created.len() + added.len() + removed.len() + updated.len());
             for log in &created {
                 events.push((log_sort_key(log), MirrorEvent::Created(log)));
             }
@@ -192,6 +193,9 @@ pub async fn run(
             }
             for log in &removed {
                 events.push((log_sort_key(log), MirrorEvent::Removed(log)));
+            }
+            for log in &updated {
+                events.push((log_sort_key(log), MirrorEvent::Updated(log)));
             }
             events.sort_by_key(|(key, _)| *key);
 
@@ -231,16 +235,39 @@ pub async fn run(
                         let (mirror_id, slug) = provider::parse_entry_removed(log)?;
                         redis_store::mirror_entry_removed(redis, mirror_id, &slug).await?;
                     }
+                    MirrorEvent::Updated(log) => {
+                        let (mirror_id, slug) = provider::parse_bracket_updated(log)?;
+                        let u256_id = alloy_primitives::U256::from(mirror_id);
+                        match p
+                            .get_mirror_entry_bracket(mirror, u256_id, slug.clone())
+                            .await
+                        {
+                            Ok(bracket) => {
+                                let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
+                                redis_store::mirror_entry_added(
+                                    redis,
+                                    mirror_id,
+                                    &slug,
+                                    &bracket_hex,
+                                )
+                                .await?;
+                            }
+                            Err(e) => {
+                                info!(mirror_id, slug = %slug, error = %e, "failed to read updated mirror entry bracket");
+                            }
+                        }
+                    }
                 }
             }
 
-            let total = created.len() + added.len() + removed.len();
+            let total = created.len() + added.len() + removed.len() + updated.len();
             if total > 0 {
                 info!(
                     blocks = format!("{from}..{to}"),
                     created = created.len(),
                     added = added.len(),
                     removed = removed.len(),
+                    updated = updated.len(),
                     "BracketMirror"
                 );
             }
@@ -308,4 +335,5 @@ enum MirrorEvent<'a> {
     Created(&'a Log),
     Added(&'a Log),
     Removed(&'a Log),
+    Updated(&'a Log),
 }
