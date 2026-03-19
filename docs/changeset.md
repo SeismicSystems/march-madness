@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Tighten bracket slot spacing: reduce seed width, move logos closer to seeds, reduce gap between live probability and score
+
+
 Extract shared LeaderboardTable component from LeaderboardPage and MirrorLeaderboardPage, eliminating ~300 lines of duplicated sort/pagination/table rendering logic. Both pages are now thin data-fetching wrappers. Also tighten column spacing on wide screens so numeric columns stay compact and the player name column absorbs extra space.
 
 
