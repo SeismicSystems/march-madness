@@ -99,11 +99,6 @@ impl FeedState {
             .cloned()
             .unwrap_or_else(|| GameStatus::upcoming(game_index));
 
-        // Don't downgrade final games.
-        if current.status == GameState::Final {
-            return false;
-        }
-
         let team1_idx = mapper.team1_contest_index(game_index, contest);
 
         let (new_status, seconds_remaining, period) = match &contest.state {
@@ -113,6 +108,13 @@ impl FeedState {
                 clock_seconds: c,
             } => (GameState::Live, *c, p.map(|p| p.as_number())),
             _ => (GameState::Upcoming, None, None),
+        };
+
+        // Don't downgrade final status, but allow score corrections.
+        let (new_status, seconds_remaining, period) = if current.status == GameState::Final {
+            (GameState::Final, None, None)
+        } else {
+            (new_status, seconds_remaining, period)
         };
 
         // Build score with correct team ordering.
@@ -153,7 +155,12 @@ impl FeedState {
             || current.period != new_game.period;
 
         if changed {
-            if current.status != new_game.status {
+            if current.status == GameState::Final && new_game.status == GameState::Final {
+                info!(
+                    "game {game_index}: score correction {:?} → {:?}",
+                    current.score, new_game.score
+                );
+            } else if current.status != new_game.status {
                 info!(
                     "game {game_index}: {:?} → {:?}{}",
                     current.status,
