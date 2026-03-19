@@ -56,9 +56,10 @@ crates/
   forecaster/       — Monte Carlo multi-pool win probability simulator (reads from Redis, writes per-pool forecasts + team probs)
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
+  mirror-importer/  — Import brackets from external platforms (Yahoo Fantasy) for BracketMirror
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
-data/mappings.toml  — Centralized name mappings: kenpom/kalshi → NCAA canonical names
+data/mappings.toml  — Centralized name mappings: kenpom/kalshi/yahoo → NCAA canonical names
 .changeset/          — Pending changeset files (merged into docs/changeset.md on merge to main)
 deploy/             — Production deploy configs (nginx, supervisor, README)
 docs/               — Technical docs, changeset (auto-generated), prompts

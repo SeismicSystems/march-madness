@@ -12,6 +12,7 @@
     "deploy:testnet": "./scripts/deploy-testnet.sh",
     "build:web": "bun run --filter @march-madness/web build",
     "gen:abis": "bun run scripts/generate-abis.ts",
+    "yahoo-mirror": "bun run --filter @march-madness/localdev yahoo-mirror",
     "changeset": "changeset"
   },
   "devDependencies": {
