@@ -248,7 +248,7 @@ function TeamSlot({
     );
   }
 
-  let className = `${py} ${px} ${textSize} rounded-lg cursor-pointer transition-all border backdrop-blur-md flex items-center justify-between `;
+  let className = `${py} ${px} ${textSize} rounded-lg ${disabled ? "cursor-default" : "cursor-pointer"} transition-all border backdrop-blur-md flex items-center justify-between `;
 
   if (pickCorrect) {
     className +=
@@ -276,7 +276,7 @@ function TeamSlot({
   }
 
   if (disabled) {
-    className += " cursor-default opacity-90";
+    className += " opacity-90";
   }
 
   return (
