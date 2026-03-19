@@ -12,7 +12,9 @@ import { usePrivyWalletSelection } from "../hooks/usePrivyWalletSelection";
 import { APP_CHAINS, REQUIRED_CHAIN, config, queryClient } from "./config";
 
 export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const publicTransport = http(import.meta.env.VITE_RPC_URL);
+  const publicTransport = http(import.meta.env.VITE_RPC_URL, {
+    fetchOptions: { cache: "no-store" },
+  });
 
   return (
     <PrivyProvider

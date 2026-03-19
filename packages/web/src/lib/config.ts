@@ -30,7 +30,9 @@ export const config = createConfig({
   chains: APP_CHAINS,
   transports: {
     [sanvil.id]: http(),
-    [seismicTestnet.id]: http(import.meta.env.VITE_RPC_URL),
+    [seismicTestnet.id]: http(import.meta.env.VITE_RPC_URL, {
+      fetchOptions: { cache: "no-store" },
+    }),
   },
   ssr: false,
 });
