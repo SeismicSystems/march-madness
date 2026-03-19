@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Redesign live game display: replace hidden absolute-positioned indicator with prominent in-card banner showing clock, Watch link, and blinking dot. Flip score/probability order so score is rightmost.
+
+
 Remove redundant checkmark/X icons from bracket game slots — green/red styling already conveys correct/wrong picks
 
 
