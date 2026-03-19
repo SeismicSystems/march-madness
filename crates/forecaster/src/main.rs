@@ -42,7 +42,7 @@ struct Cli {
     output_file: Option<PathBuf>,
 
     /// Number of Monte Carlo simulations per iteration.
-    #[arg(long, default_value = "50000", value_parser = clap::value_parser!(u32).range(1..))]
+    #[arg(long, default_value = "100000", value_parser = clap::value_parser!(u32).range(1..))]
     simulations: u32,
 
     /// Tournament year (for loading embedded team data).
