@@ -298,12 +298,6 @@ function TeamSlot({
         </span>
         <TeamLogo teamName={displayName(team)} mobile={mobile} />
         <span className="truncate">{displayAbbrev(team)}</span>
-        {overlay === Overlay.Advancing && (
-          <span className="ml-1 text-accent text-[10px]">&#9679;</span>
-        )}
-        {overlay === Overlay.Eliminated && (
-          <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
-        )}
       </span>
       <span className="flex items-center gap-1">
         {gameScore !== undefined && (
