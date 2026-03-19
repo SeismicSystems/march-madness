@@ -24,6 +24,17 @@
 "North Carolina St." = "NC State"
 "Queens University" = "Queens (N.C.)"
 
+[yahoo]
+"California Baptist" = "Cal Baptist"
+"Connecticut" = "UConn"
+"LIU Brooklyn" = "Long Island"
+"Miami (OH)" = "Miami (Ohio)"
+"N. Carolina" = "North Carolina"
+"N. Dak. St." = "North Dakota St."
+"Pennsylvania" = "Penn"
+"Queens University" = "Queens (N.C.)"
+"St. Mary's" = "Saint Mary's"
+
 # Short display names for teams whose NCAA name exceeds 9 characters.
 # Used by fetch-bracket to populate the "abbrev" field in tournament.json.
 # Key = NCAA nameShort (canonical name), Value = abbreviated display name.

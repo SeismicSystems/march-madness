@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/seismic-march-madness", "crates/indexer", "crates/server", "crates/forecaster", "crates/bracket-sim", "crates/kalshi", "crates/ncaa-api", "crates/ncaa-feed"]
+members = ["crates/seismic-march-madness", "crates/indexer", "crates/server", "crates/forecaster", "crates/bracket-sim", "crates/kalshi", "crates/ncaa-api", "crates/ncaa-feed", "crates/mirror-importer"]
 
 [workspace.package]
 edition = "2024"

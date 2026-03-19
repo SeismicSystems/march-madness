@@ -3331,6 +3331,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirror-importer"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "dotenvy",
+ "eyre",
+ "reqwest",
+ "seismic-march-madness",
+ "serde",
+ "serde_json",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "nalgebra"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

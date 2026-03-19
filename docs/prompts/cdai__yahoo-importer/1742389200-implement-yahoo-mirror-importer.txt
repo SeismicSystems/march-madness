@@ -1,0 +1,9 @@
+Implement the following plan:
+
+# Yahoo Fantasy Bracket Mirror Importer
+
+## Context
+
+Import brackets from Yahoo Fantasy Sports groups and mirror them on-chain via BracketMirror. The tool must be idempotent — re-running updates slugs/entries rather than duplicating. The crate is named `mirror-importer` (not yahoo-specific) to support future platforms.
+
+[Full plan content omitted for brevity — see the plan in the conversation above]
