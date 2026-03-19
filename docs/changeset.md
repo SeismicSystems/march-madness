@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add `dmm_build` alias that targets only the 4 prod binaries (server, indexer, forecaster, ncaa-feed) instead of building the entire workspace. Updated `dmm_backend`, `dmm_all`, `dmm_backfill`, and `dmm_listen` to use it.
+
+
 ### Enforce URL-safe slugs in mirror and group client libraries
 
 - **Problem**: Mirror and group slugs accepted any string, including spaces and special characters (e.g. "Barracks Ballers"), making them unsuitable for URLs.
