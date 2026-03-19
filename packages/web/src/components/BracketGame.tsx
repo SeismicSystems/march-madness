@@ -137,28 +137,14 @@ export function BracketGame({
       {/* Live indicator with period/clock */}
       {gameStatus?.status === "live" && (
         <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
-          {gameStatus.period != null && gameStatus.secondsRemaining != null &&
-            (gameStatus.ncaaGameId != null ? (
-              <a
-                href={`https://www.ncaa.com/march-madness-live/game/${gameStatus.ncaaGameId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[8px] text-green-400 font-mono leading-none hover:text-green-300 hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {formatPeriodClock(
-                  gameStatus.period,
-                  gameStatus.secondsRemaining
-                )}
-              </a>
-            ) : (
-              <span className="text-[8px] text-green-400 font-mono leading-none">
-                {formatPeriodClock(
-                  gameStatus.period,
-                  gameStatus.secondsRemaining
-                )}
-              </span>
-            ))}
+          {gameStatus.period != null && gameStatus.secondsRemaining != null && (
+            <span className="text-[8px] text-green-400 font-mono leading-none">
+              {formatPeriodClock(
+                gameStatus.period,
+                gameStatus.secondsRemaining
+              )}
+            </span>
+          )}
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />

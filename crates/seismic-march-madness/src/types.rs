@@ -47,9 +47,6 @@ pub struct GameStatus {
     /// Current period number (1 = 1st half, 2 = 2nd half, 3+ = OT).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub period: Option<u8>,
-    /// NCAA contest ID — used to link to the NCAA March Madness Live game page.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ncaa_game_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,7 +74,6 @@ impl GameStatus {
             team1_win_probability: None,
             seconds_remaining: None,
             period: None,
-            ncaa_game_id: None,
         }
     }
 }

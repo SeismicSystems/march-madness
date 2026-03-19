@@ -165,7 +165,6 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
                 team1_win_probability: None,
                 seconds_remaining: None,
                 period: None,
-                ncaa_game_id: None,
             }
         } else if (i as usize) < FINAL_GAMES + LIVE_GAMES {
             // Live games: in-progress scores.
@@ -184,7 +183,6 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
                 team1_win_probability: Some(rng.random_range(0.2..0.8f64)),
                 seconds_remaining: Some(secs),
                 period: Some(period),
-                ncaa_game_id: Some(rng.random_range(100..999i64)),
             }
         } else {
             GameStatus::upcoming(i)
