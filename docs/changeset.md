@@ -2,8 +2,6 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
-Add `cache: "no-store"` fetch option to both HTTP transports (wagmi config in `config.ts` and seismic-react public transport in `providers.tsx`) to prevent browser/proxy caching of RPC responses. Users reported stale `recentBlockHash` values in shielded transactions; this ensures `eth_getBlockByNumber("latest")` always bypasses any intermediate cache. Companion fix in seismic-viem: SeismicSystems/seismic#123.
-
 Show "submit a bracket first" warning in Join Group, Create Group, and Public Groups join flows when the connected wallet has no on-chain bracket entry. Links to homepage for bracket submission. Reactive to wallet switches.
 
 
