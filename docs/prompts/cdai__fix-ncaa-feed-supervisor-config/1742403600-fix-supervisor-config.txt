@@ -1,0 +1,1 @@
+look at the ncaa-feed binary. i believe our current supervisor configs are incorrect -- it should only be writing to redis, right?
