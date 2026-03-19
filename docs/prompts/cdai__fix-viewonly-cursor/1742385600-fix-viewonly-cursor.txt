@@ -1,0 +1,3 @@
+on the main page, we still show a cursor when hovering over brackets. hwoever, brackets are locked right now, so people can't click on them. in general, when we're in "view only" mode, we shouldnt show cursor pointer. that applies to the /bracket/0x... url always (bc it means we're post-reveal) but it also applies to the home page when we're past lock.
+
+when you're done, push a PR.
