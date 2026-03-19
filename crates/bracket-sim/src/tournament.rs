@@ -2,10 +2,11 @@ use rand::Rng;
 use rayon::prelude::*;
 
 use crate::bracket_config::{BRACKET_SEED_ORDER, BracketConfig};
-use crate::game::Game;
+use crate::game::{Game, GameResult};
 use crate::metrics::Metrics;
 use crate::team::Team;
 use crate::{Bracket, DEFAULT_PACE_D, ScoringSystem};
+use seismic_march_madness::types::{GameState, TournamentStatus};
 use std::collections::HashMap;
 use std::io;
 
@@ -404,6 +405,152 @@ impl Tournament {
         }
 
         bits
+    }
+
+    /// Simulate the tournament with live game overrides, returning results as a
+    /// ByteBracket u64.
+    ///
+    /// Same Bayesian metric updates as [`simulate_tournament_bb`], but respects
+    /// the current tournament state:
+    /// - **Final** games: use the actual winner and score for Bayesian updates
+    /// - **Live** games: simulate remaining possessions from the current score
+    /// - **Upcoming** games: simulate the full game from scratch
+    ///
+    /// When all games are Upcoming this degenerates to `simulate_tournament_bb`.
+    pub fn simulate_tournament_bb_with_status(
+        &mut self,
+        status: &TournamentStatus,
+        rng: &mut impl Rng,
+    ) -> u64 {
+        let mut bits: u64 = crate::SENTINEL_BIT;
+        let mut game_idx: usize = 0;
+        let mut current_round_games = self.games.clone();
+
+        while !current_round_games.is_empty() {
+            let mut winners_for_next_round = Vec::new();
+
+            for game in current_round_games {
+                let t1_expected = game.expected_t1_metrics();
+                let game_status = &status.games[game_idx];
+
+                // Resolve the game outcome depending on its state.
+                let (winner_is_t1, result) = match game_status.status {
+                    GameState::Final => {
+                        let t1_wins = game_status.winner.unwrap_or(true);
+                        let result = if let Some(ref score) = game_status.score {
+                            // Derive observed metrics from the actual score.
+                            let total_expected = t1_expected.ortg + t1_expected.drtg;
+                            let pace = if total_expected > 0.0 {
+                                (score.team1 + score.team2) as f64 * 100.0 / total_expected
+                            } else {
+                                t1_expected.pace
+                            };
+                            GameResult {
+                                team1_score: score.team1,
+                                team2_score: score.team2,
+                                pace,
+                            }
+                        } else {
+                            // No score data — simulate to get plausible observed
+                            // metrics for the Bayesian update. The winner is still
+                            // forced to match the actual result below.
+                            Game::simulate(t1_expected, self.pace_d, rng)
+                        };
+                        (t1_wins, result)
+                    }
+                    GameState::Live => {
+                        let result = Self::resolve_live_game(&game, game_status, self.pace_d, rng);
+                        let t1_wins = result.team1_score > result.team2_score;
+                        (t1_wins, result)
+                    }
+                    GameState::Upcoming => {
+                        let result = Game::simulate(t1_expected, self.pace_d, rng);
+                        let t1_wins =
+                            match game.pick_by_score(result.team1_score, result.team2_score) {
+                                Some(w) => w.team == game.team1.team,
+                                None => {
+                                    // Tied — resolve via overtime
+                                    game.resolve_overtime(result.team1_score, self.pace_d, rng)
+                                        .map(|w| w.team == game.team1.team)
+                                        .unwrap_or(rng.random::<bool>())
+                                }
+                            };
+                        (t1_wins, result)
+                    }
+                };
+
+                if winner_is_t1 {
+                    bits |= crate::game_bit(game_idx);
+                }
+
+                // Bayesian metric update — same logic for all game states.
+                let t1_observed = Metrics {
+                    ortg: 100.0 * result.team1_score as f64 / result.pace,
+                    drtg: 100.0 * result.team2_score as f64 / result.pace,
+                    pace: result.pace,
+                };
+
+                let mut t1 = game.team1.clone();
+                let mut t2 = game.team2.clone();
+                t1.update_metrics(t1_expected, t1_observed);
+                t2.update_metrics(t1_expected.flip(), t1_observed.flip());
+
+                let winner_team = if winner_is_t1 { t1 } else { t2 };
+                winners_for_next_round.push(winner_team);
+
+                game_idx += 1;
+            }
+
+            current_round_games = self.create_next_round_matchups(winners_for_next_round);
+        }
+
+        bits
+    }
+
+    /// Simulate the remaining portion of a live game using the live_resolver's
+    /// clock/period estimation logic.
+    fn resolve_live_game(
+        game: &Game,
+        game_status: &seismic_march_madness::types::GameStatus,
+        pace_d: f64,
+        rng: &mut impl Rng,
+    ) -> GameResult {
+        let score = match &game_status.score {
+            Some(s) => s,
+            None => {
+                // No score yet (shouldn't happen for Live, but handle gracefully)
+                return game.simulate_remaining((0, 0), 1200, 1, pace_d, rng);
+            }
+        };
+
+        let (secs, per) = match (game_status.seconds_remaining, game_status.period) {
+            (Some(s), Some(p)) => (s, p),
+            (None, Some(p)) => (0, p),
+            (Some(s), None) => {
+                let total = (score.team1 + score.team2) as f64;
+                let expected = game.estimate_total();
+                let period = if expected > 0.0 && total / expected > 0.45 {
+                    2
+                } else {
+                    1
+                };
+                (s, period)
+            }
+            (None, None) => {
+                let total = (score.team1 + score.team2) as f64;
+                let expected = game.estimate_total();
+                let fraction = if expected > 0.0 {
+                    (total / expected).clamp(0.05, 0.95)
+                } else {
+                    0.5
+                };
+                let remaining_secs = ((1.0 - fraction) * 2400.0) as i32;
+                let period = if remaining_secs > 1200 { 1 } else { 2 };
+                (remaining_secs, period)
+            }
+        };
+
+        game.simulate_remaining((score.team1, score.team2), secs, per, pace_d, rng)
     }
 
     /// Convert game index to round number (0-indexed).
