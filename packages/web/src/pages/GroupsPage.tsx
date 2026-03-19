@@ -3,6 +3,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GroupsSection } from "../components/GroupsSection";
+import { NoBracketWarning } from "../components/NoBracketWarning";
 import { PublicGroupsList } from "../components/PublicGroupsList";
 import { PrivateJoinForm } from "../components/PrivateJoinForm";
 import { useContract } from "../hooks/useContract";
@@ -25,8 +26,12 @@ type Tab = "your-groups" | "public-groups" | "join-group" | "create-group";
 
 function CreateGroupForm({
   groups,
+  hasSubmitted,
+  isSessionHydrating,
 }: {
   groups: ReturnType<typeof useGroups>;
+  hasSubmitted: boolean;
+  isSessionHydrating: boolean;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [slug, setSlug] = useState("");
@@ -104,6 +109,9 @@ function CreateGroupForm({
         others can join.
       </p>
 
+      {!isSessionHydrating && !hasSubmitted ? (
+        <NoBracketWarning />
+      ) : (
       <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -196,6 +204,7 @@ function CreateGroupForm({
           <p className="text-xs text-green-400">{createSuccess}</p>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -308,6 +317,8 @@ function MobileLayout({
           walletConnected={authenticated}
           isBeforeDeadline={contract.isBeforeDeadline}
           walletBalance={contract.balance}
+          hasSubmitted={contract.hasSubmitted}
+          isSessionHydrating={contract.isSessionHydrating}
         />
       )}
 
@@ -317,11 +328,17 @@ function MobileLayout({
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           walletBalance={contract.balance}
+          hasSubmitted={contract.hasSubmitted}
+          isSessionHydrating={contract.isSessionHydrating}
         />
       )}
 
       {activeTab === "create-group" && canCreateOrJoin && (
-        <CreateGroupForm groups={groups} />
+        <CreateGroupForm
+          groups={groups}
+          hasSubmitted={contract.hasSubmitted}
+          isSessionHydrating={contract.isSessionHydrating}
+        />
       )}
     </div>
   );
@@ -350,10 +367,18 @@ function DesktopLayout({
             isBeforeDeadline={contract.isBeforeDeadline}
             walletConnected={authenticated}
             walletBalance={contract.balance}
+            hasSubmitted={contract.hasSubmitted}
+            isSessionHydrating={contract.isSessionHydrating}
           />
         )}
 
-        {canCreateOrJoin && <CreateGroupForm groups={groups} />}
+        {canCreateOrJoin && (
+          <CreateGroupForm
+            groups={groups}
+            hasSubmitted={contract.hasSubmitted}
+            isSessionHydrating={contract.isSessionHydrating}
+          />
+        )}
 
         <Link
           to="/groups/public"
@@ -445,6 +470,8 @@ export function GroupsPage() {
           isBeforeDeadline={contract.isBeforeDeadline}
           walletConnected={authenticated}
           walletBalance={contract.balance}
+          hasSubmitted={contract.hasSubmitted}
+          isSessionHydrating={contract.isSessionHydrating}
           initialSlug={initialSlug}
           initialPassphrase={initialPassphrase}
           onSuccess={() => navigate("/groups", { replace: true })}

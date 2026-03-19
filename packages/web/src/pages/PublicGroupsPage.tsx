@@ -46,6 +46,8 @@ export function PublicGroupsPage() {
           walletConnected={authenticated}
           isBeforeDeadline={contract.isBeforeDeadline}
           walletBalance={contract.balance}
+          hasSubmitted={contract.hasSubmitted}
+          isSessionHydrating={contract.isSessionHydrating}
         />
       )}
     </div>

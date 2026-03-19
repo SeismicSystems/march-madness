@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { formatEther } from "viem";
 import type { PublicGroup } from "../hooks/usePublicGroups";
 import type { UseGroupsReturn } from "../hooks/useGroups";
+import { NoBracketWarning } from "./NoBracketWarning";
 
 interface PublicGroupsListProps {
   publicGroups: PublicGroup[];
@@ -12,6 +13,8 @@ interface PublicGroupsListProps {
   walletConnected: boolean;
   isBeforeDeadline: boolean;
   walletBalance: bigint | null;
+  hasSubmitted: boolean;
+  isSessionHydrating: boolean;
 }
 
 function PublicGroupCard({
@@ -20,12 +23,16 @@ function PublicGroupCard({
   walletConnected,
   isBeforeDeadline,
   walletBalance,
+  hasSubmitted,
+  isSessionHydrating,
 }: {
   group: PublicGroup;
   groups: UseGroupsReturn;
   walletConnected: boolean;
   isBeforeDeadline: boolean;
   walletBalance: bigint | null;
+  hasSubmitted: boolean;
+  isSessionHydrating: boolean;
 }) {
   const [joining, setJoining] = useState(false);
   const [joinName, setJoinName] = useState("");
@@ -126,39 +133,45 @@ function PublicGroupCard({
 
       {joining && !isJoined && (
         <div className="mt-3 pt-3 border-t border-border space-y-2">
-          <div className="flex gap-2 max-w-md">
-            <input
-              type="text"
-              value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
-              placeholder="Your display name"
-              className="flex-1 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleJoin();
-              }}
-            />
-            <button
-              onClick={handleJoin}
-              disabled={groups.isLoading}
-              className={`px-3 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${groups.isLoading || !joinName.trim() ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
-            >
-              {groups.isLoading ? "Joining..." : "Confirm"}
-            </button>
-            <button
-              onClick={() => {
-                setJoining(false);
-                setJoinError(null);
-                setAttempted(false);
-              }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-          {attempted && !joinName.trim() && (
-            <p className="text-xs text-red-400">Please enter a display name.</p>
+          {!isSessionHydrating && !hasSubmitted ? (
+            <NoBracketWarning />
+          ) : (
+            <>
+              <div className="flex gap-2 max-w-md">
+                <input
+                  type="text"
+                  value={joinName}
+                  onChange={(e) => setJoinName(e.target.value)}
+                  placeholder="Your display name"
+                  className="flex-1 px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleJoin();
+                  }}
+                />
+                <button
+                  onClick={handleJoin}
+                  disabled={groups.isLoading}
+                  className={`px-3 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${groups.isLoading || !joinName.trim() ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
+                >
+                  {groups.isLoading ? "Joining..." : "Confirm"}
+                </button>
+                <button
+                  onClick={() => {
+                    setJoining(false);
+                    setJoinError(null);
+                    setAttempted(false);
+                  }}
+                  className="px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+              {attempted && !joinName.trim() && (
+                <p className="text-xs text-red-400">Please enter a display name.</p>
+              )}
+              {joinError && <p className="text-xs text-red-400">{joinError}</p>}
+            </>
           )}
-          {joinError && <p className="text-xs text-red-400">{joinError}</p>}
         </div>
       )}
     </div>
@@ -173,6 +186,8 @@ export function PublicGroupsList({
   walletConnected,
   isBeforeDeadline,
   walletBalance,
+  hasSubmitted,
+  isSessionHydrating,
 }: PublicGroupsListProps) {
   const [search, setSearch] = useState("");
 
@@ -232,6 +247,8 @@ export function PublicGroupsList({
               walletConnected={walletConnected}
               isBeforeDeadline={isBeforeDeadline}
               walletBalance={walletBalance}
+              hasSubmitted={hasSubmitted}
+              isSessionHydrating={isSessionHydrating}
             />
           ))}
         </div>

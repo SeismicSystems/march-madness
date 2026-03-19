@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { formatEther } from "viem";
 import type { UseGroupsReturn } from "../hooks/useGroups";
+import { NoBracketWarning } from "./NoBracketWarning";
 
 interface PrivateJoinFormProps {
   groups: UseGroupsReturn;
   isBeforeDeadline: boolean;
   walletConnected: boolean;
   walletBalance: bigint | null;
+  hasSubmitted: boolean;
+  isSessionHydrating: boolean;
   initialSlug?: string;
   initialPassphrase?: string;
   onSuccess?: () => void;
@@ -17,6 +20,8 @@ export function PrivateJoinForm({
   isBeforeDeadline,
   walletConnected,
   walletBalance,
+  hasSubmitted,
+  isSessionHydrating,
   initialSlug = "",
   initialPassphrase = "",
   onSuccess,
@@ -96,57 +101,63 @@ export function PrivateJoinForm({
         Have an invite link or slug? Enter it here to join a group.
       </p>
 
-      <div className="space-y-2 max-w-md">
-        <input
-          type="text"
-          value={slugInput}
-          onChange={(e) => setSlugInput(e.target.value)}
-          placeholder="Group slug"
-          className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-        />
-        <input
-          type="text"
-          value={nameInput}
-          onChange={(e) => setNameInput(e.target.value)}
-          placeholder="Your display name"
-          className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-        />
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isPrivateJoin}
-            onChange={(e) => setIsPrivateJoin(e.target.checked)}
-            className="accent-accent"
-          />
-          Private group
-        </label>
-        {isPrivateJoin && (
-          <input
-            type="text"
-            value={passphraseInput}
-            onChange={(e) => setPassphraseInput(e.target.value)}
-            placeholder="Passphrase"
-            className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
-          />
-        )}
-        <div>
-          <button
-            onClick={handleJoin}
-            disabled={groups.isLoading}
-            className={`px-4 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
-          >
-            {groups.isLoading ? "Joining..." : "Join"}
-          </button>
-        </div>
-        {attempted && missingName && (
-          <p className="text-xs text-red-400">Please enter a display name.</p>
-        )}
-        {attempted && missingSlug && (
-          <p className="text-xs text-red-400">Please enter a group slug.</p>
-        )}
-      </div>
-      {joinError && (
-        <p className="text-xs text-red-400 mt-2">{joinError}</p>
+      {!isSessionHydrating && !hasSubmitted ? (
+        <NoBracketWarning />
+      ) : (
+        <>
+          <div className="space-y-2 max-w-md">
+            <input
+              type="text"
+              value={slugInput}
+              onChange={(e) => setSlugInput(e.target.value)}
+              placeholder="Group slug"
+              className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+            />
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your display name"
+              className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+            />
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPrivateJoin}
+                onChange={(e) => setIsPrivateJoin(e.target.checked)}
+                className="accent-accent"
+              />
+              Private group
+            </label>
+            {isPrivateJoin && (
+              <input
+                type="text"
+                value={passphraseInput}
+                onChange={(e) => setPassphraseInput(e.target.value)}
+                placeholder="Passphrase"
+                className="w-full px-3 py-1.5 text-sm rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 transition-colors"
+              />
+            )}
+            <div>
+              <button
+                onClick={handleJoin}
+                disabled={groups.isLoading}
+                className={`px-4 py-1.5 text-sm rounded-lg bg-accent text-white transition-colors font-medium ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover cursor-pointer"}`}
+              >
+                {groups.isLoading ? "Joining..." : "Join"}
+              </button>
+            </div>
+            {attempted && missingName && (
+              <p className="text-xs text-red-400">Please enter a display name.</p>
+            )}
+            {attempted && missingSlug && (
+              <p className="text-xs text-red-400">Please enter a group slug.</p>
+            )}
+          </div>
+          {joinError && (
+            <p className="text-xs text-red-400 mt-2">{joinError}</p>
+          )}
+        </>
       )}
     </div>
   );
