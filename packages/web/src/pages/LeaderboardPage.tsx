@@ -282,7 +282,7 @@ export function LeaderboardPage() {
             <tr className="text-text-muted text-xs border-b border-border">
               <th className="text-left py-2 px-2 w-12">#</th>
               <th className="text-left py-2 px-2">Player</th>
-              <th className="text-left py-2 px-2 hidden md:table-cell">
+              <th className="text-left py-2 px-2 hidden md:table-cell w-44">
                 Champion
               </th>
               {hasForecasts && (
@@ -293,7 +293,7 @@ export function LeaderboardPage() {
                     activeSortKey={sortKey}
                     sortDir={sortDir}
                     onToggle={toggleSort}
-                    className="text-right hidden md:table-cell"
+                    className="text-right hidden md:table-cell w-24"
                   />
                   <SortHeader
                     label="E[Score]"
@@ -301,7 +301,7 @@ export function LeaderboardPage() {
                     activeSortKey={sortKey}
                     sortDir={sortDir}
                     onToggle={toggleSort}
-                    className="text-right hidden md:table-cell"
+                    className="text-right hidden md:table-cell w-24"
                   />
                 </>
               )}
@@ -347,9 +347,9 @@ export function LeaderboardPage() {
                   </td>
                   <td className="py-2.5 px-2 hidden md:table-cell">
                     {entry.championName ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <TeamLogo teamName={entry.championName} />
-                        <span className="text-text-secondary text-xs">
+                        <span className="text-text-secondary text-xs truncate">
                           {entry.championName}
                         </span>
                       </div>
