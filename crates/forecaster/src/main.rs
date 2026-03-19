@@ -14,11 +14,9 @@ use tracing::{info, warn};
 
 use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::{
-    GameState, GameStatus, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, ReachProbs,
-    TeamAdvanceResults, TournamentData, TournamentStatus, build_reach_probs,
-    get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
-    run_multi_pool_simulations_with_resolver, run_team_advance_simulations_with_resolver,
-    tournament_json,
+    GameState, GameStatus, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, TeamAdvanceResults,
+    TournamentData, TournamentStatus, get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
+    run_multi_pool_simulations, run_team_advance_simulations, tournament_json,
 };
 
 /// Rich forecast for a single entry, serialized to Redis/JSON.
@@ -70,7 +68,6 @@ struct Context {
     team_names: Vec<String>,
     team_map: HashMap<String, Team>,
     resolver: GameModelResolver,
-    reach: ReachProbs,
     simulations: u32,
     output_file: Option<PathBuf>,
     simulation_mode: SimulationMode,
@@ -118,13 +115,8 @@ fn main() -> Result<()> {
         let results = if let SimulationMode::PreLock(ref pre_lock) = ctx.simulation_mode {
             run_prelock_team_advance(&pre_lock.tournament, ctx.simulations)
         } else {
-            let (status, reach, resolver_opt) = load_simulation_state(&mut conn, &ctx)?;
-            run_team_advance_simulations_with_resolver(
-                &status,
-                &reach,
-                ctx.simulations,
-                resolver_opt,
-            )
+            let status = load_status(&mut conn)?;
+            run_team_advance_simulations(&status, ctx.simulations, &ctx.resolver)
         };
         results.print_table(&ctx.team_names, |name| {
             ctx.team_map.get(name).map(|team| team.seed).unwrap_or(0)
@@ -172,10 +164,6 @@ fn build_context(cli: &Cli) -> Result<Context> {
         .collect();
     let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
 
-    // Compute reach probabilities once from KenPom-based tournament simulation.
-    // Both live and pre-lock modes use the same baseline reach probs.
-    let reach = compute_reach_probs(cli.year, cli.simulations, &team_names, &teams);
-
     let simulation_mode = if cli.pre_lock {
         let bracket_config = BracketConfig::for_year(cli.year);
         let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
@@ -192,25 +180,10 @@ fn build_context(cli: &Cli) -> Result<Context> {
         team_names,
         team_map,
         resolver,
-        reach,
         simulations: cli.simulations,
         output_file: cli.output_file.clone(),
         simulation_mode,
     })
-}
-
-fn compute_reach_probs(
-    year: u16,
-    simulations: u32,
-    team_names: &[String],
-    teams: &[Team],
-) -> ReachProbs {
-    let bracket_config = BracketConfig::for_year(year);
-    let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
-    tournament.setup_tournament(teams.to_vec(), &bracket_config);
-    // `cumulative_win_probabilities` already uses rayon internally.
-    let reach_map = tournament.cumulative_win_probabilities(simulations as usize);
-    build_reach_probs(team_names, &reach_map)
 }
 
 fn load_tournament_json(cli: &Cli) -> Result<String> {
@@ -230,7 +203,10 @@ fn pre_lock_status() -> TournamentStatus {
 }
 
 fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) -> Result<()> {
-    let (status, reach, resolver_opt) = load_simulation_state(conn, ctx)?;
+    let status = match &ctx.simulation_mode {
+        SimulationMode::PreLock(pre_lock) => pre_lock.status.clone(),
+        SimulationMode::Live => load_status(conn)?,
+    };
     let undecided = status
         .games
         .iter()
@@ -260,53 +236,43 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         "built pools"
     );
 
-    let (advance_results, multi_pool_results) =
-        if let SimulationMode::PreLock(ref pre_lock) = ctx.simulation_mode {
-            let advance = run_prelock_team_advance(&pre_lock.tournament, ctx.simulations);
-            write_team_probs(conn, &ctx.team_names, &advance)?;
+    let (advance_results, multi_pool_results) = if let SimulationMode::PreLock(ref pre_lock) =
+        ctx.simulation_mode
+    {
+        let advance = run_prelock_team_advance(&pre_lock.tournament, ctx.simulations);
+        write_team_probs(conn, &ctx.team_names, &advance)?;
 
-            if brackets.is_empty() {
-                let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
-                    pools.iter().map(|_| BTreeMap::new()).collect();
-                info!("no valid brackets found, writing empty forecasts");
-                write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
-                return Ok(());
-            }
+        if brackets.is_empty() {
+            let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
+                pools.iter().map(|_| BTreeMap::new()).collect();
+            info!("no valid brackets found, writing empty forecasts");
+            write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
+            return Ok(());
+        }
 
-            let multi = run_prelock_multi_pool_simulations(
-                &brackets,
-                &pools,
-                &pre_lock.tournament,
-                ctx.simulations,
-            );
-            (advance, multi)
-        } else {
-            let advance = run_team_advance_simulations_with_resolver(
-                &status,
-                &reach,
-                ctx.simulations,
-                resolver_opt,
-            );
-            write_team_probs(conn, &ctx.team_names, &advance)?;
+        let multi = run_prelock_multi_pool_simulations(
+            &brackets,
+            &pools,
+            &pre_lock.tournament,
+            ctx.simulations,
+        );
+        (advance, multi)
+    } else {
+        let advance = run_team_advance_simulations(&status, ctx.simulations, &ctx.resolver);
+        write_team_probs(conn, &ctx.team_names, &advance)?;
 
-            if brackets.is_empty() {
-                let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
-                    pools.iter().map(|_| BTreeMap::new()).collect();
-                info!("no valid brackets found, writing empty forecasts");
-                write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
-                return Ok(());
-            }
+        if brackets.is_empty() {
+            let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
+                pools.iter().map(|_| BTreeMap::new()).collect();
+            info!("no valid brackets found, writing empty forecasts");
+            write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
+            return Ok(());
+        }
 
-            let multi = run_multi_pool_simulations_with_resolver(
-                &brackets,
-                &pools,
-                &status,
-                &reach,
-                ctx.simulations,
-                resolver_opt,
-            );
-            (advance, multi)
-        };
+        let multi =
+            run_multi_pool_simulations(&brackets, &pools, &status, ctx.simulations, &ctx.resolver);
+        (advance, multi)
+    };
     let _ = advance_results; // team probs already written above
 
     let num_sims = multi_pool_results.num_sims as f64;
@@ -354,24 +320,6 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
     }
 
     Ok(())
-}
-
-fn load_simulation_state<'a>(
-    conn: &mut redis::Connection,
-    ctx: &'a Context,
-) -> Result<(
-    TournamentStatus,
-    ReachProbs,
-    Option<&'a dyn seismic_march_madness::LiveGameResolver>,
-)> {
-    if let SimulationMode::PreLock(pre_lock) = &ctx.simulation_mode {
-        return Ok((pre_lock.status.clone(), ctx.reach.clone(), None));
-    }
-
-    let status = load_status(conn)?;
-    let resolver_opt = resolver_for_status(ctx, &status);
-
-    Ok((status, ctx.reach.clone(), resolver_opt))
 }
 
 fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> {
@@ -512,24 +460,11 @@ fn load_status(conn: &mut redis::Connection) -> Result<TournamentStatus> {
     Ok(serde_json::from_str(&json)?)
 }
 
-fn resolver_for_status<'a>(
-    ctx: &'a Context,
-    status: &TournamentStatus,
-) -> Option<&'a dyn seismic_march_madness::LiveGameResolver> {
-    let live = status
-        .games
-        .iter()
-        .filter(|game| game.status == GameState::Live)
-        .count();
-    if live > 0 { Some(&ctx.resolver) } else { None }
-}
-
 // ── Pre-lock simulation (full possession-level model) ──────────────
 
 /// Run multi-pool simulations using bracket-sim's full NB/Poisson game model
-/// with Bayesian metric updates. Used in pre-lock mode instead of the
-/// reach-probability shortcut, which incorrectly uses marginal advance
-/// probabilities as conditional win probabilities.
+/// with Bayesian metric updates. Used in pre-lock mode for the most accurate
+/// simulation — each game updates team metrics for subsequent rounds.
 fn run_prelock_multi_pool_simulations(
     brackets: &[u64],
     pools: &[Pool],

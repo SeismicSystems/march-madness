@@ -1,19 +1,20 @@
-//! [`LiveGameResolver`] implementation using bracket-sim's game model.
+//! [`GameResolver`] implementation using bracket-sim's game model.
 //!
-//! Simulates remaining possessions for live games using KenPom team metrics
-//! instead of flipping a pre-computed coin.
+//! Simulates games using KenPom team metrics:
+//! - Live games: simulate remaining possessions from the current score
+//! - Upcoming games: simulate the full game from scratch
 
 use std::collections::HashMap;
 
 use rand::{Rng, RngCore};
 
-use seismic_march_madness::simulate::LiveGameResolver;
+use seismic_march_madness::simulate::GameResolver;
 use seismic_march_madness::types::TournamentStatus;
 
 use crate::game::Game;
 use crate::team::Team;
 
-/// Resolves live games by simulating remaining possessions with KenPom metrics.
+/// Resolves games by simulating with KenPom metrics.
 ///
 /// Pre-caches teams by bracket position (0-63) at construction time to avoid
 /// HashMap lookups and Team clones in the hot simulation loop.
@@ -37,7 +38,7 @@ impl GameModelResolver {
     }
 }
 
-impl LiveGameResolver for GameModelResolver {
+impl GameResolver for GameModelResolver {
     fn resolve(
         &self,
         game_index: usize,
@@ -49,6 +50,7 @@ impl LiveGameResolver for GameModelResolver {
         let (t1, t2) = match (&self.teams_by_idx[team1_idx], &self.teams_by_idx[team2_idx]) {
             (Some(a), Some(b)) => (a, b),
             _ => {
+                // Fallback: coin flip with optional probability hint
                 let p = status.games[game_index]
                     .team1_win_probability
                     .unwrap_or(0.5);
@@ -59,17 +61,17 @@ impl LiveGameResolver for GameModelResolver {
         let game_model = Game::new(t1.clone(), t2.clone());
         let game_status = &status.games[game_index];
 
-        // Score is required to incorporate live game state.
+        // If no score (upcoming game), simulate the full game from scratch.
         let score = match &game_status.score {
             Some(s) => s,
             None => {
-                let prob = game_model.team1_win_probability();
-                return rng.random::<f64>() < prob;
+                let result = game_model.simulate_remaining((0, 0), 1200, 1, self.pace_d, rng);
+                return result.team1_score > result.team2_score;
             }
         };
 
-        // Resolve time data, falling back to estimates when the API omits
-        // clock or period (e.g. during halftime the clock string is empty).
+        // Live game: resolve time data, falling back to estimates when the API
+        // omits clock or period (e.g. during halftime the clock string is empty).
         let (secs, per) = match (game_status.seconds_remaining, game_status.period) {
             (Some(s), Some(p)) => (s, p),
             // Clock unavailable (halftime): treat as 0 seconds left in current period.
@@ -167,13 +169,10 @@ mod tests {
 
     #[test]
     fn halftime_missing_clock_uses_score() {
-        // Equal teams — isolates the score effect from team-strength asymmetry.
         let t1 = make_team("Team1", 8, 105.0, 105.0, 68.0);
         let t2 = make_team("Team2", 8, 105.0, 105.0, 68.0);
         let resolver = make_resolver(&t1, &t2);
 
-        // Halftime scenario: period=1 (from "HALF"), clock=None (empty string).
-        // Team1 trails 25-40 (down 15).
         let status = make_status_with_game0(GameStatus {
             game_index: 0,
             status: GameState::Live,
@@ -183,14 +182,12 @@ mod tests {
             }),
             winner: None,
             team1_win_probability: None,
-            seconds_remaining: None, // <-- halftime: clock is empty
+            seconds_remaining: None,
             period: Some(1),
         });
 
         let win_rate = resolve_win_rate(&resolver, &status, 10000);
 
-        // Equal teams, down 15 at half → should be well below 50%.
-        // (Without the fix, this would be ~50% because pre-game prob ignores score.)
         assert!(
             win_rate < 0.25,
             "equal team down 15 at half should win <25%, got {:.1}%",
@@ -204,7 +201,6 @@ mod tests {
         let t2 = make_team("Team2", 8, 105.0, 105.0, 68.0);
         let resolver = make_resolver(&t1, &t2);
 
-        // Both clock and period are None, but we have a halftime-ish score.
         let status = make_status_with_game0(GameStatus {
             game_index: 0,
             status: GameState::Live,
@@ -220,7 +216,6 @@ mod tests {
 
         let win_rate = resolve_win_rate(&resolver, &status, 10000);
 
-        // Equal teams, score suggests ~halftime, team1 down 15.
         assert!(
             win_rate < 0.25,
             "equal team down 15 mid-game should win <25%, got {:.1}%",
@@ -234,7 +229,6 @@ mod tests {
         let t2 = make_team("Team2", 8, 100.0, 110.0, 68.0);
         let resolver = make_resolver(&t1, &t2);
 
-        // Normal case: all data present. Team1 leads 60-40 with 5 min left.
         let status = make_status_with_game0(GameStatus {
             game_index: 0,
             status: GameState::Live,
@@ -257,8 +251,23 @@ mod tests {
         );
     }
 
-    /// Estimate the remaining seconds from the current score total and expected game total.
-    /// Mirrors the logic in the resolver's (None, None) fallback branch.
+    #[test]
+    fn upcoming_game_uses_team_strength() {
+        let strong = make_team("Strong", 1, 120.0, 90.0, 68.0);
+        let weak = make_team("Weak", 16, 90.0, 120.0, 68.0);
+        let resolver = make_resolver(&strong, &weak);
+
+        let status = make_status_with_game0(GameStatus::upcoming(0));
+
+        let win_rate = resolve_win_rate(&resolver, &status, 10000);
+
+        assert!(
+            win_rate > 0.80,
+            "strong team should win >80% of upcoming games, got {:.1}%",
+            win_rate * 100.0
+        );
+    }
+
     fn estimate_remaining_from_score(score_total: f64, expected_total: f64) -> (i32, u8) {
         let fraction = if expected_total > 0.0 {
             (score_total / expected_total).clamp(0.05, 0.95)
@@ -272,17 +281,15 @@ mod tests {
 
     #[test]
     fn estimate_remaining_from_score_halftime() {
-        // ~70 points at halftime, expected total ~140 → ~50% complete → ~1200 secs left
         let (secs, period) = estimate_remaining_from_score(70.0, 140.0);
-        assert_eq!(period, 2); // second half
+        assert_eq!(period, 2);
         assert!((secs - 1200).abs() < 10, "expected ~1200 secs, got {secs}");
     }
 
     #[test]
     fn estimate_remaining_from_score_early_game() {
-        // ~30 points early in first half, expected total ~140 → ~21% complete
         let (secs, period) = estimate_remaining_from_score(30.0, 140.0);
-        assert_eq!(period, 1); // still first half
+        assert_eq!(period, 1);
         assert!(secs > 1200, "expected >1200 secs remaining, got {secs}");
     }
 }
