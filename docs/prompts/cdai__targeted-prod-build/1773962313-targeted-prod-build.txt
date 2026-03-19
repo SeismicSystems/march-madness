@@ -1,0 +1,1 @@
+can you add an entry in scripts/alias.sh that will only cargo build the binaries we need in prod? you can figure those out by looking at deploy/supervisor.conf. and then replace any backend naked cargo build --release commands to use that alias
