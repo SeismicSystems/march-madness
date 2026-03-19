@@ -1,0 +1,5 @@
+hey i realize tht on the various leaderboard pages, when updates come in, it's a little annoying because the page reshuffles. can we figure out a way to make that not  happen? we definitely still want to update the values (and maybe even have a little effect when someone goes up or down in expected score -- not P(win) though)
+
+can you fix the shuffle noise first, and open a pr when you're done? we;ll think about the animation later
+
+also while you're at it... the default sort should be (actual current score, tiebroken by probabiliity, tiebroken by e[score])
