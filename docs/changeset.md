@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix live game resolver to use current scores when clock/period data is missing (e.g. during halftime). Previously fell back to pre-game KenPom probability, ignoring the actual score entirely.
+
+
 Add mirror leaderboard and bracket viewer pages at `/mirrors/id/:id` and `/mirrors/id/:id/bracket/:entrySlug`. Not linked from anywhere in the UI — must be navigated to directly. Also fix group leaderboard to show group-specific win probabilities instead of global pool forecasts.
 
 
