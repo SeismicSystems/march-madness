@@ -38,7 +38,7 @@ pub struct GameStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub winner: Option<bool>,
     /// Probability that team1 wins (0-1). For live games — conditional on
-    /// current in-game score. Not used for upcoming games (use teamReachProbabilities).
+    /// current in-game score.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub team1_win_probability: Option<f64>,
     /// Seconds remaining in the current period (live games only).
@@ -80,27 +80,15 @@ impl GameStatus {
 
 /// Full tournament status — served by backend, updated via POST.
 ///
-/// The forecaster uses `teamReachProbabilities` to derive pairwise win probabilities
-/// via the Bradley-Terry approximation:
-///   P(A beats B in round r) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])
-/// where reach[X][r+1] is the probability of team X reaching the round after r.
+/// Contains game states only. Team reach probabilities are computed by the
+/// forecaster and stored separately in the `mm:probs` Redis key.
 ///
-/// For live games, `team1WinProbability` on the GameStatus is used instead (it's
-/// conditional on the current in-game score).
+/// For live games, `team1WinProbability` on the GameStatus provides in-game
+/// win probability conditional on the current score.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TournamentStatus {
     pub games: Vec<GameStatus>,
-
-    /// Per-team probability of reaching each round, keyed by team name.
-    /// Value: [pR64, pR32, pS16, pE8, pF4, pChamp] — 6 values.
-    /// pR64 is always 1.0 (everyone starts in R64).
-    /// pChamp is the probability of winning it all.
-    ///
-    /// The forecaster maps team names → bracket positions using tournament data,
-    /// then derives pairwise win probabilities for forward simulation.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub team_reach_probabilities: Option<std::collections::HashMap<String, Vec<f64>>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,

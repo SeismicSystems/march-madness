@@ -1,6 +1,7 @@
 use eyre::{Result, WrapErr};
 use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
+use seismic_march_madness::TournamentStatus;
 use seismic_march_madness::redis_keys::*;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -286,12 +287,16 @@ impl AppState {
 
     // ── Tournament status (Redis) ────────────────────────────────────
 
-    pub async fn get_tournament_status(&self) -> Result<serde_json::Value> {
+    pub async fn get_tournament_status(&self) -> Result<Option<TournamentStatus>> {
         let mut conn = self.redis();
         let json: Option<String> = conn.get(KEY_GAMES).await?;
         match json {
-            Some(s) => Ok(serde_json::from_str(&s)?),
-            None => Ok(serde_json::Value::Null),
+            Some(s) => {
+                let status: TournamentStatus =
+                    serde_json::from_str(&s).wrap_err("malformed tournament status in Redis")?;
+                Ok(Some(status))
+            }
+            None => Ok(None),
         }
     }
 

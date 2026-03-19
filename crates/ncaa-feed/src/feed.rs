@@ -220,7 +220,6 @@ impl FeedState {
 
         seismic_march_madness::TournamentStatus {
             games,
-            team_reach_probabilities: None,
             updated_at: Some(chrono::Utc::now().to_rfc3339()),
         }
     }
@@ -278,7 +277,6 @@ mod tests {
                 seconds_remaining: None,
                 period: None,
             }],
-            team_reach_probabilities: None,
             updated_at: None,
         };
 

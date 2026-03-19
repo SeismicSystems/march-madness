@@ -61,13 +61,8 @@ pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
 /// GET /tournament-status — serve tournament status JSON from Redis.
 pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_tournament_status().await {
-        Ok(data) => {
-            if data.is_null() {
-                (StatusCode::NOT_FOUND, "tournament status not available").into_response()
-            } else {
-                Json(data).into_response()
-            }
-        }
+        Ok(Some(status)) => Json(status).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "tournament status not available").into_response(),
         Err(e) => {
             tracing::error!("failed to read tournament status: {e}");
             (

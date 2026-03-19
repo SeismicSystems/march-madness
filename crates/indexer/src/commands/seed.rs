@@ -11,7 +11,6 @@ use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
 use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::types::{GameScore, GameState, GameStatus, TournamentStatus};
-use seismic_march_madness::{TournamentData, get_teams_in_bracket_order};
 use tracing::info;
 
 /// Tag names to randomly assign to some entries.
@@ -50,9 +49,6 @@ const MIRRORS: &[(&str, &str, usize)] = &[
 const FINAL_GAMES: usize = 24;
 /// How many games should be "live".
 const LIVE_GAMES: usize = 3;
-
-/// Seed order per region: [1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15].
-const SEED_ORDER: [u8; 16] = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
 
 pub async fn run(redis: &mut MultiplexedConnection, entries: usize, clean: bool) -> Result<()> {
     if std::env::var("DANGEROUSLY_SEED_REDIS").as_deref() != Ok("1") {
@@ -194,43 +190,8 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
         games.push(game);
     }
 
-    // Build plausible team reach probabilities from embedded tournament data.
-    let tournament = TournamentData::embedded(2026);
-    let team_names = get_teams_in_bracket_order(&tournament);
-    let mut reach_probs = std::collections::HashMap::new();
-    for (idx, name) in team_names.iter().enumerate() {
-        // Get seed from bracket position (repeating seed order per region).
-        let seed = SEED_ORDER[idx % 16];
-        // Higher seeds get better reach probabilities.
-        let base_strength: f64 = match seed {
-            1 => 0.92,
-            2 => 0.88,
-            3 => 0.82,
-            4 => 0.75,
-            5 => 0.68,
-            6 => 0.62,
-            7 => 0.55,
-            8 => 0.50,
-            9 => 0.48,
-            10 => 0.42,
-            11 => 0.38,
-            12 => 0.32,
-            13 => 0.22,
-            14 => 0.15,
-            15 => 0.08,
-            16 => 0.03,
-            _ => 0.5,
-        };
-        // Decay per round.
-        let probs: Vec<f64> = (0..6)
-            .map(|r| if r == 0 { 1.0 } else { base_strength.powi(r) })
-            .collect();
-        reach_probs.insert(name.clone(), probs);
-    }
-
     let status = TournamentStatus {
         games,
-        team_reach_probabilities: Some(reach_probs),
         updated_at: Some(chrono::Utc::now().to_rfc3339()),
     };
 
@@ -239,8 +200,7 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
     info!(
         final_games = FINAL_GAMES,
         live_games = LIVE_GAMES,
-        teams = team_names.len(),
-        "tournament status seeded (with reach probabilities)"
+        "tournament status seeded"
     );
     Ok(())
 }

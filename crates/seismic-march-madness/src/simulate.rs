@@ -485,7 +485,6 @@ mod tests {
 
         TournamentStatus {
             games,
-            team_reach_probabilities: None,
             updated_at: None,
         }
     }

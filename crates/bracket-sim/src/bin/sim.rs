@@ -157,17 +157,8 @@ fn main() -> io::Result<()> {
             None
         };
 
-        // Build reach probs: use status file's if present, otherwise compute from full tournament sim
-        let reach = if let Some(reach_map) = &status.team_reach_probabilities {
-            if !reach_map.is_empty() {
-                info!("using reach probs from status");
-                build_reach_probs(&team_names, reach_map)
-            } else {
-                compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
-            }
-        } else {
-            compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims)
-        };
+        // Compute reach probs from KenPom-based tournament simulation.
+        let reach = compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims);
 
         let results = run_team_advance_simulations_with_resolver(
             status,

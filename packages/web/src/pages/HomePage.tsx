@@ -10,6 +10,7 @@ import { useContract } from "../hooks/useContract";
 import { useRequiredChain } from "../hooks/useRequiredChain";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useStats } from "../hooks/useStats";
+import { useTeamProbs } from "../hooks/useTeamProbs";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
 export function HomePage() {
@@ -18,6 +19,7 @@ export function HomePage() {
   const requiredChain = useRequiredChain();
   const bracket = useBracket(contract.walletAddress, !contract.isSessionHydrating);
   const { status: tournamentStatus } = useTournamentStatus();
+  const { teamProbs } = useTeamProbs();
   const { totalEntries, loading: statsLoading, error: statsError } = useStats();
   const isMobile = useIsMobile();
 
@@ -83,6 +85,7 @@ export function HomePage() {
         tournamentStatus={
           isLocked && tournamentStatus ? tournamentStatus : undefined
         }
+        teamProbs={isLocked ? teamProbs : undefined}
       />
 
       {isMobile && (
