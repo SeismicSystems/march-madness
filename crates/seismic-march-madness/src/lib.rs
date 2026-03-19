@@ -11,7 +11,7 @@ pub mod simulate;
 pub mod tournament;
 pub mod types;
 
-pub use data::{KenpomRatings, kenpom_csv, tournament_json};
+pub use data::{KenpomRatings, kenpom_csv, mappings_toml, tournament_json};
 pub use scoring::*;
 pub use simulate::{
     LiveGameResolver, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, ReachProbs,

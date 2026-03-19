@@ -9,7 +9,14 @@ use std::path::Path;
 use eyre::{Context, Result};
 use ncaa_api::Contest;
 use seismic_march_madness::types::{GameState, GameStatus};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
+
+/// Partial mappings.toml structure — only the `[ncaa]` section.
+#[derive(serde::Deserialize, Default)]
+struct MappingsConfig {
+    #[serde(default)]
+    ncaa: HashMap<String, String>,
+}
 
 /// Tournament JSON format (just the fields we need).
 #[derive(serde::Deserialize)]
@@ -90,10 +97,43 @@ impl GameMapper {
             }
         }
 
-        Ok(Self {
+        let mut mapper = Self {
             name_to_position,
             winners: HashMap::new(),
-        })
+        };
+
+        // Apply NCAA API name aliases from embedded mappings.toml.
+        mapper.apply_ncaa_aliases();
+
+        Ok(mapper)
+    }
+
+    /// Load NCAA API name aliases from the embedded `mappings.toml` `[ncaa]` section.
+    /// These map NCAA API `nameShort` values to the canonical names in tournament.json.
+    fn apply_ncaa_aliases(&mut self) {
+        let toml_str = seismic_march_madness::mappings_toml();
+        let config: MappingsConfig = match toml::from_str(toml_str) {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("failed to parse embedded mappings.toml: {e}");
+                return;
+            }
+        };
+
+        for (ncaa_name, canonical_name) in &config.ncaa {
+            if let Some(&pos) = self.name_to_position.get(canonical_name) {
+                self.name_to_position.insert(ncaa_name.clone(), pos);
+                debug!("NCAA alias: '{ncaa_name}' → '{canonical_name}' (position {pos})");
+            } else {
+                warn!(
+                    "NCAA alias target '{canonical_name}' not found in bracket (alias '{ncaa_name}')"
+                );
+            }
+        }
+
+        if !config.ncaa.is_empty() {
+            info!("loaded {} NCAA name alias(es)", config.ncaa.len());
+        }
     }
 
     /// Get the bracket position (0-63) for an NCAA team name.
@@ -297,6 +337,21 @@ mod tests {
         assert!(combo_pos.is_some());
         assert_eq!(mapper.team_position("Prairie View A&M"), combo_pos);
         assert_eq!(mapper.team_position("Lehigh"), combo_pos);
+    }
+
+    #[test]
+    fn test_ncaa_aliases_applied() {
+        let mapper = test_mapper();
+
+        // NCAA API sends "South Fla." but tournament.json has "South Florida".
+        let canonical = mapper.team_position("South Florida");
+        assert!(canonical.is_some());
+        assert_eq!(mapper.team_position("South Fla."), canonical);
+
+        // NCAA API sends "Saint Mary's (CA)" but tournament.json has "Saint Mary's".
+        let canonical = mapper.team_position("Saint Mary's");
+        assert!(canonical.is_some());
+        assert_eq!(mapper.team_position("Saint Mary's (CA)"), canonical);
     }
 
     #[test]

@@ -9,6 +9,11 @@ use std::collections::HashMap;
 
 // ── Embedded raw strings ────────────────────────────────────────────
 
+const MAPPINGS_TOML: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/mappings.toml"
+));
+
 const TOURNAMENT_JSON_2025: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../data/2025/men/tournament.json"
@@ -26,6 +31,11 @@ const KENPOM_CSV_2026: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../data/2026/men/kenpom.csv"
 ));
+
+/// Return the embedded mappings.toml content.
+pub fn mappings_toml() -> &'static str {
+    MAPPINGS_TOML
+}
 
 /// Return the embedded tournament JSON string for a given year, if available.
 pub fn tournament_json(year: u16) -> Option<&'static str> {
