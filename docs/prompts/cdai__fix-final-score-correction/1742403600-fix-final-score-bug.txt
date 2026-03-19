@@ -1,0 +1,5 @@
+hey i just found a small bug in ncaa-feed
+
+there's situations where we might have marked a game as "final" but then they update the score afterwards. i'm guessing we have some logic in there, where if we've marked the game as final, we don't make any more updates. the easy fix is: every time we refresh the scoreboard, we update all the games in our redis store that have relevant entries on the scoreboard. for example, the TCU game final score is 66-64 but our redis on prod server has 66-62, presumably bc ncaa api marked it as final and then updated the score at the end
+
+when you fix it push a pr
