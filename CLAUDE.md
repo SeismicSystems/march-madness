@@ -249,6 +249,7 @@ After seeding, run the forecaster to generate per-pool win probabilities and tea
 ```bash
 cargo run -p march-madness-forecaster -- --once  # single iteration, then exit
 cargo run -p march-madness-forecaster            # loops forever, re-reading Redis each iteration
+cargo run -p march-madness-forecaster -- --pre-lock  # ignore Redis game state, use pre-tourney probabilities
 cargo run -p march-madness-server                # serves data from Redis
 cd packages/web && bun dev                       # start frontend
 ```
