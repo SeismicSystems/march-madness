@@ -1,0 +1,7 @@
+hey right now we have this feature called mirrors that's everywher but in the frontend.
+
+ i would like to add a URL to display a page /mirrors/id/<id> which will show the leaderboard for a mirror. clicking any individual bracket will show a bracket page for that specific mirror. maybe /mirror/id/{id}/bracket/{entry-id}
+
+this shouldn't be accessible by link anywhere in the UI. you should have to explicitly navigate to /mirrors/id/<id> to see the mirror, or click the brackets.
+
+when you're done make a pr

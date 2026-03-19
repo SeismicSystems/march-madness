@@ -65,6 +65,11 @@ async fn main() -> eyre::Result<()> {
         .route("/address/{address}/groups", get(routes::get_address_groups))
         // Mirror routes
         .route("/mirrors", get(routes::get_mirrors))
+        .route("/mirrors/id/{id}", get(routes::get_mirror_by_id))
+        .route(
+            "/mirrors/id/{id}/entries",
+            get(routes::get_mirror_entries_by_id),
+        )
         .route("/mirrors/{slug}", get(routes::get_mirror))
         .route("/mirrors/{slug}/entries", get(routes::get_mirror_entries))
         .layer(cors)
