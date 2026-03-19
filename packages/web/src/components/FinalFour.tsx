@@ -13,7 +13,7 @@ interface FinalFourProps {
   disabled?: boolean;
   tournamentStatus?: TournamentStatus;
   eliminatedTeams?: Set<string>;
-  advancedTeams?: Set<string>;
+  advancedTeams?: Map<string, number>;
   gameWinProbs?: GameWinProbs;
 }
 
@@ -46,6 +46,7 @@ export function FinalFour({
                 winner={semifinal1.winner}
                 onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
                 disabled={disabled}
+                round={4}
                 gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}
@@ -61,6 +62,7 @@ export function FinalFour({
                 winner={semifinal2.winner}
                 onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
                 disabled={disabled}
+                round={4}
                 gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}
@@ -84,6 +86,7 @@ export function FinalFour({
                   onPick(championship.gameIndex, pickTeam1)
                 }
                 disabled={disabled}
+                round={5}
                 gameStatus={tournamentStatus?.games[championship.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}

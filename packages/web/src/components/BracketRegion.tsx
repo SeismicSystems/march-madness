@@ -17,7 +17,7 @@ interface BracketRegionProps {
   compact?: boolean;
   tournamentStatus?: TournamentStatus;
   eliminatedTeams?: Set<string>;
-  advancedTeams?: Set<string>;
+  advancedTeams?: Map<string, number>;
   gameWinProbs?: GameWinProbs;
 }
 
@@ -67,6 +67,7 @@ export function BracketRegion({
                     compact={actualRoundIdx === 0}
                     mobile={compact}
                     reversed={reversed}
+                    round={actualRoundIdx}
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                     eliminatedTeams={eliminatedTeams}
                     advancedTeams={advancedTeams}
