@@ -131,22 +131,24 @@ export function BracketGame({
     team2 !== null &&
     !!eliminatedTeams?.has(displayName(team2));
 
-  // "Advancing" = user picked this team and the team has enough wins to have
-  // actually reached this round. A team needs at least `round` wins to be here.
+  // "Advancing" = user picked this team and the team has won through this round.
+  // A team needs MORE than `round` wins — i.e. they've won the game AT this round,
+  // not merely arrived here. Without this, a team that just won R64 (1 win) would
+  // show green in R32 (round 1) even though that game hasn't been played yet.
   const advancingTeam1 =
     !pickCorrectTeam1 &&
     !pickWrongTeam1 &&
     !eliminatedTeam1 &&
     winner === team1 &&
     team1 !== null &&
-    (advancedTeams?.get(displayName(team1)) ?? -1) >= round;
+    (advancedTeams?.get(displayName(team1)) ?? -1) > round;
   const advancingTeam2 =
     !pickCorrectTeam2 &&
     !pickWrongTeam2 &&
     !eliminatedTeam2 &&
     winner === team2 &&
     team2 !== null &&
-    (advancedTeams?.get(displayName(team2)) ?? -1) >= round;
+    (advancedTeams?.get(displayName(team2)) ?? -1) > round;
 
   return (
     <div
@@ -282,7 +284,7 @@ function TeamSlot({
       "bg-red-500/10 border-red-500/25 text-red-400/80 font-semibold";
   } else if (isAdvancing) {
     className +=
-      "bg-green-500/10 border-green-500/40 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
+      "bg-accent/15 border-green-500/25 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isLive && isWinner) {
     className +=
       "bg-accent/15 border-accent/60 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
@@ -324,7 +326,7 @@ function TeamSlot({
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
         {isAdvancing && (
-          <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
+          <span className="ml-1 text-accent text-[10px]">&#9679;</span>
         )}
         {isEliminated && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
