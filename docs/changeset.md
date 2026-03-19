@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add Yahoo Fantasy bracket mirror importer pipeline: Rust binary fetches Yahoo API data and encodes brackets to bytes8 hex (`mirror-importer` crate), Bun script creates/updates BracketMirror entries on-chain, shell wrapper orchestrates both steps. Includes response caching, Yahoo-to-NCAA team name mappings, and idempotent on-chain mirroring.
+
+
 Fix NCAA scoreboard API response parsing: the API changed `data.scoreboard` to `data.contests` and switched `score`, `seed`, and `startTimeEpoch` from strings to numbers. Also handle ordinal period strings ("1st", "2nd") in addition to numeric ("1", "2").
 
 
