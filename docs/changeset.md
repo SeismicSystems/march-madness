@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add [ncaa] section to mappings.toml for NCAA API name aliases. The mapper now loads these aliases at startup, resolving mismatches like "South Fla." → "South Florida" and "Saint Mary's (CA)" → "Saint Mary's" that caused unresolved team name warnings.
+
+
 Add Yahoo Fantasy bracket mirror importer pipeline: Rust binary fetches Yahoo API data and encodes brackets to bytes8 hex (`mirror-importer` crate), Bun script creates/updates BracketMirror entries on-chain, shell wrapper orchestrates both steps. Includes response caching, Yahoo-to-NCAA team name mappings, and idempotent on-chain mirroring.
 
 
