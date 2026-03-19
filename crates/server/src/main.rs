@@ -1,9 +1,6 @@
 mod routes;
 mod state;
 
-use std::path::PathBuf;
-use std::time::Duration;
-
 use axum::Router;
 use axum::routing::get;
 use clap::Parser;
@@ -20,10 +17,6 @@ struct Cli {
     /// Port to listen on.
     #[arg(long, default_value = "3000")]
     port: u16,
-
-    /// Path to the forecasts JSON file (from forecaster crate).
-    #[arg(long, default_value = "data/2026/men/forecasts.json")]
-    forecasts_file: PathBuf,
 }
 
 #[tokio::main]
@@ -33,7 +26,7 @@ async fn main() -> eyre::Result<()> {
 
     let cli = Cli::parse();
 
-    let state = AppState::new(cli.forecasts_file.clone(), Duration::from_secs(5)).await?;
+    let state = AppState::new().await?;
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -47,6 +40,23 @@ async fn main() -> eyre::Result<()> {
         .route("/stats", get(routes::get_stats))
         .route("/tournament-status", get(routes::get_tournament_status))
         .route("/forecasts", get(routes::get_forecasts))
+        .route("/team-probs", get(routes::get_team_probs))
+        .route(
+            "/forecasts/groups/s/{slug}",
+            get(routes::get_group_forecast_by_slug),
+        )
+        .route(
+            "/forecasts/groups/id/{id}",
+            get(routes::get_group_forecast_by_id),
+        )
+        .route(
+            "/forecasts/mirrors/s/{slug}",
+            get(routes::get_mirror_forecast_by_slug),
+        )
+        .route(
+            "/forecasts/mirrors/id/{id}",
+            get(routes::get_mirror_forecast_by_id),
+        )
         // Group routes
         .route("/groups", get(routes::get_groups))
         .route("/groups/{slug}", get(routes::get_group))

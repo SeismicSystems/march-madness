@@ -1,0 +1,134 @@
+Implement the following plan:
+
+# Multi-Pool Forecaster: Redis-Only Input, Per-Pool Win Probabilities
+
+## Context
+
+The forecaster currently reads entries from a JSON file and produces a single flat forecast for the main contest. We need it to:
+1. Read all inputs from Redis (entries, group members, mirror entries, tournament status)
+2. Compute **per-pool** win probabilities: main contest, each group, each mirror
+3. Store results as a Redis HASH with simple basis-point values
+4. Serve scoped forecasts from the server (by ID or slug)
+
+## Redis Forecast Key Design
+
+`mm:forecasts` changes from **STRING** to **HASH**:
+- `"mm"` → `{"0xaddr1": 523, "0xaddr2": 100}` (basis points, u32)
+- `"group:3"` → `{"0xaddr1": 3000, "0xaddr2": 7000}`
+- `"mirror:1"` → `{"entry-slug1": 5000, "entry-slug2": 5000}`
+
+## Implementation Steps
+
+### Step 1: Multi-pool simulation in `simulate.rs`
+
+**File:** `crates/seismic-march-madness/src/simulate.rs`
+
+Add new public types and function alongside the existing `BracketScoringCallback`:
+
+```rust
+pub struct Pool {
+    pub key: String,                // "mm", "group:3", "mirror:1"
+    pub member_keys: Vec<String>,   // address or slug per member
+    pub bracket_indices: Vec<usize>,// indices into global brackets array
+}
+
+pub struct MultiPoolResults {
+    pub pool_wins: Vec<Vec<u32>>,   // pool_wins[pool_idx][member_idx] = win count
+    pub num_sims: u32,
+}
+```
+
+`MultiPoolScoringCallback` implements `SimCallback`:
+- `on_game`: builds the 64-bit results (same as `BracketScoringCallback`)
+- `on_trial_end`: computes scoring mask once, scores ALL brackets, then for each pool finds the max score among that pool's members and increments their win counts (ties: all maxima get +1, matching existing behavior)
+
+New public function:
+```rust
+pub fn run_multi_pool_simulations_with_resolver(
+    brackets: &[u64],
+    pools: &[Pool],
+    status: &TournamentStatus,
+    reach: &ReachProbs,
+    num_sims: u32,
+    resolver: Option<&dyn LiveGameResolver>,
+) -> MultiPoolResults
+```
+
+**Update `lib.rs`** to re-export `Pool`, `MultiPoolResults`, `run_multi_pool_simulations_with_resolver`.
+
+### Step 2: Rewrite forecaster to read from Redis
+
+**File:** `crates/forecaster/src/main.rs`
+
+**New CLI args:**
+- `--simulations` default changes to `50000`
+- Remove `--entries-file` and `--live` (Redis is now the only source for entries + status)
+- Keep `--status` as override (read status from file instead of Redis)
+- Keep `--tournament-file`, `--output-file`, `--year`, `--team-advance`
+
+**New flow:**
+1. Connect to Redis (sync, using `redis::Client::get_connection()`)
+2. Read `mm:entries` (HGETALL) → parse each `EntryData`, extract valid brackets
+3. Read `mm:games` (GET) → parse `TournamentStatus` (or use `--status` file override)
+4. Read `mm:group_members` (HGETALL) → `HashMap<String, Vec<String>>` (groupId → addresses)
+5. Read `mm:groups` (HGETALL) → just to log group slugs/names for output
+6. Read `mm:mirror:entries` (HGETALL) → parse composite keys `"mirrorId:entrySlug"` → bracket_hex
+7. Build deduped bracket list: collect all unique `bracket_hex → index` from entries + mirrors
+8. Build pools:
+   - **Main pool** `"mm"`: all entries with valid brackets, keyed by address
+   - **Per group** `"group:{id}"`: filter entries to addresses in that group's member list, keyed by address
+   - **Per mirror** `"mirror:{id}"`: mirror entries with valid brackets, keyed by entry slug
+9. Load embedded tournament/kenpom data, build reach probs + resolver (same as today)
+10. Call `run_multi_pool_simulations_with_resolver` (single forward sim pass)
+11. Convert: `basis_points = (wins * 10000 + num_sims / 2) / num_sims` (rounded)
+12. Write to Redis HASH: delete old key, then HSET all fields atomically via pipeline
+13. Optionally write to file if `--output-file`
+
+### Step 3: Update server to serve scoped forecasts
+
+**File:** `crates/server/src/state.rs`
+
+Change `get_forecasts()` from `GET` (string) to `HGET` (hash field `"mm"`).
+
+Add new methods:
+- `get_forecast_by_key(&self, key: &str)` → HGET on `mm:forecasts` with the given field key
+- `get_group_forecasts(&self, slug_or_id: &str)` → resolve slug to ID if needed (try HGET `mm:group:slugs` first, fall back to treating input as ID), then HGET `"group:{id}"`
+- `get_mirror_forecasts(&self, slug_or_id: &str)` → same pattern with `mm:mirror:slugs`, then HGET `"mirror:{id}"`
+
+**File:** `crates/server/src/routes.rs`
+
+Add route handlers:
+- `get_group_forecasts(slug_or_id)` → resolves slug or uses ID directly, returns 404 if not found
+- `get_mirror_forecasts(slug_or_id)` → same
+
+**File:** `crates/server/src/main.rs`
+
+Add routes:
+```rust
+.route("/forecasts/groups/{slug_or_id}", get(routes::get_group_forecasts))
+.route("/forecasts/mirrors/{slug_or_id}", get(routes::get_mirror_forecasts))
+```
+
+Slug vs ID resolution: try slug lookup first (`mm:group:slugs` / `mm:mirror:slugs`). If no match, treat input as a raw ID and HGET `"group:{input}"` / `"mirror:{input}"` directly.
+
+### Step 4: Update seed command
+
+**File:** `crates/indexer/src/commands/seed.rs`
+
+1. **Add mirror seeding**: Create 2 mirrors ("mens-league", "womens-league") with 5-8 entries each using `redis_store::create_mirror` + `redis_store::mirror_entry_added`. Random bracket hex per entry. Include `KEY_MIRRORS`, `KEY_MIRROR_SLUGS`, `KEY_MIRROR_ENTRIES` in `clean_redis`.
+
+2. **Add `team_reach_probabilities`** to `seed_tournament_status`: Use embedded tournament data (`TournamentData::embedded(2026)`) to get team names, generate plausible reach probs (start at 1.0, decay per round with seed-based scaling). The forecaster requires this field.
+
+3. **Remove old forecast seeding** (`seed_forecasts`): The forecaster now generates these. Remove the function and its call from `run()`. Remove `BracketForecast` import. Keep `KEY_FORECASTS` in `clean_redis`.
+
+### Step 5: Update `redis_keys.rs` docs
+
+**File:** `crates/seismic-march-madness/src/redis_keys.rs`
+
+Update `KEY_FORECASTS` comment to reflect HASH type with field schema.
+
+### Step 6: Update CLAUDE.md and docs
+
+- `CLAUDE.md`: Update forecaster CLI docs, forecast Redis schema, server route table
+- `docs/api.md`: Add new forecast routes, document basis-point response format
+- Update the `Requires Redis` note in server section

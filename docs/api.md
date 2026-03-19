@@ -52,7 +52,31 @@ Returns an array of entries in the mirror. Each entry has: `slug`, `bracket`.
 
 ### `GET /api/forecasts`
 
-Returns per-bracket win probabilities (written by the forecaster crate). No auth required.
+Returns main pool win probabilities as basis points (10000 = 100%). Response is `{"0xaddr": 523, ...}`.
+
+Written by the forecaster crate to Redis HASH `mm:forecasts` field `"mm"`. No auth required.
+
+### `GET /api/forecasts/groups/s/:slug`
+
+Returns group forecast by slug. Response is `{"0xaddr": 3000, ...}` (basis points). 404 if not found.
+
+### `GET /api/forecasts/groups/id/:id`
+
+Returns group forecast by numeric ID. Same response format. 404 if not found.
+
+### `GET /api/forecasts/mirrors/s/:slug`
+
+Returns mirror forecast by slug. Response is `{"entry-slug": 5000, ...}` (basis points). 404 if not found.
+
+### `GET /api/forecasts/mirrors/id/:id`
+
+Returns mirror forecast by numeric ID. Same response format. 404 if not found.
+
+### `GET /api/team-probs`
+
+Returns per-team advance probabilities. Response is `{"Duke": [1.0, 0.95, 0.82, ...], ...}` — 6 floats per team representing P(advance past R64), P(advance past R32), ..., P(win championship).
+
+Written by the forecaster to Redis HASH `mm:probs`. No auth required.
 
 ---
 
@@ -227,21 +251,27 @@ cargo run --bin march-madness-server -- --port 3000
 After tournament status is posted, run the forecaster to generate win probabilities:
 
 ```bash
-# Live mode: read tournament status from Redis
-cargo run --release --bin march-madness-forecaster -- --live
+# Default: reads entries, groups, mirrors, and status all from Redis
+cargo run --release --bin march-madness-forecaster
 
-# File mode: read status from a file
+# Override status from a file
 cargo run --release --bin march-madness-forecaster -- \
   --status data/2026/men/status.json
 
-# Custom paths / simulation count
+# Custom simulation count / file output
 cargo run --release --bin march-madness-forecaster -- \
-  --live \
-  --entries-file data/entries.json \
-  --tournament-file data/2026/men/tournament.json \
-  --output-file data/2026/men/forecasts.json \
-  --simulations 100000
+  --simulations 100000 \
+  --output-file data/2026/men/forecasts.json
+
+# Print per-team advance probabilities (no entries needed)
+cargo run --release --bin march-madness-forecaster -- --team-advance
 ```
 
-The forecaster reads entries from a file, tournament status from Redis (`--live`) or a file (`--status <path>`), and tournament structure from embedded data or `--tournament-file`. It runs 100k Monte Carlo forward simulations and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
+The forecaster reads all inputs from Redis: entries (`mm:entries`), group members (`mm:group_members`), mirror entries (`mm:mirror:entries`), and tournament status (`mm:games`). It runs 50k Monte Carlo forward simulations (configurable via `--simulations`) and computes per-pool win probabilities for the main contest, each group, and each mirror.
+
+Results are written to:
+- **`mm:forecasts`** (HASH): field per pool (`"mm"`, `"group:{id}"`, `"mirror:{id}"`) → JSON `{"key": basis_points}` where 10000 = 100%.
+- **`mm:probs`** (HASH): field per team → JSON array of 6 advance probabilities `[R64, R32, S16, E8, F4, Champ]`.
+
+The server reads these directly from Redis. Optionally also writes pool forecasts to a file if `--output-file` is specified.
 

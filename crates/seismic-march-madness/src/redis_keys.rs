@@ -44,6 +44,21 @@ pub const KEY_MIRROR_ENTRIES: &str = "mm:mirror:entries";
 /// Written by ncaa-feed, read by server and CLI tools (forecaster, sim).
 pub const KEY_GAMES: &str = "mm:games";
 
+/// Per-pool win probability forecasts (HASH).
+/// Written by forecaster, read by server.
+///
+/// Field keys:
+/// - `"mm"` → main pool: JSON `{"0xaddr": bps, ...}` (basis points, u32)
+/// - `"group:{id}"` → group pool: JSON `{"0xaddr": bps, ...}`
+/// - `"mirror:{id}"` → mirror pool: JSON `{"entry-slug": bps, ...}`
+///
+/// Basis points: 10000 = 100% win probability.
+pub const KEY_FORECASTS: &str = "mm:forecasts";
+
+/// Per-team advance probabilities: team_name → JSON([p_r64, p_r32, p_s16, p_e8, p_f4, p_champ]) (HASH).
+/// Written by forecaster, read by server. Probabilities are 0.0-1.0 floats (6 values per team).
+pub const KEY_TEAM_PROBS: &str = "mm:probs";
+
 /// Build a composite key for mirror entries: "mirrorId:entrySlug".
 pub fn mirror_entry_field(mirror_id: u64, slug: &str) -> String {
     format!("{mirror_id}:{slug}")
