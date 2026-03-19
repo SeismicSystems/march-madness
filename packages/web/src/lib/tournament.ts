@@ -24,6 +24,9 @@ export interface TournamentData {
   name: string;
   regions: string[];
   teams: Team[];
+  /** NCAA bracket position IDs for all 63 games, indexed by gameIndex (0-62).
+   *  Used to build NCAA March Madness Live URLs: game/{bracketIds[gameIndex]}. */
+  bracketIds: number[];
 }
 
 export const tournament: TournamentData = tournamentData as TournamentData;
