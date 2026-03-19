@@ -36,18 +36,20 @@ function LiveBanner({ gameStatus }: { gameStatus: GameStatus }) {
   return (
     <div className="flex items-center justify-between px-2 py-0.5 rounded-t-md bg-green-500/10 border border-green-500/25 text-[10px]">
       <span className="font-mono font-semibold text-green-400">{clockLabel}</span>
-      <a
-        href={watchUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-green-400/80 hover:text-green-300 hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        Watch
-      </a>
-      <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+      <span className="flex items-center gap-1.5">
+        <a
+          href={watchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-green-400/80 hover:text-green-300 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Watch
+        </a>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+        </span>
       </span>
     </div>
   );
