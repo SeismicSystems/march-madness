@@ -7,14 +7,39 @@
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
+import { http } from "viem";
 import type { Address, Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  createShieldedWalletClient,
+  createShieldedPublicClient,
+  sanvil,
+  seismicTestnetGcp2,
+} from "seismic-viem";
 import { BracketMirrorAdminClient } from "@march-madness/client";
-import { createWallet, createPublicClientInstance } from "./utils.ts";
 
 // ── Paths ─────────────────────────────────────────────────────────────
 
 const PROJECT_ROOT = resolve(import.meta.dir, "../../..");
 const DATA_DIR = resolve(PROJECT_ROOT, "data");
+
+// Load root .env (bun only auto-loads .env from cwd, not repo root)
+const rootEnv = resolve(PROJECT_ROOT, ".env");
+if (existsSync(rootEnv)) {
+  for (const line of readFileSync(rootEnv, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq);
+    let val = trimmed.slice(eq + 1);
+    // Strip surrounding quotes
+    if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -88,6 +113,23 @@ function loadMirrorAddress(): Address {
   throw new Error("No bracketMirror address found in data/deployments.json");
 }
 
+// ── Chain / client setup (mirrors webapp pattern) ────────────────────
+
+const SUPPORTED_CHAINS = [sanvil, seismicTestnetGcp2];
+
+function getChain() {
+  const chainId = process.env.VITE_CHAIN_ID
+    ? parseInt(process.env.VITE_CHAIN_ID)
+    : sanvil.id;
+  const chain = SUPPORTED_CHAINS.find((c) => c.id === chainId);
+  if (!chain) throw new Error(`Unsupported VITE_CHAIN_ID: ${chainId}`);
+  return chain;
+}
+
+function getTransport() {
+  return http(process.env.VITE_RPC_URL || "http://localhost:8545");
+}
+
 // ── Slug generation ───────────────────────────────────────────────────
 
 function makeEntrySlug(entry: PlatformEntry): string {
@@ -135,12 +177,19 @@ async function main() {
   }
 
   // Create clients
+  const chain = getChain();
+  const transport = getTransport();
   const mirrorAddress = loadMirrorAddress();
-  const publicClient = createPublicClientInstance();
-  const walletClient = await createWallet(deployerKey as Hex);
+  const publicClient = createShieldedPublicClient({ chain, transport });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walletClient: any = await createShieldedWalletClient({
+    account: privateKeyToAccount(deployerKey as Hex),
+    chain,
+    transport,
+  });
 
   const mirror = new BracketMirrorAdminClient(
-    publicClient,
+    publicClient as any,
     walletClient,
     mirrorAddress,
   );

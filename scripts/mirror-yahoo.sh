@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load .env from repo root (YAHOO_COOKIE, RPC_URL, etc.)
+if [[ -f .env ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
+fi
+
 # Mirror Yahoo Fantasy bracket group to BracketMirror contract.
 #
 # Usage:
