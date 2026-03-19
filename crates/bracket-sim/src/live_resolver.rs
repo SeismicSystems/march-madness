@@ -37,21 +37,6 @@ impl GameModelResolver {
     }
 }
 
-/// Estimate the remaining seconds from the current score total and expected game total.
-///
-/// Uses the ratio `actual_points / expected_total_points` as a proxy for game progress,
-/// then converts to remaining regulation seconds (out of 2400).
-fn estimate_remaining_from_score(score_total: f64, expected_total: f64) -> (i32, u8) {
-    let fraction = if expected_total > 0.0 {
-        (score_total / expected_total).clamp(0.05, 0.95)
-    } else {
-        0.5
-    };
-    let remaining_secs = ((1.0 - fraction) * 2400.0) as i32;
-    let period = if remaining_secs > 1200 { 1 } else { 2 };
-    (remaining_secs, period)
-}
-
 impl LiveGameResolver for GameModelResolver {
     fn resolve(
         &self,
@@ -115,13 +100,8 @@ impl LiveGameResolver for GameModelResolver {
             }
         };
 
-        let result = game_model.simulate_remaining(
-            (score.team1, score.team2),
-            secs,
-            per,
-            self.pace_d,
-            rng,
-        );
+        let result =
+            game_model.simulate_remaining((score.team1, score.team2), secs, per, self.pace_d, rng);
         result.team1_score > result.team2_score
     }
 }
@@ -174,11 +154,7 @@ mod tests {
     }
 
     /// Run the resolver N times and return team1 win fraction.
-    fn resolve_win_rate(
-        resolver: &GameModelResolver,
-        status: &TournamentStatus,
-        n: u32,
-    ) -> f64 {
+    fn resolve_win_rate(resolver: &GameModelResolver, status: &TournamentStatus, n: u32) -> f64 {
         let mut rng = StdRng::seed_from_u64(42);
         let mut wins = 0u32;
         for _ in 0..n {
@@ -279,6 +255,19 @@ mod tests {
             "20-point lead with 5 min left should be >90%, got {:.1}%",
             win_rate * 100.0
         );
+    }
+
+    /// Estimate the remaining seconds from the current score total and expected game total.
+    /// Mirrors the logic in the resolver's (None, None) fallback branch.
+    fn estimate_remaining_from_score(score_total: f64, expected_total: f64) -> (i32, u8) {
+        let fraction = if expected_total > 0.0 {
+            (score_total / expected_total).clamp(0.05, 0.95)
+        } else {
+            0.5
+        };
+        let remaining_secs = ((1.0 - fraction) * 2400.0) as i32;
+        let period = if remaining_secs > 1200 { 1 } else { 2 };
+        (remaining_secs, period)
     }
 
     #[test]
