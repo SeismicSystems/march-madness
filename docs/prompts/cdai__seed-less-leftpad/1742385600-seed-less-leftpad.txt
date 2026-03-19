@@ -1,0 +1,5 @@
+in the UIs, both mobile and desktop, the seed value has too much padding to the left. i know we have to accomodate double-digit seems, but i think we can do a little better here. we also might want to move the team logos closer to the seed by a pixel or two, to make more room for team names to display.
+
+and also: when the game is live, and the team has a double digit score, there's way too much space between the probability and the concrete score. we can reduce that padding as well.
+
+when you're done, open a pr.
