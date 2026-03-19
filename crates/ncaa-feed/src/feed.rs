@@ -139,6 +139,12 @@ impl FeedState {
             None
         };
 
+        let ncaa_game_id = if new_status == GameState::Live {
+            Some(contest.contest_id)
+        } else {
+            None
+        };
+
         let new_game = GameStatus {
             game_index,
             status: new_status,
@@ -147,6 +153,7 @@ impl FeedState {
             team1_win_probability: None,
             seconds_remaining,
             period,
+            ncaa_game_id,
         };
 
         let changed = current.status != new_game.status
@@ -283,6 +290,7 @@ mod tests {
                 team1_win_probability: None,
                 seconds_remaining: None,
                 period: None,
+                ncaa_game_id: None,
             }],
             updated_at: None,
         };

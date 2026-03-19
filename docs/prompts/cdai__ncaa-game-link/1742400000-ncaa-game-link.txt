@@ -1,0 +1,19 @@
+hey so, in the mm:games redis key, i want us to store an ID, like 201
+
+i suspect this id is in the leaderboard json we fetch
+
+on the frontend, for live games, i should be able to click the time remaining section, and it should open this link in a new tab:
+
+https://www.ncaa.com/march-madness-live/game/201?cid=ncaa_scoreboard_widget
+
+it's an end to end change. make sure all the types match up. only make it a clickable link if the game is in progress
+
+when you're done make a pr
+
+---
+
+actually, remove the traiiling ?cid=ncaa_scoreboard_widget
+
+---
+
+can you confirm that the duke game will have game/201?

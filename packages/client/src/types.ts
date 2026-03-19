@@ -14,6 +14,8 @@ export interface GameStatus {
   secondsRemaining?: number;
   /** Current period number (1 = 1st half, 2 = 2nd half, 3+ = OT). Live games only. */
   period?: number;
+  /** NCAA contest ID — used to link to the NCAA March Madness Live game page. */
+  ncaaGameId?: number;
 }
 
 /** Full tournament status — served by backend, updated via POST. */
