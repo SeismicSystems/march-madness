@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix forecaster expected scores by using full tournament simulation (simulate_tournament_bb with Bayesian metric updates) when all games are upcoming, instead of the forward sim which uses static metrics. This matches the oddsmaker's model and closes the ~15-20 point expected score gap.
+
+
 Add `dmm_build` alias that targets only the 4 prod binaries (server, indexer, forecaster, ncaa-feed) instead of building the entire workspace. Updated `dmm_backend`, `dmm_all`, `dmm_backfill`, and `dmm_listen` to use it.
 
 
