@@ -29,6 +29,9 @@ export {
 } from "./groups.ts";
 export type { GroupData, MemberData, GroupPayoutData } from "./groups.ts";
 
+// ── Slug validation ──────────────────────────────────────────────────
+export { assertUrlSafeSlug } from "./slug.ts";
+
 // ── BracketMirror client classes ──────────────────────────────────────
 export {
   BracketMirrorPublicClient,
