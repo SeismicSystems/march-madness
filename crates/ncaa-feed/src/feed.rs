@@ -31,12 +31,15 @@ pub struct FeedState {
     pub dirty: bool,
     /// Active poll interval (1/requests_per_sec).
     active_interval: Duration,
+    /// Fixed override interval (ignores adaptive polling when set).
+    poll_interval_override: Option<Duration>,
 }
 
 impl FeedState {
     /// Create a new feed state, optionally seeded from an existing tournament-status.json.
     pub fn new(
         requests_per_sec: f64,
+        poll_interval_override: Option<Duration>,
         existing: Option<&seismic_march_madness::TournamentStatus>,
     ) -> Self {
         let mut games = HashMap::new();
@@ -55,6 +58,7 @@ impl FeedState {
             games,
             dirty: false,
             active_interval: Duration::from_secs_f64(1.0 / requests_per_sec),
+            poll_interval_override,
         }
     }
 
@@ -71,7 +75,7 @@ impl FeedState {
             }
 
             let Some(game_index) = mapper.match_contest(contest) else {
-                mapper.warn_unmatched(contest);
+                mapper.warn_if_partial_match(contest);
                 continue;
             };
 
@@ -193,6 +197,15 @@ impl FeedState {
             return (FeedPhase::Complete, Duration::ZERO);
         }
 
+        if let Some(override_interval) = self.poll_interval_override {
+            let phase = if has_live {
+                FeedPhase::Active
+            } else {
+                FeedPhase::PreGame
+            };
+            return (phase, override_interval);
+        }
+
         if has_live {
             return (FeedPhase::Active, self.active_interval);
         }
@@ -224,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_initial_state_all_upcoming() {
-        let state = FeedState::new(1.0, None);
+        let state = FeedState::new(1.0, None, None);
         assert_eq!(state.games.len(), 63);
         for game in state.games.values() {
             assert_eq!(game.status, GameState::Upcoming);
@@ -233,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_poll_interval_phases() {
-        let mut state = FeedState::new(1.0, None);
+        let mut state = FeedState::new(1.0, None, None);
 
         let (phase, _) = state.poll_interval();
         assert_eq!(phase, FeedPhase::PreGame);
@@ -269,7 +282,7 @@ mod tests {
             updated_at: None,
         };
 
-        let state = FeedState::new(1.0, Some(&existing));
+        let state = FeedState::new(1.0, None, Some(&existing));
         assert_eq!(state.games[&0].status, GameState::Final);
         assert_eq!(state.games[&1].status, GameState::Upcoming);
     }

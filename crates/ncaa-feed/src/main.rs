@@ -17,8 +17,11 @@ use crate::mapper::GameMapper;
 #[derive(Parser)]
 #[command(name = "ncaa-feed", about = "NCAA live score feed → Redis (mm:games)")]
 struct Cli {
-    /// Path to tournament.json (team names → bracket positions derived from array index).
-    /// If not specified, uses embedded 2026 tournament data.
+    /// Tournament year.
+    #[arg(long, default_value = "2026")]
+    year: u16,
+
+    /// Path to tournament.json (overrides embedded data for --year).
     #[arg(long)]
     tournament_file: Option<std::path::PathBuf>,
 
@@ -27,8 +30,12 @@ struct Cli {
     redis_url: String,
 
     /// Max NCAA API requests per second (must be < 5.0).
-    #[arg(long, default_value = "1.0")]
+    #[arg(long, default_value = "1.0", conflicts_with = "poll_interval")]
     requests_per_sec: f64,
+
+    /// Fixed poll interval in seconds, minimum 1 (overrides adaptive polling and requests-per-sec).
+    #[arg(long, value_parser = clap::value_parser!(u64).range(1..))]
+    poll_interval: Option<u64>,
 
     /// Sport: mbb (men's basketball) or wbb (women's basketball).
     #[arg(long, default_value = "mbb")]
@@ -70,8 +77,8 @@ async fn main() -> Result<()> {
             GameMapper::load(path)?
         }
         None => {
-            info!("using embedded 2026 tournament data");
-            GameMapper::load_embedded(2026)
+            info!("using embedded {} tournament data", cli.year);
+            GameMapper::load_embedded(cli.year)
         }
     };
 
@@ -93,7 +100,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    let mut state = FeedState::new(cli.requests_per_sec, existing_status.as_ref());
+    let poll_override = cli.poll_interval.map(std::time::Duration::from_secs);
+    let mut state = FeedState::new(
+        cli.requests_per_sec,
+        poll_override,
+        existing_status.as_ref(),
+    );
 
     // Determine contest date.
     let date = if let Some(d) = &cli.date {

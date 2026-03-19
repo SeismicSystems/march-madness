@@ -1,0 +1,1 @@
+can we also validate that we'll never go above say, 3 requests / second with --poll-interval? there's multiple games going on at once so we don't want to end up doing > 3 req/sec
