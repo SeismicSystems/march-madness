@@ -184,15 +184,40 @@ impl GameMapper {
         }
     }
 
-    /// Log unmatched teams from a contest for debugging.
-    pub fn warn_unmatched(&self, contest: &Contest) {
-        for team in &contest.teams {
-            if self.team_position(&team.name_short).is_none() {
-                warn!(
-                    "unresolved NCAA team name: '{}' (seed: {:?})",
-                    team.name_short, team.seed
-                );
+    /// Warn only when a seeded contest partially matches our bracket (one team found,
+    /// one not) — this likely indicates a name mapping issue. Silently skip contests
+    /// where neither team is in our bracket (NIT, CBI, or other tournaments).
+    pub fn warn_if_partial_match(&self, contest: &Contest) {
+        let known: Vec<_> = contest
+            .teams
+            .iter()
+            .map(|t| self.team_position(&t.name_short).is_some())
+            .collect();
+
+        if known.iter().any(|&k| k) {
+            // At least one team is in our bracket — the other should be too.
+            for (team, &is_known) in contest.teams.iter().zip(&known) {
+                if !is_known {
+                    warn!(
+                        "unresolved NCAA team name: '{}' (seed: {:?}) — opponent is in bracket",
+                        team.name_short, team.seed
+                    );
+                }
             }
+        } else {
+            debug!(
+                "skipping non-bracket contest: {} vs {} (likely NIT/CBI)",
+                contest
+                    .teams
+                    .first()
+                    .map(|t| t.name_short.as_str())
+                    .unwrap_or("?"),
+                contest
+                    .teams
+                    .get(1)
+                    .map(|t| t.name_short.as_str())
+                    .unwrap_or("?"),
+            );
         }
     }
 }

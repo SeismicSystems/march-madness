@@ -75,7 +75,7 @@ impl FeedState {
             }
 
             let Some(game_index) = mapper.match_contest(contest) else {
-                mapper.warn_unmatched(contest);
+                mapper.warn_if_partial_match(contest);
                 continue;
             };
 
