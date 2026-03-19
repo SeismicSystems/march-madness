@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add `--poll-interval` flag to ncaa-feed for fixed polling interval in seconds, overriding the adaptive active/pre-game intervals. Conflicts with `--requests-per-sec`.
+
+
 Remove stale `--output-file` flag from ncaa-feed supervisor config. The binary now writes tournament status directly to Redis, not to a file.
 
 
