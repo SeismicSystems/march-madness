@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { GameStatus } from "@march-madness/client";
-import { displayAbbrev, displayName, type Team } from "../lib/tournament";
+import { displayAbbrev, displayName, tournament, type Team } from "../lib/tournament";
 import { getTeamLogoUrl } from "../lib/espn-logos";
 
 /** Format seconds as M:SS (e.g. 450 => "7:30", 75 => "1:15"). */
@@ -19,6 +19,28 @@ function formatPeriodClock(period: number, secondsRemaining: number): string {
   if (period === 2) return `2H ${clock}`;
   if (period === 3) return `OT ${clock}`;
   return `${period - 2}OT ${clock}`;
+}
+
+/** Period/clock label that links to NCAA March Madness Live. */
+function LiveClock({ period, secondsRemaining, gameIndex }: {
+  period: number;
+  secondsRemaining: number;
+  gameIndex: number;
+}) {
+  const label = formatPeriodClock(period, secondsRemaining);
+  const bracketId = tournament.bracketIds[gameIndex];
+
+  return (
+    <a
+      href={`https://www.ncaa.com/march-madness-live/game/${bracketId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[8px] text-green-400 font-mono leading-none hover:text-green-300 hover:underline"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {label}
+    </a>
+  );
 }
 
 interface BracketGameProps {
@@ -138,12 +160,11 @@ export function BracketGame({
       {gameStatus?.status === "live" && (
         <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
           {gameStatus.period != null && gameStatus.secondsRemaining != null && (
-            <span className="text-[8px] text-green-400 font-mono leading-none">
-              {formatPeriodClock(
-                gameStatus.period,
-                gameStatus.secondsRemaining
-              )}
-            </span>
+            <LiveClock
+              period={gameStatus.period}
+              secondsRemaining={gameStatus.secondsRemaining}
+              gameIndex={gameStatus.gameIndex}
+            />
           )}
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

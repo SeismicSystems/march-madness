@@ -72,10 +72,14 @@ impl Args {
 // ── Output types ───────────────────────────────────────────────────
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TournamentJson {
     name: String,
     regions: Vec<String>,
     teams: Vec<TeamEntry>,
+    /// NCAA bracket position IDs for all 63 games, indexed by game_index (0-62).
+    /// Used to build NCAA March Madness Live URLs: game/{bracketIds[gameIndex]}.
+    bracket_ids: Vec<u32>,
 }
 
 #[derive(Serialize)]
@@ -309,8 +313,9 @@ fn build_tournament_data(
     // 2. Build First Four lookup: R64 bracketPositionId → First Four game.
     let first_four_by_target = build_first_four_map(champ);
 
-    // 3. Build teams list in bracket order.
+    // 3. Build teams list in bracket order and collect R64 bracket position IDs.
     let mut teams: Vec<TeamEntry> = Vec::with_capacity(64);
+    let mut r64_bracket_ids: Vec<u32> = Vec::with_capacity(32);
 
     for section_id in &region_order {
         let region_name = region_names
@@ -329,6 +334,8 @@ fn build_tournament_data(
         );
 
         for game in &r64_games {
+            r64_bracket_ids.push(game.bracket_position_id);
+
             let (top_team, bottom_team) =
                 extract_game_teams(game, &first_four_by_target, abbreviations)?;
 
@@ -350,10 +357,14 @@ fn build_tournament_data(
         }
     }
 
+    // 4. Build bracket IDs for all 63 games by tracing victor_bracket_position_id chains.
+    let bracket_ids = build_bracket_ids(champ, &r64_bracket_ids)?;
+
     Ok(TournamentJson {
         name: champ.title.clone(),
         regions: region_names,
         teams,
+        bracket_ids,
     })
 }
 
@@ -547,6 +558,52 @@ fn extract_game_teams(
         }
         n => bail!("R64 game {bid} has {n} seeded teams, expected 1 or 2"),
     }
+}
+
+/// Build bracket position IDs for all 63 games (indexed by game_index 0-62).
+///
+/// Starts from R64 bracket IDs (in game_index order) and traces
+/// `victor_bracket_position_id` chains through each subsequent round.
+fn build_bracket_ids(champ: &Championship, r64_bracket_ids: &[u32]) -> Result<Vec<u32>> {
+    ensure!(
+        r64_bracket_ids.len() == 32,
+        "expected 32 R64 bracket IDs, got {}",
+        r64_bracket_ids.len()
+    );
+
+    let games_by_bid: HashMap<u32, &BracketGame> = champ
+        .games
+        .iter()
+        .map(|g| (g.bracket_position_id, g))
+        .collect();
+
+    let mut bracket_ids: Vec<u32> = r64_bracket_ids.to_vec();
+
+    // Trace through R32, S16, E8, F4, Championship (5 more rounds).
+    let mut prev_round_ids: Vec<u32> = r64_bracket_ids.to_vec();
+    while prev_round_ids.len() > 1 {
+        let next_round_ids: Vec<u32> = prev_round_ids
+            .chunks(2)
+            .map(|pair| {
+                let bid = pair[0];
+                let game = games_by_bid
+                    .get(&bid)
+                    .ok_or_else(|| eyre::eyre!("bracket game {bid} not found"))?;
+                game.victor_bracket_position_id
+                    .ok_or_else(|| eyre::eyre!("game {bid} has no victorBracketPositionId"))
+            })
+            .collect::<Result<_>>()?;
+        bracket_ids.extend_from_slice(&next_round_ids);
+        prev_round_ids = next_round_ids;
+    }
+
+    ensure!(
+        bracket_ids.len() == 63,
+        "expected 63 bracket IDs, got {}",
+        bracket_ids.len()
+    );
+
+    Ok(bracket_ids)
 }
 
 /// Build a map from R64 bracketPositionId → the First Four game that feeds into it.
