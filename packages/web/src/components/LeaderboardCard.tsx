@@ -83,10 +83,10 @@ function CardInner({
             {hasForecasts && entry.forecast && (
               <div className="text-right text-xs hidden md:block shrink-0 w-24">
                 <div className="text-text-muted">
-                  {entry.forecast.expectedScore.toFixed(1)}
+                  {(entry.forecast.winProbability * 100).toFixed(1)}%
                 </div>
                 <div className="text-text-muted">
-                  {(entry.forecast.winProbability * 100).toFixed(1)}%
+                  {entry.forecast.expectedScore.toFixed(1)}
                 </div>
               </div>
             )}
