@@ -46,14 +46,17 @@ function LiveClock({ period, secondsRemaining, gameIndex }: {
 /**
  * Tournament overlay state for a single team slot. Determined once per team,
  * then used for both styling and iconography — no interleaved boolean priority.
- *
- *   correct   — game final, user's pick won
- *   wrong     — game final, user's pick lost
- *   eliminated — user picked this team but it lost in a prior round
- *   advancing — user picked this team and it has won THROUGH this round
- *   null      — no tournament overlay (fall back to pick styling)
  */
-type TournamentOverlay = "correct" | "wrong" | "eliminated" | "advancing" | null;
+const enum Overlay {
+  /** Game final, user's pick won. */
+  Correct = 1,
+  /** Game final, user's pick lost. */
+  Wrong,
+  /** User picked this team but it lost in a prior round. */
+  Eliminated,
+  /** User picked this team and it has won THROUGH this round. */
+  Advancing,
+}
 
 function computeOverlay(
   team: Team | null,
@@ -63,22 +66,22 @@ function computeOverlay(
   eliminatedTeams: Set<string> | undefined,
   advancedTeams: Map<string, number> | undefined,
   round: number,
-): TournamentOverlay {
+): Overlay | null {
   if (!team || !isUserPick) return null;
 
   // Game has a final result — was the user's pick right or wrong?
   if (gameStatus?.status === "final" && gameStatus.winner !== undefined) {
     const pickedTeamWon = isTeam1 ? gameStatus.winner : !gameStatus.winner;
-    return pickedTeamWon ? "correct" : "wrong";
+    return pickedTeamWon ? Overlay.Correct : Overlay.Wrong;
   }
 
   // Game not decided yet — was this team already knocked out in a prior round?
   const name = displayName(team);
-  if (eliminatedTeams?.has(name)) return "eliminated";
+  if (eliminatedTeams?.has(name)) return Overlay.Eliminated;
 
   // Team is still alive and has won THROUGH this round (wins > round).
   // wins == round only means they've arrived at this round, not cleared it.
-  if ((advancedTeams?.get(name) ?? -1) > round) return "advancing";
+  if ((advancedTeams?.get(name) ?? -1) > round) return Overlay.Advancing;
 
   return null;
 }
@@ -218,7 +221,7 @@ interface TeamSlotProps {
   textSize: string;
   mobile?: boolean;
   gameScore?: number;
-  overlay: TournamentOverlay;
+  overlay: Overlay | null;
   isLive?: boolean;
   winProbability?: number;
   reversed?: boolean;
@@ -252,16 +255,16 @@ function TeamSlot({
 
   let className = `${py} ${px} ${textSize} rounded-lg ${disabled ? "cursor-default" : "cursor-pointer"} transition-all border backdrop-blur-md flex items-center justify-between `;
 
-  if (overlay === "correct") {
+  if (overlay === Overlay.Correct) {
     className +=
       "bg-green-500/10 border-green-500/40 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
-  } else if (overlay === "wrong") {
+  } else if (overlay === Overlay.Wrong) {
     className +=
       "bg-red-500/10 border-red-500/25 text-text-muted line-through opacity-60";
-  } else if (overlay === "eliminated") {
+  } else if (overlay === Overlay.Eliminated) {
     className +=
       "bg-red-500/10 border-red-500/25 text-red-400/80 font-semibold";
-  } else if (overlay === "advancing") {
+  } else if (overlay === Overlay.Advancing) {
     className +=
       "bg-accent/15 border-green-500/25 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isWinner) {
@@ -295,16 +298,16 @@ function TeamSlot({
         </span>
         <TeamLogo teamName={displayName(team)} mobile={mobile} />
         <span className="truncate">{displayAbbrev(team)}</span>
-        {overlay === "correct" && (
+        {overlay === Overlay.Correct && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}
-        {overlay === "wrong" && (
+        {overlay === Overlay.Wrong && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
-        {overlay === "advancing" && (
+        {overlay === Overlay.Advancing && (
           <span className="ml-1 text-accent text-[10px]">&#9679;</span>
         )}
-        {overlay === "eliminated" && (
+        {overlay === Overlay.Eliminated && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
       </span>
