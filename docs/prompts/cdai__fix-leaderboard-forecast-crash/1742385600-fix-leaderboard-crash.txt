@@ -1,0 +1,17 @@
+hey so on the leaderboard page, when i go there, after the data loads, the page instantly crashes.
+
+index-QOVPWt5z.js:614 TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at eK (index-QOVPWt5z.js:614:1233)
+    at kC (index-QOVPWt5z.js:43:17901)
+    at Aj (index-QOVPWt5z.js:45:45231)
+    at Ej (index-QOVPWt5z.js:45:40776)
+    at gde (index-QOVPWt5z.js:45:40703)
+    at k3 (index-QOVPWt5z.js:45:40554)
+    at ZC (index-QOVPWt5z.js:45:36803)
+    at vj (index-QOVPWt5z.js:45:37616)
+    at Bd (index-QOVPWt5z.js:43:3281)
+    at index-QOVPWt5z.js:45:35103
+
+---
+
+oh hm we should eventually return a richer endpoint in the backend -- really we should make BracketForecast come back with a mapping -- expected points, P(win), etc. but for now just make the frontend not crash. make a PR to fix the frontend now, then make an issue we'll solve later in terms of handling richer info
