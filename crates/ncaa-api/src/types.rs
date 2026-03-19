@@ -105,6 +105,8 @@ impl Contest {
 // ── Raw NCAA API types (deserialization only) ───────────────────────
 
 /// Raw team from the NCAA GraphQL API.
+/// Note: the NCAA API is inconsistent about field types — score/seed may be
+/// strings or numbers depending on the endpoint version, so we accept both.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RawTeam {
@@ -115,9 +117,9 @@ pub(crate) struct RawTeam {
     #[serde(default)]
     pub seoname: String,
     #[serde(default)]
-    pub score: String,
+    pub score: serde_json::Value,
     #[serde(default)]
-    pub seed: String,
+    pub seed: serde_json::Value,
     #[serde(default)]
     pub is_winner: bool,
     #[serde(default)]
@@ -132,8 +134,10 @@ pub(crate) struct ScoreboardGqlResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ScoreboardData {
-    #[serde(rename = "scoreboard")]
-    pub scoreboard: Option<Vec<RawContest>>,
+    /// The NCAA API changed this key from "scoreboard" to "contests" at some point.
+    /// Accept either name for resilience.
+    #[serde(alias = "scoreboard")]
+    pub contests: Option<Vec<RawContest>>,
 }
 
 /// Raw contest from the NCAA GraphQL scoreboard.
@@ -151,7 +155,7 @@ pub(crate) struct RawContest {
     #[serde(default)]
     pub contest_clock: String,
     #[serde(default)]
-    pub start_time_epoch: String,
+    pub start_time_epoch: serde_json::Value,
     #[serde(default)]
     pub start_date: String,
     #[serde(default)]
@@ -191,16 +195,7 @@ impl TryFrom<RawContest> for Contest {
             other => ContestState::Other(other.to_string()),
         };
 
-        let start_time_epoch = if raw.start_time_epoch.is_empty() {
-            None
-        } else {
-            Some(raw.start_time_epoch.parse::<i64>().map_err(|_| {
-                NcaaApiError::Parse(format!(
-                    "start_time_epoch not parseable: {}",
-                    raw.start_time_epoch
-                ))
-            })?)
-        };
+        let start_time_epoch = parse_json_i64(&raw.start_time_epoch);
 
         Ok(Contest {
             contest_id,
@@ -219,8 +214,8 @@ impl From<RawTeam> for Team {
             name_short: raw.name_short,
             name_6char: raw.name_6char,
             seoname: raw.seoname,
-            score: raw.score.parse::<u32>().ok(),
-            seed: raw.seed.parse::<u32>().ok(),
+            score: parse_json_u32(&raw.score),
+            seed: parse_json_u32(&raw.seed),
             is_winner: raw.is_winner,
             is_home: raw.is_home,
         }
@@ -292,15 +287,49 @@ impl std::str::FromStr for SportCode {
     }
 }
 
+// ── JSON value helpers ──────────────────────────────────────────
+// The NCAA API is inconsistent: some fields are strings in one version and
+// numbers in another. These helpers accept either.
+
+/// Parse a JSON value that may be a number or a string containing a number.
+fn parse_json_u32(v: &serde_json::Value) -> Option<u32> {
+    match v {
+        serde_json::Value::Number(n) => n.as_u64().map(|n| n as u32),
+        serde_json::Value::String(s) => s.parse::<u32>().ok(),
+        _ => None,
+    }
+}
+
+/// Parse a JSON value that may be a number or a string containing a number.
+fn parse_json_i64(v: &serde_json::Value) -> Option<i64> {
+    match v {
+        serde_json::Value::Number(n) => n.as_i64(),
+        serde_json::Value::String(s) if !s.is_empty() => s.parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
 // ── Parsing helpers ─────────────────────────────────────────────────
 
 /// Parse NCAA period string into a Period enum.
+/// Handles: "1", "2", "1st", "2nd", "HALF", "OT", "1OT", "2OT", etc.
 fn parse_period(s: &str) -> Option<Period> {
     let p = s.trim();
     if p.is_empty() || p.eq_ignore_ascii_case("FINAL") {
         return None;
     }
     if let Ok(n) = p.parse::<u8>() {
+        return Some(Period::Half(n));
+    }
+    // Handle ordinal suffixes: "1st", "2nd", "3rd", "4th", etc.
+    let stripped = p
+        .strip_suffix("st")
+        .or_else(|| p.strip_suffix("nd"))
+        .or_else(|| p.strip_suffix("rd"))
+        .or_else(|| p.strip_suffix("th"));
+    if let Some(num_str) = stripped
+        && let Ok(n) = num_str.parse::<u8>()
+    {
         return Some(Period::Half(n));
     }
     if p.eq_ignore_ascii_case("HALF") {
@@ -411,6 +440,8 @@ mod tests {
     fn test_parse_period() {
         assert_eq!(parse_period("1"), Some(Period::Half(1)));
         assert_eq!(parse_period("2"), Some(Period::Half(2)));
+        assert_eq!(parse_period("1st"), Some(Period::Half(1)));
+        assert_eq!(parse_period("2nd"), Some(Period::Half(2)));
         assert_eq!(parse_period("OT"), Some(Period::Overtime(1)));
         assert_eq!(parse_period("2OT"), Some(Period::Overtime(2)));
         assert_eq!(parse_period("FINAL"), None);
@@ -439,14 +470,14 @@ mod tests {
 
     #[test]
     fn test_contest_state_from_raw() {
-        // Test the parsing through a minimal RawContest
+        // Test the parsing through a minimal RawContest (string epoch)
         let raw = RawContest {
             contest_id: serde_json::json!(12345),
             teams: vec![],
             game_state: "F".into(),
             current_period: "FINAL".into(),
             contest_clock: "0:00".into(),
-            start_time_epoch: "1742000000".into(),
+            start_time_epoch: serde_json::json!("1742000000"),
             start_date: "2026-03-15".into(),
             start_time: "12:00PM ET".into(),
             final_message: "FINAL/OT".into(),
@@ -455,16 +486,33 @@ mod tests {
         assert_eq!(contest.state, ContestState::Final(1)); // 1 overtime period
         assert_eq!(contest.contest_id, 12345);
         assert_eq!(contest.start_time_epoch, Some(1742000000));
+
+        // Test with numeric epoch (current NCAA API format)
+        let raw2 = RawContest {
+            contest_id: serde_json::json!(12346),
+            teams: vec![],
+            game_state: "I".into(),
+            current_period: "2nd".into(),
+            contest_clock: "15:56".into(),
+            start_time_epoch: serde_json::json!(1773936900),
+            start_date: "03/19/2026".into(),
+            start_time: "12:15".into(),
+            final_message: "2ND HALF".into(),
+        };
+        let contest2 = Contest::try_from(raw2).unwrap();
+        assert!(contest2.is_live());
+        assert_eq!(contest2.start_time_epoch, Some(1773936900));
     }
 
     #[test]
     fn test_team_score_parsing() {
+        // String format (legacy)
         let raw = RawTeam {
             name_short: "Duke".into(),
             name_6char: "DUKE".into(),
             seoname: "duke".into(),
-            score: "82".into(),
-            seed: "1".into(),
+            score: serde_json::json!("82"),
+            seed: serde_json::json!("1"),
             is_winner: true,
             is_home: false,
         };
@@ -472,13 +520,27 @@ mod tests {
         assert_eq!(team.score, Some(82));
         assert_eq!(team.seed, Some(1));
 
-        // Pre-game: empty score/seed
+        // Number format (current NCAA API)
+        let raw_num = RawTeam {
+            name_short: "TCU".into(),
+            name_6char: "TCU".into(),
+            seoname: "tcu".into(),
+            score: serde_json::json!(41),
+            seed: serde_json::json!(9),
+            is_winner: false,
+            is_home: false,
+        };
+        let team_num = Team::from(raw_num);
+        assert_eq!(team_num.score, Some(41));
+        assert_eq!(team_num.seed, Some(9));
+
+        // Pre-game: null score/seed
         let raw_pre = RawTeam {
             name_short: "Duke".into(),
             name_6char: "DUKE".into(),
             seoname: "duke".into(),
-            score: String::new(),
-            seed: String::new(),
+            score: serde_json::Value::Null,
+            seed: serde_json::Value::Null,
             is_winner: false,
             is_home: true,
         };

@@ -1,0 +1,105 @@
+i think something is seriously wrong with our ncaa-feed
+
+i ran it with --poll-interval 30 seconds and i get this:
+
+ubuntu@clown-beatdown:~/march-madness$ RUST_LOG=debug ./target/release/ncaa-feed --poll-interval 30
+2026-03-19T17:30:45.822113Z  INFO ncaa_feed: connected to Redis
+2026-03-19T17:30:45.822160Z  INFO ncaa_feed: using embedded 2026 tournament data
+2026-03-19T17:30:45.822542Z DEBUG ncaa_api::schedule: fetching schedule for MBB season 2025
+2026-03-19T17:30:45.822567Z DEBUG ncaa_api::client: GET https://sdataprod.ncaa.com/?extensions=%7B%22persistedQuery%22%3A%7B%22sha256Hash%22%3A%22a25ad021179ce1d97fb951a49954dc98da150089f9766e7e85890e439516ffbf%22%2C%22version%22%3A1%7D%7D&variables=%7B%22division%22%3A1%2C%22seasonYear%22%3A2025%2C%22sportCode%22%3A%22MBB%22%7D
+2026-03-19T17:30:45.822737Z DEBUG reqwest::connect: starting new connection: https://sdataprod.ncaa.com/
+2026-03-19T17:30:45.853507Z DEBUG hyper_util::client::legacy::connect::http: connecting to 23.61.108.204:443
+2026-03-19T17:30:45.864767Z DEBUG hyper_util::client::legacy::connect::http: connected to 23.61.108.204:443
+2026-03-19T17:30:45.939675Z DEBUG hyper_util::client::legacy::pool: pooling idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:30:45.940023Z  INFO ncaa_feed: auto-detected today's date: 2026/03/19
+2026-03-19T17:30:45.940051Z  INFO ncaa_feed: polling MBB scoreboard for date 2026/03/19
+2026-03-19T17:30:45.940083Z DEBUG ncaa_api::scoreboard: fetching scoreboard for MBB on 2026/03/19 (season 2025)
+2026-03-19T17:30:45.940100Z DEBUG ncaa_api::client: rate limit: sleeping 882ms
+2026-03-19T17:30:46.823630Z DEBUG ncaa_api::client: GET https://sdataprod.ncaa.com/?extensions=%7B%22persistedQuery%22%3A%7B%22sha256Hash%22%3A%227287cda610a9326931931080cb3a604828febe6fe3c9016a7e4a36db99efdb7c%22%2C%22version%22%3A1%7D%7D&variables=%7B%22contestDate%22%3A%222026%2F03%2F19%22%2C%22division%22%3A1%2C%22seasonYear%22%3A2025%2C%22sportCode%22%3A%22MBB%22%7D
+2026-03-19T17:30:46.823816Z DEBUG hyper_util::client::legacy::pool: reuse idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:30:46.983088Z DEBUG hyper_util::client::legacy::pool: pooling idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:30:46.983234Z  INFO ncaa_feed: phase: PreGame, next poll in 30s
+2026-03-19T17:31:16.984670Z DEBUG ncaa_api::scoreboard: fetching scoreboard for MBB on 2026/03/19 (season 2025)
+2026-03-19T17:31:16.984727Z DEBUG ncaa_api::client: GET https://sdataprod.ncaa.com/?extensions=%7B%22persistedQuery%22%3A%7B%22sha256Hash%22%3A%227287cda610a9326931931080cb3a604828febe6fe3c9016a7e4a36db99efdb7c%22%2C%22version%22%3A1%7D%7D&variables=%7B%22contestDate%22%3A%222026%2F03%2F19%22%2C%22division%22%3A1%2C%22seasonYear%22%3A2025%2C%22sportCode%22%3A%22MBB%22%7D
+2026-03-19T17:31:16.984844Z DEBUG hyper_util::client::legacy::pool: reuse idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:31:17.140445Z DEBUG hyper_util::client::legacy::pool: pooling idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:31:17.140530Z  INFO ncaa_feed: phase: PreGame, next poll in 30s
+
+problem is, there are games that are "live" -- for example this one:
+
+contests": [
+      {
+        "__typename": "Contest",
+        "championshipId": 6393,
+        "bracketId": 202,
+        "contestId": 6534597,
+        "url": "/game/6534597",
+        "gameState": "I",
+        "statusCodeDisplay": "live",
+        "currentPeriod": "2nd",
+        "contestClock": "15:56",
+        "finalMessage": "2ND HALF",
+        "startTimeEpoch": 1773936900,
+        "startTime": "12:15",
+        "startDate": "03/19/2026",
+        "hasStartTime": true,
+        "broadcasterId": 40723,
+        "broadcasterName": "CBS",
+        "roundNumber": 2,
+        "roundDescription": "First Round",
+        "sportUrl": "basketball-men",
+        "stage": 3,
+        "tba": false,
+        "isChampionship": true,
+        "championshipGame": {
+          "__typename": "ChampionshipGame",
+          "round": {
+            "__typename": "Round",
+            "roundNumber": 2,
+            "title": "First Round",
+            "subtitle": "3/19-3/20"
+          }
+        },
+        "teams": [
+          {
+            "__typename": "ContestTeam",
+            "isHome": true,
+            "seoname": "ohio-st",
+            "nameShort": "Ohio St.",
+            "name6Char": "OHIOST",
+            "name8Char": "",
+            "name10Char": "",
+            "seed": 8,
+            "teamRank": null,
+            "score": 28,
+            "isWinner": false,
+            "conferenceSeo": "big-ten"
+          },
+          {
+            "__typename": "ContestTeam",
+            "isHome": false,
+            "seoname": "tcu",
+            "nameShort": "TCU",
+            "name6Char": "TCU",
+            "name8Char": "",
+            "name10Char": "",
+            "seed": 9,
+            "teamRank": null,
+            "score": 41,
+            "isWinner": false,
+            "conferenceSeo": "big-12"
+          }
+        ],
+        "liveVideos": [
+          {
+            "__typename": "Stream",
+            "state": "live",
+            "enabled": true,
+            "stateCode": 1,
+            "doNotSyndicate": false,
+            "syndicateOnly": false
+          }
+        ]
+      },
+
+why is it stuck here? or is it actually working fine and just giving me misleading logs.
