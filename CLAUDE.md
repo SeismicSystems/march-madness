@@ -247,9 +247,10 @@ DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed --clean     
 After seeding, run the forecaster to generate per-pool win probabilities and team advance probs, then start the server:
 
 ```bash
-cargo run -p march-madness-forecaster          # writes mm:forecasts + mm:probs to Redis
-cargo run -p march-madness-server              # serves data from Redis
-cd packages/web && bun dev                     # start frontend
+cargo run -p march-madness-forecaster -- --once  # single iteration, then exit
+cargo run -p march-madness-forecaster            # loops forever, re-reading Redis each iteration
+cargo run -p march-madness-server                # serves data from Redis
+cd packages/web && bun dev                       # start frontend
 ```
 
 ### Integration Tests (`packages/localdev/test/integration.test.ts`)

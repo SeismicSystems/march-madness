@@ -1,0 +1,4 @@
+ok now change forecaster so it will run in a loop forever. param n sims, it does the sim, then reloads new redis state (for game events written by ncaa-feed) and re-sims... etc
+
+
+also add a supervisor config to get this running

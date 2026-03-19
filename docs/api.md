@@ -248,30 +248,33 @@ cargo run --bin march-madness-server -- --port 3000
 
 ## Running the Forecaster
 
-After tournament status is posted, run the forecaster to generate win probabilities:
+The forecaster runs in a **continuous loop** by default: each iteration reads fresh state from Redis (entries, groups, mirrors, tournament status), runs Monte Carlo simulations, writes results, then sleeps 1 second before the next iteration. This means forecasts automatically update as `ncaa-feed` writes new game state.
 
 ```bash
-# Default: reads entries, groups, mirrors, and status all from Redis
+# Continuous mode (default): loops forever, re-reading Redis each iteration
 cargo run --release --bin march-madness-forecaster
 
-# Override status from a file
+# Run once and exit
+cargo run --release --bin march-madness-forecaster -- --once
+
+# Custom simulation count per iteration
+cargo run --release --bin march-madness-forecaster -- --simulations 100000
+
+# Override status from a file (useful for testing, still loops)
 cargo run --release --bin march-madness-forecaster -- \
   --status data/2026/men/status.json
 
-# Custom simulation count / file output
-cargo run --release --bin march-madness-forecaster -- \
-  --simulations 100000 \
-  --output-file data/2026/men/forecasts.json
-
-# Print per-team advance probabilities (no entries needed)
+# Print per-team advance probabilities (one-shot, no entries needed)
 cargo run --release --bin march-madness-forecaster -- --team-advance
 ```
 
-The forecaster reads all inputs from Redis: entries (`mm:entries`), group members (`mm:group_members`), mirror entries (`mm:mirror:entries`), and tournament status (`mm:games`). It runs 50k Monte Carlo forward simulations (configurable via `--simulations`) and computes per-pool win probabilities for the main contest, each group, and each mirror.
+The forecaster reads all inputs from Redis: entries (`mm:entries`), group members (`mm:group_members`), mirror entries (`mm:mirror:entries`), and tournament status (`mm:games`). It runs 50k Monte Carlo forward simulations per iteration (configurable via `--simulations`) and computes per-pool win probabilities for the main contest, each group, and each mirror.
 
 Results are written to:
 - **`mm:forecasts`** (HASH): field per pool (`"mm"`, `"group:{id}"`, `"mirror:{id}"`) → JSON `{"key": basis_points}` where 10000 = 100%.
 - **`mm:probs`** (HASH): field per team → JSON array of 6 advance probabilities `[R64, R32, S16, E8, F4, Champ]`.
 
 The server reads these directly from Redis. Optionally also writes pool forecasts to a file if `--output-file` is specified.
+
+In production, the forecaster runs as a supervised process (see `deploy/supervisor.conf`).
 
