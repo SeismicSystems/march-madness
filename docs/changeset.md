@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Remove redundant checkmark/X icons from bracket game slots — green/red styling already conveys correct/wrong picks
+
+
 Show champion icon, P(win), and E[score] columns on mobile leaderboard
 
 - Champion column: show team logo icon only on mobile (no text), full name on desktop
