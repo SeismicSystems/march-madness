@@ -1,0 +1,5 @@
+hey we're going to make a few changes to the bracket display:
+
+- remove checkmark / x on wrong picks. we already show green/red coloring. so it just takes up space
+
+i would start with just that, next change will be trickier
