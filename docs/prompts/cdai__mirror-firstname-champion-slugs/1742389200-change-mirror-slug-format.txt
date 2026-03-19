@@ -1,0 +1,7 @@
+hey i want to change some of the logic in mirrors, in terms of how it names entries.
+
+right now, it looks at the name of the bracket, and creates a slug. i would like to change this -- instead we should derive names like this:
+
+"{firstname}-{champion}"
+
+if that's not unique, prompt the user saying "there's conflicts here: {show the relevant conflicting entries} and then ask the user to manually input a slug for all conflicting entries

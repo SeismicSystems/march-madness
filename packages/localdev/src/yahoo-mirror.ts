@@ -6,6 +6,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import { createInterface } from "readline";
 import { resolve } from "path";
 import { http } from "viem";
 import type { Address, Hex } from "viem";
@@ -132,13 +133,92 @@ function getTransport() {
 
 // ── Slug generation ───────────────────────────────────────────────────
 
-function makeEntrySlug(entry: PlatformEntry): string {
-  // Use bracket name, sanitized for on-chain slug
-  return entry.name
+function slugify(s: string): string {
+  return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 50);
+}
+
+function makeEntrySlug(entry: PlatformEntry): string {
+  // "{firstname}-{champion}" — first word of user name + champion pick
+  const firstName = entry.user.split(/\s+/)[0];
+  return slugify(`${firstName}-${entry.champion}`);
+}
+
+function prompt(question: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+/**
+ * Generate slugs for all entries, prompting the user to resolve conflicts.
+ * Returns a map of team_id → slug.
+ */
+async function resolveEntrySlugs(
+  entries: PlatformEntry[],
+): Promise<Map<string, string>> {
+  // Generate initial slugs
+  const slugByTeamId = new Map<string, string>();
+  for (const entry of entries) {
+    slugByTeamId.set(entry.team_id, makeEntrySlug(entry));
+  }
+
+  // Find conflicts: slug → list of entries that map to it
+  const slugToEntries = new Map<string, PlatformEntry[]>();
+  for (const entry of entries) {
+    const slug = slugByTeamId.get(entry.team_id)!;
+    const list = slugToEntries.get(slug) || [];
+    list.push(entry);
+    slugToEntries.set(slug, list);
+  }
+
+  const conflicts = [...slugToEntries.entries()].filter(
+    ([, list]) => list.length > 1,
+  );
+
+  if (conflicts.length === 0) return slugByTeamId;
+
+  // Prompt user to resolve each conflict group
+  for (const [slug, conflicting] of conflicts) {
+    console.log(`\nSlug conflict: "${slug}" is shared by:`);
+    for (let i = 0; i < conflicting.length; i++) {
+      const e = conflicting[i];
+      console.log(`  ${i + 1}. "${e.name}" by ${e.user} (champion: ${e.champion})`);
+    }
+
+    for (const entry of conflicting) {
+      const input = await prompt(
+        `  Enter slug for "${entry.name}" by ${entry.user}: `,
+      );
+      const resolved = slugify(input);
+      if (!resolved) {
+        console.error("Slug cannot be empty");
+        process.exit(1);
+      }
+      slugByTeamId.set(entry.team_id, resolved);
+    }
+  }
+
+  // Verify no remaining duplicates after user input
+  const seen = new Map<string, string>();
+  for (const [teamId, slug] of slugByTeamId) {
+    if (seen.has(slug)) {
+      console.error(
+        `Slug "${slug}" is still duplicated (team ${seen.get(slug)} and ${teamId}). Aborting.`,
+      );
+      process.exit(1);
+    }
+    seen.set(slug, teamId);
+  }
+
+  return slugByTeamId;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -197,6 +277,9 @@ async function main() {
   console.log(`mirror contract: ${mirrorAddress}`);
   console.log(`wallet: ${walletClient.account.address}`);
 
+  // Resolve entry slugs (prompts user on conflicts)
+  const slugMap = await resolveEntrySlugs(platform.entries);
+
   // Check for existing on-chain.json
   const onChainPath = resolve(cacheDir, "on-chain.json");
   let onChain: OnChainOutput | null = null;
@@ -232,7 +315,7 @@ async function main() {
     // Add all entries
     for (let i = 0; i < platform.entries.length; i++) {
       const entry = platform.entries[i];
-      const entrySlug = makeEntrySlug(entry);
+      const entrySlug = slugMap.get(entry.team_id)!;
       console.log(
         `  [${i + 1}/${platform.entries.length}] adding ${entry.name} (${entrySlug})...`,
       );
@@ -259,7 +342,7 @@ async function main() {
 
     for (let i = 0; i < platform.entries.length; i++) {
       const entry = platform.entries[i];
-      const entrySlug = makeEntrySlug(entry);
+      const entrySlug = slugMap.get(entry.team_id)!;
 
       if (existingIds.has(entry.team_id)) {
         // Already on-chain — check if slug changed

@@ -129,15 +129,16 @@ enum Command {
         all_groups: bool,
     },
 
-    /// Backfill all entries for a specific mirror ID from the contract into Redis
+    /// Backfill mirror metadata + entries from the contract into Redis.
+    /// If --mirror-id is given, backfills that mirror only; otherwise backfills all mirrors.
     BackfillMirror {
         /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
         #[arg(long, env = "VITE_RPC_URL")]
         rpc_url: String,
 
-        /// Mirror ID to backfill
+        /// Mirror ID to backfill (omit to backfill all mirrors)
         #[arg(long)]
-        mirror_id: u64,
+        mirror_id: Option<u64>,
     },
 
     /// Seed Redis with fake bracket data for local development
