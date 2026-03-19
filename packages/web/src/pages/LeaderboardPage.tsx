@@ -79,7 +79,7 @@ function SortHeader({
   onToggle,
   className,
 }: {
-  label: string;
+  label: React.ReactNode;
   sortKey: SortKey;
   activeSortKey: SortKey;
   sortDir: SortDir;
@@ -285,26 +285,24 @@ export function LeaderboardPage() {
             <tr className="text-text-muted text-xs border-b border-border">
               <th className="text-left py-2 px-2 w-12">#</th>
               <th className="text-left py-2 px-2">Player</th>
-              <th className="text-left py-2 px-2 hidden md:table-cell w-44">
-                Champion
-              </th>
+              <th className="py-2 px-1 md:px-2 w-8 md:w-44" />
               {hasForecasts && (
                 <>
                   <SortHeader
-                    label="P(Win)"
+                    label={<><span className="md:hidden">{"\u2119"}</span><span className="hidden md:inline">P(Win)</span></>}
                     sortKey="winProbability"
                     activeSortKey={sortKey}
                     sortDir={sortDir}
                     onToggle={toggleSort}
-                    className="text-right hidden md:table-cell w-24"
+                    className="text-right w-10 md:w-24"
                   />
                   <SortHeader
-                    label="E[Score]"
+                    label={<><span className="md:hidden">{"\uD835\uDD3C"}</span><span className="hidden md:inline">E[Score]</span></>}
                     sortKey="expectedScore"
                     activeSortKey={sortKey}
                     sortDir={sortDir}
                     onToggle={toggleSort}
-                    className="text-right hidden md:table-cell w-24"
+                    className="text-right w-10 md:w-24"
                   />
                 </>
               )}
@@ -348,11 +346,11 @@ export function LeaderboardPage() {
                       </div>
                     )}
                   </td>
-                  <td className="py-2.5 px-2 hidden md:table-cell">
+                  <td className="py-2.5 px-1 md:px-2">
                     {entry.championName ? (
                       <div className="flex items-center gap-1.5 min-w-0">
                         <TeamLogo teamName={entry.championName} />
-                        <span className="text-text-secondary text-xs truncate">
+                        <span className="text-text-secondary text-xs truncate hidden md:inline">
                           {entry.championName}
                         </span>
                       </div>
@@ -362,12 +360,12 @@ export function LeaderboardPage() {
                   </td>
                   {hasForecasts && (
                     <>
-                      <td className="py-2.5 px-2 text-right text-text-muted text-xs hidden md:table-cell">
+                      <td className="py-2.5 px-1 md:px-2 text-right text-text-muted text-[10px] md:text-xs">
                         {entry.forecast
                           ? `${(entry.forecast.winProbability * 100).toFixed(1)}%`
                           : "—"}
                       </td>
-                      <td className="py-2.5 px-2 text-right text-text-muted text-xs hidden md:table-cell">
+                      <td className="py-2.5 px-1 md:px-2 text-right text-text-muted text-[10px] md:text-xs">
                         {entry.forecast
                           ? entry.forecast.expectedScore.toFixed(1)
                           : "—"}
