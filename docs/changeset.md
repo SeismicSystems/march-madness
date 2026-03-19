@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix advancing (green) color bleeding into future rounds. Teams now only show as advancing in rounds they've actually reached based on win count, not in all rounds where the user picked them.
+
+
 Clean up tournament status data flow. Remove `teamReachProbabilities` from `TournamentStatus` (now stored separately in `mm:probs`). Server deserializes `mm:games` into a typed `TournamentStatus` before serving. Frontend shows game clock (period + seconds remaining) for live games and derives win probabilities from per-team advance probs via `/team-probs` endpoint.
 
 
