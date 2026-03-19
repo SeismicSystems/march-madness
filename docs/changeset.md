@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Remove SMS login method from Privy config (disabled on Privy side)
+
+
 Multi-pool forecaster: Redis-only input, per-pool win probabilities
 
 - Forecaster reads all inputs from Redis (entries, groups, mirrors, tournament status) instead of a JSON file
