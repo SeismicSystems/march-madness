@@ -1,0 +1,7 @@
+on the mobile mirrors/groups/leaderboard component, we should: just show the team icon for champion (don't spell it out)
+
+in small font, add P(win) and E[pts] metrics. but don't spell them out like that... honestly it would be cool to have the mathematical style big P and E single letters? if you cant do that, single P and E as column header would be fine
+
+---
+
+i think if we say "Champion" is going to be too big. you don't even need a column header value for it at all.
