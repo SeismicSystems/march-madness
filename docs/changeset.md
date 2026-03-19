@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix leaderboard crash when forecast data loads. The `/forecasts` API returns `{address: basisPoints}` (plain integers) but the frontend expected `BracketForecast` objects. Now `useForecasts` transforms basis points into proper `BracketForecast` objects, and the E[Score] line is hidden when unavailable.
+
+
 **ncaa-feed**: Fix bug where final games never get score corrections. Previously, once a game was marked Final, the feed skipped all further updates — including score corrections from the NCAA API. Now the feed keeps the Final status but still applies score updates when the API reports a different score.
 
 
