@@ -192,6 +192,7 @@ enum MirrorEvent<'a> {
     Created(&'a Log),
     Added(&'a Log),
     Removed(&'a Log),
+    Updated(&'a Log),
 }
 
 async fn process_mirror(
@@ -204,9 +205,11 @@ async fn process_mirror(
     let created_logs = p.get_mirror_created_logs(contract, from, to).await?;
     let added_logs = p.get_entry_added_logs(contract, from, to).await?;
     let removed_logs = p.get_entry_removed_logs(contract, from, to).await?;
+    let updated_logs = p.get_bracket_updated_logs(contract, from, to).await?;
 
-    let mut events: Vec<((u64, u64), MirrorEvent)> =
-        Vec::with_capacity(created_logs.len() + added_logs.len() + removed_logs.len());
+    let mut events: Vec<((u64, u64), MirrorEvent)> = Vec::with_capacity(
+        created_logs.len() + added_logs.len() + removed_logs.len() + updated_logs.len(),
+    );
     for log in &created_logs {
         events.push((log_sort_key(log), MirrorEvent::Created(log)));
     }
@@ -215,6 +218,9 @@ async fn process_mirror(
     }
     for log in &removed_logs {
         events.push((log_sort_key(log), MirrorEvent::Removed(log)));
+    }
+    for log in &updated_logs {
+        events.push((log_sort_key(log), MirrorEvent::Updated(log)));
     }
     events.sort_by_key(|(key, _)| *key);
 
@@ -250,6 +256,24 @@ async fn process_mirror(
                 let (mirror_id, slug) = provider::parse_entry_removed(log)?;
                 info!(event = "EntryRemoved", mirror_id, slug = %slug);
                 redis_store::mirror_entry_removed(redis, mirror_id, &slug).await?;
+            }
+            MirrorEvent::Updated(log) => {
+                let (mirror_id, slug) = provider::parse_bracket_updated(log)?;
+                let u256_id = alloy_primitives::U256::from(mirror_id);
+                match p
+                    .get_mirror_entry_bracket(contract, u256_id, slug.clone())
+                    .await
+                {
+                    Ok(bracket) => {
+                        let bracket_hex = format!("0x{}", hex::encode(bracket.as_slice()));
+                        info!(event = "BracketUpdated", mirror_id, slug = %slug, bracket = %bracket_hex);
+                        redis_store::mirror_entry_added(redis, mirror_id, &slug, &bracket_hex)
+                            .await?;
+                    }
+                    Err(e) => {
+                        info!(event = "BracketUpdated", mirror_id, slug = %slug, error = %e, "failed to read updated bracket");
+                    }
+                }
             }
         }
         count += 1;
