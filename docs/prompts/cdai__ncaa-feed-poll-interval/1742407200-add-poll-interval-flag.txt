@@ -1,0 +1,1 @@
+the ncaa-feed binary -- what amount of sleep seconds is it configured to use? can i pass an arg to make it start with very slow time between requests -- say 30 seconds?

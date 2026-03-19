@@ -27,8 +27,12 @@ struct Cli {
     redis_url: String,
 
     /// Max NCAA API requests per second (must be < 5.0).
-    #[arg(long, default_value = "1.0")]
+    #[arg(long, default_value = "1.0", conflicts_with = "poll_interval")]
     requests_per_sec: f64,
+
+    /// Fixed poll interval in seconds, minimum 1 (overrides adaptive polling and requests-per-sec).
+    #[arg(long, value_parser = clap::value_parser!(u64).range(1..))]
+    poll_interval: Option<u64>,
 
     /// Sport: mbb (men's basketball) or wbb (women's basketball).
     #[arg(long, default_value = "mbb")]
@@ -93,7 +97,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    let mut state = FeedState::new(cli.requests_per_sec, existing_status.as_ref());
+    let poll_override = cli.poll_interval.map(std::time::Duration::from_secs);
+    let mut state = FeedState::new(
+        cli.requests_per_sec,
+        poll_override,
+        existing_status.as_ref(),
+    );
 
     // Determine contest date.
     let date = if let Some(d) = &cli.date {
