@@ -117,14 +117,14 @@ export function BracketGame({
     !eliminatedTeam1 &&
     winner === team1 &&
     team1 !== null &&
-    (advancedTeams?.get(displayName(team1)) ?? 0) >= round;
+    (advancedTeams?.get(displayName(team1)) ?? -1) >= round;
   const advancingTeam2 =
     !pickCorrectTeam2 &&
     !pickWrongTeam2 &&
     !eliminatedTeam2 &&
     winner === team2 &&
     team2 !== null &&
-    (advancedTeams?.get(displayName(team2)) ?? 0) >= round;
+    (advancedTeams?.get(displayName(team2)) ?? -1) >= round;
 
   return (
     <div
