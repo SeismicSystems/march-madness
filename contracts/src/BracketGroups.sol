@@ -35,7 +35,6 @@ contract BracketGroups {
     error AlreadyCollected();
     error TransferFailed();
     error GroupNotFound();
-    error SlugNotUrlSafe();
 
     // ── References ──────────────────────────────────────────────────────
     IMarchMadness public immutable marchMadness;
@@ -84,22 +83,6 @@ contract BracketGroups {
     // ── Constants ───────────────────────────────────────────────────────
     uint256 public constant MAX_SLUG_LENGTH = 32;
     uint256 public constant SCORING_DURATION = 7 days;
-
-    // ── Internal helpers ────────────────────────────────────────────────
-
-    /// @dev Revert if slug contains non-URL-safe characters.
-    ///      Allowed: a-z, 0-9, hyphen. No leading/trailing hyphens.
-    function _validateSlugChars(bytes memory s) internal pure {
-        if (s[0] == 0x2D || s[s.length - 1] == 0x2D) revert SlugNotUrlSafe();
-        for (uint256 i; i < s.length; i++) {
-            bytes1 b = s[i];
-            if (
-                !(b >= 0x61 && b <= 0x7A) // a-z
-                    && !(b >= 0x30 && b <= 0x39) // 0-9
-                    && b != 0x2D // -
-            ) revert SlugNotUrlSafe();
-        }
-    }
 
     // ── Events ──────────────────────────────────────────────────────────
     event GroupCreated(uint32 indexed groupId, string slug, string displayName, address creator, bool hasPassword);
@@ -154,7 +137,6 @@ contract BracketGroups {
         bytes memory slugBytes = bytes(slug);
         if (slugBytes.length == 0) revert SlugCannotBeEmpty();
         if (slugBytes.length > MAX_SLUG_LENGTH) revert SlugTooLong();
-        _validateSlugChars(slugBytes);
 
         bytes32 slugHash = keccak256(slugBytes);
         if (slugToGroupId[slugHash] != 0) revert SlugAlreadyTaken();

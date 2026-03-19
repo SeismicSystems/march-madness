@@ -52,64 +52,6 @@ contract BracketMirrorTest is Test {
         bm.createMirror("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Pool");
     }
 
-    function test_slugWithSpacesReverts() public {
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.createMirror("barracks ballers", "Barracks Ballers");
-    }
-
-    function test_slugWithUppercaseReverts() public {
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.createMirror("Yahoo-Pool", "Yahoo Pool");
-    }
-
-    function test_slugWithLeadingHyphenReverts() public {
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.createMirror("-pool", "Pool");
-    }
-
-    function test_slugWithTrailingHyphenReverts() public {
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.createMirror("pool-", "Pool");
-    }
-
-    function test_slugWithSpecialCharsReverts() public {
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.createMirror("pool@home", "Pool");
-    }
-
-    function test_slugWithHyphensAllowed() public {
-        vm.prank(admin);
-        uint256 mirrorId = bm.createMirror("mens-league", "Men's League");
-        assertEq(mirrorId, 1);
-    }
-
-    function test_slugWithNumbersAllowed() public {
-        vm.prank(admin);
-        uint256 mirrorId = bm.createMirror("pool-2026", "Pool 2026");
-        assertEq(mirrorId, 1);
-    }
-
-    function test_entrySlugNotUrlSafeReverts() public {
-        vm.prank(admin);
-        uint256 mirrorId = bm.createMirror("pool", "Pool");
-
-        vm.prank(admin);
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.addEntry(mirrorId, PERFECT, "Alice B");
-    }
-
-    function test_updateEntrySlugNotUrlSafeReverts() public {
-        vm.prank(admin);
-        uint256 mirrorId = bm.createMirror("pool", "Pool");
-
-        vm.prank(admin);
-        bm.addEntry(mirrorId, PERFECT, "alice");
-
-        vm.prank(admin);
-        vm.expectRevert(BracketMirror.SlugNotUrlSafe.selector);
-        bm.updateEntrySlug(mirrorId, 0, "Alice B");
-    }
-
     function test_slugLookupNonexistent() public {
         vm.expectRevert(BracketMirror.MirrorNotFound.selector);
         bm.getMirrorBySlug("nope");

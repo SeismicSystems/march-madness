@@ -113,30 +113,6 @@ contract BracketGroupsTest is Test {
         bg.createGroup("this-slug-is-way-too-long-and-exceeds-the-32-byte-limit", "Bet", 0);
     }
 
-    function test_slugWithSpacesReverts() public {
-        vm.prank(creator);
-        vm.expectRevert(BracketGroups.SlugNotUrlSafe.selector);
-        bg.createGroup("my group", "My Group", 0);
-    }
-
-    function test_slugWithUppercaseReverts() public {
-        vm.prank(creator);
-        vm.expectRevert(BracketGroups.SlugNotUrlSafe.selector);
-        bg.createGroup("My-Group", "My Group", 0);
-    }
-
-    function test_slugWithLeadingHyphenReverts() public {
-        vm.prank(creator);
-        vm.expectRevert(BracketGroups.SlugNotUrlSafe.selector);
-        bg.createGroup("-group", "Group", 0);
-    }
-
-    function test_slugWithTrailingHyphenReverts() public {
-        vm.prank(creator);
-        vm.expectRevert(BracketGroups.SlugNotUrlSafe.selector);
-        bg.createGroup("group-", "Group", 0);
-    }
-
     function test_slugLookupNonexistent() public {
         vm.expectRevert(BracketGroups.GroupNotFound.selector);
         bg.getGroupBySlug("nope");

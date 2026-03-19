@@ -17,7 +17,6 @@ contract BracketMirror {
     error IndexOutOfBounds();
     error MirrorNotFound();
     error EntryNotFound();
-    error SlugNotUrlSafe();
 
     // ── Types ───────────────────────────────────────────────────────────
     struct Mirror {
@@ -46,22 +45,6 @@ contract BracketMirror {
     // ── Constants ───────────────────────────────────────────────────────
     uint256 public constant MAX_SLUG_LENGTH = 32;
 
-    // ── Internal helpers ────────────────────────────────────────────────
-
-    /// @dev Revert if slug contains non-URL-safe characters.
-    ///      Allowed: a-z, 0-9, hyphen. No leading/trailing hyphens.
-    function _validateSlugChars(bytes memory s) internal pure {
-        if (s[0] == 0x2D || s[s.length - 1] == 0x2D) revert SlugNotUrlSafe();
-        for (uint256 i; i < s.length; i++) {
-            bytes1 b = s[i];
-            if (
-                !(b >= 0x61 && b <= 0x7A) // a-z
-                    && !(b >= 0x30 && b <= 0x39) // 0-9
-                    && b != 0x2D // -
-            ) revert SlugNotUrlSafe();
-        }
-    }
-
     // ── Events ──────────────────────────────────────────────────────────
     event MirrorCreated(uint256 indexed mirrorId, string slug, string displayName, address admin);
     event EntryAdded(uint256 indexed mirrorId, string slug);
@@ -89,7 +72,6 @@ contract BracketMirror {
         bytes memory slugBytes = bytes(slug);
         if (slugBytes.length == 0) revert SlugCannotBeEmpty();
         if (slugBytes.length > MAX_SLUG_LENGTH) revert SlugTooLong();
-        _validateSlugChars(slugBytes);
 
         bytes32 slugHash = keccak256(slugBytes);
         if (slugToMirrorId[slugHash] != 0) revert SlugAlreadyTaken();
@@ -118,11 +100,7 @@ contract BracketMirror {
     function addEntry(uint256 mirrorId, bytes8 bracket, string calldata slug) external onlyAdmin(mirrorId) {
         if (bracket[0] & 0x80 == 0) revert InvalidSentinelByte();
 
-        bytes memory slugBytes = bytes(slug);
-        if (slugBytes.length == 0) revert SlugCannotBeEmpty();
-        _validateSlugChars(slugBytes);
-
-        bytes32 entrySlugHash = keccak256(slugBytes);
+        bytes32 entrySlugHash = keccak256(bytes(slug));
         if (_entrySlugIndex[mirrorId][entrySlugHash] != 0) revert EntrySlugAlreadyTaken();
 
         _entries[mirrorId].push(MirrorEntry({bracket: bracket, slug: slug}));
@@ -169,12 +147,8 @@ contract BracketMirror {
     function updateEntrySlug(uint256 mirrorId, uint256 entryIndex, string calldata slug) external onlyAdmin(mirrorId) {
         if (entryIndex >= _entries[mirrorId].length) revert IndexOutOfBounds();
 
-        bytes memory slugBytes = bytes(slug);
-        if (slugBytes.length == 0) revert SlugCannotBeEmpty();
-        _validateSlugChars(slugBytes);
-
         bytes32 oldSlugHash = keccak256(bytes(_entries[mirrorId][entryIndex].slug));
-        bytes32 newSlugHash = keccak256(slugBytes);
+        bytes32 newSlugHash = keccak256(bytes(slug));
 
         if (oldSlugHash != newSlugHash) {
             if (_entrySlugIndex[mirrorId][newSlugHash] != 0) revert EntrySlugAlreadyTaken();
