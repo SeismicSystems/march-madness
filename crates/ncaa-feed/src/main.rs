@@ -17,8 +17,11 @@ use crate::mapper::GameMapper;
 #[derive(Parser)]
 #[command(name = "ncaa-feed", about = "NCAA live score feed → Redis (mm:games)")]
 struct Cli {
-    /// Path to tournament.json (team names → bracket positions derived from array index).
-    /// If not specified, uses embedded 2026 tournament data.
+    /// Tournament year.
+    #[arg(long, default_value = "2026")]
+    year: u16,
+
+    /// Path to tournament.json (overrides embedded data for --year).
     #[arg(long)]
     tournament_file: Option<std::path::PathBuf>,
 
@@ -74,8 +77,8 @@ async fn main() -> Result<()> {
             GameMapper::load(path)?
         }
         None => {
-            info!("using embedded 2026 tournament data");
-            GameMapper::load_embedded(2026)
+            info!("using embedded {} tournament data", cli.year);
+            GameMapper::load_embedded(cli.year)
         }
     };
 

@@ -1,0 +1,3 @@
+yeah add a year, default 2026, and if they have year but no tournament file, then use the tournament file for that year.
+
+the fetch-bracket command should have the same cli arg pattern by the way (that writes the tournament file)
