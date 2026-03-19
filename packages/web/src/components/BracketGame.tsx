@@ -43,6 +43,46 @@ function LiveClock({ period, secondsRemaining, gameIndex }: {
   );
 }
 
+/**
+ * Tournament overlay state for a single team slot. Determined once per team,
+ * then used for both styling and iconography — no interleaved boolean priority.
+ *
+ *   correct   — game final, user's pick won
+ *   wrong     — game final, user's pick lost
+ *   eliminated — user picked this team but it lost in a prior round
+ *   advancing — user picked this team and it has won THROUGH this round
+ *   null      — no tournament overlay (fall back to pick styling)
+ */
+type TournamentOverlay = "correct" | "wrong" | "eliminated" | "advancing" | null;
+
+function computeOverlay(
+  team: Team | null,
+  isUserPick: boolean,
+  isTeam1: boolean,
+  gameStatus: GameStatus | undefined,
+  eliminatedTeams: Set<string> | undefined,
+  advancedTeams: Map<string, number> | undefined,
+  round: number,
+): TournamentOverlay {
+  if (!team || !isUserPick) return null;
+
+  // Game has a final result — was the user's pick right or wrong?
+  if (gameStatus?.status === "final" && gameStatus.winner !== undefined) {
+    const pickedTeamWon = isTeam1 ? gameStatus.winner : !gameStatus.winner;
+    return pickedTeamWon ? "correct" : "wrong";
+  }
+
+  // Game not decided yet — was this team already knocked out in a prior round?
+  const name = displayName(team);
+  if (eliminatedTeams?.has(name)) return "eliminated";
+
+  // Team is still alive and has won THROUGH this round (wins > round).
+  // wins == round only means they've arrived at this round, not cleared it.
+  if ((advancedTeams?.get(name) ?? -1) > round) return "advancing";
+
+  return null;
+}
+
 interface BracketGameProps {
   team1: Team | null;
   team2: Team | null;
@@ -98,57 +138,8 @@ export function BracketGame({
     minW = "w-full min-w-0";
   }
 
-  // Determine if each team's pick was correct/wrong based on game result
-  const pickCorrectTeam1 =
-    gameStatus?.status === "final" &&
-    gameStatus.winner === true &&
-    winner === team1;
-  const pickCorrectTeam2 =
-    gameStatus?.status === "final" &&
-    gameStatus.winner === false &&
-    winner === team2;
-  const pickWrongTeam1 =
-    gameStatus?.status === "final" &&
-    gameStatus.winner === false &&
-    winner === team1;
-  const pickWrongTeam2 =
-    gameStatus?.status === "final" &&
-    gameStatus.winner === true &&
-    winner === team2;
-
-  // "Busted" = user picked this team but it was already eliminated in a prior round.
-  // Only applies when the team is the user's pick (isWinner) and not already shown as pickWrong.
-  const eliminatedTeam1 =
-    !pickWrongTeam1 &&
-    !pickCorrectTeam1 &&
-    winner === team1 &&
-    team1 !== null &&
-    !!eliminatedTeams?.has(displayName(team1));
-  const eliminatedTeam2 =
-    !pickWrongTeam2 &&
-    !pickCorrectTeam2 &&
-    winner === team2 &&
-    team2 !== null &&
-    !!eliminatedTeams?.has(displayName(team2));
-
-  // "Advancing" = user picked this team and the team has won through this round.
-  // A team needs MORE than `round` wins — i.e. they've won the game AT this round,
-  // not merely arrived here. Without this, a team that just won R64 (1 win) would
-  // show green in R32 (round 1) even though that game hasn't been played yet.
-  const advancingTeam1 =
-    !pickCorrectTeam1 &&
-    !pickWrongTeam1 &&
-    !eliminatedTeam1 &&
-    winner === team1 &&
-    team1 !== null &&
-    (advancedTeams?.get(displayName(team1)) ?? -1) > round;
-  const advancingTeam2 =
-    !pickCorrectTeam2 &&
-    !pickWrongTeam2 &&
-    !eliminatedTeam2 &&
-    winner === team2 &&
-    team2 !== null &&
-    (advancedTeams?.get(displayName(team2)) ?? -1) > round;
+  const overlayTeam1 = computeOverlay(team1, winner === team1, true, gameStatus, eliminatedTeams, advancedTeams, round);
+  const overlayTeam2 = computeOverlay(team2, winner === team2, false, gameStatus, eliminatedTeams, advancedTeams, round);
 
   return (
     <div
@@ -185,10 +176,7 @@ export function BracketGame({
         textSize={textSize}
         mobile={mobile}
         gameScore={gameStatus?.score?.team1}
-        pickCorrect={pickCorrectTeam1}
-        pickWrong={pickWrongTeam1}
-        isEliminated={eliminatedTeam1}
-        isAdvancing={advancingTeam1}
+        overlay={overlayTeam1}
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
@@ -206,10 +194,7 @@ export function BracketGame({
         textSize={textSize}
         mobile={mobile}
         gameScore={gameStatus?.score?.team2}
-        pickCorrect={pickCorrectTeam2}
-        pickWrong={pickWrongTeam2}
-        isEliminated={eliminatedTeam2}
-        isAdvancing={advancingTeam2}
+        overlay={overlayTeam2}
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
@@ -233,10 +218,7 @@ interface TeamSlotProps {
   textSize: string;
   mobile?: boolean;
   gameScore?: number;
-  pickCorrect?: boolean;
-  pickWrong?: boolean;
-  isEliminated?: boolean;
-  isAdvancing?: boolean;
+  overlay: TournamentOverlay;
   isLive?: boolean;
   winProbability?: number;
   reversed?: boolean;
@@ -253,10 +235,7 @@ function TeamSlot({
   textSize,
   mobile = false,
   gameScore,
-  pickCorrect = false,
-  pickWrong = false,
-  isEliminated = false,
-  isAdvancing = false,
+  overlay,
   isLive = false,
   winProbability,
   reversed = false,
@@ -273,21 +252,18 @@ function TeamSlot({
 
   let className = `${py} ${px} ${textSize} rounded-lg ${disabled ? "cursor-default" : "cursor-pointer"} transition-all border backdrop-blur-md flex items-center justify-between `;
 
-  if (pickCorrect) {
+  if (overlay === "correct") {
     className +=
       "bg-green-500/10 border-green-500/40 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
-  } else if (pickWrong) {
+  } else if (overlay === "wrong") {
     className +=
       "bg-red-500/10 border-red-500/25 text-text-muted line-through opacity-60";
-  } else if (isEliminated) {
+  } else if (overlay === "eliminated") {
     className +=
       "bg-red-500/10 border-red-500/25 text-red-400/80 font-semibold";
-  } else if (isAdvancing) {
+  } else if (overlay === "advancing") {
     className +=
       "bg-accent/15 border-green-500/25 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
-  } else if (isLive && isWinner) {
-    className +=
-      "bg-accent/15 border-accent/60 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   } else if (isWinner) {
     className +=
       "bg-accent/15 border-accent/60 text-text-primary font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
@@ -319,16 +295,16 @@ function TeamSlot({
         </span>
         <TeamLogo teamName={displayName(team)} mobile={mobile} />
         <span className="truncate">{displayAbbrev(team)}</span>
-        {pickCorrect && (
+        {overlay === "correct" && (
           <span className="ml-1 text-green-400 text-[10px]">&#10003;</span>
         )}
-        {pickWrong && (
+        {overlay === "wrong" && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
-        {isAdvancing && (
+        {overlay === "advancing" && (
           <span className="ml-1 text-accent text-[10px]">&#9679;</span>
         )}
-        {isEliminated && (
+        {overlay === "eliminated" && (
           <span className="ml-1 text-red-400 text-[10px]">&#10007;</span>
         )}
       </span>
