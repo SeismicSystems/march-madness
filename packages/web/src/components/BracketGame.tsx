@@ -285,10 +285,10 @@ function TeamSlot({
       disabled={disabled}
       type="button"
     >
-      <span className="flex items-center gap-2 min-w-0">
+      <span className="flex items-center gap-1.5 min-w-0">
         <span
           className={`text-text-muted ${
-            mobile ? "w-4" : "w-5"
+            mobile ? "w-3.5" : "w-[17px]"
           } text-right font-normal flex-shrink-0`}
         >
           {team.seed}
@@ -296,7 +296,7 @@ function TeamSlot({
         <TeamLogo teamName={displayName(team)} mobile={mobile} />
         <span className="truncate">{displayAbbrev(team)}</span>
       </span>
-      <span className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="flex items-center gap-1 flex-shrink-0">
         {isLive && winProbability !== undefined && (
           <span className="text-[9px] text-text-muted bg-bg-secondary/80 px-1 rounded">
             {Math.round(winProbability * 100)}%
