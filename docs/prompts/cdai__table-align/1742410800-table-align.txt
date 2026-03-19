@@ -1,0 +1,5 @@
+in the leaderboard table view we just added, i have some problems with it:
+- the P(win) and E[score] columns are too wide. they'll be at most "100.0%" and "192.0". so we can make it narrower
+- the "Champion" section width changes depending on what entries are the current table view. we should make it robust to this -- we have a lot of room to work with given we're making everything smaller
+
+when you're done push a pr. only run CI relevant to the frontend + changeset for this task
