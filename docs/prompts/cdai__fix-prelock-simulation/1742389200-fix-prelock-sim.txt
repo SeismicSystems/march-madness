@@ -1,0 +1,58 @@
+in the forecaster, how many sims are we doing per iteration? seems like not enough...
+
+ok that's a good amount... but there's clearly something wrong... if i run the "oddsmaker" command in ~/code/sports/brackets, with the same inputs as we have in mirrors id 1, we get very different P(win). note that in both cases, i am using pre-lock data (i ran forecaster with --pre-lock). here's mirror 1 in redis:
+
+[{slug: "zach-houston", bracket: "0xdfeeffdfc557755b"},…]
+0
+:
+{slug: "zach-houston", bracket: "0xdfeeffdfc557755b"}
+1
+:
+{slug: "christian-michigan", bracket: "0xdedefffff6455558"}
+2
+:
+{slug: "peter-duke", bracket: "0xdffefeffc56477ff"}
+3
+:
+{slug: "larry-duke", bracket: "0xdbfbdfffe6465577"}
+4
+:
+{slug: "ryan-purdue", bracket: "0xffcbfefee4655d4e"}
+5
+:
+{slug: "john-duke", bracket: "0xdec9eeebe554d75d"}
+6
+:
+{slug: "sean-arizona", bracket: "0xffdfffffe6447d5e"}
+7
+:
+{slug: "larry-arizona", bracket: "0xdfdfdfdfe4667d7a"}
+8
+:
+{slug: "sean-michigan", bracket: "0xffdfffffe6447578"}
+9
+:
+{slug: "christian-florida", bracket: "0xdfdaffffc644757b"}
+10
+:
+{slug: "zach-duke", bracket: "0xdfeefeffc557755f"}
+11
+:
+{slug: "john-arizona", bracket: "0xfacafecee67557fe"}
+12
+:
+{slug: "dalton-michigan", bracket: "0xfffefbffe66677dc"}
+13
+:
+{slug: "christian-duke", bracket: "0xdedfdefec645556d"}
+14
+:
+{slug: "p-duke", bracket: "0xfbffffdae455757d"}
+
+and you can see in ~/code/sports/brackets/data/2026/actual-opponents.json, it's similar. but we get very different probability outputs in prelock mode. i mean, they're correlated but definitely not correct
+
+by the way, the ~/code/sports/brackets code uses this repo as a dependency
+
+oh yeah... the forecaster should use that and not the shortcut. wow, that's a huge oversight.
+
+can you create a pr?
