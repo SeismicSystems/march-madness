@@ -1,6 +1,7 @@
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
+import type { GameWinProbs } from "./BracketView";
 import { ROUND_NAMES } from "../lib/constants";
 import { BracketGame } from "./BracketGame";
 
@@ -17,6 +18,7 @@ interface BracketRegionProps {
   tournamentStatus?: TournamentStatus;
   eliminatedTeams?: Set<string>;
   advancedTeams?: Set<string>;
+  gameWinProbs?: GameWinProbs;
 }
 
 export function BracketRegion({
@@ -29,6 +31,7 @@ export function BracketRegion({
   tournamentStatus,
   eliminatedTeams,
   advancedTeams,
+  gameWinProbs,
 }: BracketRegionProps) {
   const orderedRounds = reversed ? [...rounds].reverse() : rounds;
 
@@ -67,6 +70,7 @@ export function BracketRegion({
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                     eliminatedTeams={eliminatedTeams}
                     advancedTeams={advancedTeams}
+                    team1WinProbability={gameWinProbs?.get(game.gameIndex)}
                   />
                 ))}
               </div>

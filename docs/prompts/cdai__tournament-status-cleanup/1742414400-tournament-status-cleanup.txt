@@ -1,0 +1,12 @@
+ok... the current format as we're storing it... will these components be happy with the data?
+- server
+- forecaster
+- frontend packages/web
+
+---
+
+spin up parallel agents to make these changes:
+
+- Forecaster: it should never expect teamReachProbabilities at all -- i don't know what it would do with that, since it's the thing that actually writes them. we now call it mm:probs
+- Frontend: it should use period + seconds remaining and show it somewhere. don't intrude on the current UI. also... how is it getting team1 win probability? it should be getting that from mm:probs.... -- make that happen. it'll be two endpoints it needs to get data from then. might need another server endpoint
+- Server: it should deserialize the output into a rust type and then re-serialize. we don't want to be corrupting the frontend with malformed payloads. use the same type we use in the ncaa-feed (if you need to move it to a common location, that's fine)

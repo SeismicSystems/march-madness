@@ -7,7 +7,7 @@ use bracket_sim::live_resolver::GameModelResolver;
 use bracket_sim::team::load_teams_from_json_str;
 use bracket_sim::{Team, Tournament};
 use clap::Parser;
-use eyre::{Result, bail, eyre};
+use eyre::{Result, eyre};
 use tracing::{info, warn};
 
 use seismic_march_madness::redis_keys::*;
@@ -59,6 +59,7 @@ struct Context {
     team_names: Vec<String>,
     team_map: HashMap<String, Team>,
     resolver: GameModelResolver,
+    reach: ReachProbs,
     simulations: u32,
     output_file: Option<PathBuf>,
     simulation_mode: SimulationMode,
@@ -66,7 +67,6 @@ struct Context {
 
 struct PreLockContext {
     status: TournamentStatus,
-    reach: ReachProbs,
 }
 
 enum SimulationMode {
@@ -156,13 +156,14 @@ fn build_context(cli: &Cli) -> Result<Context> {
         .collect();
     let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
 
+    // Compute reach probabilities once from KenPom-based tournament simulation.
+    // Both live and pre-lock modes use the same baseline reach probs.
+    let reach = compute_reach_probs(cli.year, cli.simulations, &team_names, &teams);
+
     let simulation_mode = if cli.pre_lock {
-        SimulationMode::PreLock(build_pre_lock_context(
-            cli.year,
-            cli.simulations,
-            &team_names,
-            &teams,
-        ))
+        SimulationMode::PreLock(PreLockContext {
+            status: pre_lock_status(),
+        })
     } else {
         SimulationMode::Live
     };
@@ -171,28 +172,25 @@ fn build_context(cli: &Cli) -> Result<Context> {
         team_names,
         team_map,
         resolver,
+        reach,
         simulations: cli.simulations,
         output_file: cli.output_file.clone(),
         simulation_mode,
     })
 }
 
-fn build_pre_lock_context(
+fn compute_reach_probs(
     year: u16,
     simulations: u32,
     team_names: &[String],
     teams: &[Team],
-) -> PreLockContext {
+) -> ReachProbs {
     let bracket_config = BracketConfig::for_year(year);
     let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
     tournament.setup_tournament(teams.to_vec(), &bracket_config);
     // `cumulative_win_probabilities` already uses rayon internally.
     let reach_map = tournament.cumulative_win_probabilities(simulations as usize);
-
-    PreLockContext {
-        status: pre_lock_status(),
-        reach: build_reach_probs(team_names, &reach_map),
-    }
+    build_reach_probs(team_names, &reach_map)
 }
 
 fn load_tournament_json(cli: &Cli) -> Result<String> {
@@ -207,7 +205,6 @@ fn load_tournament_json(cli: &Cli) -> Result<String> {
 fn pre_lock_status() -> TournamentStatus {
     TournamentStatus {
         games: (0..63).map(GameStatus::upcoming).collect(),
-        team_reach_probabilities: None,
         updated_at: None,
     }
 }
@@ -308,17 +305,13 @@ fn load_simulation_state<'a>(
     Option<&'a dyn seismic_march_madness::LiveGameResolver>,
 )> {
     if let SimulationMode::PreLock(pre_lock) = &ctx.simulation_mode {
-        return Ok((pre_lock.status.clone(), pre_lock.reach.clone(), None));
+        return Ok((pre_lock.status.clone(), ctx.reach.clone(), None));
     }
 
     let status = load_status(conn)?;
-    let reach = match &status.team_reach_probabilities {
-        Some(reach_map) => build_reach_probs(&ctx.team_names, reach_map),
-        None => bail!("tournament status missing teamReachProbabilities"),
-    };
     let resolver_opt = resolver_for_status(ctx, &status);
 
-    Ok((status, reach, resolver_opt))
+    Ok((status, ctx.reach.clone(), resolver_opt))
 }
 
 fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> {

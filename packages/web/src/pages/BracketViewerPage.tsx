@@ -6,6 +6,7 @@ import { validateBracket, scoreBracketPartial } from "@march-madness/client";
 import { BracketView } from "../components/BracketView";
 import { useEntries } from "../hooks/useEntries";
 import { useReadOnlyBracket } from "../hooks/useReadOnlyBracket";
+import { useTeamProbs } from "../hooks/useTeamProbs";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 import { truncateAddress } from "../lib/tournament";
 
@@ -13,6 +14,7 @@ export function BracketViewerPage() {
   const { address } = useParams<{ address: string }>();
   const { entries, loading: entriesLoading } = useEntries();
   const { status: tournamentStatus } = useTournamentStatus();
+  const { teamProbs } = useTeamProbs();
 
   const entry =
     address && entries
@@ -100,6 +102,7 @@ export function BracketViewerPage() {
         onPick={() => {}}
         disabled
         tournamentStatus={tournamentStatus ?? undefined}
+        teamProbs={teamProbs}
       />
     </div>
   );

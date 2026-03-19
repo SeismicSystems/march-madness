@@ -4,6 +4,23 @@ import type { GameStatus } from "@march-madness/client";
 import { displayAbbrev, displayName, type Team } from "../lib/tournament";
 import { getTeamLogoUrl } from "../lib/espn-logos";
 
+/** Format seconds as M:SS (e.g. 450 => "7:30", 75 => "1:15"). */
+function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds);
+  const min = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
+
+/** Format period + seconds into a compact label like "1H 7:30", "2H 1:15", "OT 3:00". */
+function formatPeriodClock(period: number, secondsRemaining: number): string {
+  const clock = formatClock(secondsRemaining);
+  if (period === 1) return `1H ${clock}`;
+  if (period === 2) return `2H ${clock}`;
+  if (period === 3) return `OT ${clock}`;
+  return `${period - 2}OT ${clock}`;
+}
+
 interface BracketGameProps {
   team1: Team | null;
   team2: Team | null;
@@ -23,6 +40,8 @@ interface BracketGameProps {
   eliminatedTeams?: Set<string>;
   /** Teams still alive (won at least one game, not yet eliminated) */
   advancedTeams?: Set<string>;
+  /** Externally computed win probability for team1 (0-1), derived from team advance probs. */
+  team1WinProbability?: number;
 }
 
 export function BracketGame({
@@ -38,6 +57,7 @@ export function BracketGame({
   fullWidth = false,
   eliminatedTeams,
   advancedTeams,
+  team1WinProbability,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -111,9 +131,14 @@ export function BracketGame({
           : minW
       } gap-0.5 relative`}
     >
-      {/* Live indicator */}
+      {/* Live indicator with period/clock */}
       {gameStatus?.status === "live" && (
         <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
+          {gameStatus.period != null && gameStatus.secondsRemaining != null && (
+            <span className="text-[8px] text-green-400 font-mono leading-none">
+              {formatPeriodClock(gameStatus.period, gameStatus.secondsRemaining)}
+            </span>
+          )}
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -138,9 +163,7 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status === "live"
-            ? gameStatus.team1WinProbability
-            : undefined
+          gameStatus?.status !== "final" ? team1WinProbability : undefined
         }
       />
       <TeamSlot
@@ -161,10 +184,8 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status === "live"
-            ? gameStatus.team1WinProbability !== undefined
-              ? 1 - gameStatus.team1WinProbability
-              : undefined
+          gameStatus?.status !== "final" && team1WinProbability !== undefined
+            ? 1 - team1WinProbability
             : undefined
         }
       />

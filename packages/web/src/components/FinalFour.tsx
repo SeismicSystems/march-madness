@@ -1,6 +1,7 @@
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
+import type { GameWinProbs } from "./BracketView";
 import { displayName } from "../lib/tournament";
 import { BracketGame, TeamLogo } from "./BracketGame";
 
@@ -13,6 +14,7 @@ interface FinalFourProps {
   tournamentStatus?: TournamentStatus;
   eliminatedTeams?: Set<string>;
   advancedTeams?: Set<string>;
+  gameWinProbs?: GameWinProbs;
 }
 
 export function FinalFour({
@@ -24,6 +26,7 @@ export function FinalFour({
   tournamentStatus,
   eliminatedTeams,
   advancedTeams,
+  gameWinProbs,
 }: FinalFourProps) {
   return (
     <div className="flex flex-col items-center min-w-0">
@@ -46,6 +49,7 @@ export function FinalFour({
                 gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs?.get(semifinal1.gameIndex)}
               />
             </div>
           )}
@@ -60,6 +64,7 @@ export function FinalFour({
                 gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs?.get(semifinal2.gameIndex)}
               />
             </div>
           )}
@@ -82,6 +87,7 @@ export function FinalFour({
                 gameStatus={tournamentStatus?.games[championship.gameIndex]}
                 eliminatedTeams={eliminatedTeams}
                 advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs?.get(championship.gameIndex)}
               />
             </div>
           )}

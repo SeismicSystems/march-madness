@@ -10,18 +10,16 @@ export interface GameStatus {
   winner?: boolean;
   /** Probability that team1 wins (0-1). For live/upcoming games. */
   team1WinProbability?: number;
+  /** Seconds remaining in the current period (live games only). */
+  secondsRemaining?: number;
+  /** Current period number (1 = 1st half, 2 = 2nd half, 3+ = OT). Live games only. */
+  period?: number;
 }
 
 /** Full tournament status — served by backend, updated via POST. */
 export interface TournamentStatus {
   /** 63 game statuses, indexed by gameIndex (0-62). */
   games: GameStatus[];
-  /**
-   * Per-team probability of reaching each round.
-   * Key: team name, Value: [pR64, pR32, pS16, pE8, pF4, pChamp]
-   * (6 values, one per round — probability of advancing TO that round).
-   */
-  teamReachProbabilities?: Record<string, number[]>;
   /** ISO timestamp of when this status was last updated. */
   updatedAt?: string;
 }

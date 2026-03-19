@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
+import type { TeamProbs } from "../hooks/useTeamProbs";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { ROUND_NAMES } from "../lib/constants";
 import { displayName, tournament } from "../lib/tournament";
@@ -10,12 +11,20 @@ import { BracketGame, TeamLogo } from "./BracketGame";
 import { BracketRegion } from "./BracketRegion";
 import { FinalFour } from "./FinalFour";
 
+/**
+ * Per-game team1 win probability map, keyed by gameIndex.
+ * Computed from per-team advance probabilities (Bradley-Terry approximation).
+ */
+export type GameWinProbs = Map<number, number>;
+
 interface BracketViewProps {
   games: GameSlot[];
   getGamesForRound: (round: number) => GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
   disabled?: boolean;
   tournamentStatus?: TournamentStatus;
+  /** Per-team advance probabilities from the forecaster (optional). */
+  teamProbs?: TeamProbs | null;
 }
 
 /**
@@ -33,6 +42,7 @@ export function BracketView({
   onPick,
   disabled = false,
   tournamentStatus,
+  teamProbs,
 }: BracketViewProps) {
   const isMobile = useIsMobile();
   const regions = tournament.regions;
@@ -84,6 +94,29 @@ export function BracketView({
     return { eliminatedTeams: eliminated, advancedTeams: advanced };
   }, [games, tournamentStatus]);
 
+  // Compute per-game team1 win probabilities from team advance probs.
+  // Uses Bradley-Terry: P(A wins round r) = advProb_A[r] / (advProb_A[r] + advProb_B[r])
+  const gameWinProbs: GameWinProbs = useMemo(() => {
+    const map = new Map<number, number>();
+    if (!teamProbs) return map;
+    for (const game of games) {
+      if (!game.team1 || !game.team2) continue;
+      const name1 = displayName(game.team1);
+      const name2 = displayName(game.team2);
+      const p1 = teamProbs[name1];
+      const p2 = teamProbs[name2];
+      if (!p1 || !p2) continue;
+      const r = game.round;
+      if (r >= p1.length || r >= p2.length) continue;
+      const a = p1[r];
+      const b = p2[r];
+      if (a + b > 0) {
+        map.set(game.gameIndex, a / (a + b));
+      }
+    }
+    return map;
+  }, [games, teamProbs]);
+
   if (isMobile) {
     return (
       <MobileBracket
@@ -95,6 +128,7 @@ export function BracketView({
         tournamentStatus={tournamentStatus}
         eliminatedTeams={eliminatedTeams}
         advancedTeams={advancedTeams}
+        gameWinProbs={gameWinProbs}
       />
     );
   }
@@ -111,6 +145,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
+          gameWinProbs={gameWinProbs}
         />
 
         <div className="row-span-2 flex items-center justify-center">
@@ -123,6 +158,7 @@ export function BracketView({
             tournamentStatus={tournamentStatus}
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
+            gameWinProbs={gameWinProbs}
           />
         </div>
 
@@ -135,6 +171,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
+          gameWinProbs={gameWinProbs}
         />
 
         {/* Bottom half */}
@@ -146,6 +183,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
+          gameWinProbs={gameWinProbs}
         />
         <BracketRegion
           regionName={displayedRegions[3].name}
@@ -156,6 +194,7 @@ export function BracketView({
           tournamentStatus={tournamentStatus}
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
+          gameWinProbs={gameWinProbs}
         />
       </div>
     </div>
@@ -173,6 +212,7 @@ function MobileBracket({
   tournamentStatus,
   eliminatedTeams,
   advancedTeams,
+  gameWinProbs,
 }: {
   regions: Array<{ name: string; rounds: GameSlot[][] }>;
   f4Games: GameSlot[];
@@ -182,6 +222,7 @@ function MobileBracket({
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
   advancedTeams: Set<string>;
+  gameWinProbs: GameWinProbs;
 }) {
   const [activeTab, setActiveTab] = useState(0);
   const tabs = [...regions.map((r) => r.name), "Final Four"];
@@ -217,6 +258,7 @@ function MobileBracket({
             tournamentStatus={tournamentStatus}
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
+            gameWinProbs={gameWinProbs}
           />
         ) : (
           <MobileFinalFourLanes
@@ -228,6 +270,7 @@ function MobileBracket({
             tournamentStatus={tournamentStatus}
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
+            gameWinProbs={gameWinProbs}
           />
         )}
       </div>
@@ -243,6 +286,7 @@ function MobileRegionLanes({
   tournamentStatus,
   eliminatedTeams,
   advancedTeams,
+  gameWinProbs,
 }: {
   regionName: string;
   rounds: GameSlot[][];
@@ -251,6 +295,7 @@ function MobileRegionLanes({
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
   advancedTeams: Set<string>;
+  gameWinProbs: GameWinProbs;
 }) {
   const reverseLaneColumns = (games: GameSlot[]) => {
     if (games.length < 2) return games;
@@ -301,6 +346,7 @@ function MobileRegionLanes({
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                     eliminatedTeams={eliminatedTeams}
                     advancedTeams={advancedTeams}
+                    team1WinProbability={gameWinProbs.get(game.gameIndex)}
                   />
                 ))}
               </div>
@@ -330,6 +376,7 @@ function MobileFinalFourLanes({
   tournamentStatus,
   eliminatedTeams,
   advancedTeams,
+  gameWinProbs,
 }: {
   semifinal1: GameSlot | null;
   semifinal2: GameSlot | null;
@@ -339,6 +386,7 @@ function MobileFinalFourLanes({
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
   advancedTeams: Set<string>;
+  gameWinProbs: GameWinProbs;
 }) {
   const semifinalGames = [semifinal1, semifinal2].filter(
     (g): g is GameSlot => g !== null
@@ -375,6 +423,7 @@ function MobileFinalFourLanes({
               gameStatus={tournamentStatus?.games[game.gameIndex]}
               eliminatedTeams={eliminatedTeams}
               advancedTeams={advancedTeams}
+              team1WinProbability={gameWinProbs.get(game.gameIndex)}
             />
           ))}
         </div>
@@ -404,6 +453,7 @@ function MobileFinalFourLanes({
             gameStatus={tournamentStatus?.games[championship.gameIndex]}
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
+            team1WinProbability={gameWinProbs.get(championship.gameIndex)}
           />
         )}
       </section>
