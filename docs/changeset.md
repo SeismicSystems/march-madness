@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add client-side pagination and sortable columns (score, expected score, win probability) to the leaderboard page. Replaces card layout with a compact table.
+
+
 Return rich BracketForecast objects from /forecasts endpoint. The forecaster now computes expected score (mean simulated final score) alongside win probability and writes full `{expectedScore, winProbability}` objects to Redis. Frontend consumes these directly — no more bps-to-object transform. Leaderboard labels simplified ("X% / Y pts" instead of "P(Win): X% / E[Score]: Y").
 
 
