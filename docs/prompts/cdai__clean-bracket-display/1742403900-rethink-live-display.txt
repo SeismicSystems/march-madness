@@ -1,0 +1,18 @@
+i want to re-think how we're displaying the "live" games. i think this is a really great feature, and it's a little too hidden
+
+for one, the location of the time and the "live" blinking green icon is very confusing to me. it's way too obfuscated
+
+i am sure about:
+- move live score to the rightmost element of each cell
+- if there's an in-game probability, put it to the left (so flip score & prob)
+
+..but now this is where it gets complex. i want to make the time/clock more prominent. but i don't really know how. also, i'd love if there was an explicit "watch" link.
+
+here's my first guess at a good UI, but you should challenge me:
+- if there are ANY live games, apply the following settings to brackets:
+  -> add some space at the top of the grid for a thin row.
+     leftmost part of row: show "1H 17:40" or "HALFTIME" or whatever clock state we're in
+     middle: show a "watch" link to ncaa
+     right: show that live blinking icon
+
+what do you think?? might require slightly different approaches for web vs mobile
