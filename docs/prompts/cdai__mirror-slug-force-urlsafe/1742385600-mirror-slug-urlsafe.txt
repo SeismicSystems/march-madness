@@ -1,0 +1,6 @@
+hey when i deployed my first mirror, i used a slug that isn't urlsafe -- "Barracks Ballers". i don't like that. we should:
+- add validation that slugs are url-friendly
+- see if i can migrate this mirror (should be id 0 or 1 -- its the first one) to have a friendlier slug
+- if not, present me a script i can run to make a new mirror with slug "mens-league"
+
+if we dont have the ability to rename mirrors, that's okay. i'll just create a new one...

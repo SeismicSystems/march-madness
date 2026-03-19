@@ -51,6 +51,11 @@ export const BracketMirrorAbi = [
   },
   {
     "inputs": [],
+    "name": "SlugNotUrlSafe",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SlugTooLong",
     "type": "error"
   },

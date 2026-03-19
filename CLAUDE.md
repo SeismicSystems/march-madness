@@ -119,6 +119,7 @@ Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no
 - `getEntryBySlug(mirrorId, slug)` — lookup entry by slug for nice URLs (e.g. `/mirrors/mens-league/brackets/my-entry-slug`)
 - Entries stored as `MirrorEntry[]` array per mirror
 - Existence check: `admin != address(0)` (no `exists` field)
+- **Slug validation**: All slugs (mirror and entry) must be URL-safe: lowercase alphanumeric + hyphens (`[a-z0-9-]`), no leading/trailing hyphens. Reverts with `SlugNotUrlSafe()`.
 
 ## BracketGroups Contract (BracketGroups.sol)
 
@@ -138,6 +139,7 @@ Group IDs are `uint32`. GroupPayout uses `uint32` for numWinners/numScored.
 BracketGroups imports `IMarchMadness` interface (not the full contract) — field named `marchMadness`.
 Group struct uses `creator` (not `admin`) since group creators have no extra privileges.
 Existence check: `creator != address(0)` (no `exists` field).
+Slug validation: same URL-safe rules as BracketMirror (`[a-z0-9-]`, no leading/trailing hyphens). Reverts with `SlugNotUrlSafe()`.
 
 ## Deploy Scripts
 

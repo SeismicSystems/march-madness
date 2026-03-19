@@ -143,6 +143,11 @@ export const BracketGroupsAbi = [
   },
   {
     "inputs": [],
+    "name": "SlugNotUrlSafe",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SlugTooLong",
     "type": "error"
   },
