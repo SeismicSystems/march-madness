@@ -41,7 +41,7 @@ function LiveBanner({ gameStatus }: { gameStatus: GameStatus }) {
           href={watchUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-green-400/80 hover:text-green-300 hover:underline"
+          className="text-green-400/80 underline hover:text-green-300"
           onClick={(e) => e.stopPropagation()}
         >
           Watch
