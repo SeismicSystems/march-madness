@@ -2,6 +2,13 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Show champion icon, P(win), and E[score] columns on mobile leaderboard
+
+- Champion column: show team logo icon only on mobile (no text), full name on desktop
+- Forecast columns (ℙ / 𝔼): always visible with math-style headers on mobile, compact text
+- No column header for champion on any screen size
+
+
 Fix pre-lock forecaster to use full possession-level game simulation (NB/Poisson + Bayesian metric updates) instead of incorrect reach-probability shortcut that used marginal advance probabilities as conditional win probabilities.
 
 
