@@ -19,10 +19,12 @@ interface BracketGameProps {
   reversed?: boolean;
   /** Stretch game card to its container width (used by mobile stacked lanes). */
   fullWidth?: boolean;
+  /** Round number (0-based: 0=R64, 1=R32, ..., 4=F4, 5=Championship) */
+  round?: number;
   /** Teams that have been eliminated from the tournament */
   eliminatedTeams?: Set<string>;
-  /** Teams still alive (won at least one game, not yet eliminated) */
-  advancedTeams?: Set<string>;
+  /** Teams still alive: name → number of tournament wins */
+  advancedTeams?: Map<string, number>;
 }
 
 export function BracketGame({
@@ -36,6 +38,7 @@ export function BracketGame({
   gameStatus,
   reversed = false,
   fullWidth = false,
+  round = 0,
   eliminatedTeams,
   advancedTeams,
 }: BracketGameProps) {
@@ -86,22 +89,22 @@ export function BracketGame({
     team2 !== null &&
     !!eliminatedTeams?.has(displayName(team2));
 
-  // "Advancing" = user picked this team and the team is still alive in the tournament.
-  // Only for games not yet decided — shows green to indicate the pick is still on track.
+  // "Advancing" = user picked this team and the team has enough wins to have
+  // actually reached this round. A team needs at least `round` wins to be here.
   const advancingTeam1 =
     !pickCorrectTeam1 &&
     !pickWrongTeam1 &&
     !eliminatedTeam1 &&
     winner === team1 &&
     team1 !== null &&
-    !!advancedTeams?.has(displayName(team1));
+    (advancedTeams?.get(displayName(team1)) ?? 0) >= round;
   const advancingTeam2 =
     !pickCorrectTeam2 &&
     !pickWrongTeam2 &&
     !eliminatedTeam2 &&
     winner === team2 &&
     team2 !== null &&
-    !!advancedTeams?.has(displayName(team2));
+    (advancedTeams?.get(displayName(team2)) ?? 0) >= round;
 
   return (
     <div

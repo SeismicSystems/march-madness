@@ -63,23 +63,26 @@ export function BracketView({
     if (!tournamentStatus)
       return {
         eliminatedTeams: new Set<string>(),
-        advancedTeams: new Set<string>(),
+        advancedTeams: new Map<string, number>(),
       };
     const eliminated = new Set<string>();
-    const winners = new Set<string>();
+    const winCounts = new Map<string, number>();
     for (const game of games) {
       const gs = tournamentStatus.games[game.gameIndex];
       if (gs?.status === "final" && gs.winner !== undefined) {
         const loser = gs.winner ? game.team2 : game.team1;
         const winner = gs.winner ? game.team1 : game.team2;
         if (loser) eliminated.add(displayName(loser));
-        if (winner) winners.add(displayName(winner));
+        if (winner) {
+          const name = displayName(winner);
+          winCounts.set(name, (winCounts.get(name) ?? 0) + 1);
+        }
       }
     }
-    // Advanced = won at least one game and not yet eliminated
-    const advanced = new Set<string>();
-    for (const name of winners) {
-      if (!eliminated.has(name)) advanced.add(name);
+    // Advanced = team name → win count (only teams not yet eliminated)
+    const advanced = new Map<string, number>();
+    for (const [name, count] of winCounts) {
+      if (!eliminated.has(name)) advanced.set(name, count);
     }
     return { eliminatedTeams: eliminated, advancedTeams: advanced };
   }, [games, tournamentStatus]);
@@ -181,7 +184,7 @@ function MobileBracket({
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
-  advancedTeams: Set<string>;
+  advancedTeams: Map<string, number>;
 }) {
   const [activeTab, setActiveTab] = useState(0);
   const tabs = [...regions.map((r) => r.name), "Final Four"];
@@ -250,7 +253,7 @@ function MobileRegionLanes({
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
-  advancedTeams: Set<string>;
+  advancedTeams: Map<string, number>;
 }) {
   const reverseLaneColumns = (games: GameSlot[]) => {
     if (games.length < 2) return games;
@@ -298,6 +301,7 @@ function MobileRegionLanes({
                     compact={roundIdx === 0}
                     mobile
                     fullWidth
+                    round={roundIdx}
                     gameStatus={tournamentStatus?.games[game.gameIndex]}
                     eliminatedTeams={eliminatedTeams}
                     advancedTeams={advancedTeams}
@@ -338,7 +342,7 @@ function MobileFinalFourLanes({
   disabled: boolean;
   tournamentStatus?: TournamentStatus;
   eliminatedTeams: Set<string>;
-  advancedTeams: Set<string>;
+  advancedTeams: Map<string, number>;
 }) {
   const semifinalGames = [semifinal1, semifinal2].filter(
     (g): g is GameSlot => g !== null
@@ -372,6 +376,7 @@ function MobileFinalFourLanes({
               disabled={disabled}
               mobile
               fullWidth
+              round={4}
               gameStatus={tournamentStatus?.games[game.gameIndex]}
               eliminatedTeams={eliminatedTeams}
               advancedTeams={advancedTeams}
@@ -401,6 +406,7 @@ function MobileFinalFourLanes({
             disabled={disabled}
             mobile
             fullWidth
+            round={5}
             gameStatus={tournamentStatus?.games[championship.gameIndex]}
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}

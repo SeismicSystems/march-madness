@@ -1,0 +1,59 @@
+Implement the following plan:
+
+# Fix: "Advancing" green color bleeds into future rounds
+
+## Context
+
+When a team wins a game (e.g., TCU beats OSU in Round 1), the bracket UI shows that team as green ("advancing") in **all** subsequent rounds where the user picked them — not just the round they actually won. This is because `advancedTeams` is a flat `Set<string>` that only tracks "has this team won at least one game", with no awareness of which round the current game is in.
+
+## Root Cause
+
+- `BracketView.tsx:62-85`: `advancedTeams` is `Set<string>` — just team names that won any game
+- `BracketGame.tsx:91-104`: `advancingTeam1/2` checks `advancedTeams.has(name)` without considering what round this game is in
+- Result: a team with 1 win shows green in Round 2, Sweet 16, Final Four, etc.
+
+## Fix
+
+### 1. Change `advancedTeams` from `Set<string>` to `Map<string, number>`
+
+**File:** `packages/web/src/components/BracketView.tsx` (lines 62-85)
+
+Instead of a set, build a map: `team name → number of tournament wins`. A team with N wins has actually advanced to round N. Count wins per team from `tournamentStatus.games`.
+
+### 2. Add `round` prop to `BracketGame`
+
+**File:** `packages/web/src/components/BracketGame.tsx`
+
+- Add `round: number` to `BracketGameProps`
+- Change `advancedTeams` type from `Set<string>` to `Map<string, number>`
+- Change advancing check: `advancedTeams?.get(name) >= round` (team needs at least `round` wins to have actually reached this game)
+
+### 3. Pass `round` from callers
+
+**File:** `packages/web/src/components/BracketRegion.tsx` (line 57-70)
+
+- Pass `round={actualRoundIdx}` to `BracketGame`
+
+**File:** `packages/web/src/components/FinalFour.tsx` (lines 40-65, 73-85)
+
+- Pass `round={4}` for semifinals, `round={5}` for championship
+
+### 4. Update type in all intermediate components
+
+Update `BracketRegionProps` and `FinalFourProps` to use `Map<string, number>` instead of `Set<string>`.
+
+Also update `MobileBracket` in `BracketView.tsx` if it passes `advancedTeams`.
+
+## Files to modify
+
+1. `packages/web/src/components/BracketView.tsx` — change advancedTeams computation + types
+2. `packages/web/src/components/BracketGame.tsx` — add round prop, change advancing logic
+3. `packages/web/src/components/BracketRegion.tsx` — pass round, update type
+4. `packages/web/src/components/FinalFour.tsx` — pass round, update type
+
+## Verification
+
+1. Set `VITE_API_BASE=https://brackets.seismictest.net/api` in `.env`
+2. Run `cd packages/web && bun dev`
+3. View a bracket where TCU is picked deep — only round 1 should be green, later rounds should be neutral
+4. Run `./scripts/ci.sh` to check types/lint
