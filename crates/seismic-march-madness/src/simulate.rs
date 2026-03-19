@@ -438,6 +438,8 @@ pub fn run_multi_pool_simulations_with_resolver(
         .filter(|&n| n > 0)
         .collect();
 
+    // TODO: extract a type alias for (Vec<Vec<u32>>, Vec<Vec<u64>>) to reduce complexity
+    #[allow(clippy::type_complexity)]
     let partial_results: Vec<(Vec<Vec<u32>>, Vec<Vec<u64>>)> = chunks
         .par_iter()
         .map(|&chunk_sims| {
