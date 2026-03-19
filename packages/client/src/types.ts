@@ -42,14 +42,12 @@ export interface PartialScore {
   maxPossible: number;
 }
 
-/** Forecast for a single bracket entry (from forecaster crate). */
+/** Forecast for a single bracket entry (from forecaster crate via /forecasts API). */
 export interface BracketForecast {
-  currentScore: number;
-  maxPossibleScore: number;
+  /** Mean simulated final score. */
   expectedScore: number;
   /** Probability of finishing with the highest score (winning the pool). 0-1. */
   winProbability: number;
-  name?: string;
 }
 
 /** The full forecast index — address → BracketForecast. */

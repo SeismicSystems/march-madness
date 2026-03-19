@@ -5,20 +5,6 @@ import { API_BASE } from "../lib/api";
 
 const POLL_INTERVAL = 30_000; // 30s
 
-/** API returns { address: basisPoints } — transform to ForecastIndex. */
-function bpsToForecastIndex(raw: Record<string, number>): ForecastIndex {
-  const index: ForecastIndex = {};
-  for (const [address, bps] of Object.entries(raw)) {
-    index[address] = {
-      currentScore: 0,
-      maxPossibleScore: 0,
-      expectedScore: 0,
-      winProbability: bps / 10_000,
-    };
-  }
-  return index;
-}
-
 export function useForecasts() {
   const query = useQuery({
     queryKey: ["forecasts"],
@@ -30,8 +16,7 @@ export function useForecasts() {
       if (!res.ok) {
         throw new Error(`Failed to fetch forecasts: ${res.status}`);
       }
-      const raw = (await res.json()) as Record<string, number>;
-      return bpsToForecastIndex(raw);
+      return (await res.json()) as ForecastIndex;
     },
     refetchInterval: POLL_INTERVAL,
   });

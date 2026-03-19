@@ -335,6 +335,8 @@ pub struct Pool {
 pub struct MultiPoolResults {
     /// pool_wins[pool_idx][member_idx] = number of sims where that member had the highest score.
     pub pool_wins: Vec<Vec<u32>>,
+    /// score_sums[pool_idx][member_idx] = sum of scores across all sims (for computing expected score).
+    pub score_sums: Vec<Vec<u64>>,
     pub num_sims: u32,
 }
 
@@ -342,6 +344,7 @@ struct MultiPoolScoringCallback<'a> {
     brackets: &'a [u64],
     pools: &'a [Pool],
     pool_wins: Vec<Vec<u32>>,
+    score_sums: Vec<Vec<u64>>,
     results: u64,
 }
 
@@ -351,10 +354,15 @@ impl<'a> MultiPoolScoringCallback<'a> {
             .iter()
             .map(|pool| vec![0u32; pool.members.len()])
             .collect();
+        let score_sums = pools
+            .iter()
+            .map(|pool| vec![0u64; pool.members.len()])
+            .collect();
         Self {
             brackets,
             pools,
             pool_wins,
+            score_sums,
             results: 0x8000_0000_0000_0000,
         }
     }
@@ -378,7 +386,7 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
             .map(|&b| score_bracket_with_mask(b, self.results, mask))
             .collect();
 
-        // For each pool, find max score and increment winners.
+        // For each pool, find max score, increment winners, and accumulate score sums.
         for (pool_idx, pool) in self.pools.iter().enumerate() {
             let mut best = 0u32;
             for &(_, bracket_idx) in &pool.members {
@@ -389,7 +397,9 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
             }
 
             for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
-                if scores[bracket_idx] == best {
+                let s = scores[bracket_idx];
+                self.score_sums[pool_idx][member_idx] += s as u64;
+                if s == best {
                     self.pool_wins[pool_idx][member_idx] += 1;
                 }
             }
@@ -428,12 +438,12 @@ pub fn run_multi_pool_simulations_with_resolver(
         .filter(|&n| n > 0)
         .collect();
 
-    let partial_results: Vec<Vec<Vec<u32>>> = chunks
+    let partial_results: Vec<(Vec<Vec<u32>>, Vec<Vec<u64>>)> = chunks
         .par_iter()
         .map(|&chunk_sims| {
             let mut cb = MultiPoolScoringCallback::new(brackets, pools);
             run_forward_sim(status, reach, chunk_sims, resolver, &mut cb);
-            cb.pool_wins
+            (cb.pool_wins, cb.score_sums)
         })
         .collect();
 
@@ -442,17 +452,27 @@ pub fn run_multi_pool_simulations_with_resolver(
         .iter()
         .map(|pool| vec![0u32; pool.members.len()])
         .collect();
+    let mut score_sums: Vec<Vec<u64>> = pools
+        .iter()
+        .map(|pool| vec![0u64; pool.members.len()])
+        .collect();
 
-    for partial in &partial_results {
-        for (pi, pool_partial) in partial.iter().enumerate() {
+    for (partial_wins, partial_scores) in &partial_results {
+        for (pi, pool_partial) in partial_wins.iter().enumerate() {
             for (mi, &count) in pool_partial.iter().enumerate() {
                 pool_wins[pi][mi] += count;
+            }
+        }
+        for (pi, pool_partial) in partial_scores.iter().enumerate() {
+            for (mi, &sum) in pool_partial.iter().enumerate() {
+                score_sums[pi][mi] += sum;
             }
         }
     }
 
     MultiPoolResults {
         pool_wins,
+        score_sums,
         num_sims,
     }
 }

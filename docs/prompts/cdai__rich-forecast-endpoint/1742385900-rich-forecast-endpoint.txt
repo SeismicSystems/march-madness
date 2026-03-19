@@ -1,0 +1,5 @@
+ok now fix issue #222
+
+make sure you work off new branch and pull in latest main
+
+also while we're add it, on the leaderboard page, it shouldn't say "P(win): X%". just say "X%". it's cleaner
