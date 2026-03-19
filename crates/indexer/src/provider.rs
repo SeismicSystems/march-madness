@@ -285,10 +285,7 @@ impl IndexerProvider {
     }
 
     /// Call `nextMirrorId()` on the BracketMirror contract.
-    pub async fn get_next_mirror_id(
-        &self,
-        contract: Address,
-    ) -> Result<u64> {
+    pub async fn get_next_mirror_id(&self, contract: Address) -> Result<u64> {
         let calldata = nextMirrorIdCall {}.abi_encode();
         let response = match self {
             Self::Reth(p) => {
