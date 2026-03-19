@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Suppress clippy::type_complexity warning in multi-pool simulation
+
+
 Add client-side pagination and sortable columns (score, expected score, win probability) to the leaderboard page. Replaces card layout with a compact table.
 
 
