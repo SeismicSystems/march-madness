@@ -14,6 +14,8 @@ function formatClock(totalSeconds: number): string {
 
 /** Format period + seconds into a compact label like "1H 7:30", "2H 1:15", "OT 3:00". */
 function formatPeriodClock(period: number, secondsRemaining: number): string {
+  // Halftime: end of 1st half with no time left
+  if (period === 1 && secondsRemaining === 0) return "HALF";
   const clock = formatClock(secondsRemaining);
   if (period === 1) return `1H ${clock}`;
   if (period === 2) return `2H ${clock}`;
@@ -21,25 +23,35 @@ function formatPeriodClock(period: number, secondsRemaining: number): string {
   return `${period - 2}OT ${clock}`;
 }
 
-/** Period/clock label that links to NCAA March Madness Live. */
-function LiveClock({ period, secondsRemaining, gameIndex }: {
-  period: number;
-  secondsRemaining: number;
-  gameIndex: number;
-}) {
-  const label = formatPeriodClock(period, secondsRemaining);
-  const bracketId = tournament.bracketIds[gameIndex];
+/** Banner shown above team slots when a game is live. */
+function LiveBanner({ gameStatus }: { gameStatus: GameStatus }) {
+  const bracketId = tournament.bracketIds[gameStatus.gameIndex];
+  const watchUrl = `https://www.ncaa.com/march-madness-live/game/${bracketId}`;
+
+  const clockLabel =
+    gameStatus.period != null && gameStatus.secondsRemaining != null
+      ? formatPeriodClock(gameStatus.period, gameStatus.secondsRemaining)
+      : "LIVE";
 
   return (
-    <a
-      href={`https://www.ncaa.com/march-madness-live/game/${bracketId}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[8px] text-green-400 font-mono leading-none hover:text-green-300 hover:underline"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {label}
-    </a>
+    <div className="flex items-center justify-between px-2 py-0.5 rounded-t-md bg-green-500/10 border border-green-500/25 text-[10px]">
+      <span className="font-mono font-semibold text-green-400">{clockLabel}</span>
+      <span className="flex items-center gap-1.5">
+        <a
+          href={watchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-green-400/80 underline decoration-[0.5px] underline-offset-2 hover:text-green-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Watch
+        </a>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -150,24 +162,9 @@ export function BracketGame({
         fullWidth
           ? "w-full min-w-0 rounded-md border border-border/70 bg-bg-primary/20 p-1"
           : minW
-      } gap-0.5 relative`}
+      } gap-0.5`}
     >
-      {/* Live indicator with period/clock */}
-      {gameStatus?.status === "live" && (
-        <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
-          {gameStatus.period != null && gameStatus.secondsRemaining != null && (
-            <LiveClock
-              period={gameStatus.period}
-              secondsRemaining={gameStatus.secondsRemaining}
-              gameIndex={gameStatus.gameIndex}
-            />
-          )}
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-          </span>
-        </div>
-      )}
+      {gameStatus?.status === "live" && <LiveBanner gameStatus={gameStatus} />}
       <TeamSlot
         team={team1}
         isWinner={winner !== null && winner === team1}
@@ -299,19 +296,19 @@ function TeamSlot({
         <TeamLogo teamName={displayName(team)} mobile={mobile} />
         <span className="truncate">{displayAbbrev(team)}</span>
       </span>
-      <span className="flex items-center gap-1">
-        {gameScore !== undefined && (
-          <span
-            className={`font-mono text-[10px] ${
-              isLive ? "text-green-400" : "text-text-muted"
-            }`}
-          >
-            {gameScore}
-          </span>
-        )}
+      <span className="flex items-center gap-1.5 flex-shrink-0">
         {isLive && winProbability !== undefined && (
           <span className="text-[9px] text-text-muted bg-bg-secondary/80 px-1 rounded">
             {Math.round(winProbability * 100)}%
+          </span>
+        )}
+        {gameScore !== undefined && (
+          <span
+            className={`font-mono text-[10px] ${
+              isLive ? "text-green-400 font-semibold" : "text-text-muted"
+            }`}
+          >
+            {gameScore}
           </span>
         )}
       </span>

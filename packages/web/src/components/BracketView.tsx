@@ -331,7 +331,7 @@ function MobileRegionLanes({
                 </div>
               </div>
               <div
-                className={`grid gap-2 ${
+                className={`grid gap-2 items-end ${
                   roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"
                 }`}
               >
@@ -413,7 +413,7 @@ function MobileFinalFourLanes({
           </div>
           <div className="text-[10px] text-text-muted">2 games</div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 items-end">
           {displaySemifinals.map((game) => (
             <BracketGame
               key={game.gameIndex}
