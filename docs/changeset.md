@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Extract shared LeaderboardTable component from LeaderboardPage and MirrorLeaderboardPage, eliminating ~300 lines of duplicated sort/pagination/table rendering logic. Both pages are now thin data-fetching wrappers. Also tighten column spacing on wide screens so numeric columns stay compact and the player name column absorbs extra space.
+
+
 Stabilize leaderboard sort order across data refreshes. Rows no longer reshuffle every 30s when scores/forecasts update — values update in place and order only changes on explicit user sort actions. Also updates default score sort tiebreaker chain to: current score → P(win) → E[score].
 
 
