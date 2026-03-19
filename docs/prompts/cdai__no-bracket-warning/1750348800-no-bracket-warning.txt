@@ -1,0 +1,7 @@
+hey there's a non-user-friendly thing in the JoinGroup component (and CreateGroup):
+
+if the user doesn't have a bracket submitted on chain, we'll get an ugly revert.
+
+we should check right away (ideally, in one place) to see if they've submitted a bracket on chain. and if they haven't, say: "to join a group, you must first submit a bracket" and allow them to click a link that sends them to the homepage.
+
+this needs to be robust to them switching wallets -- each  time their address changes, we have to re-check if they've got a submission on chain

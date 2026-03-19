@@ -25,7 +25,6 @@ export const Providers: React.FC<React.PropsWithChildren> = ({ children }) => {
         loginMethods: [
           "wallet",
           "email",
-          "sms",
           "google",
           "twitter",
           "discord",
