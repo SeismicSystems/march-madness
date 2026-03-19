@@ -1,0 +1,5 @@
+eally mirror leaderboard page should be using pretty much the same exact component just called with different data... why's it not doing that?
+
+ok note that i merged into main so you should check out from a separate branch and do work there
+
+while you're at it, after you do the DRYing, i think this page looks a lot better on big screens if there isn't so much space between all the columns. the flex behaviour is correct as the page shrinks. but we should probably tighten it up a bit. owner names can be long, but school names are maxxed out at a certain value, and the rest of the fields are quite narrow and structured.
