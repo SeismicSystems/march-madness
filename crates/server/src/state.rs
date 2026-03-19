@@ -312,32 +312,37 @@ impl AppState {
         }
     }
 
-    /// Get group forecasts by slug (resolves to ID first) or by raw ID.
+    /// Get group forecasts by slug.
     pub async fn get_group_forecast_by_slug(&self, slug: &str) -> Result<serde_json::Value> {
         let mut conn = self.redis();
         let id: Option<String> = conn.hget(KEY_GROUP_SLUGS, slug).await?;
         match id {
-            Some(id) => self.get_forecast_by_key(&format!("group:{id}")).await,
+            Some(id) => self.get_scoped_forecast("group", &id).await,
             None => Ok(serde_json::Value::Null),
         }
     }
 
     pub async fn get_group_forecast_by_id(&self, id: &str) -> Result<serde_json::Value> {
-        self.get_forecast_by_key(&format!("group:{id}")).await
+        self.get_scoped_forecast("group", id).await
     }
 
-    /// Get mirror forecasts by slug (resolves to ID first) or by raw ID.
+    /// Get mirror forecasts by slug.
     pub async fn get_mirror_forecast_by_slug(&self, slug: &str) -> Result<serde_json::Value> {
         let mut conn = self.redis();
         let id: Option<String> = conn.hget(KEY_MIRROR_SLUGS, slug).await?;
         match id {
-            Some(id) => self.get_forecast_by_key(&format!("mirror:{id}")).await,
+            Some(id) => self.get_scoped_forecast("mirror", &id).await,
             None => Ok(serde_json::Value::Null),
         }
     }
 
     pub async fn get_mirror_forecast_by_id(&self, id: &str) -> Result<serde_json::Value> {
-        self.get_forecast_by_key(&format!("mirror:{id}")).await
+        self.get_scoped_forecast("mirror", id).await
+    }
+
+    async fn get_scoped_forecast(&self, scope: &str, id: &str) -> Result<serde_json::Value> {
+        let field = format!("{scope}:{id}");
+        self.get_forecast_by_key(&field).await
     }
 
     // ── Team advance probabilities (Redis HASH) ───────────────────────

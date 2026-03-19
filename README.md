@@ -59,7 +59,7 @@ Two separate contracts for side pools alongside the main contest:
 | Auth            | Privy (social login → embedded wallet)                                |
 | Indexer         | Rust (event listener + backfill)                                      |
 | Server          | Rust (HTTP, serves indexed data + tournament status + forecasts)      |
-| Forecaster      | Rust (Monte Carlo bracket win probability simulator)                  |
+| Forecaster      | Rust (Monte Carlo multi-pool win probability simulator via Redis)     |
 | Calibrator      | Rust (goose fitting via market-making loss against Kalshi orderbooks) |
 | NCAA Feed       | Rust (live score polling → Redis)                                     |
 
@@ -96,7 +96,7 @@ crates/
   bracket-sim/      — Tournament simulation, calibration (CSV + market-making modes)
   indexer/          — Rust event listener (tracks bracket submissions)
   server/           — HTTP API server (entries + tournament status + forecasts)
-  forecaster/       — Monte Carlo win probability simulator
+  forecaster/       — Monte Carlo multi-pool win probability simulator
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
 data/               — Tournament data, seed configs
