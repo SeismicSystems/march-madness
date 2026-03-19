@@ -1,0 +1,1 @@
+the leaderboard page is way too big. let's paginate it on the client side. add a table where i can click thru numbers. i should also be able to sort it by expected score, p(win) and current score.
