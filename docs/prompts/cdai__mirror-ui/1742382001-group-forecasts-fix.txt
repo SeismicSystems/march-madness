@@ -1,0 +1,1 @@
+oh another fix we should jam into this PR. if i go to the leaderboard for a specific group, it shows me the win probabilities on the global "mm" tournament. it should instead show in probs for that specific group -- and you should take advantage of this for mirrors display page as well

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
   decodeBracket,
@@ -7,17 +7,14 @@ import {
   validateBracket,
 } from "@march-madness/client";
 
-import type { LeaderboardEntry } from "../components/LeaderboardCard";
+import type { BracketForecast, PartialScore } from "@march-madness/client";
 import { TeamLogo } from "../components/BracketGame";
-import { useEntries } from "../hooks/useEntries";
-import { useForecasts } from "../hooks/useForecasts";
-import { useGroupForecasts } from "../hooks/useGroupForecasts";
-import { useGroupMembers } from "../hooks/useGroupMembers";
+import { useMirror } from "../hooks/useMirror";
+import { useMirrorForecasts } from "../hooks/useMirrorForecasts";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 import {
   displayName,
   getAllTeamsInBracketOrder,
-  truncateAddress,
 } from "../lib/tournament";
 
 const teamNames = getAllTeamsInBracketOrder().map((t) => displayName(t));
@@ -27,6 +24,15 @@ const PAGE_SIZE = 25;
 type SortKey = "score" | "expectedScore" | "winProbability";
 type SortDir = "asc" | "desc";
 
+interface MirrorLeaderboardEntry {
+  entrySlug: string;
+  bracket: `0x${string}` | null;
+  score: PartialScore | null;
+  championName: string | null;
+  forecast?: BracketForecast;
+  sortLabel: string;
+}
+
 function getChampionName(hex: `0x${string}`): string {
   try {
     return decodeBracket(hex, teamNames).champion;
@@ -35,7 +41,6 @@ function getChampionName(hex: `0x${string}`): string {
   }
 }
 
-/** Windowed page numbers: always show first/last, window around current. */
 function getPageNumbers(
   current: number,
   total: number
@@ -97,21 +102,12 @@ function SortHeader({
   );
 }
 
-export function LeaderboardPage() {
-  const { slug } = useParams<{ slug?: string }>();
+export function MirrorLeaderboardPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { entries, loading: entriesLoading } = useEntries();
+  const { mirror, entries: mirrorEntries, loading: mirrorLoading, notFound, error: mirrorError } = useMirror(id);
   const { status, loading: statusLoading } = useTournamentStatus();
-  const { forecasts: globalForecasts } = useForecasts();
-  const { forecasts: groupForecasts } = useGroupForecasts(slug);
-  const forecasts = slug ? groupForecasts : globalForecasts;
-  const {
-    members: groupMembers,
-    groupName,
-    loading: groupLoading,
-    error: groupError,
-    notFound: groupNotFound,
-  } = useGroupMembers(slug);
+  const { forecasts } = useMirrorForecasts(id);
 
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -120,39 +116,29 @@ export function LeaderboardPage() {
   const hasForecasts =
     forecasts !== null && Object.keys(forecasts).length > 0;
 
-  // Build leaderboard entries (unsorted).
-  const rows = useMemo((): LeaderboardEntry[] => {
-    if (!entries) return [];
+  const rows = useMemo((): MirrorLeaderboardEntry[] => {
+    if (!mirrorEntries) return [];
 
-    const out: LeaderboardEntry[] = [];
-    for (const [address, entry] of Object.entries(entries)) {
-      if (groupMembers && !groupMembers.has(address.toLowerCase())) continue;
-
+    return mirrorEntries.map((entry) => {
       const bracketHex =
         entry.bracket && validateBracket(entry.bracket)
           ? (entry.bracket as `0x${string}`)
           : null;
       const score =
         bracketHex && status ? scoreBracketPartial(bracketHex, status) : null;
-      const forecast = bracketHex
-        ? forecasts?.[address] ?? forecasts?.[address.toLowerCase()]
-        : undefined;
+      const forecast = forecasts?.[entry.slug];
 
-      out.push({
-        address,
-        tag: entry.name,
+      return {
+        entrySlug: entry.slug,
         bracket: bracketHex,
         score,
         championName: bracketHex ? getChampionName(bracketHex) : null,
         forecast,
-        sortLabel: (entry.name ?? address).toLowerCase(),
-      });
-    }
+        sortLabel: entry.slug.toLowerCase(),
+      };
+    });
+  }, [mirrorEntries, forecasts, status]);
 
-    return out;
-  }, [entries, forecasts, groupMembers, status]);
-
-  // Sort.
   const sorted = useMemo(() => {
     const arr = [...rows];
     arr.sort((a, b) => {
@@ -185,7 +171,6 @@ export function LeaderboardPage() {
     return arr;
   }, [rows, sortKey, sortDir]);
 
-  // Pagination.
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = sorted.slice(
@@ -204,28 +189,20 @@ export function LeaderboardPage() {
     setPage(1);
   }
 
-  // --- Error / loading states ---
-
-  if (slug && (groupNotFound || groupError)) {
+  if (notFound || mirrorError) {
     return (
       <div className="max-w-xl mx-auto text-center py-12">
         <h2 className="text-lg font-bold text-text-primary mb-2">
-          Group leaderboard unavailable
+          Mirror not found
         </h2>
         <p className="text-text-muted mb-4">
-          {groupError ?? `Group "/${slug}" not found.`}
+          {mirrorError ?? `Mirror with ID "${id}" was not found.`}
         </p>
-        <Link
-          to="/groups"
-          className="text-sm text-accent hover:text-accent-hover transition-colors"
-        >
-          Back to groups
-        </Link>
       </div>
     );
   }
 
-  const loading = entriesLoading || statusLoading || groupLoading;
+  const loading = mirrorLoading || statusLoading;
 
   if (loading) {
     return (
@@ -253,16 +230,8 @@ export function LeaderboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 mx-2 md:mx-auto md:w-3/4">
         <div className="flex items-center gap-2">
-          {slug && (
-            <Link
-              to="/leaderboard"
-              className="text-xs text-accent hover:text-accent-hover transition-colors"
-            >
-              All
-            </Link>
-          )}
           <h2 className="text-lg font-bold text-text-primary">
-            {slug ? `${groupName ?? slug} Leaderboard` : "Leaderboard"}
+            {mirror?.display_name ?? `Mirror ${id}`}
           </h2>
         </div>
         <div className="flex gap-3 text-xs text-text-muted">
@@ -284,7 +253,7 @@ export function LeaderboardPage() {
           <thead>
             <tr className="text-text-muted text-xs border-b border-border">
               <th className="text-left py-2 px-2 w-12">#</th>
-              <th className="text-left py-2 px-2">Player</th>
+              <th className="text-left py-2 px-2">Entry</th>
               <th className="text-left py-2 px-2 hidden md:table-cell w-44">
                 Champion
               </th>
@@ -323,7 +292,7 @@ export function LeaderboardPage() {
               const rank = startRank + i;
               return (
                 <tr
-                  key={entry.address}
+                  key={entry.entrySlug}
                   className={`border-b border-border/20 transition-colors ${
                     entry.bracket
                       ? "cursor-pointer hover:bg-bg-hover/30"
@@ -331,7 +300,10 @@ export function LeaderboardPage() {
                   }`}
                   onClick={
                     entry.bracket
-                      ? () => navigate(`/bracket/${entry.address}`)
+                      ? () =>
+                          navigate(
+                            `/mirrors/id/${id}/bracket/${entry.entrySlug}`
+                          )
                       : undefined
                   }
                 >
@@ -340,13 +312,8 @@ export function LeaderboardPage() {
                   </td>
                   <td className="py-2.5 px-2">
                     <div className="text-text-primary font-mono text-sm truncate max-w-[140px] sm:max-w-none">
-                      {entry.tag || truncateAddress(entry.address)}
+                      {entry.entrySlug}
                     </div>
-                    {entry.tag && (
-                      <div className="text-[10px] text-text-muted font-mono truncate">
-                        {truncateAddress(entry.address)}
-                      </div>
-                    )}
                   </td>
                   <td className="py-2.5 px-2 hidden md:table-cell">
                     {entry.championName ? (

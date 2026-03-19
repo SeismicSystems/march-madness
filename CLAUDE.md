@@ -172,6 +172,8 @@ Rust HTTP server (`crates/server`, default port 3000). All data is read from Red
 - `GET /mirrors` — list all mirrors (from Redis)
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
+- `GET /mirrors/id/:id` — mirror details by ID
+- `GET /mirrors/id/:id/entries` — mirror entries by ID
 - `GET /tournament-status` — tournament status JSON (from Redis `mm:games` key)
 - `GET /forecasts` — main pool win probabilities in basis points (from Redis HASH `mm:forecasts` field `"mm"`)
 - `GET /forecasts/groups/s/:slug` — group forecast by slug (basis points)
@@ -196,6 +198,8 @@ See `docs/api.md` for full API documentation including schema, game index layout
 - `/groups` — Groups hub: mobile uses tab layout (Your Groups, Public Groups, Join Group, Create Group); desktop uses 2-column layout with Create/Join forms on left, Your Groups + link to public groups on right
 - `/groups/public` — Browse public groups (dedicated page, linked from desktop hub)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
+- `/mirrors/id/:id` — Mirror leaderboard (not linked from UI, navigate directly)
+- `/mirrors/id/:id/bracket/:entrySlug` — Mirror entry bracket view
 
 ## Shielded Types & Security
 

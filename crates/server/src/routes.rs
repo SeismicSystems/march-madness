@@ -307,6 +307,40 @@ pub async fn get_mirror_forecast_by_id(
     }
 }
 
+/// GET /mirrors/id/:id — get a mirror by ID.
+pub async fn get_mirror_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_by_id(&id).await {
+        Ok(Some(mirror)) => Json(mirror).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "mirror not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read mirror: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to read mirror").into_response()
+        }
+    }
+}
+
+/// GET /mirrors/id/:id/entries — get entries for a mirror by ID.
+pub async fn get_mirror_entries_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_entries_by_id(&id).await {
+        Ok(Some(entries)) => Json(entries).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "mirror not found").into_response(),
+        Err(e) => {
+            tracing::error!("failed to read mirror entries: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read mirror entries",
+            )
+                .into_response()
+        }
+    }
+}
+
 /// GET /mirrors/:slug/entries — get all entries in a mirror.
 pub async fn get_mirror_entries(
     State(state): State<AppState>,
