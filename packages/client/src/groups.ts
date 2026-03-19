@@ -19,6 +19,7 @@ import {
 
 import { BracketGroupsAbi } from "./abi-groups.ts";
 import type { ReadOptions, WriteOptions } from "./client.ts";
+import { assertUrlSafeSlug } from "./slug.ts";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
     entryFee: bigint,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    assertUrlSafeSlug(slug);
     return this.shieldedContract.twrite.createGroup(
       [slug, displayName, entryFee],
       { value: entryFee, ...opts },
@@ -214,6 +216,7 @@ export class BracketGroupsUserClient extends BracketGroupsPublicClient {
     password: Hex,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    assertUrlSafeSlug(slug);
     return this.shieldedContract.write.createGroupWithPassword(
       [slug, displayName, entryFee, password],
       { value: entryFee, ...opts },

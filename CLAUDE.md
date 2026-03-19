@@ -119,6 +119,7 @@ Standalone admin-managed off-chain bracket pool mirror. No money, no scoring, no
 - `getEntryBySlug(mirrorId, slug)` — lookup entry by slug for nice URLs (e.g. `/mirrors/mens-league/brackets/my-entry-slug`)
 - Entries stored as `MirrorEntry[]` array per mirror
 - Existence check: `admin != address(0)` (no `exists` field)
+- **Slug validation** (client-side): `assertUrlSafeSlug()` in the TS client library and `validate_slug()` in the Rust mirror-importer enforce URL-safe slugs (`[a-z0-9-]`, no leading/trailing hyphens) before any on-chain write. The contract itself does not enforce this.
 
 ## BracketGroups Contract (BracketGroups.sol)
 

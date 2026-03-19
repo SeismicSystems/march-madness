@@ -64,6 +64,23 @@ struct PlatformOutput {
     entries: Vec<PlatformEntry>,
 }
 
+/// Validate that a slug is URL-safe: lowercase alphanumeric + hyphens, no leading/trailing hyphens.
+fn validate_slug(slug: &str) -> eyre::Result<()> {
+    if slug.is_empty() {
+        bail!("slug cannot be empty");
+    }
+    if slug.starts_with('-') || slug.ends_with('-') {
+        bail!("slug cannot start or end with a hyphen: '{slug}'");
+    }
+    if let Some(c) = slug
+        .chars()
+        .find(|c| !matches!(c, 'a'..='z' | '0'..='9' | '-'))
+    {
+        bail!("slug contains invalid character '{c}': '{slug}' (only a-z, 0-9, hyphens allowed)");
+    }
+    Ok(())
+}
+
 fn main() -> eyre::Result<()> {
     // Init
     dotenvy::dotenv().ok();
@@ -77,7 +94,8 @@ fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let slug = args
         .slug
-        .unwrap_or_else(|| format!("YAHOO-{}", args.group_id));
+        .unwrap_or_else(|| format!("yahoo-{}", args.group_id));
+    validate_slug(&slug)?;
 
     info!(
         "importing Yahoo group {} as mirror slug '{}'",

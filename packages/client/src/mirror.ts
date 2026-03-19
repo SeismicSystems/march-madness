@@ -16,6 +16,7 @@ import {
 
 import { BracketMirrorAbi } from "./abi-mirror.ts";
 import type { ReadOptions, WriteOptions } from "./client.ts";
+import { assertUrlSafeSlug } from "./slug.ts";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -154,6 +155,7 @@ export class BracketMirrorAdminClient extends BracketMirrorPublicClient {
     displayName: string,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    assertUrlSafeSlug(slug);
     return this.walletClient.writeContract({
       address: this.contractAddress,
       abi: BracketMirrorAbi,
@@ -186,6 +188,7 @@ export class BracketMirrorAdminClient extends BracketMirrorPublicClient {
     slug: string,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    assertUrlSafeSlug(slug);
     return this.walletClient.writeContract({
       address: this.contractAddress,
       abi: BracketMirrorAbi,
@@ -233,6 +236,7 @@ export class BracketMirrorAdminClient extends BracketMirrorPublicClient {
     slug: string,
     opts: WriteOptions = {},
   ): Promise<Hash> {
+    assertUrlSafeSlug(slug);
     return this.walletClient.writeContract({
       address: this.contractAddress,
       abi: BracketMirrorAbi,
