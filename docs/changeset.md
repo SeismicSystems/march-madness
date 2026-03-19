@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Change mirror entry slug format from bracket name to `{firstname}-{champion}`. Prompts user to resolve conflicts when multiple entries produce the same slug.
+
+
 Add BracketUpdated event handling to listener and backfill, and add backfill-mirror subcommand to populate mirror entries from contract state.
 
 
