@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -112,6 +112,9 @@ export function MirrorLeaderboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [sortTrigger, setSortTrigger] = useState(0);
+  const prevSortTrigger = useRef(-1);
+  const orderRef = useRef<string[]>([]);
 
   const hasForecasts =
     forecasts !== null && Object.keys(forecasts).length > 0;
@@ -139,37 +142,66 @@ export function MirrorLeaderboardPage() {
     });
   }, [mirrorEntries, forecasts, status]);
 
+  // Sort — only reshuffles on explicit user sort actions, not data updates.
   const sorted = useMemo(() => {
-    const arr = [...rows];
-    arr.sort((a, b) => {
-      let cmp = 0;
-      switch (sortKey) {
-        case "score": {
-          const aS = a.score?.current ?? -1;
-          const bS = b.score?.current ?? -1;
-          cmp = aS - bS;
-          if (cmp === 0) {
-            cmp =
-              (a.score?.maxPossible ?? -1) - (b.score?.maxPossible ?? -1);
+    const rowMap = new Map(rows.map((r) => [r.entrySlug, r]));
+    const shouldResort = prevSortTrigger.current !== sortTrigger;
+
+    if (shouldResort || orderRef.current.length === 0) {
+      prevSortTrigger.current = sortTrigger;
+      const arr = [...rows];
+      arr.sort((a, b) => {
+        let cmp = 0;
+        switch (sortKey) {
+          case "score": {
+            const aS = a.score?.current ?? -1;
+            const bS = b.score?.current ?? -1;
+            cmp = aS - bS;
+            if (cmp === 0) {
+              cmp =
+                (a.forecast?.winProbability ?? -1) -
+                (b.forecast?.winProbability ?? -1);
+            }
+            if (cmp === 0) {
+              cmp =
+                (a.forecast?.expectedScore ?? -1) -
+                (b.forecast?.expectedScore ?? -1);
+            }
+            break;
           }
-          break;
+          case "expectedScore":
+            cmp =
+              (a.forecast?.expectedScore ?? -1) -
+              (b.forecast?.expectedScore ?? -1);
+            break;
+          case "winProbability":
+            cmp =
+              (a.forecast?.winProbability ?? -1) -
+              (b.forecast?.winProbability ?? -1);
+            break;
         }
-        case "expectedScore":
-          cmp =
-            (a.forecast?.expectedScore ?? -1) -
-            (b.forecast?.expectedScore ?? -1);
-          break;
-        case "winProbability":
-          cmp =
-            (a.forecast?.winProbability ?? -1) -
-            (b.forecast?.winProbability ?? -1);
-          break;
+        if (cmp === 0) cmp = a.sortLabel.localeCompare(b.sortLabel);
+        return sortDir === "desc" ? -cmp : cmp;
+      });
+      orderRef.current = arr.map((r) => r.entrySlug);
+      return arr;
+    }
+
+    // Stable order: preserve previous positions, update data in place.
+    const result: MirrorLeaderboardEntry[] = [];
+    for (const id of orderRef.current) {
+      const entry = rowMap.get(id);
+      if (entry) {
+        result.push(entry);
+        rowMap.delete(id);
       }
-      if (cmp === 0) cmp = a.sortLabel.localeCompare(b.sortLabel);
-      return sortDir === "desc" ? -cmp : cmp;
-    });
-    return arr;
-  }, [rows, sortKey, sortDir]);
+    }
+    for (const entry of rowMap.values()) {
+      result.push(entry);
+      orderRef.current.push(entry.entrySlug);
+    }
+    return result;
+  }, [rows, sortKey, sortDir, sortTrigger]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -186,6 +218,7 @@ export function MirrorLeaderboardPage() {
       setSortKey(key);
       setSortDir("desc");
     }
+    setSortTrigger((n) => n + 1);
     setPage(1);
   }
 
