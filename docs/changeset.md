@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix cursor showing as pointer on bracket games in view-only mode (post-lock home page and /bracket/:address viewer). Now correctly shows default cursor when brackets are disabled.
+
+
 Fix leaderboard table column widths: constrain P(Win) and E[Score] to narrow fixed widths, give Champion column a stable fixed width with truncation so it doesn't shift between pages.
 
 
