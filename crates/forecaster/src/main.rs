@@ -61,12 +61,26 @@ struct Context {
     resolver: GameModelResolver,
     simulations: u32,
     output_file: Option<PathBuf>,
-    pre_lock: Option<PreLockContext>,
+    simulation_mode: SimulationMode,
 }
 
 struct PreLockContext {
     status: TournamentStatus,
     reach: ReachProbs,
+}
+
+enum SimulationMode {
+    Live,
+    PreLock(PreLockContext),
+}
+
+impl SimulationMode {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Live => "live",
+            Self::PreLock(_) => "pre-lock",
+        }
+    }
 }
 
 struct ForecastInputs {
@@ -142,15 +156,15 @@ fn build_context(cli: &Cli) -> Result<Context> {
         .collect();
     let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
 
-    let pre_lock = if cli.pre_lock {
-        Some(build_pre_lock_context(
+    let simulation_mode = if cli.pre_lock {
+        SimulationMode::PreLock(build_pre_lock_context(
             cli.year,
             cli.simulations,
             &team_names,
             &teams,
         ))
     } else {
-        None
+        SimulationMode::Live
     };
 
     Ok(Context {
@@ -159,7 +173,7 @@ fn build_context(cli: &Cli) -> Result<Context> {
         resolver,
         simulations: cli.simulations,
         output_file: cli.output_file.clone(),
-        pre_lock,
+        simulation_mode,
     })
 }
 
@@ -172,6 +186,7 @@ fn build_pre_lock_context(
     let bracket_config = BracketConfig::for_year(year);
     let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
     tournament.setup_tournament(teams.to_vec(), &bracket_config);
+    // `cumulative_win_probabilities` already uses rayon internally.
     let reach_map = tournament.cumulative_win_probabilities(simulations as usize);
 
     PreLockContext {
@@ -209,14 +224,9 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         .iter()
         .filter(|game| game.status == GameState::Live)
         .count();
-    let mode = if ctx.pre_lock.is_some() {
-        "pre-lock"
-    } else {
-        "live"
-    };
     info!(
         iteration,
-        mode,
+        mode = ctx.simulation_mode.label(),
         decided = 63 - undecided,
         live,
         undecided,
@@ -258,10 +268,10 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         .iter()
         .enumerate()
         .map(|(pool_idx, pool)| {
-            pool.member_keys
+            pool.members
                 .iter()
                 .enumerate()
-                .map(|(member_idx, member_key)| {
+                .map(|(member_idx, (member_key, _))| {
                     let wins = results.pool_wins[pool_idx][member_idx];
                     (
                         member_key.clone(),
@@ -297,7 +307,7 @@ fn load_simulation_state<'a>(
     ReachProbs,
     Option<&'a dyn seismic_march_madness::LiveGameResolver>,
 )> {
-    if let Some(pre_lock) = &ctx.pre_lock {
+    if let SimulationMode::PreLock(pre_lock) = &ctx.simulation_mode {
         return Ok((pre_lock.status.clone(), pre_lock.reach.clone(), None));
     }
 
@@ -437,11 +447,9 @@ fn build_brackets_and_pools(inputs: &ForecastInputs) -> (Vec<u64>, Vec<Pool>) {
 }
 
 fn make_pool(key: impl Into<String>, members: Vec<(String, usize)>) -> Pool {
-    let (member_keys, bracket_indices): (Vec<_>, Vec<_>) = members.into_iter().unzip();
     Pool {
         key: key.into(),
-        member_keys,
-        bracket_indices,
+        members,
     }
 }
 

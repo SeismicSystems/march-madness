@@ -326,10 +326,9 @@ pub fn run_team_advance_simulations_with_resolver(
 pub struct Pool {
     /// Redis HASH field key: "mm", "group:3", "mirror:1".
     pub key: String,
-    /// Member key per pool member. This is an address or mirror entry slug.
-    pub member_keys: Vec<String>,
-    /// Bracket index per pool member, pointing into the global brackets array.
-    pub bracket_indices: Vec<usize>,
+    /// (member_key, bracket_index) pairs. member_key is an address or slug.
+    /// bracket_index is an index into the global brackets array.
+    pub members: Vec<(String, usize)>,
 }
 
 /// Results of a multi-pool simulation.
@@ -350,7 +349,7 @@ impl<'a> MultiPoolScoringCallback<'a> {
     fn new(brackets: &'a [u64], pools: &'a [Pool]) -> Self {
         let pool_wins = pools
             .iter()
-            .map(|pool| vec![0u32; pool.member_keys.len()])
+            .map(|pool| vec![0u32; pool.members.len()])
             .collect();
         Self {
             brackets,
@@ -382,14 +381,14 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
         // For each pool, find max score and increment winners.
         for (pool_idx, pool) in self.pools.iter().enumerate() {
             let mut best = 0u32;
-            for &bracket_idx in &pool.bracket_indices {
+            for &(_, bracket_idx) in &pool.members {
                 let s = scores[bracket_idx];
                 if s > best {
                     best = s;
                 }
             }
 
-            for (member_idx, &bracket_idx) in pool.bracket_indices.iter().enumerate() {
+            for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
                 if scores[bracket_idx] == best {
                     self.pool_wins[pool_idx][member_idx] += 1;
                 }
@@ -441,7 +440,7 @@ pub fn run_multi_pool_simulations_with_resolver(
     // Merge partial results.
     let mut pool_wins: Vec<Vec<u32>> = pools
         .iter()
-        .map(|pool| vec![0u32; pool.member_keys.len()])
+        .map(|pool| vec![0u32; pool.members.len()])
         .collect();
 
     for partial in &partial_results {
