@@ -132,8 +132,11 @@ fn main() -> eyre::Result<()> {
             member.fantasy_team_key_parts.fantasy_team_id
         );
 
-        let picks_resp =
-            client.fetch_team_picks(&member.fantasy_team_key_parts.fantasy_team_id, args.group_id, args.force_refresh)?;
+        let picks_resp = client.fetch_team_picks(
+            &member.fantasy_team_key_parts.fantasy_team_id,
+            args.group_id,
+            args.force_refresh,
+        )?;
 
         let picks = &picks_resp.data.fantasy_team.bracket_picks.picks;
         if picks.len() != 63 {
