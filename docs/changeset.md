@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Return rich BracketForecast objects from /forecasts endpoint. The forecaster now computes expected score (mean simulated final score) alongside win probability and writes full `{expectedScore, winProbability}` objects to Redis. Frontend consumes these directly — no more bps-to-object transform. Leaderboard labels simplified ("X% / Y pts" instead of "P(Win): X% / E[Score]: Y").
+
+
 Fix leaderboard crash when forecast data loads. The `/forecasts` API returns `{address: basisPoints}` (plain integers) but the frontend expected `BracketForecast` objects. Now `useForecasts` transforms basis points into proper `BracketForecast` objects, and the E[Score] line is hidden when unavailable.
 
 
