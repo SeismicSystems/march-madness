@@ -1,0 +1,25 @@
+hey getting this when running ncaa-feed:
+
+2026-03-19T17:59:02.447532Z DEBUG hyper_util::client::legacy::pool: pooling idle connection for ("https", sdataprod.ncaa.com)
+2026-03-19T17:59:02.447721Z  INFO ncaa_feed::feed: game 1: Upcoming → Live
+2026-03-19T17:59:02.447735Z  INFO ncaa_feed::feed: game 11: Upcoming → Live
+2026-03-19T17:59:02.447744Z  WARN ncaa_feed::mapper: unresolved NCAA team name: 'South Fla.' (seed: Some(11)) — opponent is in bracket
+2026-03-19T17:59:02.447751Z  INFO ncaa_feed::feed: game 18: Upcoming → Live
+2026-03-19T17:59:02.447762Z  WARN ncaa_feed::mapper: unresolved NCAA team name: 'Saint Mary's (CA)' (seed: Some(7)) — opponent is in bracket
+2026-03-19T17:59:02.447769Z  INFO ncaa_feed: 3 game(s) changed
+
+---
+
+this is from ncaa -- and we map onlo NCAA
+
+maybe we should add like an [ncaa.remappings] section or something like that, to mappings.toml?
+
+and then basically say, if they have "South Fla." => we map to the name we've used in tournament data
+
+---
+
+when you're done, push a pr.
+
+---
+
+can you run it locally (we have redis on here) and make sure these warnings are gone, and then also make sure we are populating the correct redis key with well structured data that the server/frontend expect?
