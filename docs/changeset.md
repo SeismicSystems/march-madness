@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Stabilize leaderboard sort order across data refreshes. Rows no longer reshuffle every 30s when scores/forecasts update — values update in place and order only changes on explicit user sort actions. Also updates default score sort tiebreaker chain to: current score → P(win) → E[score].
+
+
 Fix forecaster expected scores by using full tournament simulation (simulate_tournament_bb with Bayesian metric updates) when all games are upcoming, instead of the forward sim which uses static metrics. This matches the oddsmaker's model and closes the ~15-20 point expected score gap.
 
 
