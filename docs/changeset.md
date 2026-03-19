@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+**ncaa-feed**: Fix bug where final games never get score corrections. Previously, once a game was marked Final, the feed skipped all further updates — including score corrections from the NCAA API. Now the feed keeps the Final status but still applies score updates when the API reports a different score.
+
+
 Fix advancing (green) color bleeding into future rounds. Teams now only show as advancing in rounds they've actually reached based on win count, not in all rounds where the user picked them.
 
 
