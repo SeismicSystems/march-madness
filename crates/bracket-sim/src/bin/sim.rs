@@ -10,8 +10,8 @@ use tracing::info;
 
 use seismic_march_madness::redis_keys::{DEFAULT_REDIS_URL, KEY_GAMES};
 use seismic_march_madness::{
-    GameState, TournamentData, TournamentStatus, build_reach_probs, get_teams_in_bracket_order,
-    run_team_advance_simulations_with_resolver,
+    GameState, TournamentData, TournamentStatus, get_teams_in_bracket_order,
+    run_team_advance_simulations,
 };
 
 #[derive(Parser, Debug)]
@@ -143,29 +143,17 @@ fn main() -> io::Result<()> {
             "conditioned simulation"
         );
 
-        // Build resolver for live games
         let live_count = status
             .games
             .iter()
             .filter(|g| g.status == GameState::Live)
             .count();
         let resolver = GameModelResolver::new(&team_names, &team_map, args.pace_d);
-        let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
+        if live_count > 0 {
             info!(live_games = live_count, "using game model resolver");
-            Some(&resolver)
-        } else {
-            None
-        };
+        }
 
-        // Compute reach probs from KenPom-based tournament simulation.
-        let reach = compute_reach_probs(&teams, &bracket_config, &team_names, args.n_sims);
-
-        let results = run_team_advance_simulations_with_resolver(
-            status,
-            &reach,
-            args.n_sims as u32,
-            resolver_opt,
-        );
+        let results = run_team_advance_simulations(status, args.n_sims as u32, &resolver);
         results.print_table(&team_names, |name| {
             team_map.get(name).map(|t| t.seed).unwrap_or(0)
         });
@@ -202,19 +190,4 @@ fn main() -> io::Result<()> {
     }
 
     Ok(())
-}
-
-/// Compute reach probs from a full Poisson tournament sim.
-fn compute_reach_probs(
-    teams: &[bracket_sim::Team],
-    bracket_config: &BracketConfig,
-    team_names: &[String],
-    n_sims: usize,
-) -> seismic_march_madness::ReachProbs {
-    info!(n_sims, "computing reach probs from full tournament sim");
-    let mut tournament = Tournament::new();
-    tournament.setup_tournament(teams.to_vec(), bracket_config);
-    let cum_probs = tournament.cumulative_win_probabilities(n_sims);
-    let reach_map: HashMap<String, Vec<f64>> = cum_probs.into_iter().collect();
-    build_reach_probs(team_names, &reach_map)
 }

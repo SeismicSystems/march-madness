@@ -332,7 +332,7 @@ fn parse_period(s: &str) -> Option<Period> {
     {
         return Some(Period::Half(n));
     }
-    if p.eq_ignore_ascii_case("HALF") {
+    if p.eq_ignore_ascii_case("HALF") || p.eq_ignore_ascii_case("HALFTIME") {
         return Some(Period::Half(1));
     }
     if p.eq_ignore_ascii_case("OT") || p.eq_ignore_ascii_case("1OT") {
@@ -444,6 +444,9 @@ mod tests {
         assert_eq!(parse_period("2nd"), Some(Period::Half(2)));
         assert_eq!(parse_period("OT"), Some(Period::Overtime(1)));
         assert_eq!(parse_period("2OT"), Some(Period::Overtime(2)));
+        assert_eq!(parse_period("HALF"), Some(Period::Half(1)));
+        assert_eq!(parse_period("Halftime"), Some(Period::Half(1)));
+        assert_eq!(parse_period("HALFTIME"), Some(Period::Half(1)));
         assert_eq!(parse_period("FINAL"), None);
         assert_eq!(parse_period(""), None);
     }

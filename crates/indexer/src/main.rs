@@ -129,6 +129,18 @@ enum Command {
         all_groups: bool,
     },
 
+    /// Backfill mirror metadata + entries from the contract into Redis.
+    /// If --mirror-id is given, backfills that mirror only; otherwise backfills all mirrors.
+    BackfillMirror {
+        /// JSON-RPC endpoint URL (falls back to VITE_RPC_URL env var)
+        #[arg(long, env = "VITE_RPC_URL")]
+        rpc_url: String,
+
+        /// Mirror ID to backfill (omit to backfill all mirrors)
+        #[arg(long)]
+        mirror_id: Option<u64>,
+    },
+
     /// Seed Redis with fake bracket data for local development
     Seed {
         /// Number of fake entries to generate
@@ -146,7 +158,8 @@ fn rpc_url(command: &Command) -> Option<&str> {
         Command::Listen { rpc_url }
         | Command::Backfill { rpc_url, .. }
         | Command::Reveal { rpc_url }
-        | Command::SanityCheck { rpc_url } => Some(rpc_url),
+        | Command::SanityCheck { rpc_url }
+        | Command::BackfillMirror { rpc_url, .. } => Some(rpc_url),
         Command::CheckRedis { .. } | Command::Seed { .. } => None,
     }
 }
@@ -240,6 +253,15 @@ async fn main() -> Result<()> {
         Command::Reveal { .. } => {
             let mm = format!("{:#x}", addrs.march_madness);
             commands::reveal::run(&provider, &mut redis_conn, &mm).await?;
+        }
+        Command::BackfillMirror { mirror_id, .. } => {
+            commands::backfill_mirror::run(
+                &provider,
+                &mut redis_conn,
+                addrs.bracket_mirror,
+                mirror_id,
+            )
+            .await?;
         }
         Command::SanityCheck { .. } => {
             let mm = format!("{:#x}", addrs.march_madness);

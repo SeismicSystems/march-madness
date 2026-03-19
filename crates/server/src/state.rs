@@ -262,6 +262,49 @@ impl AppState {
         Ok(Some(result))
     }
 
+    pub async fn get_mirror_by_id(&self, id: &str) -> Result<Option<MirrorResponse>> {
+        let mut conn = self.redis();
+        let json: Option<String> = conn.hget(KEY_MIRRORS, id).await?;
+        match json {
+            Some(s) => {
+                let data: MirrorData = serde_json::from_str(&s)?;
+                let entry_count = self.count_mirror_entries(id).await?;
+                Ok(Some(MirrorResponse {
+                    id: id.to_string(),
+                    slug: data.slug,
+                    display_name: data.display_name,
+                    admin: data.admin,
+                    entry_count,
+                }))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn get_mirror_entries_by_id(
+        &self,
+        id: &str,
+    ) -> Result<Option<Vec<MirrorEntryResponse>>> {
+        let mut conn = self.redis();
+        let exists: Option<String> = conn.hget(KEY_MIRRORS, id).await?;
+        if exists.is_none() {
+            return Ok(None);
+        }
+        let all_entries: HashMap<String, String> = conn.hgetall(KEY_MIRROR_ENTRIES).await?;
+        let prefix = format!("{id}:");
+        let result: Vec<MirrorEntryResponse> = all_entries
+            .into_iter()
+            .filter_map(|(key, bracket)| {
+                key.strip_prefix(&prefix)
+                    .map(|entry_slug| MirrorEntryResponse {
+                        slug: entry_slug.to_string(),
+                        bracket,
+                    })
+            })
+            .collect();
+        Ok(Some(result))
+    }
+
     /// Slug → (id, MirrorData) lookup, shared by mirror queries.
     async fn resolve_mirror(&self, slug: &str) -> Result<Option<(String, MirrorData)>> {
         let mut conn = self.redis();

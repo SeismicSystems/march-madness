@@ -1,9 +1,6 @@
 //! Tournament data loading and bracket-order helpers.
 
 use serde::Deserialize;
-use std::collections::HashMap;
-
-use crate::simulate::ReachProbs;
 
 /// Seed order per region (matches bracket encoding).
 pub const SEED_ORDER: [u32; 16] = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
@@ -81,28 +78,6 @@ pub fn get_teams_in_bracket_order(data: &TournamentData) -> Vec<String> {
         }
     }
     teams
-}
-
-/// Build reach probability array (64 teams x 6 rounds) from the name-keyed map.
-/// Falls back to a default for teams not in the map.
-pub fn build_reach_probs(
-    team_names: &[String],
-    reach_map: &HashMap<String, Vec<f64>>,
-) -> ReachProbs {
-    team_names
-        .iter()
-        .map(|name| {
-            if let Some(probs) = reach_map.get(name) {
-                let mut arr = [0.5; 6];
-                for (i, &p) in probs.iter().enumerate().take(6) {
-                    arr[i] = p;
-                }
-                arr
-            } else {
-                [1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125]
-            }
-        })
-        .collect()
 }
 
 /// Compute current score from decided games only.

@@ -1,0 +1,3 @@
+hey so it's pretty clear to me that the mm:probs key is not correctly computing values based on live scores. in prob, i see duke 99% to win, despite them being down by 11 points at halftime. our model would probably say something like 70-80%. to reproduce, run the ncaa-feed and forecaster on loop locally.. for ncaa feed use 30 seconds per request as to not overwhelm the api...>
+
+anyway we definitely need to be piping in live scores for this. when you are done, open a PR.

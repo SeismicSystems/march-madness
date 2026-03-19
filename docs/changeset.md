@@ -2,6 +2,24 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix pre-lock forecaster to use full possession-level game simulation (NB/Poisson + Bayesian metric updates) instead of incorrect reach-probability shortcut that used marginal advance probabilities as conditional win probabilities.
+
+
+Fix bracket overlay showing teams as "advancing" (green) in rounds they haven't won yet. A team that won R64 was incorrectly highlighted green in R32 before that game was played, because the check used `>= round` (has reached this round) instead of `> round` (has won through this round).
+
+
+Change mirror entry slug format from bracket name to `{firstname}-{champion}`. Prompts user to resolve conflicts when multiple entries produce the same slug.
+
+
+Add BracketUpdated event handling to listener and backfill, and add backfill-mirror subcommand to populate mirror entries from contract state.
+
+
+Fix live game resolver to use current scores when clock/period data is missing (e.g. during halftime). Previously fell back to pre-game KenPom probability, ignoring the actual score entirely.
+
+
+Add mirror leaderboard and bracket viewer pages at `/mirrors/id/:id` and `/mirrors/id/:id/bracket/:entrySlug`. Not linked from anywhere in the UI — must be navigated to directly. Also fix group leaderboard to show group-specific win probabilities instead of global pool forecasts.
+
+
 Add clickable NCAA game links to live games in bracket view. The period/clock label (e.g. "2H 7:30") on live games now links to the NCAA March Madness Live page for that game. Bracket position IDs are stored in tournament.json via fetch-bracket.
 
 
