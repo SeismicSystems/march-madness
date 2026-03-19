@@ -40,11 +40,21 @@ sol! {
     event EntryRemoved(uint256 indexed mirrorId, string slug);
     event BracketUpdated(uint256 indexed mirrorId, string slug);
 
+    struct Mirror {
+        string slug;
+        string displayName;
+        uint32 entryFee;
+        string entryCurrency;
+        address admin;
+    }
+
     struct MirrorEntry {
         bytes8 bracket;
         string slug;
     }
 
+    function nextMirrorId() external view returns (uint256);
+    function getMirror(uint256 mirrorId) external view returns (Mirror memory);
     function getEntryBySlug(uint256 mirrorId, string slug) external view returns (bytes8 bracket, string entrySlug);
     function getEntries(uint256 mirrorId) external view returns (MirrorEntry[] memory);
 }
