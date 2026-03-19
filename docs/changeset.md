@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add BracketUpdated event handling to listener and backfill, and add backfill-mirror subcommand to populate mirror entries from contract state.
+
+
 Fix live game resolver to use current scores when clock/period data is missing (e.g. during halftime). Previously fell back to pre-game KenPom probability, ignoring the actual score entirely.
 
 
