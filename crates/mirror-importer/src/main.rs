@@ -129,17 +129,17 @@ fn main() -> eyre::Result<()> {
             i + 1,
             members.len(),
             member.name,
-            member.fantasy_team_id
+            member.fantasy_team_key_parts.fantasy_team_id
         );
 
         let picks_resp =
-            client.fetch_team_picks(&member.fantasy_team_id, args.group_id, args.force_refresh)?;
+            client.fetch_team_picks(&member.fantasy_team_key_parts.fantasy_team_id, args.group_id, args.force_refresh)?;
 
-        let picks = &picks_resp.data.bracket_picks.picks;
+        let picks = &picks_resp.data.fantasy_team.bracket_picks.picks;
         if picks.len() != 63 {
             bail!(
                 "team {} has {} picks (expected 63)",
-                member.fantasy_team_id,
+                member.fantasy_team_key_parts.fantasy_team_id,
                 picks.len()
             );
         }
@@ -153,8 +153,9 @@ fn main() -> eyre::Result<()> {
         );
 
         entries.push(PlatformEntry {
-            team_id: member.fantasy_team_id.clone(),
+            team_id: member.fantasy_team_key_parts.fantasy_team_id.clone(),
             name: picks_resp.data.fantasy_team.name.clone(),
+
             user: member.user.display_name.clone(),
             bracket: hex,
             champion,

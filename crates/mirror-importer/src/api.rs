@@ -86,15 +86,27 @@ pub struct GroupMembersResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupMembersData {
+    pub fantasy_group: FantasyGroupData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FantasyGroupData {
     pub fantasy_teams: Vec<FantasyTeamSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FantasyTeamSummary {
-    pub fantasy_team_id: String,
+    pub fantasy_team_key_parts: FantasyTeamKeyParts,
     pub name: String,
     pub user: YahooUser,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FantasyTeamKeyParts {
+    pub fantasy_team_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,8 +125,14 @@ pub struct TeamPicksResponse {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamPicksData {
+    pub fantasy_team: FantasyTeamDetail,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FantasyTeamDetail {
+    pub name: String,
     pub bracket_picks: BracketPicks,
-    pub fantasy_team: FantasyTeamInfo,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -127,11 +145,6 @@ pub struct BracketPicks {
 pub struct Pick {
     pub slot_id: String,
     pub selected_team_key: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FantasyTeamInfo {
-    pub name: String,
 }
 
 // ── HTTP client ───────────────────────────────────────────────────────
@@ -194,9 +207,9 @@ impl YahooClient {
         {
             info!(
                 "using cached group members ({} entries)",
-                cached.fantasy_teams.len()
+                cached.fantasy_group.fantasy_teams.len()
             );
-            return Ok(cached.fantasy_teams);
+            return Ok(cached.fantasy_group.fantasy_teams);
         }
 
         let cookie = self
@@ -228,8 +241,8 @@ impl YahooClient {
             }
 
             let page: GroupMembersResponse = resp.json()?;
-            let count = page.data.fantasy_teams.len();
-            all_teams.extend(page.data.fantasy_teams);
+            let count = page.data.fantasy_group.fantasy_teams.len();
+            all_teams.extend(page.data.fantasy_group.fantasy_teams);
             debug!(
                 "page start={}: got {} members (total: {})",
                 start,
@@ -248,7 +261,9 @@ impl YahooClient {
 
         // Cache the aggregated result
         let data = GroupMembersData {
-            fantasy_teams: all_teams.clone(),
+            fantasy_group: FantasyGroupData {
+                fantasy_teams: all_teams.clone(),
+            },
         };
         cache::save(&cache_key, &data)?;
 
