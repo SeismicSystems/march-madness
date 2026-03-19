@@ -1,0 +1,1 @@
+this branch has a PR up. you should be a changed file in docs/prompts (mayne multiple) with my specs. audit this pr for correctness to my spec. check out to a new branch off of this one. fix bugs you find and refactor the code to be clearer. open a pr targeting the branch of the currently open pr

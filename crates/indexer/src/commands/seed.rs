@@ -1,8 +1,8 @@
 //! Seed Redis with fake bracket data for local development.
 //!
-//! Generates random entries, a mid-tournament status, and sample groups
-//! so the leaderboard and groups UI have data to display without needing
-//! a running chain or real indexing.
+//! Generates random entries, a mid-tournament status, sample groups,
+//! and sample mirrors so the leaderboard, groups, and mirrors UI have
+//! data to display without needing a running chain or real indexing.
 
 use crate::redis_store;
 use eyre::{Result, bail};
@@ -11,6 +11,7 @@ use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
 use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::types::{GameScore, GameState, GameStatus, TournamentStatus};
+use seismic_march_madness::{TournamentData, get_teams_in_bracket_order};
 use tracing::info;
 
 /// Tag names to randomly assign to some entries.
@@ -39,10 +40,19 @@ const GROUPS: &[(&str, &str, usize, &str)] = &[
     ("family", "Family Bracket", 5, "0"),                     // Free
 ];
 
+/// Mirror definitions: (slug, display_name, entry_count).
+const MIRRORS: &[(&str, &str, usize)] = &[
+    ("mens-league", "Men's League", 6),
+    ("womens-league", "Women's League", 5),
+];
+
 /// How many of the 63 games should be "final" in the seed scenario.
 const FINAL_GAMES: usize = 24;
 /// How many games should be "live".
 const LIVE_GAMES: usize = 3;
+
+/// Seed order per region: [1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15].
+const SEED_ORDER: [u8; 16] = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
 
 pub async fn run(redis: &mut MultiplexedConnection, entries: usize, clean: bool) -> Result<()> {
     if std::env::var("DANGEROUSLY_SEED_REDIS").as_deref() != Ok("1") {
@@ -66,10 +76,16 @@ pub async fn run(redis: &mut MultiplexedConnection, entries: usize, clean: bool)
     info!("seeding groups");
     seed_groups(redis, &addresses).await?;
 
+    info!("seeding mirrors");
+    seed_mirrors(redis).await?;
+
     info!(
         entries,
         groups = GROUPS.len(),
-        "seed complete — start the server with `cargo run -p march-madness-server`"
+        mirrors = MIRRORS.len(),
+        "seed complete — run the forecaster then start the server:\n\
+         cargo run -p march-madness-forecaster\n\
+         cargo run -p march-madness-server"
     );
     Ok(())
 }
@@ -83,6 +99,11 @@ async fn clean_redis(redis: &mut MultiplexedConnection) -> Result<()> {
         KEY_GROUP_SLUGS,
         KEY_ADDRESS_GROUPS,
         KEY_GAMES,
+        KEY_FORECASTS,
+        KEY_TEAM_PROBS,
+        KEY_MIRRORS,
+        KEY_MIRROR_SLUGS,
+        KEY_MIRROR_ENTRIES,
     ];
     let deleted: usize = redis::cmd("DEL").arg(keys).query_async(redis).await?;
     info!(deleted, "cleaned seed-related Redis keys");
@@ -123,7 +144,7 @@ async fn seed_entries(redis: &mut MultiplexedConnection, count: usize) -> Result
     Ok(addresses)
 }
 
-/// Write a mid-tournament TournamentStatus to Redis.
+/// Write a mid-tournament TournamentStatus to Redis, including team reach probabilities.
 async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()> {
     let mut rng = rand::rng();
     let mut games = Vec::with_capacity(63);
@@ -173,9 +194,43 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
         games.push(game);
     }
 
+    // Build plausible team reach probabilities from embedded tournament data.
+    let tournament = TournamentData::embedded(2026);
+    let team_names = get_teams_in_bracket_order(&tournament);
+    let mut reach_probs = std::collections::HashMap::new();
+    for (idx, name) in team_names.iter().enumerate() {
+        // Get seed from bracket position (repeating seed order per region).
+        let seed = SEED_ORDER[idx % 16];
+        // Higher seeds get better reach probabilities.
+        let base_strength: f64 = match seed {
+            1 => 0.92,
+            2 => 0.88,
+            3 => 0.82,
+            4 => 0.75,
+            5 => 0.68,
+            6 => 0.62,
+            7 => 0.55,
+            8 => 0.50,
+            9 => 0.48,
+            10 => 0.42,
+            11 => 0.38,
+            12 => 0.32,
+            13 => 0.22,
+            14 => 0.15,
+            15 => 0.08,
+            16 => 0.03,
+            _ => 0.5,
+        };
+        // Decay per round.
+        let probs: Vec<f64> = (0..6)
+            .map(|r| if r == 0 { 1.0 } else { base_strength.powi(r) })
+            .collect();
+        reach_probs.insert(name.clone(), probs);
+    }
+
     let status = TournamentStatus {
         games,
-        team_reach_probabilities: None,
+        team_reach_probabilities: Some(reach_probs),
         updated_at: Some(chrono::Utc::now().to_rfc3339()),
     };
 
@@ -184,7 +239,8 @@ async fn seed_tournament_status(redis: &mut MultiplexedConnection) -> Result<()>
     info!(
         final_games = FINAL_GAMES,
         live_games = LIVE_GAMES,
-        "tournament status seeded"
+        teams = team_names.len(),
+        "tournament status seeded (with reach probabilities)"
     );
     Ok(())
 }
@@ -214,6 +270,30 @@ async fn seed_groups(redis: &mut MultiplexedConnection, addresses: &[String]) ->
         }
 
         info!(slug, members = members_to_add, "group seeded");
+    }
+
+    Ok(())
+}
+
+/// Create sample mirrors with random bracket entries.
+async fn seed_mirrors(redis: &mut MultiplexedConnection) -> Result<()> {
+    let mut rng = rand::rng();
+
+    for (mirror_id, &(slug, display_name, entry_count)) in MIRRORS.iter().enumerate() {
+        let mirror_id = (mirror_id + 1) as u64;
+        let admin = "0x0000000000000000000000000000000000000001";
+
+        redis_store::create_mirror(redis, mirror_id, slug, display_name, admin).await?;
+
+        for i in 1..=entry_count {
+            let entry_slug = format!("{slug}-entry-{i}");
+            let raw: u64 = rng.random::<u64>();
+            let bracket = (raw & 0x7FFF_FFFF_FFFF_FFFF) | 0x8000_0000_0000_0000;
+            let bracket_hex = format!("0x{:016x}", bracket);
+            redis_store::mirror_entry_added(redis, mirror_id, &entry_slug, &bracket_hex).await?;
+        }
+
+        info!(slug, entries = entry_count, "mirror seeded");
     }
 
     Ok(())

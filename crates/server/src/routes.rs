@@ -58,7 +58,7 @@ pub async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// GET /tournament-status — serve tournament status JSON (file-based).
+/// GET /tournament-status — serve tournament status JSON from Redis.
 pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_tournament_status().await {
         Ok(data) => {
@@ -79,7 +79,7 @@ pub async fn get_tournament_status(State(state): State<AppState>) -> impl IntoRe
     }
 }
 
-/// GET /forecasts — serve forecasts JSON (file-based).
+/// GET /forecasts — serve forecasts JSON from Redis.
 pub async fn get_forecasts(State(state): State<AppState>) -> impl IntoResponse {
     match state.get_forecasts().await {
         Ok(data) => {
@@ -189,6 +189,125 @@ pub async fn get_mirror(
         Err(e) => {
             tracing::error!("failed to read mirror: {e}");
             (StatusCode::INTERNAL_SERVER_ERROR, "failed to read mirror").into_response()
+        }
+    }
+}
+
+// ── Forecast routes ─────────────────────────────────────────────────
+
+/// GET /team-probs — per-team advance probabilities from Redis.
+pub async fn get_team_probs(State(state): State<AppState>) -> impl IntoResponse {
+    match state.get_team_probs().await {
+        Ok(probs) => {
+            if probs.is_empty() {
+                (StatusCode::NOT_FOUND, "team probs not available").into_response()
+            } else {
+                Json(probs).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read team probs: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read team probs",
+            )
+                .into_response()
+        }
+    }
+}
+
+/// GET /forecasts/groups/s/:slug — group forecast by slug.
+pub async fn get_group_forecast_by_slug(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_group_forecast_by_slug(&slug).await {
+        Ok(data) => {
+            if data.is_null() {
+                (StatusCode::NOT_FOUND, "group forecast not found").into_response()
+            } else {
+                Json(data).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read group forecast: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read group forecast",
+            )
+                .into_response()
+        }
+    }
+}
+
+/// GET /forecasts/groups/id/:id — group forecast by ID.
+pub async fn get_group_forecast_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.get_group_forecast_by_id(&id).await {
+        Ok(data) => {
+            if data.is_null() {
+                (StatusCode::NOT_FOUND, "group forecast not found").into_response()
+            } else {
+                Json(data).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read group forecast: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read group forecast",
+            )
+                .into_response()
+        }
+    }
+}
+
+/// GET /forecasts/mirrors/s/:slug — mirror forecast by slug.
+pub async fn get_mirror_forecast_by_slug(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_forecast_by_slug(&slug).await {
+        Ok(data) => {
+            if data.is_null() {
+                (StatusCode::NOT_FOUND, "mirror forecast not found").into_response()
+            } else {
+                Json(data).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read mirror forecast: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read mirror forecast",
+            )
+                .into_response()
+        }
+    }
+}
+
+/// GET /forecasts/mirrors/id/:id — mirror forecast by ID.
+pub async fn get_mirror_forecast_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.get_mirror_forecast_by_id(&id).await {
+        Ok(data) => {
+            if data.is_null() {
+                (StatusCode::NOT_FOUND, "mirror forecast not found").into_response()
+            } else {
+                Json(data).into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("failed to read mirror forecast: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to read mirror forecast",
+            )
+                .into_response()
         }
     }
 }

@@ -1,0 +1,1 @@
+there should indeed be a --tournament-file arg --- thats the only file we should be looking at. rest comes from redis... in terms of the routes, we opted for slug routes to have /s/ to avoid id/slug route collisions

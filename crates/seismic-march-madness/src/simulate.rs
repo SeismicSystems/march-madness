@@ -11,6 +11,7 @@
 use crate::scoring::{get_scoring_mask, score_bracket_with_mask};
 use crate::types::{GameState, TournamentStatus};
 use rand::{Rng, RngCore};
+use rayon::prelude::*;
 
 /// Round start offsets: R64=0, R32=32, S16=48, E8=56, F4=60, Champ=62
 pub const ROUND_STARTS: [usize; 6] = [0, 32, 48, 56, 60, 62];
@@ -32,7 +33,7 @@ pub type ReachProbs = Vec<[f64; 6]>;
 ///
 /// Implementations have access to team metrics and game state, and return
 /// true if team1 wins for a given simulation trial.
-pub trait LiveGameResolver {
+pub trait LiveGameResolver: Send + Sync {
     /// Simulate the remaining portion of a live game and return true if team1 wins.
     ///
     /// - `game_index`: 0-62 game index
@@ -315,6 +316,143 @@ pub fn run_team_advance_simulations_with_resolver(
     run_forward_sim(status, reach, num_sims, resolver, &mut cb);
     TeamAdvanceResults {
         advance: cb.advance,
+        num_sims,
+    }
+}
+
+// ── Multi-pool sim ─────────────────────────────────────────────────
+
+/// A pool of brackets competing against each other.
+pub struct Pool {
+    /// Redis HASH field key: "mm", "group:3", "mirror:1".
+    pub key: String,
+    /// (member_key, bracket_index) pairs. member_key is an address or slug.
+    /// bracket_index is an index into the global brackets array.
+    pub members: Vec<(String, usize)>,
+}
+
+/// Results of a multi-pool simulation.
+pub struct MultiPoolResults {
+    /// pool_wins[pool_idx][member_idx] = number of sims where that member had the highest score.
+    pub pool_wins: Vec<Vec<u32>>,
+    pub num_sims: u32,
+}
+
+struct MultiPoolScoringCallback<'a> {
+    brackets: &'a [u64],
+    pools: &'a [Pool],
+    pool_wins: Vec<Vec<u32>>,
+    results: u64,
+}
+
+impl<'a> MultiPoolScoringCallback<'a> {
+    fn new(brackets: &'a [u64], pools: &'a [Pool]) -> Self {
+        let pool_wins = pools
+            .iter()
+            .map(|pool| vec![0u32; pool.members.len()])
+            .collect();
+        Self {
+            brackets,
+            pools,
+            pool_wins,
+            results: 0x8000_0000_0000_0000,
+        }
+    }
+}
+
+impl SimCallback for MultiPoolScoringCallback<'_> {
+    fn on_game(&mut self, game_index: usize, _round: usize, team1_wins: bool, _winner: usize) {
+        if team1_wins {
+            let bit_pos = 62 - game_index as u32;
+            self.results |= 1u64 << bit_pos;
+        }
+    }
+
+    fn on_trial_end(&mut self, _game_winner: &[usize; 63]) {
+        let mask = get_scoring_mask(self.results);
+
+        // Score all unique brackets once.
+        let scores: Vec<u32> = self
+            .brackets
+            .iter()
+            .map(|&b| score_bracket_with_mask(b, self.results, mask))
+            .collect();
+
+        // For each pool, find max score and increment winners.
+        for (pool_idx, pool) in self.pools.iter().enumerate() {
+            let mut best = 0u32;
+            for &(_, bracket_idx) in &pool.members {
+                let s = scores[bracket_idx];
+                if s > best {
+                    best = s;
+                }
+            }
+
+            for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
+                if scores[bracket_idx] == best {
+                    self.pool_wins[pool_idx][member_idx] += 1;
+                }
+            }
+        }
+
+        self.results = 0x8000_0000_0000_0000;
+    }
+}
+
+/// Run multi-pool simulations. All pools share the same forward sim trials,
+/// so each pool sees the same simulated tournament outcomes. Uses rayon to
+/// parallelize across chunks of simulations.
+pub fn run_multi_pool_simulations_with_resolver(
+    brackets: &[u64],
+    pools: &[Pool],
+    status: &TournamentStatus,
+    reach: &ReachProbs,
+    num_sims: u32,
+    resolver: Option<&dyn LiveGameResolver>,
+) -> MultiPoolResults {
+    // Determine chunk size for parallelism. Each thread runs a chunk of sims
+    // with its own callback, then we merge.
+    let num_threads = rayon::current_num_threads().max(1);
+    let chunk_size = (num_sims as usize).div_ceil(num_threads);
+
+    let chunks: Vec<u32> = (0..num_threads)
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = ((i + 1) * chunk_size).min(num_sims as usize);
+            if start >= num_sims as usize {
+                0
+            } else {
+                (end - start) as u32
+            }
+        })
+        .filter(|&n| n > 0)
+        .collect();
+
+    let partial_results: Vec<Vec<Vec<u32>>> = chunks
+        .par_iter()
+        .map(|&chunk_sims| {
+            let mut cb = MultiPoolScoringCallback::new(brackets, pools);
+            run_forward_sim(status, reach, chunk_sims, resolver, &mut cb);
+            cb.pool_wins
+        })
+        .collect();
+
+    // Merge partial results.
+    let mut pool_wins: Vec<Vec<u32>> = pools
+        .iter()
+        .map(|pool| vec![0u32; pool.members.len()])
+        .collect();
+
+    for partial in &partial_results {
+        for (pi, pool_partial) in partial.iter().enumerate() {
+            for (mi, &count) in pool_partial.iter().enumerate() {
+                pool_wins[pi][mi] += count;
+            }
+        }
+    }
+
+    MultiPoolResults {
+        pool_wins,
         num_sims,
     }
 }

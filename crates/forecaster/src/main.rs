@@ -1,235 +1,526 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::time::Instant;
 
-use clap::Parser;
-use eyre::bail;
-use tracing::info;
-
-use bracket_sim::Team;
+use bracket_sim::bracket_config::BracketConfig;
 use bracket_sim::live_resolver::GameModelResolver;
-use seismic_march_madness::redis_keys::{DEFAULT_REDIS_URL, KEY_GAMES};
+use bracket_sim::team::load_teams_from_json_str;
+use bracket_sim::{Team, Tournament};
+use clap::Parser;
+use eyre::{Result, bail, eyre};
+use tracing::{info, warn};
+
+use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::{
-    BracketForecast, EntryIndex, ForecastIndex, GameState, TournamentData, TournamentStatus,
-    build_reach_probs, compute_current_score, compute_max_possible, get_teams_in_bracket_order,
-    kenpom_csv, parse_bracket_hex, run_simulations_with_resolver,
-    run_team_advance_simulations_with_resolver, tournament_json,
+    GameState, GameStatus, Pool, ReachProbs, TeamAdvanceResults, TournamentData, TournamentStatus,
+    build_reach_probs, get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
+    run_multi_pool_simulations_with_resolver, run_team_advance_simulations_with_resolver,
+    tournament_json,
 };
 
 #[derive(Parser, Debug)]
 #[command(
     name = "march-madness-forecaster",
-    about = "Simulate tournament outcomes and compute win probabilities for each bracket"
+    about = "Continuously simulate tournament outcomes and compute per-pool win probabilities"
 )]
 struct Cli {
-    /// Path to the entries JSON file (from indexer).
-    #[arg(long, default_value = "data/entries.json")]
-    entries_file: PathBuf,
-
-    /// Read live tournament status from Redis instead of a file.
-    #[arg(long, conflicts_with = "status_file")]
-    live: bool,
-
-    /// Path to the tournament status JSON file.
-    /// Defaults to data/{year}/men/status.json.
-    #[arg(long = "status")]
-    status_file: Option<PathBuf>,
-
     /// Path to the tournament data JSON (team names in bracket order).
-    /// If not specified, uses the embedded 2026 tournament data.
+    /// If not specified, uses the embedded tournament data for the given year.
     #[arg(long)]
     tournament_file: Option<PathBuf>,
 
-    /// Path to write the forecast output JSON.
-    #[arg(long, default_value = "data/2026/men/forecasts.json")]
-    output_file: PathBuf,
+    /// Path to write the forecast output JSON (in addition to Redis).
+    #[arg(long)]
+    output_file: Option<PathBuf>,
 
-    /// Number of Monte Carlo simulations to run.
-    #[arg(long, default_value = "100000")]
+    /// Number of Monte Carlo simulations per iteration.
+    #[arg(long, default_value = "50000", value_parser = clap::value_parser!(u32).range(1..))]
     simulations: u32,
 
     /// Tournament year (for loading embedded team data).
     #[arg(long, default_value = "2026")]
     year: u16,
 
-    /// Print per-team advance probabilities for each round (no entries needed).
+    /// Ignore current game state and simulate from pre-tournament probabilities.
+    #[arg(long)]
+    pre_lock: bool,
+
+    /// Print per-team advance probabilities for each round and exit (one-shot).
     #[arg(long)]
     team_advance: bool,
+
+    /// Run once and exit instead of looping forever.
+    #[arg(long)]
+    once: bool,
 }
 
-fn main() -> eyre::Result<()> {
+/// Immutable context shared across iterations.
+struct Context {
+    team_names: Vec<String>,
+    team_map: HashMap<String, Team>,
+    resolver: GameModelResolver,
+    simulations: u32,
+    output_file: Option<PathBuf>,
+    simulation_mode: SimulationMode,
+}
+
+struct PreLockContext {
+    status: TournamentStatus,
+    reach: ReachProbs,
+}
+
+enum SimulationMode {
+    Live,
+    PreLock(PreLockContext),
+}
+
+impl SimulationMode {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Live => "live",
+            Self::PreLock(_) => "pre-lock",
+        }
+    }
+}
+
+struct ForecastInputs {
+    entry_brackets: HashMap<String, u64>,
+    group_members: HashMap<String, Vec<String>>,
+    group_slugs: HashMap<String, String>,
+    mirror_entries: HashMap<String, Vec<(String, u64)>>,
+}
+
+fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    let status: TournamentStatus = if cli.live {
-        info!("reading tournament status from Redis");
-        let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
-        let client = redis::Client::open(url.as_str())?;
-        let mut conn = client.get_connection()?;
-        let json: Option<String> = redis::Commands::get(&mut conn, KEY_GAMES)?;
-        let json =
-            json.ok_or_else(|| eyre::eyre!("no tournament status in Redis (key: {KEY_GAMES})"))?;
-        serde_json::from_str(&json)?
-    } else {
-        let status_path = cli
-            .status_file
-            .unwrap_or_else(|| PathBuf::from(format!("data/{}/men/status.json", cli.year)));
-        info!("reading tournament status from {}", status_path.display());
-        serde_json::from_str(&std::fs::read_to_string(&status_path)?)?
-    };
-    let tournament: TournamentData = match &cli.tournament_file {
-        Some(path) => serde_json::from_str(&std::fs::read_to_string(path)?)?,
-        None => TournamentData::embedded(cli.year),
-    };
+    let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
+    let client = redis::Client::open(url.as_str())?;
+    let mut conn = client.get_connection()?;
 
-    // Build team names in bracket order
-    let team_names = get_teams_in_bracket_order(&tournament);
+    let ctx = build_context(&cli)?;
 
-    // Load team metrics for live game simulation
-    let tj = tournament_json(cli.year)
-        .unwrap_or_else(|| panic!("no embedded tournament data for year {}", cli.year));
-    let kp = kenpom_csv(cli.year)
-        .unwrap_or_else(|| panic!("no embedded KenPom data for year {}", cli.year));
-    let teams = bracket_sim::team::load_teams_from_json_str(tj, kp)?;
-    let team_map: HashMap<String, Team> = teams.into_iter().map(|t| (t.team.clone(), t)).collect();
-
-    // Build resolver for live games — simulates remaining possessions directly
-    let live_count = status
-        .games
-        .iter()
-        .filter(|g| g.status == GameState::Live)
-        .count();
-    let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
-    let resolver_opt: Option<&dyn seismic_march_madness::LiveGameResolver> = if live_count > 0 {
-        info!(
-            live_games = live_count,
-            "using game model resolver for live games"
-        );
-        Some(&resolver)
-    } else {
-        None
-    };
-
-    // Build reach probabilities from team names → bracket positions
-    let reach = match &status.team_reach_probabilities {
-        Some(reach_map) => build_reach_probs(&team_names, reach_map),
-        None => bail!("tournament status missing teamReachProbabilities — cannot simulate"),
-    };
-
-    info!(
-        games = status.games.len(),
-        simulations = cli.simulations,
-        "loaded data"
-    );
-
-    // --team-advance: print per-team advance probabilities and exit
     if cli.team_advance {
+        let (status, reach, resolver_opt) = load_simulation_state(&mut conn, &ctx)?;
         let results = run_team_advance_simulations_with_resolver(
             &status,
             &reach,
-            cli.simulations,
+            ctx.simulations,
             resolver_opt,
         );
-        results.print_table(&team_names, |name| {
-            team_map.get(name).map(|t| t.seed).unwrap_or(0)
+        results.print_table(&ctx.team_names, |name| {
+            ctx.team_map.get(name).map(|team| team.seed).unwrap_or(0)
         });
         return Ok(());
     }
 
-    // Normal forecast mode — needs entries
-    let entries: EntryIndex = serde_json::from_str(&std::fs::read_to_string(&cli.entries_file)?)?;
-    info!(entries = entries.len(), "loaded entries");
+    let mut iteration = 0u64;
+    loop {
+        iteration += 1;
+        let start = Instant::now();
 
-    // Parse all valid brackets
-    let mut brackets: Vec<(String, u64, Option<String>)> = Vec::new();
-    for (address, entry) in &entries {
-        if let Some(hex) = &entry.bracket
-            && let Some(bits) = parse_bracket_hex(hex)
-        {
-            brackets.push((address.clone(), bits, entry.name.clone()));
+        match run_iteration(&mut conn, &ctx, iteration) {
+            Ok(()) => {
+                let elapsed = start.elapsed();
+                info!(iteration, elapsed_ms = elapsed.as_millis() as u64, "done");
+            }
+            Err(error) => {
+                warn!(iteration, error = %error, "iteration failed, will retry");
+            }
         }
+
+        if cli.once {
+            break;
+        }
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
+    Ok(())
+}
+
+fn build_context(cli: &Cli) -> Result<Context> {
+    let tournament_json = load_tournament_json(cli)?;
+    let tournament: TournamentData = serde_json::from_str(&tournament_json)?;
+    let team_names = get_teams_in_bracket_order(&tournament);
+
+    let kenpom = kenpom_csv(cli.year)
+        .ok_or_else(|| eyre!("no embedded KenPom data for year {}", cli.year))?;
+    let teams = load_teams_from_json_str(&tournament_json, kenpom)?;
+    let team_map: HashMap<String, Team> = teams
+        .iter()
+        .cloned()
+        .map(|team| (team.team.clone(), team))
+        .collect();
+    let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
+
+    let simulation_mode = if cli.pre_lock {
+        SimulationMode::PreLock(build_pre_lock_context(
+            cli.year,
+            cli.simulations,
+            &team_names,
+            &teams,
+        ))
+    } else {
+        SimulationMode::Live
+    };
+
+    Ok(Context {
+        team_names,
+        team_map,
+        resolver,
+        simulations: cli.simulations,
+        output_file: cli.output_file.clone(),
+        simulation_mode,
+    })
+}
+
+fn build_pre_lock_context(
+    year: u16,
+    simulations: u32,
+    team_names: &[String],
+    teams: &[Team],
+) -> PreLockContext {
+    let bracket_config = BracketConfig::for_year(year);
+    let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
+    tournament.setup_tournament(teams.to_vec(), &bracket_config);
+    // `cumulative_win_probabilities` already uses rayon internally.
+    let reach_map = tournament.cumulative_win_probabilities(simulations as usize);
+
+    PreLockContext {
+        status: pre_lock_status(),
+        reach: build_reach_probs(team_names, &reach_map),
+    }
+}
+
+fn load_tournament_json(cli: &Cli) -> Result<String> {
+    match &cli.tournament_file {
+        Some(path) => Ok(std::fs::read_to_string(path)?),
+        None => Ok(tournament_json(cli.year)
+            .ok_or_else(|| eyre!("no embedded tournament data for year {}", cli.year))?
+            .to_string()),
+    }
+}
+
+fn pre_lock_status() -> TournamentStatus {
+    TournamentStatus {
+        games: (0..63).map(GameStatus::upcoming).collect(),
+        team_reach_probabilities: None,
+        updated_at: None,
+    }
+}
+
+fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) -> Result<()> {
+    let (status, reach, resolver_opt) = load_simulation_state(conn, ctx)?;
+    let undecided = status
+        .games
+        .iter()
+        .filter(|game| game.status != GameState::Final)
+        .count();
+    let live = status
+        .games
+        .iter()
+        .filter(|game| game.status == GameState::Live)
+        .count();
+    info!(
+        iteration,
+        mode = ctx.simulation_mode.label(),
+        decided = 63 - undecided,
+        live,
+        undecided,
+        simulations = ctx.simulations,
+        "loaded simulation state"
+    );
+
+    let inputs = load_forecast_inputs(conn)?;
+    let (brackets, pools) = build_brackets_and_pools(&inputs);
+    info!(
+        pools = pools.len(),
+        unique_brackets = brackets.len(),
+        entries = inputs.entry_brackets.len(),
+        "built pools"
+    );
+
+    let advance_results =
+        run_team_advance_simulations_with_resolver(&status, &reach, ctx.simulations, resolver_opt);
+    write_team_probs(conn, &ctx.team_names, &advance_results)?;
+
     if brackets.is_empty() {
-        info!("no valid brackets found, writing empty forecast");
-        let empty: ForecastIndex = BTreeMap::new();
-        std::fs::write(&cli.output_file, serde_json::to_string_pretty(&empty)?)?;
+        let empty_forecasts: Vec<BTreeMap<String, u32>> =
+            pools.iter().map(|_| BTreeMap::new()).collect();
+        info!("no valid brackets found, writing empty forecasts");
+        write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
         return Ok(());
     }
 
-    info!(valid_brackets = brackets.len(), "parsed brackets");
-
-    let undecided_count = status
-        .games
-        .iter()
-        .filter(|g| g.status != GameState::Final)
-        .count();
-    info!(
-        undecided = undecided_count,
-        decided = 63 - undecided_count,
-        "game status"
-    );
-
-    let bracket_bits: Vec<u64> = brackets.iter().map(|(_, bits, _)| *bits).collect();
-    let current_scores: Vec<u32> = bracket_bits
-        .iter()
-        .map(|&b| compute_current_score(b, &status))
-        .collect();
-    let max_possible_scores: Vec<u32> = bracket_bits
-        .iter()
-        .map(|&b| compute_max_possible(b, &status))
-        .collect();
-
-    let sim_results = run_simulations_with_resolver(
-        &bracket_bits,
+    let results = run_multi_pool_simulations_with_resolver(
+        &brackets,
+        &pools,
         &status,
         &reach,
-        cli.simulations,
+        ctx.simulations,
         resolver_opt,
     );
 
-    let total_sims = cli.simulations as f64;
-    let mut forecast: ForecastIndex = BTreeMap::new();
-    for (i, (address, _, name)) in brackets.iter().enumerate() {
-        forecast.insert(
-            address.clone(),
-            BracketForecast {
-                current_score: current_scores[i],
-                max_possible_score: max_possible_scores[i],
-                expected_score: sim_results.expected_scores[i] / total_sims,
-                win_probability: sim_results.wins[i] as f64 / total_sims,
-                name: name.clone(),
-            },
-        );
+    let pool_forecasts: Vec<BTreeMap<String, u32>> = pools
+        .iter()
+        .enumerate()
+        .map(|(pool_idx, pool)| {
+            pool.members
+                .iter()
+                .enumerate()
+                .map(|(member_idx, (member_key, _))| {
+                    let wins = results.pool_wins[pool_idx][member_idx];
+                    (
+                        member_key.clone(),
+                        wins_to_basis_points(wins, results.num_sims),
+                    )
+                })
+                .collect()
+        })
+        .collect();
+
+    write_forecasts(conn, &pools, &pool_forecasts, &ctx.output_file)?;
+
+    if let Some(main_pool) = pool_forecasts.first() {
+        let mut sorted: Vec<(&String, &u32)> = main_pool.iter().collect();
+        sorted.sort_by(|left, right| right.1.cmp(left.1));
+        for (address, bps) in sorted.iter().take(3) {
+            info!(
+                addr = address.as_str(),
+                pct = format!("{:.2}%", **bps as f64 / 100.0),
+                "top"
+            );
+        }
     }
 
-    let output = serde_json::to_string_pretty(&forecast)?;
-    std::fs::write(&cli.output_file, output)?;
-    info!(output = %cli.output_file.display(), brackets = forecast.len(), "forecast written");
+    Ok(())
+}
 
-    // Print summary
-    let mut sorted: Vec<_> = forecast.iter().collect();
-    sorted.sort_by(|a, b| {
-        b.1.win_probability
-            .partial_cmp(&a.1.win_probability)
-            .unwrap()
-    });
-    println!("\n--- Forecast Summary ---");
-    println!(
-        "{:<44} {:>5} {:>5} {:>7} {:>8}",
-        "Address", "Score", "Max", "E[Score]", "P(Win)"
-    );
-    for (addr, f) in sorted.iter().take(20) {
-        let display = f.name.as_deref().unwrap_or(addr);
-        println!(
-            "{:<44} {:>5} {:>5} {:>7.1} {:>7.1}%",
-            display,
-            f.current_score,
-            f.max_possible_score,
-            f.expected_score,
-            f.win_probability * 100.0,
-        );
+fn load_simulation_state<'a>(
+    conn: &mut redis::Connection,
+    ctx: &'a Context,
+) -> Result<(
+    TournamentStatus,
+    ReachProbs,
+    Option<&'a dyn seismic_march_madness::LiveGameResolver>,
+)> {
+    if let SimulationMode::PreLock(pre_lock) = &ctx.simulation_mode {
+        return Ok((pre_lock.status.clone(), pre_lock.reach.clone(), None));
+    }
+
+    let status = load_status(conn)?;
+    let reach = match &status.team_reach_probabilities {
+        Some(reach_map) => build_reach_probs(&ctx.team_names, reach_map),
+        None => bail!("tournament status missing teamReachProbabilities"),
+    };
+    let resolver_opt = resolver_for_status(ctx, &status);
+
+    Ok((status, reach, resolver_opt))
+}
+
+fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> {
+    let raw_entries: HashMap<String, String> = redis::Commands::hgetall(conn, KEY_ENTRIES)?;
+    let mut entry_brackets = HashMap::new();
+    for (address, json) in &raw_entries {
+        match serde_json::from_str::<EntryData>(json) {
+            Ok(entry) => {
+                if let Some(bracket_hex) = &entry.bracket
+                    && let Some(bits) = parse_bracket_hex(bracket_hex)
+                {
+                    entry_brackets.insert(address.clone(), bits);
+                }
+            }
+            Err(error) => warn!(address, error = %error, "skipping corrupt entry"),
+        }
+    }
+
+    let raw_group_members: HashMap<String, String> =
+        redis::Commands::hgetall(conn, KEY_GROUP_MEMBERS)?;
+    let group_members = raw_group_members
+        .into_iter()
+        .filter_map(
+            |(group_id, json)| match serde_json::from_str::<Vec<String>>(&json) {
+                Ok(members) => Some((group_id, members)),
+                Err(error) => {
+                    warn!(group_id, error = %error, "skipping corrupt group member list");
+                    None
+                }
+            },
+        )
+        .collect();
+
+    let raw_groups: HashMap<String, String> = redis::Commands::hgetall(conn, KEY_GROUPS)?;
+    let group_slugs = raw_groups
+        .iter()
+        .filter_map(
+            |(group_id, json)| match serde_json::from_str::<GroupData>(json) {
+                Ok(group) => Some((group_id.clone(), group.slug)),
+                Err(error) => {
+                    warn!(group_id, error = %error, "skipping corrupt group metadata");
+                    None
+                }
+            },
+        )
+        .collect();
+
+    let raw_mirror_entries: HashMap<String, String> =
+        redis::Commands::hgetall(conn, KEY_MIRROR_ENTRIES)?;
+    let mut mirror_entries: HashMap<String, Vec<(String, u64)>> = HashMap::new();
+    for (composite_key, bracket_hex) in &raw_mirror_entries {
+        if let Some((mirror_id, entry_slug)) = composite_key.split_once(':')
+            && let Some(bits) = parse_bracket_hex(bracket_hex)
+        {
+            mirror_entries
+                .entry(mirror_id.to_string())
+                .or_default()
+                .push((entry_slug.to_string(), bits));
+        }
+    }
+
+    Ok(ForecastInputs {
+        entry_brackets,
+        group_members,
+        group_slugs,
+        mirror_entries,
+    })
+}
+
+fn build_brackets_and_pools(inputs: &ForecastInputs) -> (Vec<u64>, Vec<Pool>) {
+    let mut deduped_indices = HashMap::new();
+    let mut brackets = Vec::new();
+
+    let mut get_or_insert = |bits: u64| -> usize {
+        if let Some(&index) = deduped_indices.get(&bits) {
+            index
+        } else {
+            let index = brackets.len();
+            brackets.push(bits);
+            deduped_indices.insert(bits, index);
+            index
+        }
+    };
+
+    let mm_members = inputs
+        .entry_brackets
+        .iter()
+        .map(|(address, &bits)| (address.clone(), get_or_insert(bits)))
+        .collect();
+
+    let mut pools = vec![make_pool("mm", mm_members)];
+
+    for (group_id, members) in &inputs.group_members {
+        let pool_members: Vec<(String, usize)> = members
+            .iter()
+            .filter_map(|address| {
+                inputs
+                    .entry_brackets
+                    .get(address)
+                    .map(|&bits| (address.clone(), get_or_insert(bits)))
+            })
+            .collect();
+        if !pool_members.is_empty() {
+            let slug = inputs
+                .group_slugs
+                .get(group_id)
+                .map(String::as_str)
+                .unwrap_or("?");
+            info!(group_id, slug, members = pool_members.len(), "pool");
+            pools.push(make_pool(format!("group:{group_id}"), pool_members));
+        }
+    }
+
+    for (mirror_id, entries) in &inputs.mirror_entries {
+        let pool_members: Vec<(String, usize)> = entries
+            .iter()
+            .map(|(entry_slug, bits)| (entry_slug.clone(), get_or_insert(*bits)))
+            .collect();
+        if !pool_members.is_empty() {
+            info!(mirror_id, entries = pool_members.len(), "pool");
+            pools.push(make_pool(format!("mirror:{mirror_id}"), pool_members));
+        }
+    }
+
+    (brackets, pools)
+}
+
+fn make_pool(key: impl Into<String>, members: Vec<(String, usize)>) -> Pool {
+    Pool {
+        key: key.into(),
+        members,
+    }
+}
+
+fn wins_to_basis_points(wins: u32, num_sims: u32) -> u32 {
+    ((wins as u64 * 10_000 + num_sims as u64 / 2) / num_sims as u64) as u32
+}
+
+fn load_status(conn: &mut redis::Connection) -> Result<TournamentStatus> {
+    let json: Option<String> = redis::Commands::get(conn, KEY_GAMES)?;
+    let json = json.ok_or_else(|| eyre!("no tournament status in Redis (key: {KEY_GAMES})"))?;
+    Ok(serde_json::from_str(&json)?)
+}
+
+fn resolver_for_status<'a>(
+    ctx: &'a Context,
+    status: &TournamentStatus,
+) -> Option<&'a dyn seismic_march_madness::LiveGameResolver> {
+    let live = status
+        .games
+        .iter()
+        .filter(|game| game.status == GameState::Live)
+        .count();
+    if live > 0 { Some(&ctx.resolver) } else { None }
+}
+
+fn write_team_probs(
+    conn: &mut redis::Connection,
+    team_names: &[String],
+    results: &TeamAdvanceResults,
+) -> Result<()> {
+    let sims = results.num_sims as f64;
+    let mut pipe = redis::pipe();
+    pipe.atomic();
+    pipe.del(KEY_TEAM_PROBS);
+    for (idx, name) in team_names.iter().enumerate() {
+        let probs: Vec<f64> = results.advance[idx]
+            .iter()
+            .map(|&count| count as f64 / sims)
+            .collect();
+        let json = serde_json::to_string(&probs)?;
+        pipe.hset(KEY_TEAM_PROBS, name, &json);
+    }
+    let () = pipe.query(conn)?;
+    info!(teams = team_names.len(), "team probs written");
+    Ok(())
+}
+
+fn write_forecasts(
+    conn: &mut redis::Connection,
+    pools: &[Pool],
+    pool_forecasts: &[BTreeMap<String, u32>],
+    output_file: &Option<PathBuf>,
+) -> Result<()> {
+    let mut pipe = redis::pipe();
+    pipe.atomic();
+    pipe.del(KEY_FORECASTS);
+    for (pool_idx, pool) in pools.iter().enumerate() {
+        let json = serde_json::to_string(&pool_forecasts[pool_idx])?;
+        pipe.hset(KEY_FORECASTS, &pool.key, &json);
+    }
+    let () = pipe.query(conn)?;
+    info!(pools = pools.len(), "forecasts written");
+
+    if let Some(path) = output_file {
+        let mut all = BTreeMap::new();
+        for (pool_idx, pool) in pools.iter().enumerate() {
+            all.insert(pool.key.clone(), pool_forecasts[pool_idx].clone());
+        }
+        let json = serde_json::to_string_pretty(&all)?;
+        std::fs::write(path, &json)?;
+        info!(output = %path.display(), "forecasts written to file");
     }
 
     Ok(())

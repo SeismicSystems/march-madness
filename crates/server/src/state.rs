@@ -4,13 +4,9 @@ use redis::aio::MultiplexedConnection;
 use seismic_march_madness::redis_keys::*;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 
-/// Shared application state with Redis connection and file-based cache for
-/// forecasts.
+/// Shared application state with Redis connection.
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<Inner>,
@@ -18,14 +14,6 @@ pub struct AppState {
 
 struct Inner {
     redis: MultiplexedConnection,
-    forecasts_path: PathBuf,
-    forecasts_cache: RwLock<CachedJson>,
-    ttl: Duration,
-}
-
-struct CachedJson {
-    data: serde_json::Value,
-    fetched_at: Instant,
 }
 
 // ── Response types ───────────────────────────────────────────────────
@@ -69,7 +57,7 @@ pub struct MirrorEntryResponse {
 }
 
 impl AppState {
-    pub async fn new(forecasts_path: PathBuf, ttl: Duration) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
         let client = redis::Client::open(url.as_str())
             .wrap_err_with(|| format!("failed to create Redis client from {url}"))?;
@@ -78,17 +66,8 @@ impl AppState {
             .await
             .wrap_err("failed to connect to Redis")?;
 
-        let expired = Instant::now() - ttl - Duration::from_secs(1);
         Ok(Self {
-            inner: Arc::new(Inner {
-                redis: conn,
-                forecasts_path,
-                forecasts_cache: RwLock::new(CachedJson {
-                    data: serde_json::Value::Null,
-                    fetched_at: expired,
-                }),
-                ttl,
-            }),
+            inner: Arc::new(Inner { redis: conn }),
         })
     }
 
@@ -316,33 +295,72 @@ impl AppState {
         }
     }
 
-    // ── File-based cache (forecasts) ──────────────────────────────────
+    // ── Forecasts (Redis HASH) ────────────────────────────────────────
 
+    /// Get main pool forecasts (HGET "mm" field from mm:forecasts).
     pub async fn get_forecasts(&self) -> Result<serde_json::Value> {
-        {
-            let cache = self.inner.forecasts_cache.read().await;
-            if cache.fetched_at.elapsed() < self.inner.ttl && !cache.data.is_null() {
-                return Ok(cache.data.clone());
+        self.get_forecast_by_key("mm").await
+    }
+
+    /// Get a raw forecast value by HASH field key.
+    pub async fn get_forecast_by_key(&self, key: &str) -> Result<serde_json::Value> {
+        let mut conn = self.redis();
+        let json: Option<String> = conn.hget(KEY_FORECASTS, key).await?;
+        match json {
+            Some(s) => Ok(serde_json::from_str(&s)?),
+            None => Ok(serde_json::Value::Null),
+        }
+    }
+
+    /// Get group forecasts by slug.
+    pub async fn get_group_forecast_by_slug(&self, slug: &str) -> Result<serde_json::Value> {
+        let mut conn = self.redis();
+        let id: Option<String> = conn.hget(KEY_GROUP_SLUGS, slug).await?;
+        match id {
+            Some(id) => self.get_scoped_forecast("group", &id).await,
+            None => Ok(serde_json::Value::Null),
+        }
+    }
+
+    pub async fn get_group_forecast_by_id(&self, id: &str) -> Result<serde_json::Value> {
+        self.get_scoped_forecast("group", id).await
+    }
+
+    /// Get mirror forecasts by slug.
+    pub async fn get_mirror_forecast_by_slug(&self, slug: &str) -> Result<serde_json::Value> {
+        let mut conn = self.redis();
+        let id: Option<String> = conn.hget(KEY_MIRROR_SLUGS, slug).await?;
+        match id {
+            Some(id) => self.get_scoped_forecast("mirror", &id).await,
+            None => Ok(serde_json::Value::Null),
+        }
+    }
+
+    pub async fn get_mirror_forecast_by_id(&self, id: &str) -> Result<serde_json::Value> {
+        self.get_scoped_forecast("mirror", id).await
+    }
+
+    async fn get_scoped_forecast(&self, scope: &str, id: &str) -> Result<serde_json::Value> {
+        let field = format!("{scope}:{id}");
+        self.get_forecast_by_key(&field).await
+    }
+
+    // ── Team advance probabilities (Redis HASH) ───────────────────────
+
+    /// Get all per-team advance probabilities from mm:probs.
+    pub async fn get_team_probs(&self) -> Result<HashMap<String, serde_json::Value>> {
+        let mut conn = self.redis();
+        let all: HashMap<String, String> = conn.hgetall(KEY_TEAM_PROBS).await?;
+        let mut result = HashMap::with_capacity(all.len());
+        for (team, json) in all {
+            match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(val) => {
+                    result.insert(team, val);
+                }
+                Err(e) => tracing::warn!(team = %team, error = %e, "corrupt team prob in Redis"),
             }
         }
-
-        let path = self.inner.forecasts_path.clone();
-        let data = tokio::task::spawn_blocking(move || -> Result<serde_json::Value> {
-            if !path.exists() {
-                return Ok(serde_json::Value::Null);
-            }
-            let file = std::fs::File::open(&path)?;
-            let reader = std::io::BufReader::new(&file);
-            let value: serde_json::Value = serde_json::from_reader(reader)?;
-            Ok(value)
-        })
-        .await??;
-
-        let mut cache = self.inner.forecasts_cache.write().await;
-        cache.data = data.clone();
-        cache.fetched_at = Instant::now();
-
-        Ok(data)
+        Ok(result)
     }
 }
 

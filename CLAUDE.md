@@ -35,7 +35,7 @@
 ### Rust (Crates)
 
 - **indexer**: Listens for on-chain events (MarchMadness, BracketGroups, BracketMirror), writes to Redis
-- **server**: Serves indexed data from Redis + file-based tournament status/forecasts via HTTP
+- **server**: Serves indexed data from Redis via HTTP (entries, groups, mirrors, tournament status, forecasts)
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
 - **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament status to Redis (`mm:games` key). Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
 
@@ -53,7 +53,7 @@ crates/
   bracket-sim/      — Tournament simulation, market-making calibration against Kalshi orderbooks
   indexer/          — Rust event listener + backfill
   server/           — HTTP server for indexed data + tournament status + forecasts
-  forecaster/       — Monte Carlo bracket win probability simulator (thin CLI over the lib)
+  forecaster/       — Monte Carlo multi-pool win probability simulator (reads from Redis, writes per-pool forecasts + team probs)
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, mappings/)
@@ -159,7 +159,7 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 
 ## Server API
 
-Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and tournament status from Redis; forecasts remain file-based. Routes have NO `/api` prefix — nginx adds that in production.
+Rust HTTP server (`crates/server`, default port 3000). All data is read from Redis. Routes have NO `/api` prefix — nginx adds that in production.
 
 - `GET /entries` — full entry index (from Redis)
 - `GET /entries/:address` — single entry by address
@@ -172,7 +172,12 @@ Rust HTTP server (`crates/server`, default port 3000). Reads chain metadata and 
 - `GET /mirrors/:slug` — mirror details by slug
 - `GET /mirrors/:slug/entries` — mirror entries (slug → bracket)
 - `GET /tournament-status` — tournament status JSON (from Redis `mm:games` key)
-- `GET /forecasts` — bracket win probabilities (from `data/{year}/men/forecasts.json`, written by forecaster crate)
+- `GET /forecasts` — main pool win probabilities in basis points (from Redis HASH `mm:forecasts` field `"mm"`)
+- `GET /forecasts/groups/s/:slug` — group forecast by slug (basis points)
+- `GET /forecasts/groups/id/:id` — group forecast by ID (basis points)
+- `GET /forecasts/mirrors/s/:slug` — mirror forecast by slug (basis points)
+- `GET /forecasts/mirrors/id/:id` — mirror forecast by ID (basis points)
+- `GET /team-probs` — per-team advance probabilities (from Redis HASH `mm:probs`, written by forecaster)
 - `GET /health` — health check
 
 Requires Redis (`REDIS_URL` env var, default `redis://127.0.0.1:6379`).
@@ -231,7 +236,7 @@ Key env vars: `CONTRACT_ADDRESS` (skip deploy), `DEADLINE_OFFSET` (custom deadli
 
 ### Seed Command (`cargo run -p march-madness-indexer -- seed`)
 
-Writes fake data directly to Redis for local frontend development. No chain or RPC needed — Redis only. Generates random entries (with brackets and tags), a mid-tournament status (24 final + 3 live games), and 3 sample groups with members. Requires `DANGEROUSLY_SEED_REDIS=1` env var as a safety guard (never set on production).
+Writes fake data directly to Redis for local frontend development. No chain or RPC needed — Redis only. Generates random entries (with brackets and tags), a mid-tournament status (24 final + 3 live games + team reach probabilities), 3 sample groups with members, and 2 sample mirrors with entries. Requires `DANGEROUSLY_SEED_REDIS=1` env var as a safety guard (never set on production).
 
 ```bash
 DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed              # 50 entries (default)
@@ -239,7 +244,15 @@ DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed --entries 10
 DANGEROUSLY_SEED_REDIS=1 cargo run -p march-madness-indexer -- seed --clean       # clear seeded keys first
 ```
 
-After seeding, start the server (`cargo run -p march-madness-server`) and frontend (`cd packages/web && bun dev`) to see the leaderboard populated.
+After seeding, run the forecaster to generate per-pool win probabilities and team advance probs, then start the server:
+
+```bash
+cargo run -p march-madness-forecaster -- --once  # single iteration, then exit
+cargo run -p march-madness-forecaster            # loops forever, re-reading Redis each iteration
+cargo run -p march-madness-forecaster -- --pre-lock  # ignore Redis game state, use pre-tourney probabilities
+cargo run -p march-madness-server                # serves data from Redis
+cd packages/web && bun dev                       # start frontend
+```
 
 ### Integration Tests (`packages/localdev/test/integration.test.ts`)
 

@@ -52,7 +52,31 @@ Returns an array of entries in the mirror. Each entry has: `slug`, `bracket`.
 
 ### `GET /api/forecasts`
 
-Returns per-bracket win probabilities (written by the forecaster crate). No auth required.
+Returns main pool win probabilities as basis points (10000 = 100%). Response is `{"0xaddr": 523, ...}`.
+
+Written by the forecaster crate to Redis HASH `mm:forecasts` field `"mm"`. No auth required.
+
+### `GET /api/forecasts/groups/s/:slug`
+
+Returns group forecast by slug. Response is `{"0xaddr": 3000, ...}` (basis points). 404 if not found.
+
+### `GET /api/forecasts/groups/id/:id`
+
+Returns group forecast by numeric ID. Same response format. 404 if not found.
+
+### `GET /api/forecasts/mirrors/s/:slug`
+
+Returns mirror forecast by slug. Response is `{"entry-slug": 5000, ...}` (basis points). 404 if not found.
+
+### `GET /api/forecasts/mirrors/id/:id`
+
+Returns mirror forecast by numeric ID. Same response format. 404 if not found.
+
+### `GET /api/team-probs`
+
+Returns per-team advance probabilities. Response is `{"Duke": [1.0, 0.95, 0.82, ...], ...}` — 6 floats per team representing P(advance past R64), P(advance past R32), ..., P(win championship).
+
+Written by the forecaster to Redis HASH `mm:probs`. No auth required.
 
 ---
 
@@ -224,24 +248,31 @@ cargo run --bin march-madness-server -- --port 3000
 
 ## Running the Forecaster
 
-After tournament status is posted, run the forecaster to generate win probabilities:
+The forecaster runs in a **continuous loop** by default: each iteration reads fresh state from Redis (entries, groups, mirrors, tournament status), runs Monte Carlo simulations, writes results, then sleeps 1 second before the next iteration. This means forecasts automatically update as `ncaa-feed` writes new game state.
 
 ```bash
-# Live mode: read tournament status from Redis
-cargo run --release --bin march-madness-forecaster -- --live
+# Continuous mode (default): loops forever, re-reading Redis each iteration
+cargo run --release --bin march-madness-forecaster
 
-# File mode: read status from a file
-cargo run --release --bin march-madness-forecaster -- \
-  --status data/2026/men/status.json
+# Run once and exit
+cargo run --release --bin march-madness-forecaster -- --once
 
-# Custom paths / simulation count
-cargo run --release --bin march-madness-forecaster -- \
-  --live \
-  --entries-file data/entries.json \
-  --tournament-file data/2026/men/tournament.json \
-  --output-file data/2026/men/forecasts.json \
-  --simulations 100000
+# Pre-lock mode: ignore Redis game state and simulate from pre-tournament probabilities
+cargo run --release --bin march-madness-forecaster -- --pre-lock
+
+# Custom simulation count per iteration
+cargo run --release --bin march-madness-forecaster -- --simulations 100000
+
+# Print per-team advance probabilities (one-shot, no entries needed)
+cargo run --release --bin march-madness-forecaster -- --team-advance
 ```
 
-The forecaster reads entries from a file, tournament status from Redis (`--live`) or a file (`--status <path>`), and tournament structure from embedded data or `--tournament-file`. It runs 100k Monte Carlo forward simulations and writes `data/2026/men/forecasts.json`. The server will pick up the new file within 5 seconds (TTL cache).
+The forecaster reads contest membership from Redis: entries (`mm:entries`), group members (`mm:group_members`), and mirror entries (`mm:mirror:entries`). In the default mode it also reads tournament status from Redis (`mm:games`) and conditions on any final/live games already written by `ncaa-feed`. With `--pre-lock`, it ignores Redis game state and computes equities from pre-tournament probabilities only.
 
+Results are written to:
+- **`mm:forecasts`** (HASH): field per pool (`"mm"`, `"group:{id}"`, `"mirror:{id}"`) → JSON `{"key": basis_points}` where 10000 = 100%.
+- **`mm:probs`** (HASH): field per team → JSON array of 6 advance probabilities `[R64, R32, S16, E8, F4, Champ]`.
+
+The server reads these directly from Redis. Optionally also writes pool forecasts to a file if `--output-file` is specified.
+
+In production, the forecaster runs as a supervised process (see `deploy/supervisor.conf`).
