@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add mirror leaderboard and bracket viewer pages at `/mirrors/id/:id` and `/mirrors/id/:id/bracket/:entrySlug`. Not linked from anywhere in the UI — must be navigated to directly. Also fix group leaderboard to show group-specific win probabilities instead of global pool forecasts.
+
+
 Add clickable NCAA game links to live games in bracket view. The period/clock label (e.g. "2H 7:30") on live games now links to the NCAA March Madness Live page for that game. Bracket position IDs are stored in tournament.json via fetch-bracket.
 
 
