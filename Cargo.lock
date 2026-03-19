@@ -3213,6 +3213,7 @@ dependencies = [
  "eyre",
  "redis",
  "seismic-march-madness",
+ "serde",
  "serde_json",
  "tracing",
  "tracing-subscriber",

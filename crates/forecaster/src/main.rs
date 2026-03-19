@@ -8,6 +8,7 @@ use bracket_sim::team::load_teams_from_json_str;
 use bracket_sim::{Team, Tournament};
 use clap::Parser;
 use eyre::{Result, eyre};
+use serde::Serialize;
 use tracing::{info, warn};
 
 use seismic_march_madness::redis_keys::*;
@@ -17,6 +18,14 @@ use seismic_march_madness::{
     run_multi_pool_simulations_with_resolver, run_team_advance_simulations_with_resolver,
     tournament_json,
 };
+
+/// Rich forecast for a single entry, serialized to Redis/JSON.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ForecastEntry {
+    expected_score: f64,
+    win_probability: f64,
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -245,7 +254,7 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
     write_team_probs(conn, &ctx.team_names, &advance_results)?;
 
     if brackets.is_empty() {
-        let empty_forecasts: Vec<BTreeMap<String, u32>> =
+        let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
             pools.iter().map(|_| BTreeMap::new()).collect();
         info!("no valid brackets found, writing empty forecasts");
         write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
@@ -261,7 +270,8 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         resolver_opt,
     );
 
-    let pool_forecasts: Vec<BTreeMap<String, u32>> = pools
+    let num_sims = results.num_sims as f64;
+    let pool_forecasts: Vec<BTreeMap<String, ForecastEntry>> = pools
         .iter()
         .enumerate()
         .map(|(pool_idx, pool)| {
@@ -270,9 +280,13 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
                 .enumerate()
                 .map(|(member_idx, (member_key, _))| {
                     let wins = results.pool_wins[pool_idx][member_idx];
+                    let score_sum = results.score_sums[pool_idx][member_idx];
                     (
                         member_key.clone(),
-                        wins_to_basis_points(wins, results.num_sims),
+                        ForecastEntry {
+                            expected_score: score_sum as f64 / num_sims,
+                            win_probability: wins as f64 / num_sims,
+                        },
                     )
                 })
                 .collect()
@@ -282,12 +296,19 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
     write_forecasts(conn, &pools, &pool_forecasts, &ctx.output_file)?;
 
     if let Some(main_pool) = pool_forecasts.first() {
-        let mut sorted: Vec<(&String, &u32)> = main_pool.iter().collect();
-        sorted.sort_by(|left, right| right.1.cmp(left.1));
-        for (address, bps) in sorted.iter().take(3) {
+        let mut sorted: Vec<(&String, &ForecastEntry)> = main_pool.iter().collect();
+        sorted.sort_by(|left, right| {
+            right
+                .1
+                .win_probability
+                .partial_cmp(&left.1.win_probability)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        for (address, entry) in sorted.iter().take(3) {
             info!(
                 addr = address.as_str(),
-                pct = format!("{:.2}%", **bps as f64 / 100.0),
+                pct = format!("{:.2}%", entry.win_probability * 100.0),
+                expected_score = format!("{:.1}", entry.expected_score),
                 "top"
             );
         }
@@ -446,10 +467,6 @@ fn make_pool(key: impl Into<String>, members: Vec<(String, usize)>) -> Pool {
     }
 }
 
-fn wins_to_basis_points(wins: u32, num_sims: u32) -> u32 {
-    ((wins as u64 * 10_000 + num_sims as u64 / 2) / num_sims as u64) as u32
-}
-
 fn load_status(conn: &mut redis::Connection) -> Result<TournamentStatus> {
     let json: Option<String> = redis::Commands::get(conn, KEY_GAMES)?;
     let json = json.ok_or_else(|| eyre!("no tournament status in Redis (key: {KEY_GAMES})"))?;
@@ -493,7 +510,7 @@ fn write_team_probs(
 fn write_forecasts(
     conn: &mut redis::Connection,
     pools: &[Pool],
-    pool_forecasts: &[BTreeMap<String, u32>],
+    pool_forecasts: &[BTreeMap<String, ForecastEntry>],
     output_file: &Option<PathBuf>,
 ) -> Result<()> {
     let mut pipe = redis::pipe();

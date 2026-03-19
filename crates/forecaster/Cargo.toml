@@ -6,6 +6,7 @@ version.workspace = true
 [dependencies]
 seismic-march-madness.workspace = true
 bracket-sim = { path = "../bracket-sim" }
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 eyre.workspace = true
 clap = { version = "4", features = ["derive"] }
