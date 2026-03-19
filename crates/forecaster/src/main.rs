@@ -8,15 +8,15 @@ use bracket_sim::team::load_teams_from_json_str;
 use bracket_sim::{Team, Tournament};
 use clap::Parser;
 use eyre::{Result, eyre};
+use rayon::prelude::*;
 use serde::Serialize;
 use tracing::{info, warn};
 
 use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::{
-    GameState, GameStatus, Pool, ReachProbs, TeamAdvanceResults, TournamentData, TournamentStatus,
-    build_reach_probs, get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
-    run_multi_pool_simulations_with_resolver, run_team_advance_simulations_with_resolver,
-    tournament_json,
+    GameState, GameStatus, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, TeamAdvanceResults,
+    TournamentData, TournamentStatus, get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
+    run_multi_pool_simulations, run_team_advance_simulations, tournament_json,
 };
 
 /// Rich forecast for a single entry, serialized to Redis/JSON.
@@ -68,7 +68,6 @@ struct Context {
     team_names: Vec<String>,
     team_map: HashMap<String, Team>,
     resolver: GameModelResolver,
-    reach: ReachProbs,
     simulations: u32,
     output_file: Option<PathBuf>,
     simulation_mode: SimulationMode,
@@ -76,6 +75,7 @@ struct Context {
 
 struct PreLockContext {
     status: TournamentStatus,
+    tournament: Tournament,
 }
 
 enum SimulationMode {
@@ -112,13 +112,12 @@ fn main() -> Result<()> {
     let ctx = build_context(&cli)?;
 
     if cli.team_advance {
-        let (status, reach, resolver_opt) = load_simulation_state(&mut conn, &ctx)?;
-        let results = run_team_advance_simulations_with_resolver(
-            &status,
-            &reach,
-            ctx.simulations,
-            resolver_opt,
-        );
+        let results = if let SimulationMode::PreLock(ref pre_lock) = ctx.simulation_mode {
+            run_prelock_team_advance(&pre_lock.tournament, ctx.simulations)
+        } else {
+            let status = load_status(&mut conn)?;
+            run_team_advance_simulations(&status, ctx.simulations, &ctx.resolver)
+        };
         results.print_table(&ctx.team_names, |name| {
             ctx.team_map.get(name).map(|team| team.seed).unwrap_or(0)
         });
@@ -165,13 +164,13 @@ fn build_context(cli: &Cli) -> Result<Context> {
         .collect();
     let resolver = GameModelResolver::new(&team_names, &team_map, bracket_sim::DEFAULT_PACE_D);
 
-    // Compute reach probabilities once from KenPom-based tournament simulation.
-    // Both live and pre-lock modes use the same baseline reach probs.
-    let reach = compute_reach_probs(cli.year, cli.simulations, &team_names, &teams);
-
     let simulation_mode = if cli.pre_lock {
+        let bracket_config = BracketConfig::for_year(cli.year);
+        let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
+        tournament.setup_tournament(teams.to_vec(), &bracket_config);
         SimulationMode::PreLock(PreLockContext {
             status: pre_lock_status(),
+            tournament,
         })
     } else {
         SimulationMode::Live
@@ -181,25 +180,10 @@ fn build_context(cli: &Cli) -> Result<Context> {
         team_names,
         team_map,
         resolver,
-        reach,
         simulations: cli.simulations,
         output_file: cli.output_file.clone(),
         simulation_mode,
     })
-}
-
-fn compute_reach_probs(
-    year: u16,
-    simulations: u32,
-    team_names: &[String],
-    teams: &[Team],
-) -> ReachProbs {
-    let bracket_config = BracketConfig::for_year(year);
-    let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
-    tournament.setup_tournament(teams.to_vec(), &bracket_config);
-    // `cumulative_win_probabilities` already uses rayon internally.
-    let reach_map = tournament.cumulative_win_probabilities(simulations as usize);
-    build_reach_probs(team_names, &reach_map)
 }
 
 fn load_tournament_json(cli: &Cli) -> Result<String> {
@@ -219,7 +203,10 @@ fn pre_lock_status() -> TournamentStatus {
 }
 
 fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) -> Result<()> {
-    let (status, reach, resolver_opt) = load_simulation_state(conn, ctx)?;
+    let status = match &ctx.simulation_mode {
+        SimulationMode::PreLock(pre_lock) => pre_lock.status.clone(),
+        SimulationMode::Live => load_status(conn)?,
+    };
     let undecided = status
         .games
         .iter()
@@ -249,28 +236,46 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         "built pools"
     );
 
-    let advance_results =
-        run_team_advance_simulations_with_resolver(&status, &reach, ctx.simulations, resolver_opt);
-    write_team_probs(conn, &ctx.team_names, &advance_results)?;
+    let (advance_results, multi_pool_results) = if let SimulationMode::PreLock(ref pre_lock) =
+        ctx.simulation_mode
+    {
+        let advance = run_prelock_team_advance(&pre_lock.tournament, ctx.simulations);
+        write_team_probs(conn, &ctx.team_names, &advance)?;
 
-    if brackets.is_empty() {
-        let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
-            pools.iter().map(|_| BTreeMap::new()).collect();
-        info!("no valid brackets found, writing empty forecasts");
-        write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
-        return Ok(());
-    }
+        if brackets.is_empty() {
+            let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
+                pools.iter().map(|_| BTreeMap::new()).collect();
+            info!("no valid brackets found, writing empty forecasts");
+            write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
+            return Ok(());
+        }
 
-    let results = run_multi_pool_simulations_with_resolver(
-        &brackets,
-        &pools,
-        &status,
-        &reach,
-        ctx.simulations,
-        resolver_opt,
-    );
+        let multi = run_prelock_multi_pool_simulations(
+            &brackets,
+            &pools,
+            &pre_lock.tournament,
+            ctx.simulations,
+        );
+        (advance, multi)
+    } else {
+        let advance = run_team_advance_simulations(&status, ctx.simulations, &ctx.resolver);
+        write_team_probs(conn, &ctx.team_names, &advance)?;
 
-    let num_sims = results.num_sims as f64;
+        if brackets.is_empty() {
+            let empty_forecasts: Vec<BTreeMap<String, ForecastEntry>> =
+                pools.iter().map(|_| BTreeMap::new()).collect();
+            info!("no valid brackets found, writing empty forecasts");
+            write_forecasts(conn, &pools, &empty_forecasts, &ctx.output_file)?;
+            return Ok(());
+        }
+
+        let multi =
+            run_multi_pool_simulations(&brackets, &pools, &status, ctx.simulations, &ctx.resolver);
+        (advance, multi)
+    };
+    let _ = advance_results; // team probs already written above
+
+    let num_sims = multi_pool_results.num_sims as f64;
     let pool_forecasts: Vec<BTreeMap<String, ForecastEntry>> = pools
         .iter()
         .enumerate()
@@ -279,8 +284,8 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
                 .iter()
                 .enumerate()
                 .map(|(member_idx, (member_key, _))| {
-                    let wins = results.pool_wins[pool_idx][member_idx];
-                    let score_sum = results.score_sums[pool_idx][member_idx];
+                    let wins = multi_pool_results.pool_wins[pool_idx][member_idx];
+                    let score_sum = multi_pool_results.score_sums[pool_idx][member_idx];
                     (
                         member_key.clone(),
                         ForecastEntry {
@@ -315,24 +320,6 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
     }
 
     Ok(())
-}
-
-fn load_simulation_state<'a>(
-    conn: &mut redis::Connection,
-    ctx: &'a Context,
-) -> Result<(
-    TournamentStatus,
-    ReachProbs,
-    Option<&'a dyn seismic_march_madness::LiveGameResolver>,
-)> {
-    if let SimulationMode::PreLock(pre_lock) = &ctx.simulation_mode {
-        return Ok((pre_lock.status.clone(), ctx.reach.clone(), None));
-    }
-
-    let status = load_status(conn)?;
-    let resolver_opt = resolver_for_status(ctx, &status);
-
-    Ok((status, ctx.reach.clone(), resolver_opt))
 }
 
 fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> {
@@ -473,16 +460,166 @@ fn load_status(conn: &mut redis::Connection) -> Result<TournamentStatus> {
     Ok(serde_json::from_str(&json)?)
 }
 
-fn resolver_for_status<'a>(
-    ctx: &'a Context,
-    status: &TournamentStatus,
-) -> Option<&'a dyn seismic_march_madness::LiveGameResolver> {
-    let live = status
-        .games
-        .iter()
-        .filter(|game| game.status == GameState::Live)
-        .count();
-    if live > 0 { Some(&ctx.resolver) } else { None }
+// ── Pre-lock simulation (full possession-level model) ──────────────
+
+/// Run multi-pool simulations using bracket-sim's full NB/Poisson game model
+/// with Bayesian metric updates. Used in pre-lock mode for the most accurate
+/// simulation — each game updates team metrics for subsequent rounds.
+fn run_prelock_multi_pool_simulations(
+    brackets: &[u64],
+    pools: &[Pool],
+    tournament: &Tournament,
+    num_sims: u32,
+) -> MultiPoolResults {
+    let num_threads = rayon::current_num_threads().max(1);
+    let chunk_size = (num_sims as usize).div_ceil(num_threads);
+
+    let chunks: Vec<u32> = (0..num_threads)
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = ((i + 1) * chunk_size).min(num_sims as usize);
+            if start >= num_sims as usize {
+                0
+            } else {
+                (end - start) as u32
+            }
+        })
+        .filter(|&n| n > 0)
+        .collect();
+
+    #[allow(clippy::type_complexity)]
+    let partial_results: Vec<(Vec<Vec<u32>>, Vec<Vec<u64>>)> = chunks
+        .par_iter()
+        .map(|&chunk_sims| {
+            let mut rng = rand::rng();
+            let mut pool_wins: Vec<Vec<u32>> =
+                pools.iter().map(|p| vec![0u32; p.members.len()]).collect();
+            let mut score_sums: Vec<Vec<u64>> =
+                pools.iter().map(|p| vec![0u64; p.members.len()]).collect();
+
+            for _ in 0..chunk_sims {
+                let mut tourn = tournament.clone();
+                let results = tourn.simulate_tournament_bb(&mut rng);
+
+                let mask = seismic_march_madness::get_scoring_mask(results);
+                let scores: Vec<u32> = brackets
+                    .iter()
+                    .map(|&b| seismic_march_madness::score_bracket_with_mask(b, results, mask))
+                    .collect();
+
+                for (pool_idx, pool) in pools.iter().enumerate() {
+                    let mut best = 0u32;
+                    for &(_, bracket_idx) in &pool.members {
+                        let s = scores[bracket_idx];
+                        if s > best {
+                            best = s;
+                        }
+                    }
+                    for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
+                        let s = scores[bracket_idx];
+                        score_sums[pool_idx][member_idx] += s as u64;
+                        if s == best {
+                            pool_wins[pool_idx][member_idx] += 1;
+                        }
+                    }
+                }
+            }
+
+            (pool_wins, score_sums)
+        })
+        .collect();
+
+    // Merge partial results.
+    let mut pool_wins: Vec<Vec<u32>> = pools.iter().map(|p| vec![0u32; p.members.len()]).collect();
+    let mut score_sums: Vec<Vec<u64>> = pools.iter().map(|p| vec![0u64; p.members.len()]).collect();
+    for (pw, ss) in &partial_results {
+        for (pi, pp) in pw.iter().enumerate() {
+            for (mi, &c) in pp.iter().enumerate() {
+                pool_wins[pi][mi] += c;
+            }
+        }
+        for (pi, pp) in ss.iter().enumerate() {
+            for (mi, &s) in pp.iter().enumerate() {
+                score_sums[pi][mi] += s;
+            }
+        }
+    }
+
+    MultiPoolResults {
+        pool_wins,
+        score_sums,
+        num_sims,
+    }
+}
+
+/// Run team advance simulations using the full game model.
+fn run_prelock_team_advance(tournament: &Tournament, num_sims: u32) -> TeamAdvanceResults {
+    let num_threads = rayon::current_num_threads().max(1);
+    let chunk_size = (num_sims as usize).div_ceil(num_threads);
+
+    let chunks: Vec<u32> = (0..num_threads)
+        .map(|i| {
+            let start = i * chunk_size;
+            let end = ((i + 1) * chunk_size).min(num_sims as usize);
+            if start >= num_sims as usize {
+                0
+            } else {
+                (end - start) as u32
+            }
+        })
+        .filter(|&n| n > 0)
+        .collect();
+
+    let partials: Vec<Vec<[u32; 6]>> = chunks
+        .par_iter()
+        .map(|&chunk_sims| {
+            let mut rng = rand::rng();
+            let mut advance = vec![[0u32; 6]; 64];
+
+            for _ in 0..chunk_sims {
+                let mut tourn = tournament.clone();
+                let results = tourn.simulate_tournament_bb(&mut rng);
+
+                // Extract per-game winners from the results bits.
+                let mut game_winner: [usize; 63] = [usize::MAX; 63];
+                for round in 0..6 {
+                    let start = ROUND_STARTS[round];
+                    let count = ROUND_SIZES[round];
+                    for i in 0..count {
+                        let g = start + i;
+                        let (t1, t2) = if round == 0 {
+                            (2 * g, 2 * g + 1)
+                        } else {
+                            let offset = g - start;
+                            let prev_start = ROUND_STARTS[round - 1];
+                            (
+                                game_winner[prev_start + 2 * offset],
+                                game_winner[prev_start + 2 * offset + 1],
+                            )
+                        };
+                        let bit_pos = 62 - g;
+                        let team1_wins = (results >> bit_pos) & 1 == 1;
+                        let winner = if team1_wins { t1 } else { t2 };
+                        game_winner[g] = winner;
+                        advance[winner][round] += 1;
+                    }
+                }
+            }
+
+            advance
+        })
+        .collect();
+
+    let mut advance = vec![[0u32; 6]; 64];
+    for partial in &partials {
+        for (team, rounds) in partial.iter().enumerate() {
+            for (r, &count) in rounds.iter().enumerate() {
+                advance[team][r] += count;
+            }
+        }
+    }
+
+    TeamAdvanceResults { advance, num_sims }
 }
 
 fn write_team_probs(

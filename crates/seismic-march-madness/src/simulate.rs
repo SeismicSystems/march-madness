@@ -2,15 +2,13 @@
 //!
 //! Simulates the tournament round-by-round. For each simulation:
 //! 1. For decided games: use known winner
-//! 2. For live games: simulate remaining possessions via `LiveGameResolver`
-//!    (falls back to coin flip with team1WinProbability if no resolver provided)
-//! 3. For upcoming games: determine who's playing from earlier rounds in THIS sim,
-//!    then derive P(A beats B) = reach[A][r+1] / (reach[A][r+1] + reach[B][r+1])
-//! 4. Build complete 64-bit results, score all brackets, find winner(s)
+//! 2. For live/upcoming games: delegate to a [`GameResolver`] which simulates
+//!    using KenPom team metrics (remaining possessions for live, full game for upcoming)
+//! 3. Build complete 64-bit results, score all brackets, find winner(s)
 
 use crate::scoring::{get_scoring_mask, score_bracket_with_mask};
 use crate::types::{GameState, TournamentStatus};
-use rand::{Rng, RngCore};
+use rand::RngCore;
 use rayon::prelude::*;
 
 /// Round start offsets: R64=0, R32=32, S16=48, E8=56, F4=60, Champ=62
@@ -24,17 +22,12 @@ pub struct SimulationResults {
     pub expected_scores: Vec<f64>,
 }
 
-/// Reach probabilities indexed by bracket position (0-63), one per round (6 values).
-/// reach_by_team[team_idx][round] = P(team reaches that round).
-/// round 0 = R64 (always 1.0), round 5 = champion.
-pub type ReachProbs = Vec<[f64; 6]>;
-
-/// Resolves live game outcomes by simulating remaining possessions.
+/// Resolves game outcomes by simulating with KenPom team metrics.
 ///
-/// Implementations have access to team metrics and game state, and return
-/// true if team1 wins for a given simulation trial.
-pub trait LiveGameResolver: Send + Sync {
-    /// Simulate the remaining portion of a live game and return true if team1 wins.
+/// For live games: simulates remaining possessions from the current score.
+/// For upcoming games: simulates the full game from scratch.
+pub trait GameResolver: Send + Sync {
+    /// Simulate a game and return true if team1 wins.
     ///
     /// - `game_index`: 0-62 game index
     /// - `team1_idx`, `team2_idx`: bracket position indices (0-63)
@@ -66,27 +59,6 @@ fn r64_teams(g: usize) -> (usize, usize) {
     (2 * g, 2 * g + 1)
 }
 
-/// Derive P(team_a beats team_b) in round `round` from reach probabilities.
-/// Uses: P(A wins) = reach[A][round+1] / (reach[A][round+1] + reach[B][round+1])
-/// Falls back to 0.5 if both are 0.
-fn win_prob_from_reach(reach: &ReachProbs, team_a: usize, team_b: usize, round: usize) -> f64 {
-    if round >= 5 {
-        let pa = reach[team_a][5];
-        let pb = reach[team_b][5];
-        if pa + pb == 0.0 {
-            return 0.5;
-        }
-        return pa / (pa + pb);
-    }
-    let next_round = round + 1;
-    let pa = reach[team_a][next_round];
-    let pb = reach[team_b][next_round];
-    if pa + pb == 0.0 {
-        return 0.5;
-    }
-    pa / (pa + pb)
-}
-
 /// Callback for processing each game result in a forward sim trial.
 trait SimCallback {
     fn on_game(&mut self, game_index: usize, round: usize, team1_wins: bool, winner: usize);
@@ -97,9 +69,8 @@ trait SimCallback {
 /// for each game result and at the end of each trial.
 fn run_forward_sim(
     status: &TournamentStatus,
-    reach: &ReachProbs,
     num_sims: u32,
-    resolver: Option<&dyn LiveGameResolver>,
+    resolver: &dyn GameResolver,
     callback: &mut dyn SimCallback,
 ) {
     let mut rng = rand::rng();
@@ -124,17 +95,8 @@ fn run_forward_sim(
                 let game = &status.games[g];
                 let team1_wins = match game.status {
                     GameState::Final => game.winner.unwrap_or(true),
-                    GameState::Live => {
-                        if let Some(res) = resolver {
-                            res.resolve(g, team1, team2, status, &mut rng)
-                        } else {
-                            let p = game.team1_win_probability.unwrap_or(0.5);
-                            rng.random::<f64>() < p
-                        }
-                    }
-                    GameState::Upcoming => {
-                        let p = win_prob_from_reach(reach, team1, team2, round);
-                        rng.random::<f64>() < p
+                    GameState::Live | GameState::Upcoming => {
+                        resolver.resolve(g, team1, team2, status, &mut rng)
                     }
                 };
                 let winner = if team1_wins { team1 } else { team2 };
@@ -208,21 +170,11 @@ impl SimCallback for BracketScoringCallback<'_> {
 pub fn run_simulations(
     brackets: &[u64],
     status: &TournamentStatus,
-    reach: &ReachProbs,
     num_sims: u32,
-) -> SimulationResults {
-    run_simulations_with_resolver(brackets, status, reach, num_sims, None)
-}
-
-pub fn run_simulations_with_resolver(
-    brackets: &[u64],
-    status: &TournamentStatus,
-    reach: &ReachProbs,
-    num_sims: u32,
-    resolver: Option<&dyn LiveGameResolver>,
+    resolver: &dyn GameResolver,
 ) -> SimulationResults {
     let mut cb = BracketScoringCallback::new(brackets);
-    run_forward_sim(status, reach, num_sims, resolver, &mut cb);
+    run_forward_sim(status, num_sims, resolver, &mut cb);
     SimulationResults {
         wins: cb.wins,
         expected_scores: cb.expected_scores,
@@ -300,20 +252,11 @@ impl SimCallback for TeamAdvanceCallback {
 
 pub fn run_team_advance_simulations(
     status: &TournamentStatus,
-    reach: &ReachProbs,
     num_sims: u32,
-) -> TeamAdvanceResults {
-    run_team_advance_simulations_with_resolver(status, reach, num_sims, None)
-}
-
-pub fn run_team_advance_simulations_with_resolver(
-    status: &TournamentStatus,
-    reach: &ReachProbs,
-    num_sims: u32,
-    resolver: Option<&dyn LiveGameResolver>,
+    resolver: &dyn GameResolver,
 ) -> TeamAdvanceResults {
     let mut cb = TeamAdvanceCallback::new();
-    run_forward_sim(status, reach, num_sims, resolver, &mut cb);
+    run_forward_sim(status, num_sims, resolver, &mut cb);
     TeamAdvanceResults {
         advance: cb.advance,
         num_sims,
@@ -412,13 +355,12 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
 /// Run multi-pool simulations. All pools share the same forward sim trials,
 /// so each pool sees the same simulated tournament outcomes. Uses rayon to
 /// parallelize across chunks of simulations.
-pub fn run_multi_pool_simulations_with_resolver(
+pub fn run_multi_pool_simulations(
     brackets: &[u64],
     pools: &[Pool],
     status: &TournamentStatus,
-    reach: &ReachProbs,
     num_sims: u32,
-    resolver: Option<&dyn LiveGameResolver>,
+    resolver: &dyn GameResolver,
 ) -> MultiPoolResults {
     // Determine chunk size for parallelism. Each thread runs a chunk of sims
     // with its own callback, then we merge.
@@ -444,7 +386,7 @@ pub fn run_multi_pool_simulations_with_resolver(
         .par_iter()
         .map(|&chunk_sims| {
             let mut cb = MultiPoolScoringCallback::new(brackets, pools);
-            run_forward_sim(status, reach, chunk_sims, resolver, &mut cb);
+            run_forward_sim(status, chunk_sims, resolver, &mut cb);
             (cb.pool_wins, cb.score_sums)
         })
         .collect();
@@ -483,6 +425,7 @@ pub fn run_multi_pool_simulations_with_resolver(
 mod tests {
     use super::*;
     use crate::types::{GameScore, GameState, GameStatus, TournamentStatus};
+    use rand::Rng;
 
     fn make_status(decided: &[(u8, bool)], live: &[(u8, f64)]) -> TournamentStatus {
         let mut games: Vec<GameStatus> = (0..63).map(GameStatus::upcoming).collect();
@@ -511,46 +454,49 @@ mod tests {
         }
     }
 
-    /// Uniform reach probs — every team has equal chance at every round.
-    fn uniform_reach(p: f64) -> ReachProbs {
-        (0..64).map(|_| [1.0, p, p, p, p, p]).collect()
-    }
-
-    /// Reach probs where team 0 is dominant.
-    fn dominant_team0_reach() -> ReachProbs {
-        let mut reach: ReachProbs = (0..64)
-            .map(|_| [1.0, 0.3, 0.1, 0.03, 0.01, 0.003])
-            .collect();
-        reach[0] = [1.0, 0.95, 0.90, 0.80, 0.60, 0.40];
-        reach
+    /// A resolver that uses the team1_win_probability from game status as a coin flip.
+    /// Used in tests that don't need full KenPom simulation.
+    struct ProbabilityResolver;
+    impl GameResolver for ProbabilityResolver {
+        fn resolve(
+            &self,
+            game_index: usize,
+            _team1_idx: usize,
+            _team2_idx: usize,
+            status: &TournamentStatus,
+            rng: &mut dyn RngCore,
+        ) -> bool {
+            let p = status.games[game_index]
+                .team1_win_probability
+                .unwrap_or(0.5);
+            rng.random::<f64>() < p
+        }
     }
 
     #[test]
     fn test_all_decided_deterministic() {
         let decided: Vec<(u8, bool)> = (0..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[]);
-        let reach = uniform_reach(0.5);
 
         let chalky = 0xFFFF_FFFF_FFFF_FFFEu64;
         let wrong = 0x8000_0000_0000_0001u64;
         let brackets = vec![chalky, wrong];
 
-        let results = run_simulations(&brackets, &status, &reach, 100);
+        let results = run_simulations(&brackets, &status, 100, &ProbabilityResolver);
         assert_eq!(results.wins[0], 100);
         assert_eq!(results.wins[1], 0);
     }
 
     #[test]
-    fn test_live_game_uses_probability() {
+    fn test_live_game_uses_resolver() {
         let decided: Vec<(u8, bool)> = (1..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[(0, 0.9)]);
-        let reach = uniform_reach(0.5);
 
         let team1_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
         let team2_bracket = 0xBFFF_FFFF_FFFF_FFFEu64;
         let brackets = vec![team1_bracket, team2_bracket];
 
-        let results = run_simulations(&brackets, &status, &reach, 10000);
+        let results = run_simulations(&brackets, &status, 10000, &ProbabilityResolver);
         assert!(
             results.wins[0] > 8000,
             "team1 bracket wins: {}",
@@ -559,33 +505,12 @@ mod tests {
     }
 
     #[test]
-    fn test_forward_sim_uses_reach_probs() {
-        let status = make_status(&[(0, true)], &[]);
-        let reach = dominant_team0_reach();
-
-        let all_team1 = 0xFFFF_FFFF_FFFF_FFFEu64;
-        let all_team2 = 0x8000_0000_0000_0001u64;
-        let brackets = vec![all_team1, all_team2];
-
-        let results = run_simulations(&brackets, &status, &reach, 10000);
-        let e1 = results.expected_scores[0] / 10000.0;
-        let e2 = results.expected_scores[1] / 10000.0;
-        assert!(
-            e1 > e2,
-            "all-team1 expected {:.1} should beat all-team2 {:.1}",
-            e1,
-            e2
-        );
-    }
-
-    #[test]
     fn test_resolver_overrides_live_game() {
         let decided: Vec<(u8, bool)> = (1..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[(0, 0.1)]);
-        let reach = uniform_reach(0.5);
 
         struct AlwaysTeam1;
-        impl LiveGameResolver for AlwaysTeam1 {
+        impl GameResolver for AlwaysTeam1 {
             fn resolve(
                 &self,
                 _game_index: usize,
@@ -601,8 +526,7 @@ mod tests {
         let team1_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
         let brackets = vec![team1_bracket];
 
-        let results =
-            run_simulations_with_resolver(&brackets, &status, &reach, 100, Some(&AlwaysTeam1));
+        let results = run_simulations(&brackets, &status, 100, &AlwaysTeam1);
         assert_eq!(results.wins[0], 100);
     }
 }

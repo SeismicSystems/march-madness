@@ -14,10 +14,8 @@ pub mod types;
 pub use data::{KenpomRatings, kenpom_csv, mappings_toml, tournament_json};
 pub use scoring::*;
 pub use simulate::{
-    LiveGameResolver, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, ReachProbs,
-    SimulationResults, TeamAdvanceResults, run_multi_pool_simulations_with_resolver,
-    run_simulations, run_simulations_with_resolver, run_team_advance_simulations,
-    run_team_advance_simulations_with_resolver,
+    GameResolver, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, SimulationResults,
+    TeamAdvanceResults, run_multi_pool_simulations, run_simulations, run_team_advance_simulations,
 };
 pub use tournament::*;
 pub use types::*;
