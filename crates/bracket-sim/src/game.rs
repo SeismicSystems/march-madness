@@ -163,7 +163,7 @@ impl Game {
     const OT_MINUTES: f64 = 5.0;
     const REGULATION_MINUTES: f64 = 40.0;
 
-    fn pick_by_score(&self, t1_score: u32, t2_score: u32) -> Option<&Team> {
+    pub(crate) fn pick_by_score(&self, t1_score: u32, t2_score: u32) -> Option<&Team> {
         match t1_score.cmp(&t2_score) {
             std::cmp::Ordering::Greater => Some(&self.team1),
             std::cmp::Ordering::Less => Some(&self.team2),
@@ -176,7 +176,7 @@ impl Game {
     /// Uses the same pace distribution as regulation — the dispersion parameter
     /// naturally scales variance with the mean, so low-possession OT periods
     /// get appropriately tighter distributions without special-casing.
-    fn resolve_overtime(
+    pub(crate) fn resolve_overtime(
         &self,
         tied_score: u32,
         pace_d: f64,
