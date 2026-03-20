@@ -216,9 +216,7 @@ impl FeedState {
         match phase {
             FeedPhase::Complete => (phase, Duration::ZERO),
             FeedPhase::Active => {
-                let interval = self
-                    .poll_interval_override
-                    .unwrap_or(self.active_interval);
+                let interval = self.poll_interval_override.unwrap_or(self.active_interval);
                 (phase, interval)
             }
             FeedPhase::PreGame => {
