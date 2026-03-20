@@ -476,7 +476,7 @@ function MobileCards({
             </div>
 
             {/* Finalists */}
-            <div className="grid grid-cols-2 gap-x-2 mt-2.5">
+            <div className="grid grid-cols-2 gap-x-2 mt-2.5 pt-2 border-t border-border/15">
               <TeamChip
                 team={row.sfWinners[0]}
                 prob={prob(sfn[0], 4)}
