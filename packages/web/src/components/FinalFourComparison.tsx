@@ -456,12 +456,7 @@ function MobileCards({
         return (
           <div
             key={row.entry.id}
-            className={`relative rounded-lg border border-border bg-bg-secondary/50 p-3 ${
-              onEntryClick ? "cursor-pointer active:bg-bg-hover/30" : ""
-            }`}
-            onClick={
-              onEntryClick ? () => onEntryClick(row.entry) : undefined
-            }
+            className="relative rounded-lg border border-border bg-bg-secondary/50 p-3"
           >
             {/* Move up — top right */}
             <button
@@ -540,12 +535,20 @@ function MobileCards({
               />
             </div>
 
-            {/* Champion row: 3-col grid so chip is dead center */}
+            {/* Bottom row: bracket link | champion chip | ▼ button */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 pt-2 mt-2 border-t border-border/30">
-              <div className="flex justify-end">
-                <span className="text-[10px] text-gold uppercase tracking-wide">
-                  Champion
-                </span>
+              <div className="flex justify-start">
+                {onEntryClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEntryClick(row.entry);
+                    }}
+                    className="text-xs text-accent hover:text-accent-hover active:text-accent-hover font-medium px-2 py-1 rounded border border-accent/30 hover:border-accent/60 transition-colors"
+                  >
+                    Bracket →
+                  </button>
+                )}
               </div>
               <TeamChip
                 team={row.champion}
