@@ -180,7 +180,10 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" ? team1WinProbability : undefined
+          gameStatus?.status !== "final" &&
+          !(team1 && eliminatedTeams?.has(displayName(team1)))
+            ? team1WinProbability
+            : undefined
         }
       />
       <TeamSlot
@@ -198,7 +201,9 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" && team1WinProbability !== undefined
+          gameStatus?.status !== "final" &&
+          team1WinProbability !== undefined &&
+          !(team2 && eliminatedTeams?.has(displayName(team2)))
             ? 1 - team1WinProbability
             : undefined
         }
@@ -297,8 +302,8 @@ function TeamSlot({
         <span className="truncate">{displayAbbrev(team)}</span>
       </span>
       <span className="flex items-center gap-1 flex-shrink-0">
-        {isLive && winProbability !== undefined && (
-          <span className="text-[9px] text-text-muted bg-bg-secondary/80 px-1 rounded">
+        {winProbability !== undefined && (
+          <span className={`text-[9px] bg-bg-secondary/80 px-1 rounded ${isLive ? "text-text-muted" : "text-text-muted/70"}`}>
             {Math.round(winProbability * 100)}%
           </span>
         )}

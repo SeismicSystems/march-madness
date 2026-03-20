@@ -1,0 +1,1 @@
+hey in the main bracket display, for upcoming (non-finished, non-live) games, i'd like to show the probabilities in each cell. only exceptions are when their team has been already eliminated in a previous round; in that case, what we currently do is fine. we want to use the mm:probs we're already loading on thefrontend. when you're done, submit a pr and link me
