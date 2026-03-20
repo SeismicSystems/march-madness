@@ -188,10 +188,25 @@ impl TryFrom<RawContest> for Contest {
         let state = match raw.game_state.as_str() {
             "F" => ContestState::Final(parse_overtime(&raw.final_message)),
             "P" => ContestState::Pre,
-            "I" => ContestState::Live {
-                period: parse_period(&raw.current_period),
-                clock_seconds: parse_clock(&raw.contest_clock),
-            },
+            "I" => {
+                let period = parse_period(&raw.current_period);
+                let clock_seconds = parse_clock(&raw.contest_clock);
+                // At halftime the NCAA API may send an empty clock string.
+                // Normalize to 0 so downstream consumers see period=1, clock=0 → "HALF".
+                let is_halftime = {
+                    let p = raw.current_period.trim();
+                    p.eq_ignore_ascii_case("HALF") || p.eq_ignore_ascii_case("HALFTIME")
+                };
+                let clock_seconds = if is_halftime && clock_seconds.is_none() {
+                    Some(0)
+                } else {
+                    clock_seconds
+                };
+                ContestState::Live {
+                    period,
+                    clock_seconds,
+                }
+            }
             other => ContestState::Other(other.to_string()),
         };
 
@@ -505,6 +520,52 @@ mod tests {
         let contest2 = Contest::try_from(raw2).unwrap();
         assert!(contest2.is_live());
         assert_eq!(contest2.start_time_epoch, Some(1773936900));
+    }
+
+    #[test]
+    fn test_halftime_clock_normalization() {
+        // At halftime the NCAA API sends currentPeriod="HALF" with an empty clock.
+        // We should normalize clock_seconds to Some(0) so the frontend shows "HALF".
+        let raw = RawContest {
+            contest_id: serde_json::json!(99999),
+            teams: vec![],
+            game_state: "I".into(),
+            current_period: "HALF".into(),
+            contest_clock: "".into(),
+            start_time_epoch: serde_json::json!(1742000000),
+            start_date: "2026-03-20".into(),
+            start_time: "7:10PM ET".into(),
+            final_message: "".into(),
+        };
+        let contest = Contest::try_from(raw).unwrap();
+        assert_eq!(
+            contest.state,
+            ContestState::Live {
+                period: Some(Period::Half(1)),
+                clock_seconds: Some(0),
+            }
+        );
+
+        // "HALFTIME" variant should also normalize
+        let raw2 = RawContest {
+            contest_id: serde_json::json!(99998),
+            teams: vec![],
+            game_state: "I".into(),
+            current_period: "Halftime".into(),
+            contest_clock: "".into(),
+            start_time_epoch: serde_json::json!(1742000000),
+            start_date: "2026-03-20".into(),
+            start_time: "7:10PM ET".into(),
+            final_message: "".into(),
+        };
+        let contest2 = Contest::try_from(raw2).unwrap();
+        assert_eq!(
+            contest2.state,
+            ContestState::Live {
+                period: Some(Period::Half(1)),
+                clock_seconds: Some(0),
+            }
+        );
     }
 
     #[test]

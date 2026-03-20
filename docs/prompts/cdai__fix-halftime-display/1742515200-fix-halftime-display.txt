@@ -1,0 +1,3 @@
+in the LIVE section above each live game, we aren't getting halftime display right. it says "LIVE" for the Michigan / Howard game. it shoudl say HALF because that game's at halftime
+
+when you're done push a PR.
