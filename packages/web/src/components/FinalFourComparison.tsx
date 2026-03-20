@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-import type { ForecastIndex, TournamentStatus } from "@march-madness/client";
-import { decodeBracket } from "@march-madness/client";
+import type { ForecastIndex, PartialScore, TournamentStatus } from "@march-madness/client";
+import { decodeBracket, scoreBracketPartial } from "@march-madness/client";
 
 import type { TeamProbs } from "../hooks/useTeamProbs";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -292,6 +292,7 @@ function DesktopView({
   onMoveUp,
   onMoveDown,
   forecasts,
+  scores,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -301,6 +302,7 @@ function DesktopView({
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
   forecasts?: ForecastIndex | null;
+  scores: Map<string, PartialScore>;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -313,6 +315,7 @@ function DesktopView({
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
         const fc = forecasts?.[row.entry.id];
+        const sc = scores.get(row.entry.id);
 
         return (
           <div
@@ -331,12 +334,20 @@ function DesktopView({
               {row.entry.label}
             </div>
 
-            {fc && (
-              <div className="shrink-0 flex items-center gap-2 text-[11px] text-text-muted">
-                <span>{(fc.winProbability * 100).toFixed(1)}%</span>
-                <span>{fc.expectedScore.toFixed(1)} pts</span>
-              </div>
-            )}
+            <div className="shrink-0 flex items-center gap-2 text-[11px] text-text-muted">
+              {fc && (
+                <>
+                  <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                  <span>{fc.expectedScore.toFixed(1)}</span>
+                </>
+              )}
+              {sc && (
+                <span className="font-mono">
+                  <span className="text-text-primary font-semibold">{sc.current}</span>
+                  <span>/{sc.maxPossible}</span>
+                </span>
+              )}
+            </div>
 
             {/* F4 teams: 2×2 grid */}
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
@@ -417,6 +428,7 @@ function MobileCards({
   onMoveUp,
   onMoveDown,
   forecasts,
+  scores,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -426,6 +438,7 @@ function MobileCards({
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
   forecasts?: ForecastIndex | null;
+  scores: Map<string, PartialScore>;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -435,6 +448,7 @@ function MobileCards({
     <div className="space-y-3 mx-2">
       {rows.map((row, i) => {
         const fc = forecasts?.[row.entry.id];
+        const sc = scores.get(row.entry.id);
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
@@ -460,29 +474,26 @@ function MobileCards({
             >
               ▲
             </button>
-            {/* Move down — bottom right */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveDown(i);
-              }}
-              disabled={i === rows.length - 1}
-              className="absolute bottom-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
-            >
-              ▼
-            </button>
 
-            {/* Entry name + forecast stats */}
-            <div className="flex items-center gap-2 mb-2 pr-6">
+            {/* Entry name + stats: win%, expected score, current/max */}
+            <div className="flex items-center gap-1.5 mb-2 pr-6">
               <div className="text-sm font-mono font-bold text-text-primary truncate">
                 {row.entry.label}
               </div>
-              {fc && (
-                <div className="flex items-center gap-2 ml-auto shrink-0 text-[11px] text-text-muted">
-                  <span>{(fc.winProbability * 100).toFixed(1)}%</span>
-                  <span>{fc.expectedScore.toFixed(1)} pts</span>
-                </div>
-              )}
+              <div className="flex items-center gap-1.5 ml-auto shrink-0 text-[11px] text-text-muted">
+                {fc && (
+                  <>
+                    <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                    <span>{fc.expectedScore.toFixed(1)}</span>
+                  </>
+                )}
+                {sc && (
+                  <span className="font-mono">
+                    <span className="text-text-primary font-semibold">{sc.current}</span>
+                    <span>/{sc.maxPossible}</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* F4 teams: 2×2 grid — pairs nearly touching */}
@@ -529,9 +540,9 @@ function MobileCards({
               />
             </div>
 
-            {/* Champion */}
-            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-border/30">
-              <span className="text-[10px] text-gold uppercase tracking-wide shrink-0">
+            {/* Champion + move down */}
+            <div className="flex items-center pt-2 mt-2 border-t border-border/30 pr-6">
+              <span className="text-[10px] text-gold uppercase tracking-wide shrink-0 mr-1">
                 Champion
               </span>
               <div className="flex-1 flex justify-center">
@@ -544,6 +555,17 @@ function MobileCards({
                 />
               </div>
             </div>
+            {/* Move down — bottom right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown(i);
+              }}
+              disabled={i === rows.length - 1}
+              className="absolute bottom-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
+            >
+              ▼
+            </button>
           </div>
         );
       })}
@@ -603,6 +625,17 @@ export function FinalFourComparison({
     return buildTournamentState(tournamentStatus);
   }, [tournamentStatus]);
 
+  const scores = useMemo(() => {
+    if (!tournamentStatus) return new Map<string, PartialScore>();
+    const m = new Map<string, PartialScore>();
+    for (const d of decoded) {
+      if (d.entry.bracket) {
+        m.set(d.entry.id, scoreBracketPartial(d.entry.bracket, tournamentStatus));
+      }
+    }
+    return m;
+  }, [decoded, tournamentStatus]);
+
   if (orderedDecoded.length === 0) {
     return (
       <div className="text-center py-12 text-text-muted">
@@ -620,6 +653,7 @@ export function FinalFourComparison({
     onMoveUp: moveUp,
     onMoveDown: moveDown,
     forecasts,
+    scores,
   };
 
   return (
