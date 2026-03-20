@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix ncaa-feed date auto-detection to use America/New_York timezone instead of UTC, and add 5 missing NCAA name mappings (LIU, Miami (OH), Queens (NC), Prairie View, California Baptist).
+
+
 Add configurable `-u`/`--kenpom-update-factor` flags to the tournament simulation CLIs so Bayesian postgame metric updates can be tuned without rebuilding.
 
 
