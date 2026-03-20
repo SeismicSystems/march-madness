@@ -447,8 +447,8 @@ function MobileCards({
               />
             </div>
 
-            {/* F4 teams: 2×2 grid */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+            {/* F4 teams: 2×2 grid — pairs nearly touching */}
+            <div className="grid grid-cols-2 gap-x-2 gap-y-px">
               <TeamChip
                 team={row.f4[0]}
                 prob={prob(f4n[0], 3)}
@@ -476,7 +476,7 @@ function MobileCards({
             </div>
 
             {/* Finalists */}
-            <div className="grid grid-cols-2 gap-x-2 mt-2">
+            <div className="grid grid-cols-2 gap-x-2 mt-2.5">
               <TeamChip
                 team={row.sfWinners[0]}
                 prob={prob(sfn[0], 4)}
