@@ -4,6 +4,7 @@ mod feed;
 mod mapper;
 mod writer;
 
+use chrono::Timelike;
 use clap::Parser;
 use eyre::{Context, Result};
 use ncaa_api::{ContestDate, NcaaClient, SportCode, fetch_schedule, fetch_scoreboard};
@@ -118,6 +119,13 @@ async fn main() -> Result<()> {
 
     // Main poll loop.
     loop {
+        // Quiet hours: 1am–12pm ET — no games are live, skip API calls.
+        if is_quiet_hours() {
+            info!("quiet hours (1am–12pm ET), sleeping 60s");
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            continue;
+        }
+
         match fetch_scoreboard(&client, sport, &date).await {
             Ok(contests) => {
                 let changes = state.update_from_contests(&contests, &mut mapper);
@@ -158,10 +166,24 @@ async fn publish_status(state: &FeedState, conn: &mut MultiplexedConnection) {
     }
 }
 
+/// Returns true if the current time is in quiet hours (1am–12pm ET).
+/// No NCAA tournament games are live during this window, so we skip API calls.
+fn is_quiet_hours() -> bool {
+    let eastern = chrono_tz::America::New_York;
+    let now = chrono::Utc::now().with_timezone(&eastern);
+    let hour = now.hour();
+    // 1am (inclusive) to 12pm (exclusive)
+    (1..12).contains(&hour)
+}
+
 /// Auto-detect today's date from the NCAA schedule API.
+/// Uses America/New_York time minus 3 hours so that late games ending after midnight ET
+/// still map to the correct "game day" (no NCAA game starts at 2am ET).
 async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<ContestDate> {
-    let now = chrono::Utc::now();
-    let today = ContestDate::from_naive(now.date_naive());
+    let eastern = chrono_tz::America::New_York;
+    let now = chrono::Utc::now().with_timezone(&eastern);
+    let shifted = now - chrono::Duration::hours(3);
+    let today = ContestDate::from_naive(shifted.date_naive());
     let season_year = today.season_year();
 
     let dates = fetch_schedule(client, sport, season_year)
