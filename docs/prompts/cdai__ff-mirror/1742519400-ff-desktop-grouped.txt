@@ -1,0 +1,14 @@
+mobile is perfect, but let's make the desktop view of this a little nicer. it's a little wonky... the final 2 is really close to the final 4, and then the champion is all the way to the right. i think we should take advantage of the bigger screen here. we could either:
+1) use a similar view to mobile, but then tile everything.
+2) get a little more creative in general. maybe the desktop view will have some smart logic to group entries by champion -- and then use the mobile tiles within that. we could retain all of the sorting logic per these groups.. yeah i'm warning up to this.... only thing here is we'll need to be really smart about how we actually derive the groups. we need to have a system that robustly handles mirrors that have a large imbalance... like there's 6 duke teams, 3 arizona, 3 michigan, and then 3 "other"s.... whatever algo we use should split it into 4 nice groups (but it needs to be robust to other types of inputs it would see)..... expanding on this more:
+
+
+if we can cleanly split into specific team bins + an "other" category that catches all, then we're great. if we can't, then maybe we can break out "other" into seeded groups. for example, say we have 4 dukes, 4 michigans, 2 floridas, 1 arizona (all 1 seeds), 1 purdue & 1 houston (2 seeds), and 1 illinois (3 seed). then the correct balance here would be:
+- all duke section
+- all michigan section
+- other 1 seds
+- other seeds (in this case, 2+3)
+
+this will be challenging to get right but would make it much more rewarding. and then we can just re-use the mobile layout but for the specific section we care about
+
+when you're done make a PR.
