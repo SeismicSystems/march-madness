@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-import type { TournamentStatus } from "@march-madness/client";
+import type { ForecastIndex, TournamentStatus } from "@march-madness/client";
 import { decodeBracket } from "@march-madness/client";
 
 import type { TeamProbs } from "../hooks/useTeamProbs";
@@ -31,6 +31,8 @@ export interface FinalFourComparisonProps {
   onEntryClick?: (entry: FinalFourEntry) => void;
   /** localStorage key suffix for persisting custom entry order (use mirror slug) */
   orderKey?: string;
+  /** Per-entry forecasts keyed by entry id (slug). */
+  forecasts?: ForecastIndex | null;
 }
 
 /* ── Internal types ───────────────────────────────────── */
@@ -289,6 +291,7 @@ function DesktopView({
   onEntryClick,
   onMoveUp,
   onMoveDown,
+  forecasts,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -297,6 +300,7 @@ function DesktopView({
   onEntryClick?: (entry: FinalFourEntry) => void;
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
+  forecasts?: ForecastIndex | null;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -308,6 +312,7 @@ function DesktopView({
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
+        const fc = forecasts?.[row.entry.id];
 
         return (
           <div
@@ -325,6 +330,13 @@ function DesktopView({
             <div className="w-28 shrink-0 font-mono text-sm text-text-primary truncate">
               {row.entry.label}
             </div>
+
+            {fc && (
+              <div className="shrink-0 flex items-center gap-2 text-[11px] text-text-muted">
+                <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                <span>{fc.expectedScore.toFixed(1)} pts</span>
+              </div>
+            )}
 
             {/* F4 teams: 2×2 grid */}
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
@@ -404,6 +416,7 @@ function MobileCards({
   onEntryClick,
   onMoveUp,
   onMoveDown,
+  forecasts,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -412,6 +425,7 @@ function MobileCards({
   onEntryClick?: (entry: FinalFourEntry) => void;
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
+  forecasts?: ForecastIndex | null;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -420,6 +434,7 @@ function MobileCards({
   return (
     <div className="space-y-3 mx-2">
       {rows.map((row, i) => {
+        const fc = forecasts?.[row.entry.id];
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
@@ -427,28 +442,51 @@ function MobileCards({
         return (
           <div
             key={row.entry.id}
-            className={`rounded-lg border border-border bg-bg-secondary/50 p-3 ${
+            className={`relative rounded-lg border border-border bg-bg-secondary/50 p-3 ${
               onEntryClick ? "cursor-pointer active:bg-bg-hover/30" : ""
             }`}
             onClick={
               onEntryClick ? () => onEntryClick(row.entry) : undefined
             }
           >
-            {/* Entry name + reorder */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-mono font-bold text-text-primary">
+            {/* Move up — top right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp(i);
+              }}
+              disabled={i === 0}
+              className="absolute top-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
+            >
+              ▲
+            </button>
+            {/* Move down — bottom right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown(i);
+              }}
+              disabled={i === rows.length - 1}
+              className="absolute bottom-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
+            >
+              ▼
+            </button>
+
+            {/* Entry name + forecast stats */}
+            <div className="flex items-center gap-2 mb-2 pr-6">
+              <div className="text-sm font-mono font-bold text-text-primary truncate">
                 {row.entry.label}
               </div>
-              <ReorderButtons
-                index={i}
-                total={rows.length}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-              />
+              {fc && (
+                <div className="flex items-center gap-2 ml-auto shrink-0 text-[11px] text-text-muted">
+                  <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                  <span>{fc.expectedScore.toFixed(1)} pts</span>
+                </div>
+              )}
             </div>
 
-            {/* F4 teams: 2×2 grid */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+            {/* F4 teams: 2×2 grid — pairs nearly touching */}
+            <div className="grid grid-cols-2 gap-x-2 gap-y-px">
               <TeamChip
                 team={row.f4[0]}
                 prob={prob(f4n[0], 3)}
@@ -476,7 +514,7 @@ function MobileCards({
             </div>
 
             {/* Finalists */}
-            <div className="grid grid-cols-2 gap-x-2 mt-2">
+            <div className="grid grid-cols-2 gap-x-2 mt-2.5 pt-2 border-t border-border/15">
               <TeamChip
                 team={row.sfWinners[0]}
                 prob={prob(sfn[0], 4)}
@@ -492,17 +530,19 @@ function MobileCards({
             </div>
 
             {/* Champion */}
-            <div className="flex items-center justify-center gap-2 pt-2 mt-2 border-t border-border/30">
-              <span className="text-[10px] text-gold uppercase tracking-wide">
+            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-border/30">
+              <span className="text-[10px] text-gold uppercase tracking-wide shrink-0">
                 Champion
               </span>
-              <TeamChip
-                team={row.champion}
-                prob={prob(cn, 5)}
-                ov={ov(cn, 6)}
-                isChampion
-                compact
-              />
+              <div className="flex-1 flex justify-center">
+                <TeamChip
+                  team={row.champion}
+                  prob={prob(cn, 5)}
+                  ov={ov(cn, 6)}
+                  isChampion
+                  compact
+                />
+              </div>
             </div>
           </div>
         );
@@ -521,6 +561,7 @@ export function FinalFourComparison({
   teamProbs,
   onEntryClick,
   orderKey,
+  forecasts,
 }: FinalFourComparisonProps) {
   const isMobile = useIsMobile();
 
@@ -578,6 +619,7 @@ export function FinalFourComparison({
     onEntryClick,
     onMoveUp: moveUp,
     onMoveDown: moveDown,
+    forecasts,
   };
 
   return (

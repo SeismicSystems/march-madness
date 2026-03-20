@@ -8,6 +8,7 @@ import {
   type FinalFourEntry,
 } from "../components/FinalFourComparison";
 import { useMirror } from "../hooks/useMirror";
+import { useMirrorForecasts } from "../hooks/useMirrorForecasts";
 import { useTeamProbs } from "../hooks/useTeamProbs";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
 
@@ -23,6 +24,7 @@ export function MirrorFinalFourPage() {
   } = useMirror(id);
   const { status, loading: statusLoading } = useTournamentStatus();
   const { teamProbs } = useTeamProbs();
+  const { forecasts } = useMirrorForecasts(id);
 
   const entries = useMemo(
     (): FinalFourEntry[] =>
@@ -69,6 +71,7 @@ export function MirrorFinalFourPage() {
         navigate(`/mirrors/id/${id}/bracket/${entry.id}`)
       }
       orderKey={mirror?.slug}
+      forecasts={forecasts}
     />
   );
 }
