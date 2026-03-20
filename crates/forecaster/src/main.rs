@@ -15,7 +15,7 @@ use seismic_march_madness::redis_keys::*;
 use seismic_march_madness::{
     GameState, GameStatus, MultiPoolResults, Pool, ROUND_SIZES, ROUND_STARTS, TeamAdvanceResults,
     TournamentData, TournamentStatus, get_teams_in_bracket_order, kenpom_csv, parse_bracket_hex,
-    tournament_json,
+    reverse_game_bits, tournament_json,
 };
 
 /// Rich forecast for a single entry, serialized to Redis/JSON.
@@ -284,7 +284,7 @@ fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> 
                 if let Some(bracket_hex) = &entry.bracket
                     && let Some(bits) = parse_bracket_hex(bracket_hex)
                 {
-                    entry_brackets.insert(address.clone(), bits);
+                    entry_brackets.insert(address.clone(), reverse_game_bits(bits));
                 }
             }
             Err(error) => warn!(address, error = %error, "skipping corrupt entry"),
@@ -330,7 +330,7 @@ fn load_forecast_inputs(conn: &mut redis::Connection) -> Result<ForecastInputs> 
             mirror_entries
                 .entry(mirror_id.to_string())
                 .or_default()
-                .push((entry_slug.to_string(), bits));
+                .push((entry_slug.to_string(), reverse_game_bits(bits)));
         }
     }
 
@@ -486,7 +486,8 @@ fn run_multi_pool(
 
             for _ in 0..chunk_sims {
                 let mut tourn = tournament.clone();
-                let results = tourn.simulate_tournament_bb_with_status(status, &mut rng);
+                let results =
+                    reverse_game_bits(tourn.simulate_tournament_bb_with_status(status, &mut rng));
 
                 let mask = seismic_march_madness::get_scoring_mask(results);
                 let scores: Vec<u32> = brackets
