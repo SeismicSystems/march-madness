@@ -64,6 +64,7 @@ const allTeams = getAllTeamsInBracketOrder();
 const teamNameList = allTeams.map((t) => displayName(t));
 const teamByName = new Map(allTeams.map((t) => [displayName(t), t]));
 const STORAGE_PREFIX = "ff-order-";
+const STORAGE_PREFIX_DESKTOP = "ff-order-d-";
 
 /* ── Helpers ──────────────────────────────────────────── */
 
@@ -129,10 +130,11 @@ function getOverlay(
 function reconcileOrder(
   orderKey: string | undefined,
   entryIds: string[],
+  prefix: string = STORAGE_PREFIX,
 ): string[] {
   if (!orderKey || entryIds.length === 0) return entryIds;
   try {
-    const stored = localStorage.getItem(`${STORAGE_PREFIX}${orderKey}`);
+    const stored = localStorage.getItem(`${prefix}${orderKey}`);
     if (!stored) return entryIds;
     const parsed = JSON.parse(stored) as string[];
     const idSet = new Set(entryIds);
@@ -293,24 +295,28 @@ type SortMode = "custom" | "prob" | "expected" | "current";
 
 /* ── Ordering hook ────────────────────────────────────── */
 
-function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
+function useEntryOrder(
+  orderKey: string | undefined,
+  entryIds: string[],
+  storagePrefix: string = STORAGE_PREFIX,
+) {
   const [order, setOrder] = useState<string[]>(() =>
-    reconcileOrder(orderKey, entryIds),
+    reconcileOrder(orderKey, entryIds, storagePrefix),
   );
 
   useEffect(() => {
-    setOrder(reconcileOrder(orderKey, entryIds));
-  }, [orderKey, entryIds]);
+    setOrder(reconcileOrder(orderKey, entryIds, storagePrefix));
+  }, [orderKey, entryIds, storagePrefix]);
 
   const persistOrder = useCallback(
     (ids: string[]) => {
       if (orderKey)
         localStorage.setItem(
-          `${STORAGE_PREFIX}${orderKey}`,
+          `${storagePrefix}${orderKey}`,
           JSON.stringify(ids),
         );
     },
-    [orderKey],
+    [orderKey, storagePrefix],
   );
 
   const setCustomOrder = useCallback(
@@ -563,7 +569,7 @@ function EntryCard({
   );
 }
 
-/* ── Desktop grouped view ─────────────────────────────── */
+/* ── Desktop grouped view (columns per champion group) ── */
 
 function DesktopGroupedView({
   rows,
@@ -571,6 +577,8 @@ function DesktopGroupedView({
   winCounts,
   teamProbs,
   onEntryClick,
+  onMoveUp,
+  onMoveDown,
   forecasts,
   scores,
 }: {
@@ -579,20 +587,25 @@ function DesktopGroupedView({
   winCounts: Map<string, number>;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
+  onMoveUp: (globalIdx: number) => void;
+  onMoveDown: (globalIdx: number) => void;
   forecasts?: ForecastIndex | null;
   scores: Map<string, PartialScore>;
 }) {
-  const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
-  const ov = (name: string, wins: number) =>
-    getOverlay(name, wins, eliminatedTeams, winCounts);
-
   const groups = useMemo(() => deriveChampionGroups(rows), [rows]);
 
+  // Build a map from entry id → global index in `rows` for reorder handlers
+  const globalIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r, i) => m.set(r.entry.id, i));
+    return m;
+  }, [rows]);
+
   return (
-    <div className="lg:w-5/6 lg:mx-auto mx-2 space-y-6">
+    <div className="mx-2 lg:mx-auto lg:w-5/6 flex gap-4 items-start overflow-x-auto">
       {groups.map((group) => (
-        <div key={group.label}>
-          {/* Section header */}
+        <div key={group.label} className="flex-1 min-w-[280px] max-w-[400px]">
+          {/* Column header */}
           <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border/30">
             {group.champTeam && (
               <TeamLogo
@@ -600,28 +613,34 @@ function DesktopGroupedView({
                 mobile
               />
             )}
-            <span className="text-sm font-semibold text-text-primary">
+            <span className="text-sm font-semibold text-text-primary truncate">
               {group.label}
             </span>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-[10px] text-text-muted flex-shrink-0">
               {group.entries.length}
             </span>
           </div>
 
-          {/* Card grid */}
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-            {group.entries.map((row) => (
-              <EntryCard
-                key={row.entry.id}
-                row={row}
-                prob={prob}
-                ov={ov}
-                fc={forecasts?.[row.entry.id]}
-                sc={scores.get(row.entry.id)}
-                onEntryClick={onEntryClick}
-              />
-            ))}
-          </div>
+          <MobileCards
+            className="space-y-3"
+            rows={group.entries}
+            eliminatedTeams={eliminatedTeams}
+            winCounts={winCounts}
+            teamProbs={teamProbs}
+            onEntryClick={onEntryClick}
+            onMoveUp={(localIdx) => {
+              const id = group.entries[localIdx]?.entry.id;
+              const gi = id !== undefined ? globalIndexById.get(id) : undefined;
+              if (gi !== undefined) onMoveUp(gi);
+            }}
+            onMoveDown={(localIdx) => {
+              const id = group.entries[localIdx]?.entry.id;
+              const gi = id !== undefined ? globalIndexById.get(id) : undefined;
+              if (gi !== undefined) onMoveDown(gi);
+            }}
+            forecasts={forecasts}
+            scores={scores}
+          />
         </div>
       ))}
     </div>
@@ -640,6 +659,7 @@ function MobileCards({
   onMoveDown,
   forecasts,
   scores,
+  className,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -650,13 +670,14 @@ function MobileCards({
   onMoveDown: (idx: number) => void;
   forecasts?: ForecastIndex | null;
   scores: Map<string, PartialScore>;
+  className?: string;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
     getOverlay(name, wins, eliminatedTeams, winCounts);
 
   return (
-    <div className="space-y-3 mx-2">
+    <div className={className ?? "space-y-3 mx-2"}>
       {rows.map((row, i) => (
         <EntryCard
           key={row.entry.id}
@@ -759,9 +780,11 @@ export function FinalFourComparison({
     [decoded],
   );
 
+  const storagePrefix = isMobile ? STORAGE_PREFIX : STORAGE_PREFIX_DESKTOP;
   const { order, moveUp, moveDown, setCustomOrder } = useEntryOrder(
     orderKey,
     defaultIds,
+    storagePrefix,
   );
   const [sortMode, setSortMode] = useState<SortMode>("custom");
 
@@ -897,6 +920,8 @@ export function FinalFourComparison({
           winCounts={winCounts}
           teamProbs={teamProbs}
           onEntryClick={onEntryClick}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
           forecasts={forecasts}
           scores={scores}
         />
