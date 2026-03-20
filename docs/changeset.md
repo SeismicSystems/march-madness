@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add mobile Live tab that shows currently in-progress games in a single-column grid, defaulting to it when live games exist
+
+
 Tighten bracket slot spacing: reduce seed width, move logos closer to seeds, reduce gap between live probability and score
 
 
