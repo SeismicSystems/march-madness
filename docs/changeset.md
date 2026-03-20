@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+ncaa-feed: shift date detection by -3h for late games and add quiet hours (1am–12pm ET) to skip API calls when no games are live
+
+
 Fix ncaa-feed date auto-detection to use America/New_York timezone instead of UTC, and add 5 missing NCAA name mappings (LIU, Miami (OH), Queens (NC), Prairie View, California Baptist).
 
 
