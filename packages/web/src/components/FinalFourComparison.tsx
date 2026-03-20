@@ -710,12 +710,17 @@ const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
 function SortFooter({
   sortMode,
   onToggle,
+  inline,
 }: {
   sortMode: SortMode;
   onToggle: (mode: SortMode) => void;
+  /** When true, renders without outer margin/width (caller controls positioning). */
+  inline?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between mt-4 mx-2 md:mx-auto lg:w-5/6">
+    <div
+      className={`flex items-center gap-2 ${inline ? "" : "justify-between mt-4 mx-2 md:mx-auto lg:w-5/6"}`}
+    >
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-text-muted uppercase tracking-wide mr-1">
           Sort
@@ -902,33 +907,38 @@ export function FinalFourComparison({
       </div>
 
       {isMobile ? (
-        <MobileCards
-          rows={displayRows}
-          eliminatedTeams={eliminatedTeams}
-          winCounts={winCounts}
-          teamProbs={teamProbs}
-          onEntryClick={onEntryClick}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-          forecasts={forecasts}
-          scores={scores}
-        />
+        <>
+          <MobileCards
+            rows={displayRows}
+            eliminatedTeams={eliminatedTeams}
+            winCounts={winCounts}
+            teamProbs={teamProbs}
+            onEntryClick={onEntryClick}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
+            forecasts={forecasts}
+            scores={scores}
+          />
+          <SortFooter sortMode={sortMode} onToggle={toggleSort} />
+        </>
       ) : (
-        <DesktopGroupedView
-          rows={displayRows}
-          eliminatedTeams={eliminatedTeams}
-          winCounts={winCounts}
-          teamProbs={teamProbs}
-          onEntryClick={onEntryClick}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-          forecasts={forecasts}
-          scores={scores}
-        />
+        <>
+          <div className="flex justify-end mb-3 mx-2 lg:mx-auto lg:w-5/6">
+            <SortFooter sortMode={sortMode} onToggle={toggleSort} inline />
+          </div>
+          <DesktopGroupedView
+            rows={displayRows}
+            eliminatedTeams={eliminatedTeams}
+            winCounts={winCounts}
+            teamProbs={teamProbs}
+            onEntryClick={onEntryClick}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
+            forecasts={forecasts}
+            scores={scores}
+          />
+        </>
       )}
-
-      {/* Sort footer */}
-      <SortFooter sortMode={sortMode} onToggle={toggleSort} />
     </div>
   );
 }
