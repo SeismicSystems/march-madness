@@ -1,0 +1,11 @@
+checkoutto new branch. this dmm_build alias needs to cd into ~/march-madness first:
+
+
+# Build only the 4 prod binaries (server, indexer, forecaster, ncaa-feed)
+alias dmm_build='cargo build --release -p march-madness-server -p march-madness-indexer -p march-madness-forecaster -p ncaa-feed'
+
+
+
+in scripts/alias.sh
+
+when you fix push a pr
