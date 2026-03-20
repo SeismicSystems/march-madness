@@ -1,0 +1,1 @@
+a ha... yeah you need to make this feed use current date in current time in new york, not unix. so make that fix, and then also addd those mappings on this branch
