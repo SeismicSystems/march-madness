@@ -1,0 +1,11 @@
+hm... i think i made an error here.. on the desktop.... there's only 1 sort (which is correct) but it's awkwardly under the first section
+
+really, let's instead move the sort (on desktop onyl) to the top, above where we display the sections. it should be right aligned, so top right.
+
+shouldnt affect mobile at all -- that page is amazing
+
+---
+
+also, while you're at it.
+
+we say "Final Four Picks ->" ... change it to just "Final Four ->"... its cleaner

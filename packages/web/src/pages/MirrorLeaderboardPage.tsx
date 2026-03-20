@@ -93,7 +93,7 @@ export function MirrorLeaderboardPage() {
           to={`/mirrors/id/${id}/ff`}
           className="text-xs text-accent hover:text-accent-hover transition-colors"
         >
-          Final Four Picks →
+          Final Four →
         </Link>
       </div>
       <LeaderboardTable
