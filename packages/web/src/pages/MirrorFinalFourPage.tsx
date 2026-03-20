@@ -68,6 +68,7 @@ export function MirrorFinalFourPage() {
       onEntryClick={(entry) =>
         navigate(`/mirrors/id/${id}/bracket/${entry.id}`)
       }
+      orderKey={mirror?.slug}
     />
   );
 }
