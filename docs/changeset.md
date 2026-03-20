@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+fix: add `cd ~/march-madness` to `dmm_build` alias so it works from any directory
+
+
 fix(ncaa-feed): auto-detect date rollover for multi-day tournament polling
 
 The feed previously determined the contest date once at startup and never updated it.
