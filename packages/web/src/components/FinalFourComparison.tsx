@@ -427,24 +427,39 @@ function MobileCards({
         return (
           <div
             key={row.entry.id}
-            className={`rounded-lg border border-border bg-bg-secondary/50 p-3 ${
+            className={`relative rounded-lg border border-border bg-bg-secondary/50 p-3 ${
               onEntryClick ? "cursor-pointer active:bg-bg-hover/30" : ""
             }`}
             onClick={
               onEntryClick ? () => onEntryClick(row.entry) : undefined
             }
           >
-            {/* Entry name + reorder */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-mono font-bold text-text-primary">
-                {row.entry.label}
-              </div>
-              <ReorderButtons
-                index={i}
-                total={rows.length}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-              />
+            {/* Move up — top right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp(i);
+              }}
+              disabled={i === 0}
+              className="absolute top-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
+            >
+              ▲
+            </button>
+            {/* Move down — bottom right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown(i);
+              }}
+              disabled={i === rows.length - 1}
+              className="absolute bottom-1.5 right-1.5 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1.5 py-1"
+            >
+              ▼
+            </button>
+
+            {/* Entry name */}
+            <div className="text-sm font-mono font-bold text-text-primary mb-2">
+              {row.entry.label}
             </div>
 
             {/* F4 teams: 2×2 grid — pairs nearly touching */}
@@ -492,17 +507,19 @@ function MobileCards({
             </div>
 
             {/* Champion */}
-            <div className="flex items-center justify-center gap-2 pt-2 mt-2 border-t border-border/30">
-              <span className="text-[10px] text-gold uppercase tracking-wide">
+            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-border/30">
+              <span className="text-[10px] text-gold uppercase tracking-wide shrink-0">
                 Champion
               </span>
-              <TeamChip
-                team={row.champion}
-                prob={prob(cn, 5)}
-                ov={ov(cn, 6)}
-                isChampion
-                compact
-              />
+              <div className="flex-1 flex justify-center">
+                <TeamChip
+                  team={row.champion}
+                  prob={prob(cn, 5)}
+                  ov={ov(cn, 6)}
+                  isChampion
+                  compact
+                />
+              </div>
             </div>
           </div>
         );
