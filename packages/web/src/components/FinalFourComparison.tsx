@@ -901,8 +901,13 @@ export function FinalFourComparison({
           {backLink && <span className="text-text-muted">/</span>}
           <h2 className="text-lg font-bold text-text-primary">{title}</h2>
         </div>
-        <div className="text-xs text-text-muted">
-          {displayRows.length} entries
+        <div className="flex items-center gap-3">
+          {!isMobile && (
+            <SortFooter sortMode={sortMode} onToggle={toggleSort} inline />
+          )}
+          <div className="text-xs text-text-muted">
+            {displayRows.length} entries
+          </div>
         </div>
       </div>
 
@@ -922,22 +927,17 @@ export function FinalFourComparison({
           <SortFooter sortMode={sortMode} onToggle={toggleSort} />
         </>
       ) : (
-        <>
-          <div className="flex justify-end mb-3 mx-2 lg:mx-auto lg:w-5/6">
-            <SortFooter sortMode={sortMode} onToggle={toggleSort} inline />
-          </div>
-          <DesktopGroupedView
-            rows={displayRows}
-            eliminatedTeams={eliminatedTeams}
-            winCounts={winCounts}
-            teamProbs={teamProbs}
-            onEntryClick={onEntryClick}
-            onMoveUp={handleMoveUp}
-            onMoveDown={handleMoveDown}
-            forecasts={forecasts}
-            scores={scores}
-          />
-        </>
+        <DesktopGroupedView
+          rows={displayRows}
+          eliminatedTeams={eliminatedTeams}
+          winCounts={winCounts}
+          teamProbs={teamProbs}
+          onEntryClick={onEntryClick}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+          forecasts={forecasts}
+          scores={scores}
+        />
       )}
     </div>
   );

@@ -1,0 +1,5 @@
+one super minor thing. i made a new branch for you... in desktop mode, the sort is displayed underneath "N entries". it should be on the same row as it, to the left of it.
+
+so we have
+
+[GROUP NAME]/Final Four (<== left aligned) ---- a bunch of whitespace ----- (right aligned ==>) [sort options] [n entries]
