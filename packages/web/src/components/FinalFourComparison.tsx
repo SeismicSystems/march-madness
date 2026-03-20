@@ -150,18 +150,28 @@ function reconcileOrder(
 /**
  * Group entries by champion pick for the desktop tiled view.
  *
- * Algorithm:
- * 1. Champions with >= 2 picks get their own named section (up to 5).
- * 2. Remaining entries are pooled. If the pool is small (≤ 4) or all one
- *    seed, it becomes a single "Other" group.
- * 3. Otherwise the pool is split by seed: seeds with >= 2 entries get their
- *    own "Other N-seeds" group; the rest merge into "Other seeds".
+ * Fully data-driven — no hardcoded caps or minimums.
  *
- * Within each group the relative order of `rows` is preserved so the active
- * sort mode carries through.
+ * 1. Build team→count and seed→count maps from the pool.
+ * 2. Compute a dynamic threshold for "own section" that scales with pool
+ *    size: `max(2, ceil(total / 10))`. Bigger pools need a bigger share
+ *    to justify a dedicated section.
+ * 3. Teams above the threshold get named sections.
+ * 4. Remainder is grouped by seed: seeds with ≥ 2 remainder entries get
+ *    their own "Other N-seeds" section; tiny seeds merge into one bucket.
+ *    If only one seed tier remains, the merged bucket names it; if 2+
+ *    tiers, it becomes "Other seeds".
+ *
+ * Final ordering: named teams (count desc) → single-seed groups (seed asc)
+ * → multi-seed merged bucket.
+ *
+ * Within each group the relative order of `rows` is preserved so the
+ * active sort mode carries through.
  */
 function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
-  // Accumulate in iteration order so relative order is preserved.
+  const total = rows.length;
+
+  // ── Step 1: build team→{team, entries} map (preserving row order) ──
   const byChamp = new Map<
     string,
     { team: Team; entries: DecodedPicks[] }
@@ -176,34 +186,32 @@ function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
     bucket.entries.push(row);
   }
 
-  // Sort champions by count desc, then alphabetically.
+  // ── Step 2: dynamic threshold ──
+  // Scales with pool size: 14→2, 20→2, 30→3, 50→5, 100→10
+  const ownThreshold = Math.max(2, Math.ceil(total / 10));
+
+  // Sort teams by count desc, then alphabetically for ties.
   const sorted = [...byChamp.entries()].sort(
     (a, b) =>
       b[1].entries.length - a[1].entries.length ||
       a[0].localeCompare(b[0]),
   );
 
-  const MAX_NAMED = 5;
-  const MIN_FOR_OWN = 2;
-
+  // ── Step 3: named sections ──
   const named: ChampionGroup[] = [];
   const remainder: DecodedPicks[] = [];
-  const remainderTeams: Team[] = [];
 
   for (const [champName, { team, entries }] of sorted) {
-    if (entries.length >= MIN_FOR_OWN && named.length < MAX_NAMED) {
+    if (entries.length >= ownThreshold) {
       named.push({ label: champName, champTeam: team, entries });
     } else {
       remainder.push(...entries);
-      if (!remainderTeams.some((t) => displayName(t) === champName)) {
-        remainderTeams.push(team);
-      }
     }
   }
 
   if (remainder.length === 0) return named;
 
-  // Group remainder by seed.
+  // ── Step 4: group remainder by champion seed ──
   const bySeed = new Map<number, DecodedPicks[]>();
   for (const row of remainder) {
     const seed = row.champion.seed;
@@ -215,35 +223,44 @@ function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
     arr.push(row);
   }
 
-  // Simple case: small remainder or single seed.
-  if (remainder.length <= 4 || bySeed.size === 1) {
-    const seedVal = bySeed.size === 1 ? [...bySeed.keys()][0] : undefined;
-    const label = seedVal !== undefined ? `Other ${seedVal}-seeds` : "Other";
-    named.push({ label, entries: remainder });
+  // Single seed in remainder — one group, name it directly.
+  if (bySeed.size === 1) {
+    const [seed, entries] = [...bySeed.entries()][0];
+    named.push({ label: `Other ${seed}-seeds`, entries });
     return named;
   }
 
-  // Split seed groups.
-  const seedsSorted = [...bySeed.entries()].sort(
-    (a, b) => b[1].length - a[1].length || a[0] - b[0],
-  );
+  // Multiple seeds: split into single-seed groups (≥ 2 entries) and a
+  // merged bucket for the rest.
+  const singleSeedGroups: ChampionGroup[] = [];
+  const merged: DecodedPicks[] = [];
+  const mergedSeeds: number[] = [];
 
-  const otherGroups: ChampionGroup[] = [];
-  const finalRemainder: DecodedPicks[] = [];
-
-  for (const [seed, entries] of seedsSorted) {
+  for (const [seed, entries] of [...bySeed.entries()].sort(
+    (a, b) => a[0] - b[0],
+  )) {
     if (entries.length >= 2) {
-      otherGroups.push({ label: `Other ${seed}-seeds`, entries });
+      singleSeedGroups.push({
+        label: `Other ${seed}-seeds`,
+        entries,
+      });
     } else {
-      finalRemainder.push(...entries);
+      merged.push(...entries);
+      mergedSeeds.push(seed);
     }
   }
 
-  if (finalRemainder.length > 0) {
-    otherGroups.push({ label: "Other seeds", entries: finalRemainder });
+  // Name the merged bucket based on how many seed tiers it contains.
+  if (merged.length > 0) {
+    const label =
+      mergedSeeds.length === 1
+        ? `Other ${mergedSeeds[0]}-seeds`
+        : "Other seeds";
+    singleSeedGroups.push({ label, entries: merged });
   }
 
-  return [...named, ...otherGroups];
+  // ── Final order: named teams → single-seed groups → merged bucket ──
+  return [...named, ...singleSeedGroups];
 }
 
 /* ── Sort modes ───────────────────────────────────────── */
