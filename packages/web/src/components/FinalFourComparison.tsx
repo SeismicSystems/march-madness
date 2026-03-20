@@ -223,50 +223,68 @@ function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
     arr.push(row);
   }
 
-  // Split seeds into groups (≥ 2 entries) and a merged bucket.
-  // No section may have fewer than 2 entries.
-  const singleSeedGroups: ChampionGroup[] = [];
-  const merged: DecodedPicks[] = [];
-  const mergedSeeds: number[] = [];
+  // Build seed buckets sorted by seed asc, then merge small ones into
+  // neighbors so no section has fewer than 2 entries.
+  const seedEntries = [...bySeed.entries()].sort((a, b) => a[0] - b[0]);
+  const buckets: { seeds: number[]; entries: DecodedPicks[] }[] =
+    seedEntries.map(([seed, ents]) => ({ seeds: [seed], entries: ents }));
 
-  for (const [seed, entries] of [...bySeed.entries()].sort(
-    (a, b) => a[0] - b[0],
-  )) {
-    if (entries.length >= 2) {
-      singleSeedGroups.push({
-        label: `Other ${seed}-seeds`,
-        entries,
-      });
-    } else {
-      merged.push(...entries);
-      mergedSeeds.push(seed);
+  // Forward pass: absorb undersized buckets into the next one.
+  {
+    let i = 0;
+    while (i < buckets.length - 1) {
+      if (buckets[i].entries.length < 2) {
+        buckets[i + 1].seeds = [
+          ...buckets[i].seeds,
+          ...buckets[i + 1].seeds,
+        ];
+        buckets[i + 1].entries = [
+          ...buckets[i].entries,
+          ...buckets[i + 1].entries,
+        ];
+        buckets.splice(i, 1);
+      } else {
+        i++;
+      }
     }
   }
 
-  // Name the merged bucket based on how many seed tiers it spans.
-  if (merged.length > 0) {
-    const label =
-      mergedSeeds.length === 1
-        ? `Other ${mergedSeeds[0]}-seeds`
-        : "Other seeds";
-    // If merged bucket is still only 1 entry AND there are seed groups,
-    // absorb it into the last seed group rather than creating a lone section.
-    if (merged.length === 1 && singleSeedGroups.length > 0) {
-      const last = singleSeedGroups[singleSeedGroups.length - 1];
-      last.entries = [...last.entries, ...merged];
-      last.label = "Other seeds";
+  // Backward pass: if last bucket is still undersized, merge into previous.
+  while (
+    buckets.length > 1 &&
+    buckets[buckets.length - 1].entries.length < 2
+  ) {
+    const last = buckets.pop()!;
+    const prev = buckets[buckets.length - 1];
+    prev.seeds = [...prev.seeds, ...last.seeds];
+    prev.entries = [...prev.entries, ...last.entries];
+  }
+
+  // Reduce to ≤ 2 seed groups by merging from the tail, unless every
+  // group already has enough entries to justify standing alone.
+  while (buckets.length > 2) {
+    if (buckets.every((b) => b.entries.length >= ownThreshold)) break;
+    const last = buckets.pop()!;
+    const prev = buckets[buckets.length - 1];
+    prev.seeds = [...prev.seeds, ...last.seeds];
+    prev.entries = [...prev.entries, ...last.entries];
+  }
+
+  // Label each bucket by its seed composition.
+  const seedGroups: ChampionGroup[] = buckets.map((b, idx) => {
+    let label: string;
+    if (b.seeds.length === 1) {
+      label = `Other ${b.seeds[0]}-seeds`;
+    } else if (idx === buckets.length - 1) {
+      label = `Other ${Math.min(...b.seeds)}+ seeds`;
     } else {
-      singleSeedGroups.push({ label, entries: merged });
+      label = `Other ${b.seeds.join("+")} seeds`;
     }
-  }
+    return { label, entries: b.entries };
+  });
 
-  // If we ended up with no seed groups (everything merged), make one group.
-  if (singleSeedGroups.length === 0 && remainder.length > 0) {
-    singleSeedGroups.push({ label: "Other", entries: remainder });
-  }
-
-  // ── Final order: named teams → single-seed groups → merged bucket ──
-  return [...named, ...singleSeedGroups];
+  // ── Final order: named teams → seed groups ──
+  return [...named, ...seedGroups];
 }
 
 /* ── Sort modes ───────────────────────────────────────── */
