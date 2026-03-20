@@ -123,6 +123,7 @@ export function BracketView({
   if (isMobile) {
     return (
       <MobileBracket
+        games={games}
         regions={displayedRegions}
         f4Games={f4Games}
         champGame={champGame}
@@ -207,6 +208,7 @@ export function BracketView({
 /* ── Mobile tabbed bracket ─────────────────────────────── */
 
 function MobileBracket({
+  games,
   regions,
   f4Games,
   champGame,
@@ -217,6 +219,7 @@ function MobileBracket({
   advancedTeams,
   gameWinProbs,
 }: {
+  games: GameSlot[];
   regions: Array<{ name: string; rounds: GameSlot[][] }>;
   f4Games: GameSlot[];
   champGame: GameSlot[];
@@ -227,35 +230,87 @@ function MobileBracket({
   advancedTeams: Map<string, number>;
   gameWinProbs: GameWinProbs;
 }) {
-  const [activeTab, setActiveTab] = useState(0);
-  const tabs = [...regions.map((r) => r.name), "Final Four"];
+  const liveGames = useMemo(() => {
+    if (!tournamentStatus) return [];
+    return games.filter(
+      (g) => tournamentStatus.games[g.gameIndex]?.status === "live",
+    );
+  }, [games, tournamentStatus]);
+
+  const hasLive = liveGames.length > 0;
+
+  // Track selected tab by stable ID (not index) so inserting/removing the Live
+  // tab doesn't shift the user's view. `null` means "no explicit choice" — the
+  // default is derived: Live tab if available, otherwise first region.
+  // This avoids an awkward flash on initial load: the bracket JSON is bundled
+  // (instant) but tournament status is async. While status is loading, tabs
+  // show regions only. When status arrives with live games, the Live tab
+  // appears and becomes the derived default — no explicit setState needed.
+  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+
+  const tabs = useMemo(
+    () => [
+      ...(hasLive ? [{ id: "live", label: "Live" }] : []),
+      ...regions.map((r) => ({ id: `region:${r.name}`, label: r.name })),
+      { id: "final-four", label: "Final Four" },
+    ],
+    [hasLive, regions],
+  );
+
+  // Resolve active tab: explicit selection if still valid, else derived default
+  const defaultTabId = hasLive ? "live" : tabs[0]?.id;
+  const activeTabId =
+    selectedTabId && tabs.some((t) => t.id === selectedTabId)
+      ? selectedTabId
+      : defaultTabId;
+
+  // Map active tab ID to content
+  const isLiveTab = activeTabId === "live";
+  const isFinalFourTab = activeTabId === "final-four";
+  const regionIndex = regions.findIndex(
+    (r) => `region:${r.name}` === activeTabId,
+  );
+  const isRegionTab = regionIndex >= 0;
 
   return (
     <div>
       {/* Tab bar */}
       <div className="flex flex-wrap justify-center gap-1 mb-4">
-        {tabs.map((tab, i) => (
+        {tabs.map((tab) => (
           <button
-            key={tab}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(i)}
+            onClick={() => setSelectedTabId(tab.id)}
             className={`shrink-0 px-4 py-1.5 text-xs rounded-lg border transition-colors ${
-              activeTab === i
-                ? "bg-accent text-white border-accent"
-                : "bg-bg-tertiary text-text-secondary border-border hover:bg-bg-hover"
+              activeTabId === tab.id
+                ? tab.id === "live"
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-accent text-white border-accent"
+                : tab.id === "live"
+                  ? "bg-green-500/10 text-green-400 border-green-500/25 hover:bg-green-500/20"
+                  : "bg-bg-tertiary text-text-secondary border-border hover:bg-bg-hover"
             }`}
           >
-            {tab}
+            {tab.id === "live" ? (
+              <span className="flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+                </span>
+                Live
+              </span>
+            ) : (
+              tab.label
+            )}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
       <div className="pb-2">
-        {activeTab < 4 ? (
-          <MobileRegionLanes
-            regionName={regions[activeTab].name}
-            rounds={regions[activeTab].rounds}
+        {isLiveTab ? (
+          <MobileLiveGames
+            liveGames={liveGames}
             onPick={onPick}
             disabled={disabled}
             tournamentStatus={tournamentStatus}
@@ -263,7 +318,18 @@ function MobileBracket({
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
           />
-        ) : (
+        ) : isRegionTab ? (
+          <MobileRegionLanes
+            regionName={regions[regionIndex].name}
+            rounds={regions[regionIndex].rounds}
+            onPick={onPick}
+            disabled={disabled}
+            tournamentStatus={tournamentStatus}
+            eliminatedTeams={eliminatedTeams}
+            advancedTeams={advancedTeams}
+            gameWinProbs={gameWinProbs}
+          />
+        ) : isFinalFourTab ? (
           <MobileFinalFourLanes
             semifinal1={f4Games[0] ?? null}
             semifinal2={f4Games[1] ?? null}
@@ -275,8 +341,63 @@ function MobileBracket({
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
           />
-        )}
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function MobileLiveGames({
+  liveGames,
+  onPick,
+  disabled,
+  tournamentStatus,
+  eliminatedTeams,
+  advancedTeams,
+  gameWinProbs,
+}: {
+  liveGames: GameSlot[];
+  onPick: (gameIndex: number, pickTeam1: boolean) => void;
+  disabled: boolean;
+  tournamentStatus?: TournamentStatus;
+  eliminatedTeams: Set<string>;
+  advancedTeams: Map<string, number>;
+  gameWinProbs: GameWinProbs;
+}) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-green-400 uppercase tracking-wider px-1">
+        Live Games
+      </h3>
+      <section className="rounded-lg border border-green-500/25 bg-bg-secondary/70 p-2.5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] text-green-400/80 uppercase tracking-wide">
+            In Progress
+          </div>
+          <div className="text-[10px] text-text-muted">
+            {liveGames.length} game{liveGames.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {liveGames.map((game) => (
+            <BracketGame
+              key={game.gameIndex}
+              team1={game.team1}
+              team2={game.team2}
+              winner={game.winner}
+              onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+              disabled={disabled}
+              mobile
+              fullWidth
+              round={game.round}
+              gameStatus={tournamentStatus?.games[game.gameIndex]}
+              eliminatedTeams={eliminatedTeams}
+              advancedTeams={advancedTeams}
+              team1WinProbability={gameWinProbs.get(game.gameIndex)}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
