@@ -1,0 +1,6 @@
+hey in the mirrors final 4 page, mobile view: we have this feature that allows sorting. i want to change the alignment of this page
+
+1) The "Sort" [option1] [option2] [option3]" should be left aligned, and not change its position at all, regardless of whether there's a reset to manual order in local storage button present
+2) the "Saved order" button should be right aligned, all the way on the right.
+
+when you're done, make a pr

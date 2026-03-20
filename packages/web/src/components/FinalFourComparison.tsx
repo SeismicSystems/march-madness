@@ -609,27 +609,29 @@ function SortFooter({
   onToggle: (mode: SortMode) => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-2 mt-4 mx-2 md:mx-auto lg:w-5/6">
-      <span className="text-[10px] text-text-muted uppercase tracking-wide mr-1">
-        Sort
-      </span>
-      {SORT_OPTIONS.map(({ mode, label }) => (
-        <button
-          key={mode}
-          onClick={() => onToggle(mode)}
-          className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-            sortMode === mode
-              ? "border-accent/60 bg-accent/10 text-accent font-medium"
-              : "border-border/30 text-text-muted hover:border-border/60 hover:text-text-primary"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="flex items-center justify-between mt-4 mx-2 md:mx-auto lg:w-5/6">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-text-muted uppercase tracking-wide mr-1">
+          Sort
+        </span>
+        {SORT_OPTIONS.map(({ mode, label }) => (
+          <button
+            key={mode}
+            onClick={() => onToggle(mode)}
+            className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+              sortMode === mode
+                ? "border-accent/60 bg-accent/10 text-accent font-medium"
+                : "border-border/30 text-text-muted hover:border-border/60 hover:text-text-primary"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {sortMode !== "custom" && (
         <button
           onClick={() => onToggle("custom")}
-          className="text-[10px] text-text-muted/60 hover:text-text-primary ml-1"
+          className="text-[10px] text-text-muted/60 hover:text-text-primary"
         >
           ↩ Saved order
         </button>
