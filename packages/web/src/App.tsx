@@ -6,6 +6,7 @@ import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { BracketViewerPage } from "./pages/BracketViewerPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { MirrorBracketPage } from "./pages/MirrorBracketPage";
+import { MirrorFinalFourPage } from "./pages/MirrorFinalFourPage";
 import { MirrorLeaderboardPage } from "./pages/MirrorLeaderboardPage";
 import { PublicGroupsPage } from "./pages/PublicGroupsPage";
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/groups/public" element={<PublicGroupsPage />} />
           <Route path="/mirrors/id/:id" element={<MirrorLeaderboardPage />} />
+          <Route path="/mirrors/id/:id/ff" element={<MirrorFinalFourPage />} />
           <Route
             path="/mirrors/id/:id/bracket/:entrySlug"
             element={<MirrorBracketPage />}

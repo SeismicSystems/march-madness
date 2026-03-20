@@ -200,6 +200,7 @@ See `docs/api.md` for full API documentation including schema, game index layout
 - `/groups/public` — Browse public groups (dedicated page, linked from desktop hub)
 - `/bracket/:address` — Read-only bracket view with tournament status overlay
 - `/mirrors/id/:id` — Mirror leaderboard (not linked from UI, navigate directly)
+- `/mirrors/id/:id/ff` — Final Four comparison view for a mirror pool (linked from mirror leaderboard)
 - `/mirrors/id/:id/bracket/:entrySlug` — Mirror entry bracket view
 
 ## Shielded Types & Security
