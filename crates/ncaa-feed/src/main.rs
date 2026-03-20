@@ -159,8 +159,10 @@ async fn publish_status(state: &FeedState, conn: &mut MultiplexedConnection) {
 }
 
 /// Auto-detect today's date from the NCAA schedule API.
+/// Uses America/New_York time since NCAA tournament games are scheduled in ET.
 async fn detect_today(client: &NcaaClient, sport: SportCode) -> Result<ContestDate> {
-    let now = chrono::Utc::now();
+    let eastern = chrono_tz::America::New_York;
+    let now = chrono::Utc::now().with_timezone(&eastern);
     let today = ContestDate::from_naive(now.date_naive());
     let season_year = today.season_year();
 
