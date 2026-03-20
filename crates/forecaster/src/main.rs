@@ -406,6 +406,35 @@ fn load_status(conn: &mut redis::Connection) -> Result<TournamentStatus> {
 
 // ── Simulation (single codepath: full Bayesian game model) ─────────
 
+fn accumulate_pool_results(
+    pool: &Pool,
+    scores: &[u32],
+    pool_wins: &mut [Vec<f64>],
+    score_sums: &mut [Vec<u64>],
+    pool_idx: usize,
+) {
+    let mut best = 0u32;
+    let mut count_at_max = 0usize;
+    for &(_, bracket_idx) in &pool.members {
+        let s = scores[bracket_idx];
+        if s > best {
+            best = s;
+            count_at_max = 1;
+        } else if s == best {
+            count_at_max += 1;
+        }
+    }
+
+    let win_share = 1.0 / count_at_max as f64;
+    for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
+        let s = scores[bracket_idx];
+        score_sums[pool_idx][member_idx] += s as u64;
+        if s == best {
+            pool_wins[pool_idx][member_idx] += win_share;
+        }
+    }
+}
+
 /// Run multi-pool simulations using `simulate_tournament_bb_with_status`.
 ///
 /// Every trial clones the tournament, runs the full NB/Poisson simulation
@@ -435,12 +464,14 @@ fn run_multi_pool(
         .collect();
 
     #[allow(clippy::type_complexity)]
-    let partial_results: Vec<(Vec<Vec<u32>>, Vec<Vec<u64>>)> = chunks
+    let partial_results: Vec<(Vec<Vec<f64>>, Vec<Vec<u64>>)> = chunks
         .par_iter()
         .map(|&chunk_sims| {
             let mut rng = rand::rng();
-            let mut pool_wins: Vec<Vec<u32>> =
-                pools.iter().map(|p| vec![0u32; p.members.len()]).collect();
+            let mut pool_wins: Vec<Vec<f64>> = pools
+                .iter()
+                .map(|p| vec![0.0f64; p.members.len()])
+                .collect();
             let mut score_sums: Vec<Vec<u64>> =
                 pools.iter().map(|p| vec![0u64; p.members.len()]).collect();
 
@@ -455,20 +486,13 @@ fn run_multi_pool(
                     .collect();
 
                 for (pool_idx, pool) in pools.iter().enumerate() {
-                    let mut best = 0u32;
-                    for &(_, bracket_idx) in &pool.members {
-                        let s = scores[bracket_idx];
-                        if s > best {
-                            best = s;
-                        }
-                    }
-                    for (member_idx, &(_, bracket_idx)) in pool.members.iter().enumerate() {
-                        let s = scores[bracket_idx];
-                        score_sums[pool_idx][member_idx] += s as u64;
-                        if s == best {
-                            pool_wins[pool_idx][member_idx] += 1;
-                        }
-                    }
+                    accumulate_pool_results(
+                        pool,
+                        &scores,
+                        &mut pool_wins,
+                        &mut score_sums,
+                        pool_idx,
+                    );
                 }
             }
 
@@ -477,7 +501,10 @@ fn run_multi_pool(
         .collect();
 
     // Merge partial results.
-    let mut pool_wins: Vec<Vec<u32>> = pools.iter().map(|p| vec![0u32; p.members.len()]).collect();
+    let mut pool_wins: Vec<Vec<f64>> = pools
+        .iter()
+        .map(|p| vec![0.0f64; p.members.len()])
+        .collect();
     let mut score_sums: Vec<Vec<u64>> = pools.iter().map(|p| vec![0u64; p.members.len()]).collect();
     for (pw, ss) in &partial_results {
         for (pi, pp) in pw.iter().enumerate() {
@@ -571,6 +598,31 @@ fn run_team_advance(
     }
 
     TeamAdvanceResults { advance, num_sims }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pool_ties_split_fractionally() {
+        let pool = Pool {
+            key: "mm".to_string(),
+            members: vec![
+                ("a".to_string(), 0),
+                ("b".to_string(), 1),
+                ("c".to_string(), 2),
+            ],
+        };
+        let scores = vec![10, 10, 5];
+        let mut pool_wins = vec![vec![0.0; 3]];
+        let mut score_sums = vec![vec![0u64; 3]];
+
+        accumulate_pool_results(&pool, &scores, &mut pool_wins, &mut score_sums, 0);
+
+        assert_eq!(pool_wins[0], vec![0.5, 0.5, 0.0]);
+        assert_eq!(score_sums[0], vec![10, 10, 5]);
+    }
 }
 
 fn write_team_probs(
