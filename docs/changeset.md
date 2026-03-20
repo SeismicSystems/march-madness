@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+feat(web): desktop FF sort controls inline with header row
+
+
 feat(web): move sort controls to top-right on desktop FF view; rename "Final Four Picks" to "Final Four"
 
 
