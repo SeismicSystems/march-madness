@@ -563,7 +563,7 @@ function EntryCard({
   );
 }
 
-/* ── Desktop grouped view ─────────────────────────────── */
+/* ── Desktop grouped view (columns per champion group) ── */
 
 function DesktopGroupedView({
   rows,
@@ -571,6 +571,8 @@ function DesktopGroupedView({
   winCounts,
   teamProbs,
   onEntryClick,
+  onMoveUp,
+  onMoveDown,
   forecasts,
   scores,
 }: {
@@ -579,6 +581,8 @@ function DesktopGroupedView({
   winCounts: Map<string, number>;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
+  onMoveUp: (globalIdx: number) => void;
+  onMoveDown: (globalIdx: number) => void;
   forecasts?: ForecastIndex | null;
   scores: Map<string, PartialScore>;
 }) {
@@ -588,11 +592,18 @@ function DesktopGroupedView({
 
   const groups = useMemo(() => deriveChampionGroups(rows), [rows]);
 
+  // Build a map from entry id → global index in `rows` for reorder handlers
+  const globalIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r, i) => m.set(r.entry.id, i));
+    return m;
+  }, [rows]);
+
   return (
-    <div className="lg:w-5/6 lg:mx-auto mx-2 space-y-6">
+    <div className="mx-2 lg:mx-auto lg:w-5/6 flex gap-4 items-start overflow-x-auto">
       {groups.map((group) => (
-        <div key={group.label}>
-          {/* Section header */}
+        <div key={group.label} className="flex-1 min-w-[280px] max-w-[400px]">
+          {/* Column header */}
           <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border/30">
             {group.champTeam && (
               <TeamLogo
@@ -600,17 +611,17 @@ function DesktopGroupedView({
                 mobile
               />
             )}
-            <span className="text-sm font-semibold text-text-primary">
+            <span className="text-sm font-semibold text-text-primary truncate">
               {group.label}
             </span>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-[10px] text-text-muted flex-shrink-0">
               {group.entries.length}
             </span>
           </div>
 
-          {/* Card grid */}
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-            {group.entries.map((row) => (
+          {/* Vertical card list (same as mobile) */}
+          <div className="space-y-3">
+            {group.entries.map((row, localIdx) => (
               <EntryCard
                 key={row.entry.id}
                 row={row}
@@ -619,6 +630,18 @@ function DesktopGroupedView({
                 fc={forecasts?.[row.entry.id]}
                 sc={scores.get(row.entry.id)}
                 onEntryClick={onEntryClick}
+                reorder={{
+                  index: localIdx,
+                  total: group.entries.length,
+                  onMoveUp: () => {
+                    const gi = globalIndexById.get(row.entry.id);
+                    if (gi !== undefined) onMoveUp(gi);
+                  },
+                  onMoveDown: () => {
+                    const gi = globalIndexById.get(row.entry.id);
+                    if (gi !== undefined) onMoveDown(gi);
+                  },
+                }}
               />
             ))}
           </div>
@@ -897,6 +920,8 @@ export function FinalFourComparison({
           winCounts={winCounts}
           teamProbs={teamProbs}
           onEntryClick={onEntryClick}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
           forecasts={forecasts}
           scores={scores}
         />

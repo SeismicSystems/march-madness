@@ -1,0 +1,5 @@
+ff-mirror-desktop-columns
+
+oh man! we just merged in a change to the FF mirror desktop UI. it looks really good excep for one key thing: the groups should be COLUMNS, with entries per group going down and up, not left and right. that would allow us to add back in our sort functionality (and overall each section column should just use the mobile UI exactly, with the exception of it inputting a filtered subset of entries)
+
+when youre done make a pr
