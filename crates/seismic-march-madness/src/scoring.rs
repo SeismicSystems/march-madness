@@ -1,6 +1,8 @@
 //! ByteBracket scoring — Rust port of contracts/src/ByteBracket.sol.
 //! Uses u64 for bit manipulation, identical logic to Solidity.
 
+const SENTINEL_BIT: u64 = 1u64 << 63;
+
 /// Count the number of 1-bits in a 64-bit value.
 pub fn popcount(mut bits: u64) -> u8 {
     bits -= (bits >> 1) & 0x5555_5555_5555_5555;
@@ -44,30 +46,41 @@ pub fn get_scoring_mask(results: u64) -> u64 {
     mask
 }
 
+/// Reverse the 63 non-sentinel game bits while preserving the sentinel bit.
+///
+/// Rust and TypeScript currently store brackets in a legacy logical game order
+/// where `game 0 -> bit 62` and `game 62 -> bit 0`. The exact Solidity
+/// `ByteBracket` full scorer consumes the same raw `bytes8` value but scores it
+/// in the opposite 63-bit game order. This helper is the compatibility shim
+/// between those two interpretations.
+pub fn reverse_game_bits(bb: u64) -> u64 {
+    let mut out = bb & SENTINEL_BIT;
+    for i in 0..63u32 {
+        if (bb >> i) & 1 == 1 {
+            out |= 1u64 << (62 - i);
+        }
+    }
+    out
+}
+
 /// Score a bracket against results (full tournament). Max 192.
 ///
-/// Rust port of `ByteBracket.getBracketScore` from `contracts/src/ByteBracket.sol`.
+/// Exact Rust port of `ByteBracket.getBracketScore` from
+/// `contracts/src/ByteBracket.sol`.
 ///
-/// # Bit encoding (bytes8 / u64)
-///
-/// ```text
-/// Bit 63        = sentinel (must be 1, ignored by scoring)
-/// Bit 62        = game 0  (first R64 game)
-/// Bit 61        = game 1  (second R64 game)
-///   ...
-/// Bit 31        = game 31 (last R64 game)
-/// Bits 30-15    = games 32-47  (R32, 16 games)
-/// Bits 14-7     = games 48-55  (Sweet 16, 8 games)
-/// Bits 6-3      = games 56-59  (Elite 8, 4 games)
-/// Bits 2-1      = games 60-61  (Final Four, 2 games)
-/// Bit 0         = game 62      (Championship)
-/// ```
-///
-/// Each bit: 1 = team1 (top/higher seed) wins, 0 = team2 (bottom/lower seed) wins.
-/// Points per round: 1, 2, 4, 8, 16, 32. Credit requires feeder correctness.
+/// Important: most existing off-chain Rust callers do not store brackets in the
+/// bit order consumed by this exact full scorer. If your bracket bits come from
+/// the current app / importer / UI pipeline, translate them first with
+/// [`reverse_game_bits`] or call [`score_bracket_legacy`].
 pub fn score_bracket(bracket: u64, results: u64) -> u32 {
     let filter = get_scoring_mask(results);
     score_bracket_with_mask(bracket, results, filter)
+}
+
+/// Score a legacy off-chain bracket/results pair by first converting the 63
+/// game bits into the exact Solidity ByteBracket ordering.
+pub fn score_bracket_legacy(bracket: u64, results: u64) -> u32 {
+    score_bracket(reverse_game_bits(bracket), reverse_game_bits(results))
 }
 
 /// Score with a precomputed mask (for batch scoring).
@@ -134,6 +147,29 @@ mod tests {
             Some(0x8000_0000_0000_0000u64)
         );
         assert_eq!(parse_bracket_hex("nope"), None);
+    }
+
+    #[test]
+    fn reverse_game_bits_preserves_sentinel() {
+        assert_eq!(
+            reverse_game_bits(0x8000_0000_0000_0000),
+            0x8000_0000_0000_0000
+        );
+    }
+
+    #[test]
+    fn reverse_game_bits_matches_known_contract_example() {
+        // Jimpo contract example in exact Solidity ordering.
+        let contract_bracket = 0xC000_0000_0000_0000u64;
+        let contract_results = 0x8000_0000_0000_0000u64;
+        assert_eq!(score_bracket(contract_bracket, contract_results), 160);
+
+        // The legacy off-chain representation is the 63-bit reversal of that
+        // contract encoding. The compatibility shim should recover the same score.
+        let legacy_bracket = reverse_game_bits(contract_bracket);
+        let legacy_results = reverse_game_bits(contract_results);
+        assert_eq!(legacy_bracket, 0x8000_0000_0000_0001u64);
+        assert_eq!(score_bracket_legacy(legacy_bracket, legacy_results), 160);
     }
 
     // ── Golden vector tests (cross-language consistency) ────────────────

@@ -142,6 +142,30 @@ pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scoring::score_bracket;
+    use crate::types::{GameState, GameStatus, TournamentStatus};
+
+    fn status_from_results_bits_msb_mapping(results: u64) -> TournamentStatus {
+        let games = (0..63)
+            .map(|game_index| {
+                let winner = ((results >> (62 - game_index)) & 1) == 1;
+                GameStatus {
+                    game_index: game_index as u8,
+                    status: GameState::Final,
+                    score: None,
+                    winner: Some(winner),
+                    team1_win_probability: None,
+                    seconds_remaining: None,
+                    period: None,
+                }
+            })
+            .collect();
+
+        TournamentStatus {
+            games,
+            updated_at: None,
+        }
+    }
 
     #[test]
     fn display_name_regular_team() {
@@ -230,5 +254,15 @@ mod tests {
         assert_eq!(data.teams[1].display_name(), "A/B");
         assert_eq!(data.teams[2].display_name(), "Kansas");
         assert_eq!(data.teams[3].display_name(), "X");
+    }
+
+    #[test]
+    fn msb_mapping_disagrees_with_bytebracket_contract_score() {
+        let results = 0x8000_0000_0000_0000u64;
+        let bracket = 0xC000_0000_0000_0000u64;
+        let status = status_from_results_bits_msb_mapping(results);
+
+        assert_eq!(score_bracket(bracket, results), 160);
+        assert_eq!(compute_current_score(bracket, &status), 191);
     }
 }

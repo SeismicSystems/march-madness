@@ -1,0 +1,119 @@
+Investigate the unexplained live expected-score drift in the forecaster.
+
+Summary of the issue
+
+- Forecaster `--pre-lock` and oddsmaker agree reasonably well when both use the same field and pre-tournament information.
+- In live mode, after only a handful of Round 1 games, forecaster output appears badly wrong:
+  - `john-duke` jumps from very low `P(win)` / `E[score]` to much higher.
+  - Field-wide `E[score]` drops by roughly 10 points.
+- This is surprising because it is still early Round 1, almost no brackets are truly busted, and resolved games are only worth 1 point each.
+
+Important context
+
+- The source of truth for full-bracket scoring is the original Solidity `ByteBracket` recurrence:
+  - `scores = overlap & blacklist`
+  - `points += popcount(scores) << roundNum`
+  - `blacklist = pairwiseOr(scores & filter)`
+  - shift `overlap` and `filter`
+- Do not rewrite scoring semantics unless they match the Solidity source exactly.
+- The MSB/sentinel bit must be set to 1 on valid byte brackets, but scoring itself ignores that bit.
+
+What has already been learned
+
+- There was a real forecaster tie-share bug.
+  - Forecaster used to award full win credit to tied top scores.
+  - That was fixed separately and merged.
+  - It affects `P(win)` semantics, not the giant `E[score]` drift.
+- The KenPom Bayesian update factor is now configurable via `-u`.
+  - That change was merged separately.
+- The isolated one-game experiment still showed a large move even at `-u 0`.
+  - Status A: all games upcoming.
+  - Status B: only game 18 final, `Wisconsin 82, High Point 83`, `winner=false`.
+  - On the 15-entry `actual-opponents.json` field:
+    - `john-duke` moved by about `+6.88 E[score]`.
+    - Field mean moved by about `-7.3 E[score]`.
+  - This happened at `-u 0`, `-u 0.05`, and `-u 0.10`, so the isolated jump is not explained by the Bayesian update factor alone.
+- A prior attempt to "fix" scoring by requiring stricter feeder correctness was wrong.
+  - That diverged from the Solidity source of truth.
+  - Those changes were reverted.
+- Sentinel parsing mismatch is probably not the root cause.
+  - Rust forecaster currently uses a permissive parser.
+  - That is worth tightening for validation hygiene.
+  - But toggling bit 63 does not change scores under the exact Solidity recurrence, so it is very unlikely to explain the EV drift.
+
+Current status
+
+- The Rust scorer matches the Solidity scoring algorithm.
+- The TypeScript scorer matches the Solidity scoring algorithm.
+- The large live EV drift is still unexplained.
+
+Diagnostic playbook
+
+1. Use a scratch Redis DB, not `/15`.
+   - This investigation already touched DB 15.
+   - Do not assume `/15` is clean.
+   - Prefer a different DB, for example:
+     - `redis://127.0.0.1:6379/14`
+
+2. If testing live mode, refresh live game state into the scratch DB first.
+   - Run `ncaa-feed` against the scratch DB before running forecaster.
+   - Otherwise it is easy to compare against stale status and chase nonsense.
+
+3. Freeze the status when comparing runs.
+   - Do not compare one run against a moving live feed.
+   - Save or inject a fixed `TournamentStatus` so every run sees the same resolved/live games.
+
+4. Reproduce the smallest surprising case.
+   - The most useful minimized case so far is:
+     - all-upcoming
+     - versus only game 18 marked final with `High Point > Wisconsin`
+   - Keep every other game upcoming.
+
+5. Sweep `-u` separately from the status change.
+   - At minimum compare:
+     - `-u 0`
+     - `-u 0.05`
+     - `-u 0.10`
+   - This separates "conditioning on a result" from "Bayesian rating update magnitude."
+
+6. Estimate Monte Carlo noise before drawing conclusions.
+   - Re-run the exact same frozen setup multiple times.
+   - If the variance is tiny and the drift is large, the issue is structural rather than RNG noise.
+
+7. Decompose expected score by game contribution under the exact Solidity recurrence.
+   - Use the real `pairwiseOr(scores & filter)` logic.
+   - Do not use any alternate or "cleaned up" scorer.
+   - For each trial, attribute points by actual ByteBracket game index and round.
+   - Then compare contribution deltas between:
+     - all-upcoming
+     - isolated one-game-final status
+
+8. Compare tools only when the inputs are truly identical.
+   - Same entry set.
+   - Same tournament data.
+   - Same live/final status.
+   - Same `-u`.
+   - Same number of sims, if possible.
+
+Useful assets
+
+- Opponent field used for comparison:
+  - `/home/c/code/sports/brackets/data/2026/actual-opponents.json`
+- `john-duke` bracket:
+  - `0xdec9eeebe554d75d`
+- The isolated upset used in the minimized test:
+  - game 18
+  - `Wisconsin 82, High Point 83`
+  - `winner=false`
+
+Suggested next step
+
+- Build or use a small analysis harness that:
+  - loads the 15-entry field from `actual-opponents.json`
+  - runs the two frozen statuses above
+  - uses `-u 0`
+  - records per-game expected score contribution deltas under the exact Solidity scoring rule
+- The goal is to learn whether the large EV move is coming from:
+  - legitimate scoring semantics under conditioned results
+  - status construction / feeder mapping bugs
+  - or simulation/modeling behavior upstream of scoring
