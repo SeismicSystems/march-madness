@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
   decodeBracket,
@@ -87,13 +87,23 @@ export function MirrorLeaderboardPage() {
   }
 
   return (
-    <LeaderboardTable
-      rows={rows}
-      title={mirror?.display_name ?? `Mirror ${id}`}
-      status={status}
-      hasForecasts={hasForecasts}
-      onRowClick={(row) => navigate(`/mirrors/id/${id}/bracket/${row.id}`)}
-      entryLabel="Entry"
-    />
+    <>
+      <div className="flex justify-end mx-2 md:mx-auto md:w-3/4 mb-1">
+        <Link
+          to={`/mirrors/id/${id}/ff`}
+          className="text-xs text-accent hover:text-accent-hover transition-colors"
+        >
+          Final Four Picks →
+        </Link>
+      </div>
+      <LeaderboardTable
+        rows={rows}
+        title={mirror?.display_name ?? `Mirror ${id}`}
+        status={status}
+        hasForecasts={hasForecasts}
+        onRowClick={(row) => navigate(`/mirrors/id/${id}/bracket/${row.id}`)}
+        entryLabel="Entry"
+      />
+    </>
   );
 }

@@ -1,0 +1,24 @@
+hey. we want to add a route to the mirrors page, something like /mirrors/id/{id}/ff
+
+the goal of this is to show everyone's final 4 picks on one screen
+
+its got to work for both mobile and desktop (definitely want different views)
+
+it should be very easy for the users to see differences in their final 4 picks
+
+we should also overlay each of these with the values from mm:probs redis keys
+
+if the final 4 team was eliminated already, theys hould have the same red X display that we have on the normal bracket grid; same as for if they actually advance to the final 4
+we'll also want to show the picks within the final 4 with the same logic, including who their champion is (probs included)
+
+this page should be linked on the /mirrors/id/{id} page; ther should also be a link back to that id page from the final 4s page
+
+when you're done, submit a PR.
+
+---
+
+also we're going to eventually want to support this for leaderboard and groups. dont implement that, but the component should have an interface that allows us to reuse this component for those aspects too
+
+---
+
+not sure if "table" approach is best bc we need to show 7 cells total and it doesnt lend irself to a table cleanly
