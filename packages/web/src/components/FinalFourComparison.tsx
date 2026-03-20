@@ -1,7 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-import type { ForecastIndex, PartialScore, TournamentStatus } from "@march-madness/client";
+import type {
+  ForecastIndex,
+  PartialScore,
+  TournamentStatus,
+} from "@march-madness/client";
 import { decodeBracket, scoreBracketPartial } from "@march-madness/client";
 
 import type { TeamProbs } from "../hooks/useTeamProbs";
@@ -48,6 +52,12 @@ interface DecodedPicks {
 
 type TeamOverlay = "eliminated" | "advancing" | null;
 
+interface ChampionGroup {
+  label: string;
+  champTeam?: Team;
+  entries: DecodedPicks[];
+}
+
 /* ── Statics ──────────────────────────────────────────── */
 
 const allTeams = getAllTeamsInBracketOrder();
@@ -76,11 +86,6 @@ function extractPicks(entry: FinalFourEntry): DecodedPicks | null {
   }
 }
 
-/**
- * Compute eliminated teams and win counts from the actual tournament bracket
- * (not from any user's picks). Traces the real bracket progression from R64
- * through Championship using tournament status.
- */
 function buildTournamentState(status: TournamentStatus) {
   const eliminated = new Set<string>();
   const winCounts = new Map<string, number>();
@@ -110,10 +115,6 @@ function buildTournamentState(status: TournamentStatus) {
   return { eliminatedTeams: eliminated, winCounts };
 }
 
-/**
- * Determine overlay for a team in a specific bracket slot.
- * @param winsNeeded - 4 for F4 slot, 5 for SF winner slot, 6 for champion slot
- */
 function getOverlay(
   name: string,
   winsNeeded: number,
@@ -144,6 +145,148 @@ function reconcileOrder(
   }
 }
 
+/* ── Champion grouping ────────────────────────────────── */
+
+/**
+ * Group entries by champion pick for the desktop tiled view.
+ *
+ * Fully data-driven — no hardcoded caps or minimums.
+ *
+ * 1. Build team→count and seed→count maps from the pool.
+ * 2. Compute a dynamic threshold for "own section" that scales with pool
+ *    size: `max(2, ceil(total / 10))`. Bigger pools need a bigger share
+ *    to justify a dedicated section.
+ * 3. Teams above the threshold get named sections.
+ * 4. Remainder is grouped by seed: seeds with ≥ 2 remainder entries get
+ *    their own "Other N-seeds" section; tiny seeds merge into one bucket.
+ *    If only one seed tier remains, the merged bucket names it; if 2+
+ *    tiers, it becomes "Other seeds".
+ *
+ * Final ordering: named teams (count desc) → single-seed groups (seed asc)
+ * → multi-seed merged bucket.
+ *
+ * Within each group the relative order of `rows` is preserved so the
+ * active sort mode carries through.
+ */
+function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
+  const total = rows.length;
+
+  // ── Step 1: build team→{team, entries} map (preserving row order) ──
+  const byChamp = new Map<
+    string,
+    { team: Team; entries: DecodedPicks[] }
+  >();
+  for (const row of rows) {
+    const name = displayName(row.champion);
+    let bucket = byChamp.get(name);
+    if (!bucket) {
+      bucket = { team: row.champion, entries: [] };
+      byChamp.set(name, bucket);
+    }
+    bucket.entries.push(row);
+  }
+
+  // ── Step 2: dynamic threshold ──
+  // Scales with pool size: 14→2, 20→2, 30→3, 50→5, 100→10
+  const ownThreshold = Math.max(2, Math.ceil(total / 10));
+
+  // Sort teams by count desc, then alphabetically for ties.
+  const sorted = [...byChamp.entries()].sort(
+    (a, b) =>
+      b[1].entries.length - a[1].entries.length ||
+      a[0].localeCompare(b[0]),
+  );
+
+  // ── Step 3: named sections ──
+  const named: ChampionGroup[] = [];
+  const remainder: DecodedPicks[] = [];
+
+  for (const [champName, { team, entries }] of sorted) {
+    if (entries.length >= ownThreshold) {
+      named.push({ label: champName, champTeam: team, entries });
+    } else {
+      remainder.push(...entries);
+    }
+  }
+
+  if (remainder.length === 0) return named;
+
+  // ── Step 4: group remainder by champion seed ──
+  const bySeed = new Map<number, DecodedPicks[]>();
+  for (const row of remainder) {
+    const seed = row.champion.seed;
+    let arr = bySeed.get(seed);
+    if (!arr) {
+      arr = [];
+      bySeed.set(seed, arr);
+    }
+    arr.push(row);
+  }
+
+  // Build seed buckets sorted by seed asc, then merge small ones into
+  // neighbors so no section has fewer than 2 entries.
+  const seedEntries = [...bySeed.entries()].sort((a, b) => a[0] - b[0]);
+  const buckets: { seeds: number[]; entries: DecodedPicks[] }[] =
+    seedEntries.map(([seed, ents]) => ({ seeds: [seed], entries: ents }));
+
+  // Forward pass: absorb undersized buckets into the next one.
+  {
+    let i = 0;
+    while (i < buckets.length - 1) {
+      if (buckets[i].entries.length < 2) {
+        buckets[i + 1].seeds = [
+          ...buckets[i].seeds,
+          ...buckets[i + 1].seeds,
+        ];
+        buckets[i + 1].entries = [
+          ...buckets[i].entries,
+          ...buckets[i + 1].entries,
+        ];
+        buckets.splice(i, 1);
+      } else {
+        i++;
+      }
+    }
+  }
+
+  // Backward pass: if last bucket is still undersized, merge into previous.
+  while (
+    buckets.length > 1 &&
+    buckets[buckets.length - 1].entries.length < 2
+  ) {
+    const last = buckets.pop()!;
+    const prev = buckets[buckets.length - 1];
+    prev.seeds = [...prev.seeds, ...last.seeds];
+    prev.entries = [...prev.entries, ...last.entries];
+  }
+
+  // Reduce to ≤ 2 seed groups by merging from the tail, unless every
+  // group already has enough entries to justify standing alone.
+  while (buckets.length > 2) {
+    if (buckets.every((b) => b.entries.length >= ownThreshold)) break;
+    const last = buckets.pop()!;
+    const prev = buckets[buckets.length - 1];
+    prev.seeds = [...prev.seeds, ...last.seeds];
+    prev.entries = [...prev.entries, ...last.entries];
+  }
+
+  // Label each bucket by its seed composition.
+  const seedGroups: ChampionGroup[] = buckets.map((b, idx) => {
+    let label: string;
+    if (b.seeds.length === 1) {
+      label = `Other ${b.seeds[0]}-seeds`;
+    } else if (idx === buckets.length - 1) {
+      label = `Other ${Math.min(...b.seeds)}+ seeds`;
+    } else {
+      label = `Other ${b.seeds.join("+")} seeds`;
+    }
+    return { label, entries: b.entries };
+  });
+
+  // ── Final order: named teams → seed groups ──
+  return [...named, ...seedGroups];
+}
+
 /* ── Sort modes ───────────────────────────────────────── */
 
 type SortMode = "custom" | "prob" | "expected" | "current";
@@ -170,7 +313,6 @@ function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
     [orderKey],
   );
 
-  /** Overwrite the custom order (used when adopting a sorted order). */
   const setCustomOrder = useCallback(
     (ids: string[]) => {
       setOrder(ids);
@@ -206,45 +348,6 @@ function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
   );
 
   return { order, moveUp, moveDown, setCustomOrder };
-}
-
-/* ── Reorder buttons ─────────────────────────────────── */
-
-function ReorderButtons({
-  index,
-  total,
-  onMoveUp,
-  onMoveDown,
-}: {
-  index: number;
-  total: number;
-  onMoveUp: (idx: number) => void;
-  onMoveDown: (idx: number) => void;
-}) {
-  return (
-    <div className="flex flex-col items-center">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onMoveUp(index);
-        }}
-        disabled={index === 0}
-        className="text-[10px] leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-      >
-        ▲
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onMoveDown(index);
-        }}
-        disabled={index === total - 1}
-        className="text-[10px] leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-      >
-        ▼
-      </button>
-    </div>
-  );
 }
 
 /* ── TeamChip ─────────────────────────────────────────── */
@@ -297,16 +400,177 @@ function TeamChip({
   );
 }
 
-/* ── Desktop bracket-flow rows ────────────────────────── */
+/* ── Entry card (shared between mobile list + desktop grid) ── */
 
-function DesktopView({
+function EntryCard({
+  row,
+  prob,
+  ov,
+  fc,
+  sc,
+  onEntryClick,
+  reorder,
+}: {
+  row: DecodedPicks;
+  prob: (name: string, idx: number) => number | undefined;
+  ov: (name: string, wins: number) => TeamOverlay;
+  fc?: { winProbability: number; expectedScore: number };
+  sc?: PartialScore;
+  onEntryClick?: (entry: FinalFourEntry) => void;
+  /** If provided, show ▲/▼ buttons and "Bracket →" instead of card click. */
+  reorder?: {
+    index: number;
+    total: number;
+    onMoveUp: (i: number) => void;
+    onMoveDown: (i: number) => void;
+  };
+}) {
+  const f4n = row.f4.map((t) => displayName(t));
+  const sfn = row.sfWinners.map((t) => displayName(t));
+  const cn = displayName(row.champion);
+  const cardClickable = !reorder && onEntryClick;
+
+  return (
+    <div
+      className={`relative rounded-lg border border-border bg-bg-secondary/50 p-3 ${
+        cardClickable
+          ? "cursor-pointer hover:bg-bg-hover/20 hover:border-border/40 transition-colors"
+          : ""
+      }`}
+      onClick={cardClickable ? () => onEntryClick(row.entry) : undefined}
+    >
+      {/* Move up — top right (mobile only) */}
+      {reorder && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            reorder.onMoveUp(reorder.index);
+          }}
+          disabled={reorder.index === 0}
+          className="absolute top-2 right-3 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+        >
+          ▲
+        </button>
+      )}
+
+      {/* Entry name + stats */}
+      <div
+        className={`flex items-center gap-1.5 mb-2 ${reorder ? "pr-8" : ""}`}
+      >
+        <div className="text-sm font-mono font-bold text-text-primary truncate">
+          {row.entry.label}
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto shrink-0 text-[11px] text-text-muted">
+          {fc && (
+            <>
+              <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+              <span>{fc.expectedScore.toFixed(1)}</span>
+            </>
+          )}
+          {sc && (
+            <span className="font-mono ml-1">
+              <span className="text-text-primary font-semibold">
+                {sc.current}
+              </span>
+              <span>/{sc.maxPossible}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* F4 teams: 2×2 grid */}
+      <div className="grid grid-cols-2 gap-x-2 gap-y-px">
+        <TeamChip
+          team={row.f4[0]}
+          prob={prob(f4n[0], 3)}
+          ov={ov(f4n[0], 4)}
+          compact
+        />
+        <TeamChip
+          team={row.f4[1]}
+          prob={prob(f4n[1], 3)}
+          ov={ov(f4n[1], 4)}
+          compact
+        />
+        <TeamChip
+          team={row.f4[2]}
+          prob={prob(f4n[2], 3)}
+          ov={ov(f4n[2], 4)}
+          compact
+        />
+        <TeamChip
+          team={row.f4[3]}
+          prob={prob(f4n[3], 3)}
+          ov={ov(f4n[3], 4)}
+          compact
+        />
+      </div>
+
+      {/* Finalists */}
+      <div className="grid grid-cols-2 gap-x-2 mt-2.5 pt-2 border-t border-border/15">
+        <TeamChip
+          team={row.sfWinners[0]}
+          prob={prob(sfn[0], 4)}
+          ov={ov(sfn[0], 5)}
+          compact
+        />
+        <TeamChip
+          team={row.sfWinners[1]}
+          prob={prob(sfn[1], 4)}
+          ov={ov(sfn[1], 5)}
+          compact
+        />
+      </div>
+
+      {/* Bottom row */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 pt-2 mt-2 border-t border-border/30">
+        <div className="flex justify-start">
+          {reorder && onEntryClick && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEntryClick(row.entry);
+              }}
+              className="text-xs text-accent hover:text-accent-hover active:text-accent-hover font-medium px-2 py-1 rounded border border-accent/30 hover:border-accent/60 transition-colors"
+            >
+              Bracket →
+            </button>
+          )}
+        </div>
+        <TeamChip
+          team={row.champion}
+          prob={prob(cn, 5)}
+          ov={ov(cn, 6)}
+          isChampion
+          compact
+        />
+        <div className="flex justify-end pr-1">
+          {reorder && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                reorder.onMoveDown(reorder.index);
+              }}
+              disabled={reorder.index === reorder.total - 1}
+              className="text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+            >
+              ▼
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Desktop grouped view ─────────────────────────────── */
+
+function DesktopGroupedView({
   rows,
   eliminatedTeams,
   winCounts,
   teamProbs,
   onEntryClick,
-  onMoveUp,
-  onMoveDown,
   forecasts,
   scores,
 }: {
@@ -315,8 +579,6 @@ function DesktopView({
   winCounts: Map<string, number>;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
-  onMoveUp: (idx: number) => void;
-  onMoveDown: (idx: number) => void;
   forecasts?: ForecastIndex | null;
   scores: Map<string, PartialScore>;
 }) {
@@ -324,111 +586,44 @@ function DesktopView({
   const ov = (name: string, wins: number) =>
     getOverlay(name, wins, eliminatedTeams, winCounts);
 
+  const groups = useMemo(() => deriveChampionGroups(rows), [rows]);
+
   return (
-    <div className="lg:w-5/6 lg:mx-auto mx-2 space-y-1">
-      {rows.map((row, i) => {
-        const f4n = row.f4.map((t) => displayName(t));
-        const sfn = row.sfWinners.map((t) => displayName(t));
-        const cn = displayName(row.champion);
-        const fc = forecasts?.[row.entry.id];
-        const sc = scores.get(row.entry.id);
-
-        return (
-          <div
-            key={row.entry.id}
-            className={`flex items-center gap-3 px-3 py-1.5 rounded-lg border border-border/20 transition-colors ${
-              onEntryClick
-                ? "cursor-pointer hover:bg-bg-hover/20 hover:border-border/40"
-                : ""
-            }`}
-            onClick={
-              onEntryClick ? () => onEntryClick(row.entry) : undefined
-            }
-          >
-            {/* Entry name */}
-            <div className="w-28 shrink-0 font-mono text-sm text-text-primary truncate">
-              {row.entry.label}
-            </div>
-
-            <div className="shrink-0 flex items-center gap-2 text-[11px] text-text-muted">
-              {fc && (
-                <>
-                  <span>{(fc.winProbability * 100).toFixed(1)}%</span>
-                  <span>{fc.expectedScore.toFixed(1)}</span>
-                </>
-              )}
-              {sc && (
-                <span className="font-mono">
-                  <span className="text-text-primary font-semibold">{sc.current}</span>
-                  <span>/{sc.maxPossible}</span>
-                </span>
-              )}
-            </div>
-
-            {/* F4 teams: 2×2 grid */}
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
-              <TeamChip
-                team={row.f4[0]}
-                prob={prob(f4n[0], 3)}
-                ov={ov(f4n[0], 4)}
-                compact
+    <div className="lg:w-5/6 lg:mx-auto mx-2 space-y-6">
+      {groups.map((group) => (
+        <div key={group.label}>
+          {/* Section header */}
+          <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border/30">
+            {group.champTeam && (
+              <TeamLogo
+                teamName={displayName(group.champTeam)}
+                mobile
               />
-              <TeamChip
-                team={row.f4[1]}
-                prob={prob(f4n[1], 3)}
-                ov={ov(f4n[1], 4)}
-                compact
-              />
-              <TeamChip
-                team={row.f4[2]}
-                prob={prob(f4n[2], 3)}
-                ov={ov(f4n[2], 4)}
-                compact
-              />
-              <TeamChip
-                team={row.f4[3]}
-                prob={prob(f4n[3], 3)}
-                ov={ov(f4n[3], 4)}
-                compact
-              />
-            </div>
-
-            {/* Finalists */}
-            <div className="flex flex-col gap-0.5 shrink-0">
-              <TeamChip
-                team={row.sfWinners[0]}
-                prob={prob(sfn[0], 4)}
-                ov={ov(sfn[0], 5)}
-                compact
-              />
-              <TeamChip
-                team={row.sfWinners[1]}
-                prob={prob(sfn[1], 4)}
-                ov={ov(sfn[1], 5)}
-                compact
-              />
-            </div>
-
-            {/* Champion */}
-            <div className="shrink-0 ml-auto">
-              <TeamChip
-                team={row.champion}
-                prob={prob(cn, 5)}
-                ov={ov(cn, 6)}
-                isChampion
-              />
-            </div>
-
-            {/* Reorder */}
-            <ReorderButtons
-              index={i}
-              total={rows.length}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-            />
+            )}
+            <span className="text-sm font-semibold text-text-primary">
+              {group.label}
+            </span>
+            <span className="text-[10px] text-text-muted">
+              {group.entries.length}
+            </span>
           </div>
-        );
-      })}
+
+          {/* Card grid */}
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+            {group.entries.map((row) => (
+              <EntryCard
+                key={row.entry.id}
+                row={row}
+                prob={prob}
+                ov={ov}
+                fc={forecasts?.[row.entry.id]}
+                sc={scores.get(row.entry.id)}
+                onEntryClick={onEntryClick}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -462,133 +657,23 @@ function MobileCards({
 
   return (
     <div className="space-y-3 mx-2">
-      {rows.map((row, i) => {
-        const fc = forecasts?.[row.entry.id];
-        const sc = scores.get(row.entry.id);
-        const f4n = row.f4.map((t) => displayName(t));
-        const sfn = row.sfWinners.map((t) => displayName(t));
-        const cn = displayName(row.champion);
-
-        return (
-          <div
-            key={row.entry.id}
-            className="relative rounded-lg border border-border bg-bg-secondary/50 p-3"
-          >
-            {/* Move up — top right */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveUp(i);
-              }}
-              disabled={i === 0}
-              className="absolute top-2 right-3 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-            >
-              ▲
-            </button>
-
-            {/* Entry name + stats: win%, expected score, current/max */}
-            <div className="flex items-center gap-1.5 mb-2 pr-8">
-              <div className="text-sm font-mono font-bold text-text-primary truncate">
-                {row.entry.label}
-              </div>
-              <div className="flex items-center gap-1.5 ml-auto shrink-0 text-[11px] text-text-muted">
-                {fc && (
-                  <>
-                    <span>{(fc.winProbability * 100).toFixed(1)}%</span>
-                    <span>{fc.expectedScore.toFixed(1)}</span>
-                  </>
-                )}
-                {sc && (
-                  <span className="font-mono ml-1">
-                    <span className="text-text-primary font-semibold">{sc.current}</span>
-                    <span>/{sc.maxPossible}</span>
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* F4 teams: 2×2 grid — pairs nearly touching */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-px">
-              <TeamChip
-                team={row.f4[0]}
-                prob={prob(f4n[0], 3)}
-                ov={ov(f4n[0], 4)}
-                compact
-              />
-              <TeamChip
-                team={row.f4[1]}
-                prob={prob(f4n[1], 3)}
-                ov={ov(f4n[1], 4)}
-                compact
-              />
-              <TeamChip
-                team={row.f4[2]}
-                prob={prob(f4n[2], 3)}
-                ov={ov(f4n[2], 4)}
-                compact
-              />
-              <TeamChip
-                team={row.f4[3]}
-                prob={prob(f4n[3], 3)}
-                ov={ov(f4n[3], 4)}
-                compact
-              />
-            </div>
-
-            {/* Finalists */}
-            <div className="grid grid-cols-2 gap-x-2 mt-2.5 pt-2 border-t border-border/15">
-              <TeamChip
-                team={row.sfWinners[0]}
-                prob={prob(sfn[0], 4)}
-                ov={ov(sfn[0], 5)}
-                compact
-              />
-              <TeamChip
-                team={row.sfWinners[1]}
-                prob={prob(sfn[1], 4)}
-                ov={ov(sfn[1], 5)}
-                compact
-              />
-            </div>
-
-            {/* Bottom row: bracket link | champion chip | ▼ button */}
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 pt-2 mt-2 border-t border-border/30">
-              <div className="flex justify-start">
-                {onEntryClick && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEntryClick(row.entry);
-                    }}
-                    className="text-xs text-accent hover:text-accent-hover active:text-accent-hover font-medium px-2 py-1 rounded border border-accent/30 hover:border-accent/60 transition-colors"
-                  >
-                    Bracket →
-                  </button>
-                )}
-              </div>
-              <TeamChip
-                team={row.champion}
-                prob={prob(cn, 5)}
-                ov={ov(cn, 6)}
-                isChampion
-                compact
-              />
-              <div className="flex justify-end pr-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMoveDown(i);
-                  }}
-                  disabled={i === rows.length - 1}
-                  className="text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-                >
-                  ▼
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {rows.map((row, i) => (
+        <EntryCard
+          key={row.entry.id}
+          row={row}
+          prob={prob}
+          ov={ov}
+          fc={forecasts?.[row.entry.id]}
+          sc={scores.get(row.entry.id)}
+          onEntryClick={onEntryClick}
+          reorder={{
+            index: i,
+            total: rows.length,
+            onMoveUp,
+            onMoveDown,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -710,7 +795,6 @@ export function FinalFourComparison({
     return m;
   }, [decoded, tournamentStatus]);
 
-  /** Apply sort mode to get final display rows. */
   const displayRows = useMemo(() => {
     if (sortMode === "custom") return orderedDecoded;
     const sorted = [...orderedDecoded];
@@ -731,11 +815,6 @@ export function FinalFourComparison({
     return sorted;
   }, [sortMode, orderedDecoded, forecasts, scores]);
 
-  /**
-   * When ▲/▼ is clicked during a non-custom sort, adopt the current
-   * displayed order as the new custom order, apply the move, then
-   * switch back to custom mode.
-   */
   const handleMoveUp = useCallback(
     (idx: number) => {
       if (sortMode !== "custom") {
@@ -766,12 +845,9 @@ export function FinalFourComparison({
     [sortMode, displayRows, setCustomOrder, moveDown],
   );
 
-  const toggleSort = useCallback(
-    (mode: SortMode) => {
-      setSortMode((prev) => (prev === mode ? "custom" : mode));
-    },
-    [],
-  );
+  const toggleSort = useCallback((mode: SortMode) => {
+    setSortMode((prev) => (prev === mode ? "custom" : mode));
+  }, []);
 
   if (displayRows.length === 0) {
     return (
@@ -780,18 +856,6 @@ export function FinalFourComparison({
       </div>
     );
   }
-
-  const sharedProps = {
-    rows: displayRows,
-    eliminatedTeams,
-    winCounts,
-    teamProbs,
-    onEntryClick,
-    onMoveUp: handleMoveUp,
-    onMoveDown: handleMoveDown,
-    forecasts,
-    scores,
-  };
 
   return (
     <div>
@@ -815,9 +879,27 @@ export function FinalFourComparison({
       </div>
 
       {isMobile ? (
-        <MobileCards {...sharedProps} />
+        <MobileCards
+          rows={displayRows}
+          eliminatedTeams={eliminatedTeams}
+          winCounts={winCounts}
+          teamProbs={teamProbs}
+          onEntryClick={onEntryClick}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+          forecasts={forecasts}
+          scores={scores}
+        />
       ) : (
-        <DesktopView {...sharedProps} />
+        <DesktopGroupedView
+          rows={displayRows}
+          eliminatedTeams={eliminatedTeams}
+          winCounts={winCounts}
+          teamProbs={teamProbs}
+          onEntryClick={onEntryClick}
+          forecasts={forecasts}
+          scores={scores}
+        />
       )}
 
       {/* Sort footer */}
