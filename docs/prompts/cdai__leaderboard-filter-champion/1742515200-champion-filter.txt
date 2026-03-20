@@ -1,0 +1,1 @@
+hey on the leaderboard page, we should be able to filter for "champion". it should let us type in a field and then suggest optoins that string match (case insensitive, maybe just using a dumb .contains() so i can partial search strings).... so then i can filter leaderboard page for say, all purdue champion brackets. when you're done, push a pr.

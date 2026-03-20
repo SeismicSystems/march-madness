@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { TournamentStatus } from "@march-madness/client";
@@ -84,6 +84,107 @@ function SortHeader({
   );
 }
 
+function ChampionFilter({
+  championNames,
+  value,
+  onChange,
+}: {
+  championNames: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync external value changes (e.g. clearing).
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  // Close dropdown on outside click.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const suggestions = useMemo(() => {
+    if (!inputValue) return championNames;
+    const q = inputValue.toLowerCase();
+    return championNames.filter((n) => n.toLowerCase().includes(q));
+  }, [championNames, inputValue]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          value={inputValue}
+          placeholder="Filter by champion..."
+          className="bg-bg-secondary border border-border rounded px-2 py-1 text-xs text-text-primary placeholder:text-text-muted/50 w-44 focus:outline-none focus:border-accent"
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            setOpen(true);
+            // Clear filter if input is emptied.
+            if (!e.target.value) onChange("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setOpen(false);
+              (e.target as HTMLInputElement).blur();
+            }
+            if (e.key === "Enter" && suggestions.length === 1) {
+              onChange(suggestions[0]);
+              setInputValue(suggestions[0]);
+              setOpen(false);
+            }
+          }}
+        />
+        {value && (
+          <button
+            onClick={() => {
+              onChange("");
+              setInputValue("");
+            }}
+            className="text-text-muted hover:text-text-primary text-xs px-1"
+            title="Clear filter"
+          >
+            x
+          </button>
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 mt-1 w-52 max-h-48 overflow-y-auto bg-bg-secondary border border-border rounded shadow-lg">
+          {suggestions.map((name) => (
+            <button
+              key={name}
+              className="w-full text-left px-2 py-1.5 text-xs text-text-primary hover:bg-bg-hover/50 flex items-center gap-1.5"
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent blur before click fires.
+                onChange(name);
+                setInputValue(name);
+                setOpen(false);
+              }}
+            >
+              <TeamLogo teamName={name} />
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LeaderboardTable({
   rows,
   title,
@@ -107,15 +208,40 @@ export function LeaderboardTable({
   const [sortTrigger, setSortTrigger] = useState(0);
   const prevSortTrigger = useRef(-1);
   const orderRef = useRef<string[]>([]);
+  const [championFilter, setChampionFilterRaw] = useState("");
+  function setChampionFilter(v: string) {
+    setChampionFilterRaw(v);
+    setPage(1);
+    orderRef.current = []; // Force re-sort on filter change.
+  }
+
+  // Unique champion names sorted alphabetically.
+  const uniqueChampions = useMemo(() => {
+    const names = new Set<string>();
+    for (const r of rows) {
+      if (r.championName) names.add(r.championName);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Filter rows by champion before sorting.
+  const filteredRows = useMemo(() => {
+    if (!championFilter) return rows;
+    return rows.filter(
+      (r) =>
+        r.championName !== null &&
+        r.championName.toLowerCase() === championFilter.toLowerCase()
+    );
+  }, [rows, championFilter]);
 
   // Sort — only reshuffles on explicit user sort actions, not data updates.
   const sorted = useMemo(() => {
-    const rowMap = new Map(rows.map((r) => [r.id, r]));
+    const rowMap = new Map(filteredRows.map((r) => [r.id, r]));
     const shouldResort = prevSortTrigger.current !== sortTrigger;
 
     if (shouldResort || orderRef.current.length === 0) {
       prevSortTrigger.current = sortTrigger;
-      const arr = [...rows];
+      const arr = [...filteredRows];
       arr.sort((a, b) => {
         let cmp = 0;
         switch (sortKey) {
@@ -167,7 +293,7 @@ export function LeaderboardTable({
       orderRef.current.push(entry.id);
     }
     return result;
-  }, [rows, sortKey, sortDir, sortTrigger]);
+  }, [filteredRows, sortKey, sortDir, sortTrigger]);
 
   // Pagination.
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
@@ -217,12 +343,17 @@ export function LeaderboardTable({
           )}
           <h2 className="text-lg font-bold text-text-primary">{title}</h2>
         </div>
-        <div className="flex gap-3 text-xs text-text-muted">
+        <div className="flex items-center gap-3 text-xs text-text-muted">
+          <ChampionFilter
+            championNames={uniqueChampions}
+            value={championFilter}
+            onChange={setChampionFilter}
+          />
           {status && (
             <>
-              <span>{decidedCount}/63 games decided</span>
+              <span className="hidden md:inline">{decidedCount}/63 games decided</span>
               {liveCount > 0 && (
-                <span className="text-green-400">{liveCount} live</span>
+                <span className="text-green-400 hidden md:inline">{liveCount} live</span>
               )}
             </>
           )}
