@@ -1,0 +1,9 @@
+hey in  our last PR we did this:
+
+Timezone fix: ncaa-feed auto-detect was using UTC for "today's date", which after midnight UTC (8pm ET) would poll the wrong day's scoreboard. Now uses America/New_York timezone since NCAA tournament games are scheduled in ET.
+
+
+i think we should actually do "date of today in EST - 3 hours" (effectively, date of today in PST). because some games start late, and might end after midnight. however, no game starts at 2am
+
+i'd also like to add this:
+we should not hit the ncaa api if it's between 1am EST and 12pm EST. simply sleep for a minute, check the time again, and only hit ncaa api if we're in normal game time range
