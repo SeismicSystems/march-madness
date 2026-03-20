@@ -5,7 +5,7 @@ use crate::bracket_config::{BRACKET_SEED_ORDER, BracketConfig};
 use crate::game::{Game, GameResult};
 use crate::metrics::Metrics;
 use crate::team::Team;
-use crate::{Bracket, DEFAULT_PACE_D, ScoringSystem};
+use crate::{Bracket, DEFAULT_KENPOM_UPDATE_FACTOR, DEFAULT_PACE_D, ScoringSystem};
 use seismic_march_madness::types::{GameState, TournamentStatus};
 use std::collections::HashMap;
 use std::io;
@@ -17,6 +17,8 @@ pub struct Tournament {
     seeds: HashMap<String, u8>,
     /// Pace dispersion ratio (variance / mean). See [`DEFAULT_PACE_D`].
     pace_d: f64,
+    /// KenPom-style Bayesian postgame metric adjustment factor.
+    kenpom_update_factor: f64,
 }
 
 impl Default for Tournament {
@@ -32,12 +34,19 @@ impl Tournament {
             games: Vec::new(),
             seeds: HashMap::new(),
             pace_d: DEFAULT_PACE_D,
+            kenpom_update_factor: DEFAULT_KENPOM_UPDATE_FACTOR,
         }
     }
 
     /// Set the pace dispersion ratio. See [`DEFAULT_PACE_D`] for details.
     pub fn with_pace_d(mut self, pace_d: f64) -> Self {
         self.pace_d = pace_d;
+        self
+    }
+
+    /// Set the KenPom-style Bayesian postgame metric adjustment factor.
+    pub fn with_kenpom_update_factor(mut self, kenpom_update_factor: f64) -> Self {
+        self.kenpom_update_factor = kenpom_update_factor;
         self
     }
 
@@ -168,8 +177,12 @@ impl Tournament {
                 // Update both teams from their own perspective
                 let mut t1 = game.team1.clone();
                 let mut t2 = game.team2.clone();
-                t1.update_metrics(t1_expected, t1_observed);
-                t2.update_metrics(t1_expected.flip(), t1_observed.flip());
+                t1.update_metrics(t1_expected, t1_observed, self.kenpom_update_factor);
+                t2.update_metrics(
+                    t1_expected.flip(),
+                    t1_observed.flip(),
+                    self.kenpom_update_factor,
+                );
 
                 let (winner_team, loser_name) = if winner_is_t1 {
                     (t1, t2.team)
@@ -391,8 +404,12 @@ impl Tournament {
 
                     let mut t1 = game.team1.clone();
                     let mut t2 = game.team2.clone();
-                    t1.update_metrics(t1_expected, t1_observed);
-                    t2.update_metrics(t1_expected.flip(), t1_observed.flip());
+                    t1.update_metrics(t1_expected, t1_observed, self.kenpom_update_factor);
+                    t2.update_metrics(
+                        t1_expected.flip(),
+                        t1_observed.flip(),
+                        self.kenpom_update_factor,
+                    );
 
                     let winner_team = if winner_is_t1 { t1 } else { t2 };
                     winners_for_next_round.push(winner_team);
@@ -492,8 +509,12 @@ impl Tournament {
 
                 let mut t1 = game.team1.clone();
                 let mut t2 = game.team2.clone();
-                t1.update_metrics(t1_expected, t1_observed);
-                t2.update_metrics(t1_expected.flip(), t1_observed.flip());
+                t1.update_metrics(t1_expected, t1_observed, self.kenpom_update_factor);
+                t2.update_metrics(
+                    t1_expected.flip(),
+                    t1_observed.flip(),
+                    self.kenpom_update_factor,
+                );
 
                 let winner_team = if winner_is_t1 { t1 } else { t2 };
                 winners_for_next_round.push(winner_team);

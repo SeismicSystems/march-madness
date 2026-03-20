@@ -49,6 +49,10 @@ struct Cli {
     #[arg(long, default_value = "2026")]
     year: u16,
 
+    /// KenPom-style Bayesian postgame metric adjustment factor.
+    #[arg(short = 'u', long, default_value_t = bracket_sim::DEFAULT_KENPOM_UPDATE_FACTOR)]
+    kenpom_update_factor: f64,
+
     /// Ignore current game state and simulate from pre-tournament probabilities.
     #[arg(long)]
     pre_lock: bool,
@@ -72,6 +76,7 @@ struct Context {
     output_file: Option<PathBuf>,
     /// When true, ignore Redis game state and always use all-upcoming status.
     force_pre_lock: bool,
+    kenpom_update_factor: f64,
 }
 
 struct ForecastInputs {
@@ -142,7 +147,9 @@ fn build_context(cli: &Cli) -> Result<Context> {
         .collect();
 
     let bracket_config = BracketConfig::for_year(cli.year);
-    let mut tournament = Tournament::new().with_pace_d(bracket_sim::DEFAULT_PACE_D);
+    let mut tournament = Tournament::new()
+        .with_pace_d(bracket_sim::DEFAULT_PACE_D)
+        .with_kenpom_update_factor(cli.kenpom_update_factor);
     tournament.setup_tournament(teams.to_vec(), &bracket_config);
 
     Ok(Context {
@@ -152,6 +159,7 @@ fn build_context(cli: &Cli) -> Result<Context> {
         simulations: cli.simulations,
         output_file: cli.output_file.clone(),
         force_pre_lock: cli.pre_lock,
+        kenpom_update_factor: cli.kenpom_update_factor,
     })
 }
 
@@ -193,6 +201,7 @@ fn run_iteration(conn: &mut redis::Connection, ctx: &Context, iteration: u64) ->
         live,
         upcoming = 63 - decided - live,
         simulations = ctx.simulations,
+        kenpom_update_factor = ctx.kenpom_update_factor,
         "loaded simulation state"
     );
 
