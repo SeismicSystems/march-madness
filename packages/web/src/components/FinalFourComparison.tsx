@@ -223,15 +223,8 @@ function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
     arr.push(row);
   }
 
-  // Single seed in remainder — one group, name it directly.
-  if (bySeed.size === 1) {
-    const [seed, entries] = [...bySeed.entries()][0];
-    named.push({ label: `Other ${seed}-seeds`, entries });
-    return named;
-  }
-
-  // Multiple seeds: split into single-seed groups (≥ 2 entries) and a
-  // merged bucket for the rest.
+  // Split seeds into groups (≥ 2 entries) and a merged bucket.
+  // No section may have fewer than 2 entries.
   const singleSeedGroups: ChampionGroup[] = [];
   const merged: DecodedPicks[] = [];
   const mergedSeeds: number[] = [];
@@ -250,13 +243,26 @@ function deriveChampionGroups(rows: DecodedPicks[]): ChampionGroup[] {
     }
   }
 
-  // Name the merged bucket based on how many seed tiers it contains.
+  // Name the merged bucket based on how many seed tiers it spans.
   if (merged.length > 0) {
     const label =
       mergedSeeds.length === 1
         ? `Other ${mergedSeeds[0]}-seeds`
         : "Other seeds";
-    singleSeedGroups.push({ label, entries: merged });
+    // If merged bucket is still only 1 entry AND there are seed groups,
+    // absorb it into the last seed group rather than creating a lone section.
+    if (merged.length === 1 && singleSeedGroups.length > 0) {
+      const last = singleSeedGroups[singleSeedGroups.length - 1];
+      last.entries = [...last.entries, ...merged];
+      last.label = "Other seeds";
+    } else {
+      singleSeedGroups.push({ label, entries: merged });
+    }
+  }
+
+  // If we ended up with no seed groups (everything merged), make one group.
+  if (singleSeedGroups.length === 0 && remainder.length > 0) {
+    singleSeedGroups.push({ label: "Other", entries: remainder });
   }
 
   // ── Final order: named teams → single-seed groups → merged bucket ──
