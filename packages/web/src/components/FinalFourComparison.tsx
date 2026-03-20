@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-import type { TournamentStatus } from "@march-madness/client";
+import type { ForecastIndex, TournamentStatus } from "@march-madness/client";
 import { decodeBracket } from "@march-madness/client";
 
 import type { TeamProbs } from "../hooks/useTeamProbs";
@@ -31,6 +31,8 @@ export interface FinalFourComparisonProps {
   onEntryClick?: (entry: FinalFourEntry) => void;
   /** localStorage key suffix for persisting custom entry order (use mirror slug) */
   orderKey?: string;
+  /** Per-entry forecasts keyed by entry id (slug). */
+  forecasts?: ForecastIndex | null;
 }
 
 /* ── Internal types ───────────────────────────────────── */
@@ -289,6 +291,7 @@ function DesktopView({
   onEntryClick,
   onMoveUp,
   onMoveDown,
+  forecasts,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -297,6 +300,7 @@ function DesktopView({
   onEntryClick?: (entry: FinalFourEntry) => void;
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
+  forecasts?: ForecastIndex | null;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -308,6 +312,7 @@ function DesktopView({
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
+        const fc = forecasts?.[row.entry.id];
 
         return (
           <div
@@ -325,6 +330,13 @@ function DesktopView({
             <div className="w-28 shrink-0 font-mono text-sm text-text-primary truncate">
               {row.entry.label}
             </div>
+
+            {fc && (
+              <div className="shrink-0 flex items-center gap-2 text-[11px] text-text-muted">
+                <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                <span>{fc.expectedScore.toFixed(1)} pts</span>
+              </div>
+            )}
 
             {/* F4 teams: 2×2 grid */}
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
@@ -404,6 +416,7 @@ function MobileCards({
   onEntryClick,
   onMoveUp,
   onMoveDown,
+  forecasts,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
@@ -412,6 +425,7 @@ function MobileCards({
   onEntryClick?: (entry: FinalFourEntry) => void;
   onMoveUp: (idx: number) => void;
   onMoveDown: (idx: number) => void;
+  forecasts?: ForecastIndex | null;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -420,6 +434,7 @@ function MobileCards({
   return (
     <div className="space-y-3 mx-2">
       {rows.map((row, i) => {
+        const fc = forecasts?.[row.entry.id];
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
@@ -457,9 +472,17 @@ function MobileCards({
               ▼
             </button>
 
-            {/* Entry name */}
-            <div className="text-sm font-mono font-bold text-text-primary mb-2">
-              {row.entry.label}
+            {/* Entry name + forecast stats */}
+            <div className="flex items-center gap-2 mb-2 pr-6">
+              <div className="text-sm font-mono font-bold text-text-primary truncate">
+                {row.entry.label}
+              </div>
+              {fc && (
+                <div className="flex items-center gap-2 ml-auto shrink-0 text-[11px] text-text-muted">
+                  <span>{(fc.winProbability * 100).toFixed(1)}%</span>
+                  <span>{fc.expectedScore.toFixed(1)} pts</span>
+                </div>
+              )}
             </div>
 
             {/* F4 teams: 2×2 grid — pairs nearly touching */}
@@ -538,6 +561,7 @@ export function FinalFourComparison({
   teamProbs,
   onEntryClick,
   orderKey,
+  forecasts,
 }: FinalFourComparisonProps) {
   const isMobile = useIsMobile();
 
@@ -595,6 +619,7 @@ export function FinalFourComparison({
     onEntryClick,
     onMoveUp: moveUp,
     onMoveDown: moveDown,
+    forecasts,
   };
 
   return (
