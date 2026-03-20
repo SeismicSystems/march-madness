@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix FF sort footer alignment: left-align sort options, right-align "Saved order" button so sort controls don't shift when the button appears/disappears
+
+
 Add champion filter to leaderboard page with typeahead search
 
 
