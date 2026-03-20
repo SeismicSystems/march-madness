@@ -17,6 +17,11 @@
 # NCAA API nameShort values that differ from the canonical names in tournament.json.
 # Key = NCAA API nameShort, Value = tournament.json canonical name.
 [ncaa]
+"California Baptist" = "Cal Baptist"
+"LIU" = "Long Island"
+"Miami (OH)" = "Miami (Ohio)"
+"Prairie View" = "Prairie View A&M"
+"Queens (NC)" = "Queens (N.C.)"
 "Saint Mary's (CA)" = "Saint Mary's"
 "South Fla." = "South Florida"
 
