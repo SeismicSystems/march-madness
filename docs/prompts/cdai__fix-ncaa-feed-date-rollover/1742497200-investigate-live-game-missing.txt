@@ -1,0 +1,1 @@
+hey there's a live game right now but the ncaa-feed is saying there's no live game so nothing is updating in the ui. investigate!
