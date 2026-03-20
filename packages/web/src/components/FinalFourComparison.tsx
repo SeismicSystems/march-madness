@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 import type { TournamentStatus } from "@march-madness/client";
@@ -11,7 +11,6 @@ import {
   displayAbbrev,
   displayName,
   getAllTeamsInBracketOrder,
-  tournament,
   type Team,
 } from "../lib/tournament";
 
@@ -30,6 +29,8 @@ export interface FinalFourComparisonProps {
   tournamentStatus: TournamentStatus | null;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
+  /** localStorage key suffix for persisting custom entry order (use mirror slug) */
+  orderKey?: string;
 }
 
 /* ── Internal types ───────────────────────────────────── */
@@ -50,7 +51,7 @@ type TeamOverlay = "eliminated" | "advancing" | null;
 const allTeams = getAllTeamsInBracketOrder();
 const teamNameList = allTeams.map((t) => displayName(t));
 const teamByName = new Map(allTeams.map((t) => [displayName(t), t]));
-const regionNames = tournament.regions; // [East, West, South, Midwest]
+const STORAGE_PREFIX = "ff-order-";
 
 /* ── Helpers ──────────────────────────────────────────── */
 
@@ -117,12 +118,115 @@ function getOverlay(
   eliminated: Set<string>,
   winCounts: Map<string, number>,
 ): TeamOverlay {
-  // Team reached or surpassed this stage → green
   if ((winCounts.get(name) ?? 0) >= winsNeeded) return "advancing";
-  // Team didn't reach this stage and is eliminated → red
   if (eliminated.has(name)) return "eliminated";
-  // Tournament hasn't progressed here yet
   return null;
+}
+
+function reconcileOrder(
+  orderKey: string | undefined,
+  entryIds: string[],
+): string[] {
+  if (!orderKey || entryIds.length === 0) return entryIds;
+  try {
+    const stored = localStorage.getItem(`${STORAGE_PREFIX}${orderKey}`);
+    if (!stored) return entryIds;
+    const parsed = JSON.parse(stored) as string[];
+    const idSet = new Set(entryIds);
+    const ordered = parsed.filter((id) => idSet.has(id));
+    const seen = new Set(ordered);
+    const remaining = entryIds.filter((id) => !seen.has(id));
+    return [...ordered, ...remaining];
+  } catch {
+    return entryIds;
+  }
+}
+
+/* ── Ordering hook ────────────────────────────────────── */
+
+function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
+  const [order, setOrder] = useState<string[]>(() =>
+    reconcileOrder(orderKey, entryIds),
+  );
+
+  useEffect(() => {
+    setOrder(reconcileOrder(orderKey, entryIds));
+  }, [orderKey, entryIds]);
+
+  const moveUp = useCallback(
+    (idx: number) => {
+      if (idx <= 0) return;
+      setOrder((prev) => {
+        const next = [...prev];
+        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+        if (orderKey)
+          localStorage.setItem(
+            `${STORAGE_PREFIX}${orderKey}`,
+            JSON.stringify(next),
+          );
+        return next;
+      });
+    },
+    [orderKey],
+  );
+
+  const moveDown = useCallback(
+    (idx: number) => {
+      setOrder((prev) => {
+        if (idx >= prev.length - 1) return prev;
+        const next = [...prev];
+        [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+        if (orderKey)
+          localStorage.setItem(
+            `${STORAGE_PREFIX}${orderKey}`,
+            JSON.stringify(next),
+          );
+        return next;
+      });
+    },
+    [orderKey],
+  );
+
+  return { order, moveUp, moveDown };
+}
+
+/* ── Reorder buttons ─────────────────────────────────── */
+
+function ReorderButtons({
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+}: {
+  index: number;
+  total: number;
+  onMoveUp: (idx: number) => void;
+  onMoveDown: (idx: number) => void;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onMoveUp(index);
+        }}
+        disabled={index === 0}
+        className="text-[10px] leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+      >
+        ▲
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onMoveDown(index);
+        }}
+        disabled={index === total - 1}
+        className="text-[10px] leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+      >
+        ▼
+      </button>
+    </div>
+  );
 }
 
 /* ── TeamChip ─────────────────────────────────────────── */
@@ -183,12 +287,16 @@ function DesktopView({
   winCounts,
   teamProbs,
   onEntryClick,
+  onMoveUp,
+  onMoveDown,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
   winCounts: Map<string, number>;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
+  onMoveUp: (idx: number) => void;
+  onMoveDown: (idx: number) => void;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -196,21 +304,7 @@ function DesktopView({
 
   return (
     <div className="lg:w-5/6 lg:mx-auto mx-2 space-y-1">
-      {/* Section labels */}
-      <div className="flex items-center gap-3 px-3 pb-1 border-b border-border/30">
-        <div className="w-28 shrink-0" />
-        <div className="flex-1 text-[10px] text-text-muted uppercase tracking-wide text-center">
-          Semifinal 1
-        </div>
-        <div className="flex-1 text-[10px] text-text-muted uppercase tracking-wide text-center">
-          Semifinal 2
-        </div>
-        <div className="w-32 shrink-0 text-[10px] text-gold uppercase tracking-wide text-center">
-          Champion
-        </div>
-      </div>
-
-      {rows.map((row) => {
+      {rows.map((row, i) => {
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
@@ -232,58 +326,52 @@ function DesktopView({
               {row.entry.label}
             </div>
 
-            {/* SF1: East vs West → Winner */}
-            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+            {/* F4 teams: 2×2 grid */}
+            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
               <TeamChip
                 team={row.f4[0]}
                 prob={prob(f4n[0], 3)}
                 ov={ov(f4n[0], 4)}
+                compact
               />
-              <span className="text-[10px] text-text-muted/40 shrink-0">
-                vs
-              </span>
               <TeamChip
                 team={row.f4[1]}
                 prob={prob(f4n[1], 3)}
                 ov={ov(f4n[1], 4)}
+                compact
               />
-              <span className="text-[10px] text-text-muted/40 shrink-0">
-                →
-              </span>
-              <TeamChip
-                team={row.sfWinners[0]}
-                prob={prob(sfn[0], 4)}
-                ov={ov(sfn[0], 5)}
-              />
-            </div>
-
-            {/* SF2: South vs Midwest → Winner */}
-            <div className="flex-1 flex items-center gap-1.5 min-w-0">
               <TeamChip
                 team={row.f4[2]}
                 prob={prob(f4n[2], 3)}
                 ov={ov(f4n[2], 4)}
+                compact
               />
-              <span className="text-[10px] text-text-muted/40 shrink-0">
-                vs
-              </span>
               <TeamChip
                 team={row.f4[3]}
                 prob={prob(f4n[3], 3)}
                 ov={ov(f4n[3], 4)}
+                compact
               />
-              <span className="text-[10px] text-text-muted/40 shrink-0">
-                →
-              </span>
+            </div>
+
+            {/* Finalists */}
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <TeamChip
+                team={row.sfWinners[0]}
+                prob={prob(sfn[0], 4)}
+                ov={ov(sfn[0], 5)}
+                compact
+              />
               <TeamChip
                 team={row.sfWinners[1]}
                 prob={prob(sfn[1], 4)}
                 ov={ov(sfn[1], 5)}
+                compact
               />
             </div>
 
             {/* Champion */}
-            <div className="w-32 shrink-0 flex justify-center">
+            <div className="shrink-0 ml-auto">
               <TeamChip
                 team={row.champion}
                 prob={prob(cn, 5)}
@@ -291,6 +379,14 @@ function DesktopView({
                 isChampion
               />
             </div>
+
+            {/* Reorder */}
+            <ReorderButtons
+              index={i}
+              total={rows.length}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+            />
           </div>
         );
       })}
@@ -306,12 +402,16 @@ function MobileCards({
   winCounts,
   teamProbs,
   onEntryClick,
+  onMoveUp,
+  onMoveDown,
 }: {
   rows: DecodedPicks[];
   eliminatedTeams: Set<string>;
   winCounts: Map<string, number>;
   teamProbs: TeamProbs | null;
   onEntryClick?: (entry: FinalFourEntry) => void;
+  onMoveUp: (idx: number) => void;
+  onMoveDown: (idx: number) => void;
 }) {
   const prob = (name: string, idx: number) => teamProbs?.[name]?.[idx];
   const ov = (name: string, wins: number) =>
@@ -319,7 +419,7 @@ function MobileCards({
 
   return (
     <div className="space-y-3 mx-2">
-      {rows.map((row) => {
+      {rows.map((row, i) => {
         const f4n = row.f4.map((t) => displayName(t));
         const sfn = row.sfWinners.map((t) => displayName(t));
         const cn = displayName(row.champion);
@@ -334,86 +434,65 @@ function MobileCards({
               onEntryClick ? () => onEntryClick(row.entry) : undefined
             }
           >
-            {/* Entry name */}
-            <div className="text-sm font-mono font-bold text-text-primary mb-2.5">
-              {row.entry.label}
+            {/* Entry name + reorder */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-mono font-bold text-text-primary">
+                {row.entry.label}
+              </div>
+              <ReorderButtons
+                index={i}
+                total={rows.length}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+              />
             </div>
 
-            {/* Two semifinal columns */}
-            <div className="grid grid-cols-2 gap-3 mb-2.5">
-              {/* SF1: East vs West */}
-              <div className="space-y-1.5">
-                <div className="text-[10px] text-text-muted uppercase tracking-wide">
-                  Semifinal 1
-                </div>
-                <div className="space-y-1">
-                  <TeamChip
-                    team={row.f4[0]}
-                    prob={prob(f4n[0], 3)}
-                    ov={ov(f4n[0], 4)}
-                    compact
-                  />
-                  <div className="text-[9px] text-text-muted/50 text-center">
-                    vs
-                  </div>
-                  <TeamChip
-                    team={row.f4[1]}
-                    prob={prob(f4n[1], 3)}
-                    ov={ov(f4n[1], 4)}
-                    compact
-                  />
-                </div>
-                <div className="flex items-center gap-1 pt-0.5">
-                  <span className="text-[9px] text-text-muted/50">→</span>
-                  <div className="flex-1">
-                    <TeamChip
-                      team={row.sfWinners[0]}
-                      prob={prob(sfn[0], 4)}
-                      ov={ov(sfn[0], 5)}
-                      compact
-                    />
-                  </div>
-                </div>
-              </div>
+            {/* F4 teams: 2×2 grid */}
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+              <TeamChip
+                team={row.f4[0]}
+                prob={prob(f4n[0], 3)}
+                ov={ov(f4n[0], 4)}
+                compact
+              />
+              <TeamChip
+                team={row.f4[1]}
+                prob={prob(f4n[1], 3)}
+                ov={ov(f4n[1], 4)}
+                compact
+              />
+              <TeamChip
+                team={row.f4[2]}
+                prob={prob(f4n[2], 3)}
+                ov={ov(f4n[2], 4)}
+                compact
+              />
+              <TeamChip
+                team={row.f4[3]}
+                prob={prob(f4n[3], 3)}
+                ov={ov(f4n[3], 4)}
+                compact
+              />
+            </div>
 
-              {/* SF2: South vs Midwest */}
-              <div className="space-y-1.5">
-                <div className="text-[10px] text-text-muted uppercase tracking-wide">
-                  Semifinal 2
-                </div>
-                <div className="space-y-1">
-                  <TeamChip
-                    team={row.f4[2]}
-                    prob={prob(f4n[2], 3)}
-                    ov={ov(f4n[2], 4)}
-                    compact
-                  />
-                  <div className="text-[9px] text-text-muted/50 text-center">
-                    vs
-                  </div>
-                  <TeamChip
-                    team={row.f4[3]}
-                    prob={prob(f4n[3], 3)}
-                    ov={ov(f4n[3], 4)}
-                    compact
-                  />
-                </div>
-                <div className="flex items-center gap-1 pt-0.5">
-                  <span className="text-[9px] text-text-muted/50">→</span>
-                  <div className="flex-1">
-                    <TeamChip
-                      team={row.sfWinners[1]}
-                      prob={prob(sfn[1], 4)}
-                      ov={ov(sfn[1], 5)}
-                      compact
-                    />
-                  </div>
-                </div>
-              </div>
+            {/* Finalists */}
+            <div className="grid grid-cols-2 gap-x-2 mt-2">
+              <TeamChip
+                team={row.sfWinners[0]}
+                prob={prob(sfn[0], 4)}
+                ov={ov(sfn[0], 5)}
+                compact
+              />
+              <TeamChip
+                team={row.sfWinners[1]}
+                prob={prob(sfn[1], 4)}
+                ov={ov(sfn[1], 5)}
+                compact
+              />
             </div>
 
             {/* Champion */}
-            <div className="flex items-center justify-center gap-2 pt-2 border-t border-border/30">
+            <div className="flex items-center justify-center gap-2 pt-2 mt-2 border-t border-border/30">
               <span className="text-[10px] text-gold uppercase tracking-wide">
                 Champion
               </span>
@@ -441,18 +520,38 @@ export function FinalFourComparison({
   tournamentStatus,
   teamProbs,
   onEntryClick,
+  orderKey,
 }: FinalFourComparisonProps) {
   const isMobile = useIsMobile();
 
-  const decoded = useMemo(() => {
-    const raw = entries
-      .map(extractPicks)
+  const decoded = useMemo(
+    () =>
+      entries
+        .map(extractPicks)
+        .filter((d): d is DecodedPicks => d !== null),
+    [entries],
+  );
+
+  const defaultIds = useMemo(
+    () =>
+      [...decoded]
+        .sort((a, b) =>
+          a.entry.label
+            .toLowerCase()
+            .localeCompare(b.entry.label.toLowerCase()),
+        )
+        .map((d) => d.entry.id),
+    [decoded],
+  );
+
+  const { order, moveUp, moveDown } = useEntryOrder(orderKey, defaultIds);
+
+  const orderedDecoded = useMemo(() => {
+    const byId = new Map(decoded.map((d) => [d.entry.id, d]));
+    return order
+      .map((id) => byId.get(id))
       .filter((d): d is DecodedPicks => d !== null);
-    raw.sort((a, b) =>
-      a.entry.label.toLowerCase().localeCompare(b.entry.label.toLowerCase()),
-    );
-    return raw;
-  }, [entries]);
+  }, [decoded, order]);
 
   const { eliminatedTeams, winCounts } = useMemo(() => {
     if (!tournamentStatus)
@@ -463,7 +562,7 @@ export function FinalFourComparison({
     return buildTournamentState(tournamentStatus);
   }, [tournamentStatus]);
 
-  if (decoded.length === 0) {
+  if (orderedDecoded.length === 0) {
     return (
       <div className="text-center py-12 text-text-muted">
         No entries with valid brackets.
@@ -472,11 +571,13 @@ export function FinalFourComparison({
   }
 
   const sharedProps = {
-    rows: decoded,
+    rows: orderedDecoded,
     eliminatedTeams,
     winCounts,
     teamProbs,
     onEntryClick,
+    onMoveUp: moveUp,
+    onMoveDown: moveDown,
   };
 
   return (
@@ -496,7 +597,7 @@ export function FinalFourComparison({
           <h2 className="text-lg font-bold text-text-primary">{title}</h2>
         </div>
         <div className="text-xs text-text-muted">
-          {decoded.length} entries
+          {orderedDecoded.length} entries
         </div>
       </div>
 
