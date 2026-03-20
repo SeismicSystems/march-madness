@@ -600,31 +600,6 @@ fn run_team_advance(
     TeamAdvanceResults { advance, num_sims }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pool_ties_split_fractionally() {
-        let pool = Pool {
-            key: "mm".to_string(),
-            members: vec![
-                ("a".to_string(), 0),
-                ("b".to_string(), 1),
-                ("c".to_string(), 2),
-            ],
-        };
-        let scores = vec![10, 10, 5];
-        let mut pool_wins = vec![vec![0.0; 3]];
-        let mut score_sums = vec![vec![0u64; 3]];
-
-        accumulate_pool_results(&pool, &scores, &mut pool_wins, &mut score_sums, 0);
-
-        assert_eq!(pool_wins[0], vec![0.5, 0.5, 0.0]);
-        assert_eq!(score_sums[0], vec![10, 10, 5]);
-    }
-}
-
 fn write_team_probs(
     conn: &mut redis::Connection,
     team_names: &[String],
@@ -674,4 +649,29 @@ fn write_forecasts(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pool_ties_split_fractionally() {
+        let pool = Pool {
+            key: "mm".to_string(),
+            members: vec![
+                ("a".to_string(), 0),
+                ("b".to_string(), 1),
+                ("c".to_string(), 2),
+            ],
+        };
+        let scores = vec![10, 10, 5];
+        let mut pool_wins = vec![vec![0.0; 3]];
+        let mut score_sums = vec![vec![0u64; 3]];
+
+        accumulate_pool_results(&pool, &scores, &mut pool_wins, &mut score_sums, 0);
+
+        assert_eq!(pool_wins[0], vec![0.5, 0.5, 0.0]);
+        assert_eq!(score_sums[0], vec![10, 10, 5]);
+    }
 }
