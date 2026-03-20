@@ -108,13 +108,12 @@ async fn main() -> Result<()> {
         existing_status.as_ref(),
     );
 
-    // Determine contest date.
-    let date = if let Some(d) = &cli.date {
+    // Determine contest date (mutable for day rollover).
+    let mut date = if let Some(d) = &cli.date {
         ContestDate::parse(d).map_err(|e| eyre::eyre!("{e}"))?
     } else {
         detect_today(&client, sport).await?
     };
-
     info!("polling {sport} scoreboard for date {date}");
 
     // Main poll loop.
@@ -124,6 +123,22 @@ async fn main() -> Result<()> {
             info!("quiet hours (1am–12pm ET), sleeping 60s");
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
+        }
+
+        // Re-detect date when no games are live (e.g. after overnight quiet hours or
+        // between game days). Only in auto-detect mode (no --date flag).
+        // Gated to PreGame phase to avoid extra schedule API calls during active games.
+        if cli.date.is_none() && state.phase() == FeedPhase::PreGame {
+            match detect_today(&client, sport).await {
+                Ok(new_date) if new_date != date => {
+                    info!("game day rolled over: {date} → {new_date}");
+                    date = new_date;
+                }
+                Err(e) => {
+                    warn!("failed to re-detect date, keeping {date}: {e}");
+                }
+                _ => {}
+            }
         }
 
         match fetch_scoreboard(&client, sport, &date).await {

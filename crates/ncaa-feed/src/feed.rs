@@ -187,8 +187,8 @@ impl FeedState {
         changed
     }
 
-    /// Determine the current feed phase and appropriate poll interval.
-    pub fn poll_interval(&self) -> (FeedPhase, Duration) {
+    /// Current feed phase (without interval calculation).
+    pub fn phase(&self) -> FeedPhase {
         let mut has_live = false;
         let mut final_count = 0u8;
 
@@ -201,23 +201,31 @@ impl FeedState {
         }
 
         if final_count == 63 {
-            return (FeedPhase::Complete, Duration::ZERO);
+            FeedPhase::Complete
+        } else if has_live {
+            FeedPhase::Active
+        } else {
+            FeedPhase::PreGame
         }
+    }
 
-        if let Some(override_interval) = self.poll_interval_override {
-            let phase = if has_live {
-                FeedPhase::Active
-            } else {
-                FeedPhase::PreGame
-            };
-            return (phase, override_interval);
+    /// Determine the current feed phase and appropriate poll interval.
+    pub fn poll_interval(&self) -> (FeedPhase, Duration) {
+        let phase = self.phase();
+
+        match phase {
+            FeedPhase::Complete => (phase, Duration::ZERO),
+            FeedPhase::Active => {
+                let interval = self
+                    .poll_interval_override
+                    .unwrap_or(self.active_interval);
+                (phase, interval)
+            }
+            FeedPhase::PreGame => {
+                let interval = self.poll_interval_override.unwrap_or(PRE_GAME_INTERVAL);
+                (phase, interval)
+            }
         }
-
-        if has_live {
-            return (FeedPhase::Active, self.active_interval);
-        }
-
-        (FeedPhase::PreGame, PRE_GAME_INTERVAL)
     }
 
     /// Build the full tournament status for writing.
