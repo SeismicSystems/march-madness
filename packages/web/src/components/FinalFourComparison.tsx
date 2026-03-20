@@ -631,7 +631,7 @@ function SortFooter({
           onClick={() => onToggle("custom")}
           className="text-[10px] text-text-muted/60 hover:text-text-primary ml-1"
         >
-          Reset
+          ↩ Saved order
         </button>
       )}
     </div>
