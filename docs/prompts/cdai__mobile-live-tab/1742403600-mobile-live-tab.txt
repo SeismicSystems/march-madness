@@ -1,0 +1,1 @@
+on the mobile UI, if there are any live games, we want to display (and default to) this tab. it should simply contain a grid of the live games. we should display this like the elite 8 section, where it's one game per row, not split up like the rest. when you're done open a pr
