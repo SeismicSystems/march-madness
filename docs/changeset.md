@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix Rust live forecaster scoring to use the correct ByteBracket bit ordering
+
+
 ncaa-feed: shift date detection by -3h for late games and add quiet hours (1am–12pm ET) to skip API calls when no games are live
 
 
