@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Split tied forecaster pool leaders fractionally so live forecast win probabilities match oddsmaker.
+
+
 Add mobile Live tab that shows currently in-progress games in a single-column grid, defaulting to it when live games exist
 
 
