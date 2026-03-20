@@ -144,6 +144,10 @@ function reconcileOrder(
   }
 }
 
+/* ── Sort modes ───────────────────────────────────────── */
+
+type SortMode = "custom" | "prob" | "expected" | "current";
+
 /* ── Ordering hook ────────────────────────────────────── */
 
 function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
@@ -155,21 +159,37 @@ function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
     setOrder(reconcileOrder(orderKey, entryIds));
   }, [orderKey, entryIds]);
 
+  const persistOrder = useCallback(
+    (ids: string[]) => {
+      if (orderKey)
+        localStorage.setItem(
+          `${STORAGE_PREFIX}${orderKey}`,
+          JSON.stringify(ids),
+        );
+    },
+    [orderKey],
+  );
+
+  /** Overwrite the custom order (used when adopting a sorted order). */
+  const setCustomOrder = useCallback(
+    (ids: string[]) => {
+      setOrder(ids);
+      persistOrder(ids);
+    },
+    [persistOrder],
+  );
+
   const moveUp = useCallback(
     (idx: number) => {
       if (idx <= 0) return;
       setOrder((prev) => {
         const next = [...prev];
         [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-        if (orderKey)
-          localStorage.setItem(
-            `${STORAGE_PREFIX}${orderKey}`,
-            JSON.stringify(next),
-          );
+        persistOrder(next);
         return next;
       });
     },
-    [orderKey],
+    [persistOrder],
   );
 
   const moveDown = useCallback(
@@ -178,18 +198,14 @@ function useEntryOrder(orderKey: string | undefined, entryIds: string[]) {
         if (idx >= prev.length - 1) return prev;
         const next = [...prev];
         [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-        if (orderKey)
-          localStorage.setItem(
-            `${STORAGE_PREFIX}${orderKey}`,
-            JSON.stringify(next),
-          );
+        persistOrder(next);
         return next;
       });
     },
-    [orderKey],
+    [persistOrder],
   );
 
-  return { order, moveUp, moveDown };
+  return { order, moveUp, moveDown, setCustomOrder };
 }
 
 /* ── Reorder buttons ─────────────────────────────────── */
@@ -577,6 +593,51 @@ function MobileCards({
   );
 }
 
+/* ── Sort footer ──────────────────────────────────────── */
+
+const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
+  { mode: "prob", label: "Win %" },
+  { mode: "expected", label: "E[pts]" },
+  { mode: "current", label: "Score" },
+];
+
+function SortFooter({
+  sortMode,
+  onToggle,
+}: {
+  sortMode: SortMode;
+  onToggle: (mode: SortMode) => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4 mx-2 md:mx-auto lg:w-5/6">
+      <span className="text-[10px] text-text-muted uppercase tracking-wide mr-1">
+        Sort
+      </span>
+      {SORT_OPTIONS.map(({ mode, label }) => (
+        <button
+          key={mode}
+          onClick={() => onToggle(mode)}
+          className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+            sortMode === mode
+              ? "border-accent/60 bg-accent/10 text-accent font-medium"
+              : "border-border/30 text-text-muted hover:border-border/60 hover:text-text-primary"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+      {sortMode !== "custom" && (
+        <button
+          onClick={() => onToggle("custom")}
+          className="text-[10px] text-text-muted/60 hover:text-text-primary ml-1"
+        >
+          Reset
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── Main component ───────────────────────────────────── */
 
 export function FinalFourComparison({
@@ -611,7 +672,11 @@ export function FinalFourComparison({
     [decoded],
   );
 
-  const { order, moveUp, moveDown } = useEntryOrder(orderKey, defaultIds);
+  const { order, moveUp, moveDown, setCustomOrder } = useEntryOrder(
+    orderKey,
+    defaultIds,
+  );
+  const [sortMode, setSortMode] = useState<SortMode>("custom");
 
   const orderedDecoded = useMemo(() => {
     const byId = new Map(decoded.map((d) => [d.entry.id, d]));
@@ -634,13 +699,79 @@ export function FinalFourComparison({
     const m = new Map<string, PartialScore>();
     for (const d of decoded) {
       if (d.entry.bracket) {
-        m.set(d.entry.id, scoreBracketPartial(d.entry.bracket, tournamentStatus));
+        m.set(
+          d.entry.id,
+          scoreBracketPartial(d.entry.bracket, tournamentStatus),
+        );
       }
     }
     return m;
   }, [decoded, tournamentStatus]);
 
-  if (orderedDecoded.length === 0) {
+  /** Apply sort mode to get final display rows. */
+  const displayRows = useMemo(() => {
+    if (sortMode === "custom") return orderedDecoded;
+    const sorted = [...orderedDecoded];
+    sorted.sort((a, b) => {
+      const fa = forecasts?.[a.entry.id];
+      const fb = forecasts?.[b.entry.id];
+      const sa = scores.get(a.entry.id);
+      const sb = scores.get(b.entry.id);
+      switch (sortMode) {
+        case "prob":
+          return (fb?.winProbability ?? 0) - (fa?.winProbability ?? 0);
+        case "expected":
+          return (fb?.expectedScore ?? 0) - (fa?.expectedScore ?? 0);
+        case "current":
+          return (sb?.current ?? 0) - (sa?.current ?? 0);
+      }
+    });
+    return sorted;
+  }, [sortMode, orderedDecoded, forecasts, scores]);
+
+  /**
+   * When ▲/▼ is clicked during a non-custom sort, adopt the current
+   * displayed order as the new custom order, apply the move, then
+   * switch back to custom mode.
+   */
+  const handleMoveUp = useCallback(
+    (idx: number) => {
+      if (sortMode !== "custom") {
+        const ids = displayRows.map((d) => d.entry.id);
+        if (idx <= 0) return;
+        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+        setCustomOrder(ids);
+        setSortMode("custom");
+      } else {
+        moveUp(idx);
+      }
+    },
+    [sortMode, displayRows, setCustomOrder, moveUp],
+  );
+
+  const handleMoveDown = useCallback(
+    (idx: number) => {
+      if (sortMode !== "custom") {
+        const ids = displayRows.map((d) => d.entry.id);
+        if (idx >= ids.length - 1) return;
+        [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+        setCustomOrder(ids);
+        setSortMode("custom");
+      } else {
+        moveDown(idx);
+      }
+    },
+    [sortMode, displayRows, setCustomOrder, moveDown],
+  );
+
+  const toggleSort = useCallback(
+    (mode: SortMode) => {
+      setSortMode((prev) => (prev === mode ? "custom" : mode));
+    },
+    [],
+  );
+
+  if (displayRows.length === 0) {
     return (
       <div className="text-center py-12 text-text-muted">
         No entries with valid brackets.
@@ -649,13 +780,13 @@ export function FinalFourComparison({
   }
 
   const sharedProps = {
-    rows: orderedDecoded,
+    rows: displayRows,
     eliminatedTeams,
     winCounts,
     teamProbs,
     onEntryClick,
-    onMoveUp: moveUp,
-    onMoveDown: moveDown,
+    onMoveUp: handleMoveUp,
+    onMoveDown: handleMoveDown,
     forecasts,
     scores,
   };
@@ -677,7 +808,7 @@ export function FinalFourComparison({
           <h2 className="text-lg font-bold text-text-primary">{title}</h2>
         </div>
         <div className="text-xs text-text-muted">
-          {orderedDecoded.length} entries
+          {displayRows.length} entries
         </div>
       </div>
 
@@ -686,6 +817,9 @@ export function FinalFourComparison({
       ) : (
         <DesktopView {...sharedProps} />
       )}
+
+      {/* Sort footer */}
+      <SortFooter sortMode={sortMode} onToggle={toggleSort} />
     </div>
   );
 }
