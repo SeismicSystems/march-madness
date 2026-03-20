@@ -463,29 +463,17 @@ function MobileCards({
               onEntryClick ? () => onEntryClick(row.entry) : undefined
             }
           >
-            {/* Reorder buttons — vertically centered on right edge */}
-            <div className="absolute right-2.5 top-0 bottom-0 flex flex-col items-center justify-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveUp(i);
-                }}
-                disabled={i === 0}
-                className="text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-              >
-                ▲
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveDown(i);
-                }}
-                disabled={i === rows.length - 1}
-                className="text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
-              >
-                ▼
-              </button>
-            </div>
+            {/* Move up — top right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp(i);
+              }}
+              disabled={i === 0}
+              className="absolute top-2 right-3 text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+            >
+              ▲
+            </button>
 
             {/* Entry name + stats: win%, expected score, current/max */}
             <div className="flex items-center gap-1.5 mb-2 pr-8">
@@ -552,11 +540,13 @@ function MobileCards({
               />
             </div>
 
-            {/* Champion — chip centered, label directly left of it */}
-            <div className="flex items-center justify-center gap-1 pt-2 mt-2 border-t border-border/30">
-              <span className="text-[10px] text-gold uppercase tracking-wide">
-                Champion
-              </span>
+            {/* Champion row: 3-col grid so chip is dead center */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 pt-2 mt-2 border-t border-border/30">
+              <div className="flex justify-end">
+                <span className="text-[10px] text-gold uppercase tracking-wide">
+                  Champion
+                </span>
+              </div>
               <TeamChip
                 team={row.champion}
                 prob={prob(cn, 5)}
@@ -564,6 +554,18 @@ function MobileCards({
                 isChampion
                 compact
               />
+              <div className="flex justify-end pr-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveDown(i);
+                  }}
+                  disabled={i === rows.length - 1}
+                  className="text-sm leading-none text-text-muted/50 hover:text-text-primary disabled:opacity-20 disabled:cursor-default px-1 py-0.5"
+                >
+                  ▼
+                </button>
+              </div>
             </div>
           </div>
         );
