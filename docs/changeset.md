@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Show team win probabilities in bracket cells for upcoming games (not just live). Probabilities are hidden for eliminated teams.
+
+
 fix: add `cd ~/march-madness` to `dmm_build` alias so it works from any directory
 
 
