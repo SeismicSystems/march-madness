@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-use crate::{MAX_PACE, MAX_RTG, MIN_PACE, MIN_RTG, UPDATE_FACTOR, metrics::Metrics};
+use crate::{MAX_PACE, MAX_RTG, MIN_PACE, MIN_RTG, metrics::Metrics};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Team {
@@ -620,10 +620,10 @@ pub fn save_kenpom_csv_with_goose(
 
 impl Team {
     /// Update team metrics based on game performance vs expectations.
-    pub fn update_metrics(&mut self, expected: Metrics, observed: Metrics) {
-        self.metrics.ortg += (observed.ortg - expected.ortg) * UPDATE_FACTOR;
-        self.metrics.drtg += (observed.drtg - expected.drtg) * UPDATE_FACTOR;
-        self.metrics.pace += (observed.pace - expected.pace) * UPDATE_FACTOR;
+    pub fn update_metrics(&mut self, expected: Metrics, observed: Metrics, update_factor: f64) {
+        self.metrics.ortg += (observed.ortg - expected.ortg) * update_factor;
+        self.metrics.drtg += (observed.drtg - expected.drtg) * update_factor;
+        self.metrics.pace += (observed.pace - expected.pace) * update_factor;
 
         self.metrics.ortg = self.metrics.ortg.clamp(MIN_RTG, MAX_RTG);
         self.metrics.drtg = self.metrics.drtg.clamp(MIN_RTG, MAX_RTG);

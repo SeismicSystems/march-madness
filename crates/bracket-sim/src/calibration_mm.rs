@@ -10,6 +10,7 @@ use tracing::{info, trace};
 use kalshi::orderbook::{self, MarketEdge};
 use kalshi::types::TeamOrderbook;
 
+use crate::DEFAULT_KENPOM_UPDATE_FACTOR;
 use crate::bracket_config::BracketConfig;
 use crate::team::Team;
 use crate::tournament::Tournament;
@@ -23,6 +24,7 @@ pub struct MmCalibrationConfig {
     pub base_learning_rate: f64,
     pub decay_factor: f64,
     pub max_goose: f64,
+    pub kenpom_update_factor: f64,
     /// Sensitivity: converts edge dollars to goose points.
     /// goose_delta = avg_edge_dollars * sensitivity * lr.
     /// With deep orderbooks (1000s of contracts), try ~0.001.
@@ -38,6 +40,7 @@ impl Default for MmCalibrationConfig {
             base_learning_rate: 1.0,
             decay_factor: 0.3,
             max_goose: 15.0,
+            kenpom_update_factor: DEFAULT_KENPOM_UPDATE_FACTOR,
             sensitivity: 0.001,
         }
     }
@@ -77,7 +80,8 @@ pub fn calibrate_mm(
         let lr = config.base_learning_rate / (1.0 + iter as f64 * config.decay_factor);
 
         // 1. Simulate tournament
-        let mut tournament = Tournament::new();
+        let mut tournament =
+            Tournament::new().with_kenpom_update_factor(config.kenpom_update_factor);
         tournament.setup_tournament(teams.to_owned(), bracket_config);
         let cum_probs = tournament.cumulative_win_probabilities(config.sims_per_iteration);
 

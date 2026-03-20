@@ -1,6 +1,6 @@
 use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
 use bracket_sim::calibration_mm::{self, MmCalibrationConfig};
-use bracket_sim::load_teams_for_year;
+use bracket_sim::{DEFAULT_KENPOM_UPDATE_FACTOR, load_teams_for_year};
 use clap::Parser;
 use std::io;
 use std::path::PathBuf;
@@ -52,6 +52,10 @@ struct CalibrateArgs {
     #[arg(short = 'd', long, default_value_t = 0.3)]
     decay: f64,
 
+    /// KenPom-style Bayesian postgame metric adjustment factor.
+    #[arg(short = 'u', long, default_value_t = DEFAULT_KENPOM_UPDATE_FACTOR)]
+    kenpom_update_factor: f64,
+
     /// Orderbook depth (levels per side)
     #[arg(long, default_value_t = 10)]
     depth: usize,
@@ -98,6 +102,7 @@ fn main() -> io::Result<()> {
         sims_per_iter = args.sims_per_iter,
         max_iter = args.max_iter,
         depth = args.depth,
+        kenpom_update_factor = args.kenpom_update_factor,
         edge_threshold = format_args!("${:.2}", args.edge_threshold),
         "starting calibration"
     );
@@ -306,6 +311,7 @@ fn main() -> io::Result<()> {
         edge_threshold: args.edge_threshold,
         base_learning_rate: args.learning_rate,
         decay_factor: args.decay,
+        kenpom_update_factor: args.kenpom_update_factor,
         ..Default::default()
     };
 

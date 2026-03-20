@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use bracket_sim::bracket_config::{BracketConfig, DEFAULT_YEAR};
 use bracket_sim::live_resolver::GameModelResolver;
-use bracket_sim::{DEFAULT_PACE_D, Tournament, load_teams_for_year};
+use bracket_sim::{DEFAULT_KENPOM_UPDATE_FACTOR, DEFAULT_PACE_D, Tournament, load_teams_for_year};
 use clap::Parser;
 use tracing::info;
 
@@ -35,6 +35,10 @@ struct SimArgs {
     /// <1 = underdispersed (binomial), 1 = Poisson, >1 = overdispersed (NB).
     #[arg(long, default_value_t = DEFAULT_PACE_D)]
     pace_d: f64,
+
+    /// KenPom-style Bayesian postgame metric adjustment factor.
+    #[arg(short = 'u', long, default_value_t = DEFAULT_KENPOM_UPDATE_FACTOR)]
+    kenpom_update_factor: f64,
 
     /// Condition on live tournament status from Redis.
     #[arg(long, conflicts_with = "status")]
@@ -136,6 +140,13 @@ fn main() -> io::Result<()> {
     };
 
     if let Some(ref status) = status {
+        if (args.kenpom_update_factor - DEFAULT_KENPOM_UPDATE_FACTOR).abs() > f64::EPSILON {
+            info!(
+                kenpom_update_factor = args.kenpom_update_factor,
+                "kenpom update factor is only applied in the full tournament simulation path"
+            );
+        }
+
         info!(
             year = args.year,
             n_sims = args.n_sims,
@@ -163,10 +174,13 @@ fn main() -> io::Result<()> {
             year = args.year,
             n_sims = args.n_sims,
             pace_d = args.pace_d,
+            kenpom_update_factor = args.kenpom_update_factor,
             "unconditioned simulation"
         );
 
-        let mut tournament = Tournament::new().with_pace_d(args.pace_d);
+        let mut tournament = Tournament::new()
+            .with_pace_d(args.pace_d)
+            .with_kenpom_update_factor(args.kenpom_update_factor);
         tournament.setup_tournament(teams, &bracket_config);
         let win_probs = tournament.calculate_team_win_probabilities(args.n_sims);
 
