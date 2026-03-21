@@ -1,0 +1,5 @@
+hey in ncaa-feed -- this game happened yesterday yet we didn't scrape a score for it OR the mapping somewhere is broken: St. John's vs. UNI
+
+figure out why we don't ingest this score or what mapping we need to change
+
+you can use any of the local redis dbs on this machine -- this is a sandboxed environment and NOT the prod machine
