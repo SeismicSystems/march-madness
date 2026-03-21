@@ -352,6 +352,16 @@ mod tests {
         let canonical = mapper.team_position("Saint Mary's");
         assert!(canonical.is_some());
         assert_eq!(mapper.team_position("Saint Mary's (CA)"), canonical);
+
+        // NCAA API sends "St. John's (NY)" but tournament.json has "St. John's".
+        let canonical = mapper.team_position("St. John's");
+        assert!(canonical.is_some());
+        assert_eq!(mapper.team_position("St. John's (NY)"), canonical);
+
+        // NCAA API sends "UNI" but tournament.json has "Northern Iowa".
+        let canonical = mapper.team_position("Northern Iowa");
+        assert!(canonical.is_some());
+        assert_eq!(mapper.team_position("UNI"), canonical);
     }
 
     #[test]
