@@ -2,6 +2,15 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+feat(web): reorder settled rounds to bottom on mobile region views
+
+On mobile, when the tournament is in round N, all previous (settled) rounds are
+pushed below the active and future rounds in each region tab. A "Completed Rounds"
+divider separates them. The active round is determined globally across all regions —
+if any region has a live or final game in round N, all rounds before N are settled
+everywhere. Final Four and Live tabs are unaffected.
+
+
 Add NCAA API name aliases for St. John's (NY) → St. John's and UNI → Northern Iowa so ncaa-feed can map these teams to bracket positions and ingest their game scores.
 
 
