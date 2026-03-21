@@ -239,6 +239,28 @@ function MobileBracket({
 
   const hasLive = liveGames.length > 0;
 
+  // Compute the global active round across ALL regions (rounds 0-3 only).
+  // If any game in round N has status "live" or "final", that round (and all
+  // below it) have activity. The highest such round is the active round, and
+  // all rounds below it are "settled" and should be pushed to the bottom on
+  // mobile region views.
+  const settledBeforeRound = useMemo(() => {
+    if (!tournamentStatus) return 0;
+    let maxActiveRound = -1;
+    for (const region of regions) {
+      for (let r = 0; r < region.rounds.length; r++) {
+        for (const game of region.rounds[r]) {
+          const gs = tournamentStatus.games[game.gameIndex];
+          if (gs?.status === "live" || gs?.status === "final") {
+            if (r > maxActiveRound) maxActiveRound = r;
+          }
+        }
+      }
+    }
+    // All rounds strictly before the active round are settled
+    return maxActiveRound > 0 ? maxActiveRound : 0;
+  }, [regions, tournamentStatus]);
+
   // Track selected tab by stable ID (not index) so inserting/removing the Live
   // tab doesn't shift the user's view. `null` means "no explicit choice" — the
   // default is derived: Live tab if available, otherwise first region.
@@ -328,6 +350,7 @@ function MobileBracket({
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
+            settledBeforeRound={settledBeforeRound}
           />
         ) : isFinalFourTab ? (
           <MobileFinalFourLanes
@@ -411,6 +434,7 @@ function MobileRegionLanes({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  settledBeforeRound,
 }: {
   regionName: string;
   rounds: GameSlot[][];
@@ -420,6 +444,8 @@ function MobileRegionLanes({
   eliminatedTeams: Set<string>;
   advancedTeams: Map<string, number>;
   gameWinProbs: GameWinProbs;
+  /** Rounds with index < this value are settled and displayed at the bottom. */
+  settledBeforeRound: number;
 }) {
   const reverseLaneColumns = (games: GameSlot[]) => {
     if (games.length < 2) return games;
@@ -431,63 +457,117 @@ function MobileRegionLanes({
     return out;
   };
 
+  // Reorder rounds: active + future rounds first, then settled rounds at the
+  // bottom. E.g. if settledBeforeRound=2 and we have rounds [0,1,2,3], display
+  // order becomes [2,3,  0,1] with a "Completed" divider before the settled
+  // section.
+  const activeRoundIndices = useMemo(() => {
+    const active: number[] = [];
+    const settled: number[] = [];
+    for (let i = 0; i < rounds.length; i++) {
+      if (i < settledBeforeRound) {
+        settled.push(i);
+      } else {
+        active.push(i);
+      }
+    }
+    return { active, settled };
+  }, [rounds.length, settledBeforeRound]);
+
+  const renderRound = (roundIdx: number, isLast: boolean, isSettled: boolean) => {
+    const roundGames = rounds[roundIdx];
+    const displayGames =
+      roundGames.length > 1 ? reverseLaneColumns(roundGames) : roundGames;
+
+    return (
+      <div key={roundIdx} className="space-y-2">
+        <section
+          className={`rounded-lg border p-2.5 ${
+            isSettled
+              ? "border-border/50 bg-bg-secondary/40 opacity-60"
+              : "border-border bg-bg-secondary/70"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] text-text-muted uppercase tracking-wide">
+              {ROUND_NAMES[roundIdx]}
+            </div>
+            <div className="text-[10px] text-text-muted">
+              {roundGames.length} game{roundGames.length === 1 ? "" : "s"}
+            </div>
+          </div>
+          <div
+            className={`grid gap-2 items-end ${
+              roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {displayGames.map((game) => (
+              <BracketGame
+                key={game.gameIndex}
+                team1={game.team1}
+                team2={game.team2}
+                winner={game.winner}
+                onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                disabled={disabled}
+                compact={roundIdx === 0}
+                mobile
+                fullWidth
+                round={roundIdx}
+                gameStatus={tournamentStatus?.games[game.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs.get(game.gameIndex)}
+              />
+            ))}
+          </div>
+        </section>
+        {!isLast && (
+          <div className="flex items-center justify-center gap-2 py-0.5">
+            <span className="h-px w-6 bg-border" />
+            <span className="text-[9px] uppercase tracking-wide text-text-muted">
+              Advance
+            </span>
+            <span className="h-px w-6 bg-border" />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const hasSettled = activeRoundIndices.settled.length > 0;
+
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-semibold text-accent uppercase tracking-wider px-1">
         {regionName}
       </h3>
-      {rounds.map((roundGames, roundIdx) => {
-        const displayGames =
-          roundGames.length > 1 ? reverseLaneColumns(roundGames) : roundGames;
-
-        return (
-          <div key={roundIdx} className="space-y-2">
-            <section className="rounded-lg border border-border bg-bg-secondary/70 p-2.5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] text-text-muted uppercase tracking-wide">
-                  {ROUND_NAMES[roundIdx]}
-                </div>
-                <div className="text-[10px] text-text-muted">
-                  {roundGames.length} game{roundGames.length === 1 ? "" : "s"}
-                </div>
-              </div>
-              <div
-                className={`grid gap-2 items-end ${
-                  roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"
-                }`}
-              >
-                {displayGames.map((game) => (
-                  <BracketGame
-                    key={game.gameIndex}
-                    team1={game.team1}
-                    team2={game.team2}
-                    winner={game.winner}
-                    onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
-                    disabled={disabled}
-                    compact={roundIdx === 0}
-                    mobile
-                    fullWidth
-                    round={roundIdx}
-                    gameStatus={tournamentStatus?.games[game.gameIndex]}
-                    eliminatedTeams={eliminatedTeams}
-                    advancedTeams={advancedTeams}
-                    team1WinProbability={gameWinProbs.get(game.gameIndex)}
-                  />
-                ))}
-              </div>
-            </section>
-            {roundIdx < rounds.length - 1 && (
-              <div className="flex items-center justify-center gap-2 py-0.5">
-                <span className="h-px w-6 bg-border" />
-                <span className="text-[9px] uppercase tracking-wide text-text-muted">
-                  Advance
-                </span>
-                <span className="h-px w-6 bg-border" />
-              </div>
-            )}
+      {/* Active + future rounds */}
+      {activeRoundIndices.active.map((roundIdx, i) =>
+        renderRound(
+          roundIdx,
+          i === activeRoundIndices.active.length - 1 && !hasSettled,
+          false,
+        ),
+      )}
+      {/* Settled rounds divider + content */}
+      {hasSettled && (
+        <>
+          <div className="flex items-center justify-center gap-2 py-1">
+            <span className="h-px flex-1 bg-border/50" />
+            <span className="text-[9px] uppercase tracking-wide text-text-muted/60">
+              Completed Rounds
+            </span>
+            <span className="h-px flex-1 bg-border/50" />
           </div>
-        );
-      })}
+          {activeRoundIndices.settled.map((roundIdx, i) =>
+            renderRound(
+              roundIdx,
+              i === activeRoundIndices.settled.length - 1,
+              true,
+            ),
+          )}
+        </>
+      )}
     </div>
   );
 }
