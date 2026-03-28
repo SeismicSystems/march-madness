@@ -131,13 +131,18 @@ export function BracketView({
 
   // Compute per-game team1 win probabilities from team advance probs.
   // Uses Bradley-Terry: P(A wins round r) = advProb_A[r] / (advProb_A[r] + advProb_B[r])
+  // Uses actual teams (from tournament results) when available, so probabilities
+  // are correct even when the user's bracket has wrong earlier-round picks.
   const gameWinProbs: GameWinProbs = useMemo(() => {
     const map = new Map<number, number>();
     if (!teamProbs) return map;
     for (const game of games) {
-      if (!game.team1 || !game.team2) continue;
-      const name1 = displayName(game.team1);
-      const name2 = displayName(game.team2);
+      const actual = actualTeams?.get(game.gameIndex);
+      const t1 = actual?.team1 ?? game.team1;
+      const t2 = actual?.team2 ?? game.team2;
+      if (!t1 || !t2) continue;
+      const name1 = displayName(t1);
+      const name2 = displayName(t2);
       const p1 = teamProbs[name1];
       const p2 = teamProbs[name2];
       if (!p1 || !p2) continue;
@@ -150,7 +155,7 @@ export function BracketView({
       }
     }
     return map;
-  }, [games, teamProbs]);
+  }, [games, teamProbs, actualTeams]);
 
   if (isMobile) {
     return (
