@@ -1,7 +1,7 @@
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
-import type { GameWinProbs } from "./BracketView";
+import type { ActualTeamMap, GameWinProbs } from "./BracketView";
 import { displayName } from "../lib/tournament";
 import { BracketGame, TeamLogo } from "./BracketGame";
 
@@ -15,6 +15,7 @@ interface FinalFourProps {
   eliminatedTeams?: Set<string>;
   advancedTeams?: Map<string, number>;
   gameWinProbs?: GameWinProbs;
+  actualTeams?: ActualTeamMap | null;
 }
 
 export function FinalFour({
@@ -27,6 +28,7 @@ export function FinalFour({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  actualTeams,
 }: FinalFourProps) {
   return (
     <div className="flex flex-col items-center min-w-0">
@@ -38,62 +40,77 @@ export function FinalFour({
 
       <div className="flex flex-col items-center justify-center gap-6 flex-1 w-full">
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
-          {semifinal1 && (
-            <div className="w-[180px]">
-              <BracketGame
-                team1={semifinal1.team1}
-                team2={semifinal1.team2}
-                winner={semifinal1.winner}
-                onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
-                disabled={disabled}
-                round={4}
-                gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
-                eliminatedTeams={eliminatedTeams}
-                advancedTeams={advancedTeams}
-                team1WinProbability={gameWinProbs?.get(semifinal1.gameIndex)}
-              />
-            </div>
-          )}
-          {semifinal2 && (
-            <div className="w-[180px]">
-              <BracketGame
-                team1={semifinal2.team1}
-                team2={semifinal2.team2}
-                winner={semifinal2.winner}
-                onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
-                disabled={disabled}
-                round={4}
-                gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
-                eliminatedTeams={eliminatedTeams}
-                advancedTeams={advancedTeams}
-                team1WinProbability={gameWinProbs?.get(semifinal2.gameIndex)}
-              />
-            </div>
-          )}
+          {semifinal1 && (() => {
+            const at = actualTeams?.get(semifinal1.gameIndex);
+            return (
+              <div className="w-[180px]">
+                <BracketGame
+                  team1={semifinal1.team1}
+                  team2={semifinal1.team2}
+                  winner={semifinal1.winner}
+                  onPick={(pickTeam1) => onPick(semifinal1.gameIndex, pickTeam1)}
+                  disabled={disabled}
+                  round={4}
+                  gameStatus={tournamentStatus?.games[semifinal1.gameIndex]}
+                  eliminatedTeams={eliminatedTeams}
+                  advancedTeams={advancedTeams}
+                  team1WinProbability={gameWinProbs?.get(semifinal1.gameIndex)}
+                  actualTeam1={at?.team1}
+                  actualTeam2={at?.team2}
+                />
+              </div>
+            );
+          })()}
+          {semifinal2 && (() => {
+            const at = actualTeams?.get(semifinal2.gameIndex);
+            return (
+              <div className="w-[180px]">
+                <BracketGame
+                  team1={semifinal2.team1}
+                  team2={semifinal2.team2}
+                  winner={semifinal2.winner}
+                  onPick={(pickTeam1) => onPick(semifinal2.gameIndex, pickTeam1)}
+                  disabled={disabled}
+                  round={4}
+                  gameStatus={tournamentStatus?.games[semifinal2.gameIndex]}
+                  eliminatedTeams={eliminatedTeams}
+                  advancedTeams={advancedTeams}
+                  team1WinProbability={gameWinProbs?.get(semifinal2.gameIndex)}
+                  actualTeam1={at?.team1}
+                  actualTeam2={at?.team2}
+                />
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex flex-col items-center gap-2 md:mt-4">
           <div className="text-md  text-gold  uppercase tracking-wider">
             Championship
           </div>
-          {championship && (
-            <div className="w-[240px]">
-              <BracketGame
-                team1={championship.team1}
-                team2={championship.team2}
-                winner={championship.winner}
-                onPick={(pickTeam1) =>
-                  onPick(championship.gameIndex, pickTeam1)
-                }
-                disabled={disabled}
-                round={5}
-                gameStatus={tournamentStatus?.games[championship.gameIndex]}
-                eliminatedTeams={eliminatedTeams}
-                advancedTeams={advancedTeams}
-                team1WinProbability={gameWinProbs?.get(championship.gameIndex)}
-              />
-            </div>
-          )}
+          {championship && (() => {
+            const at = actualTeams?.get(championship.gameIndex);
+            return (
+              <div className="w-[240px]">
+                <BracketGame
+                  team1={championship.team1}
+                  team2={championship.team2}
+                  winner={championship.winner}
+                  onPick={(pickTeam1) =>
+                    onPick(championship.gameIndex, pickTeam1)
+                  }
+                  disabled={disabled}
+                  round={5}
+                  gameStatus={tournamentStatus?.games[championship.gameIndex]}
+                  eliminatedTeams={eliminatedTeams}
+                  advancedTeams={advancedTeams}
+                  team1WinProbability={gameWinProbs?.get(championship.gameIndex)}
+                  actualTeam1={at?.team1}
+                  actualTeam2={at?.team2}
+                />
+              </div>
+            );
+          })()}
           {championship?.winner && (
             <div className="mt-2 px-4 py-2 bg-gold/20 border border-gold/50 rounded-lg text-center">
               <div className="text-[10px] text-gold/80 uppercase">Champion</div>

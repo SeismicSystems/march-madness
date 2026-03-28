@@ -121,6 +121,10 @@ interface BracketGameProps {
   advancedTeams?: Map<string, number>;
   /** Externally computed win probability for team1 (0-1), derived from team advance probs. */
   team1WinProbability?: number;
+  /** Actual team in the team1 slot based on tournament results (may differ from user's pick). */
+  actualTeam1?: Team | null;
+  /** Actual team in the team2 slot based on tournament results. */
+  actualTeam2?: Team | null;
 }
 
 export function BracketGame({
@@ -138,6 +142,8 @@ export function BracketGame({
   eliminatedTeams,
   advancedTeams,
   team1WinProbability,
+  actualTeam1,
+  actualTeam2,
 }: BracketGameProps) {
   let py: string, px: string, textSize: string, minW: string;
 
@@ -153,8 +159,19 @@ export function BracketGame({
     minW = "w-full min-w-0";
   }
 
-  const overlayTeam1 = computeOverlay(team1, winner === team1, true, gameStatus, eliminatedTeams, advancedTeams, round);
-  const overlayTeam2 = computeOverlay(team2, winner === team2, false, gameStatus, eliminatedTeams, advancedTeams, round);
+  // Detect when the actual team in a slot differs from the user's pick
+  // (user's feeder pick was wrong → different team actually advanced).
+  const replaced1 = actualTeam1 != null && team1 != null && actualTeam1 !== team1;
+  const replaced2 = actualTeam2 != null && team2 != null && actualTeam2 !== team2;
+
+  // Display the actual team when replaced; overlay only applies to non-replaced (user's own picks)
+  const display1 = replaced1 ? actualTeam1 : team1;
+  const display2 = replaced2 ? actualTeam2 : team2;
+  const wrongPick1 = replaced1 ? team1 : null;
+  const wrongPick2 = replaced2 ? team2 : null;
+
+  const overlayTeam1 = replaced1 ? null : computeOverlay(team1, winner === team1, true, gameStatus, eliminatedTeams, advancedTeams, round);
+  const overlayTeam2 = replaced2 ? null : computeOverlay(team2, winner === team2, false, gameStatus, eliminatedTeams, advancedTeams, round);
 
   return (
     <div
@@ -166,11 +183,12 @@ export function BracketGame({
     >
       {gameStatus?.status === "live" && <LiveBanner gameStatus={gameStatus} />}
       <TeamSlot
-        team={team1}
-        isWinner={winner !== null && winner === team1}
-        isLoser={winner !== null && winner !== team1 && team1 !== null}
-        onClick={() => team1 && !disabled && onPick(true)}
-        disabled={disabled || !team1}
+        team={display1}
+        wrongPick={wrongPick1}
+        isWinner={!replaced1 && winner !== null && winner === team1}
+        isLoser={!replaced1 && winner !== null && winner !== team1 && team1 !== null}
+        onClick={() => display1 && !disabled && onPick(true)}
+        disabled={disabled || !display1}
         py={py}
         px={px}
         textSize={textSize}
@@ -180,18 +198,19 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" &&
+          gameStatus?.status !== "final" && !replaced1 &&
           !(team1 && eliminatedTeams?.has(displayName(team1)))
             ? team1WinProbability
             : undefined
         }
       />
       <TeamSlot
-        team={team2}
-        isWinner={winner !== null && winner === team2}
-        isLoser={winner !== null && winner !== team2 && team2 !== null}
-        onClick={() => team2 && !disabled && onPick(false)}
-        disabled={disabled || !team2}
+        team={display2}
+        wrongPick={wrongPick2}
+        isWinner={!replaced2 && winner !== null && winner === team2}
+        isLoser={!replaced2 && winner !== null && winner !== team2 && team2 !== null}
+        onClick={() => display2 && !disabled && onPick(false)}
+        disabled={disabled || !display2}
         py={py}
         px={px}
         textSize={textSize}
@@ -201,7 +220,7 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" &&
+          gameStatus?.status !== "final" && !replaced2 &&
           team1WinProbability !== undefined &&
           !(team2 && eliminatedTeams?.has(displayName(team2)))
             ? 1 - team1WinProbability
@@ -214,6 +233,8 @@ export function BracketGame({
 
 interface TeamSlotProps {
   team: Team | null;
+  /** User's wrong pick for this slot — displayed crossed out when actual team differs. */
+  wrongPick?: Team | null;
   isWinner: boolean;
   isLoser: boolean;
   onClick: () => void;
@@ -231,6 +252,7 @@ interface TeamSlotProps {
 
 function TeamSlot({
   team,
+  wrongPick,
   isWinner,
   isLoser,
   onClick,
@@ -302,6 +324,11 @@ function TeamSlot({
         <span className="truncate">{displayAbbrev(team)}</span>
       </span>
       <span className="flex items-center gap-1 flex-shrink-0">
+        {wrongPick && (
+          <span className="text-[9px] text-red-400/50 line-through truncate max-w-[48px]">
+            {displayAbbrev(wrongPick)}
+          </span>
+        )}
         {winProbability !== undefined && (
           <span className={`text-[9px] bg-bg-secondary/80 px-1 rounded ${isLive ? "text-text-muted" : "text-text-muted/70"}`}>
             {Math.round(winProbability * 100)}%
