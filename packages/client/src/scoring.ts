@@ -132,18 +132,7 @@ export function scoreBracketPartial(
     gamesInRound = Math.floor(gamesInRound / 2);
   }
 
-  // ── current: simple per-game check (unchanged from original) ──
-  let current = 0;
-  for (let i = 0; i < 63; i++) {
-    const game = status.games[i];
-    if (game && game.status === "final" && game.winner !== undefined) {
-      if (picks[i] === game.winner) {
-        current += roundPoints[gameRound[i]];
-      }
-    }
-  }
-
-  // ── maxPossible: current + cascade-aware remaining ──
+  // ── pickAlive: cascade-aware reachability ──
   // pickAlive[i] = the bracket's predicted team can still reach game i
   // (and the bracket's pick for game i hasn't been decided wrong).
   // For round 0: alive unless the game was decided wrong.
@@ -172,6 +161,22 @@ export function scoreBracketPartial(
     }
   }
 
+  // ── current: per-game check with cascade awareness ──
+  // A correct bit match only counts if the bracket's predicted team could
+  // actually reach this game. Without this check, a "coincidental" bit match
+  // (wrong pick in round N-1, but the team that beat yours also won round N)
+  // would incorrectly award points.
+  let current = 0;
+  for (let i = 0; i < 63; i++) {
+    const game = status.games[i];
+    if (game && game.status === "final" && game.winner !== undefined) {
+      if (picks[i] === game.winner && pickAlive[i]) {
+        current += roundPoints[gameRound[i]];
+      }
+    }
+  }
+
+  // ── maxPossible: current + cascade-aware remaining ──
   let maxRemaining = 0;
   for (let i = 0; i < 63; i++) {
     const game = status.games[i];

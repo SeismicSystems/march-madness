@@ -1,0 +1,5 @@
+hey papi, big issue, our live scoring algo is wrong in a subtle way... my dads complaining about it. the gist of it is.. if you picked team in round n-1 wrong but then also picked them to win in round n, and then the team who beat them in round n-1 ALSO won in round n, then we'd give them points... its purely a frontend scoring bug... investigate, fix, make pr
+
+concrete example, p-duke is wrong by at least 2 points because of this
+
+in mirror id 1
