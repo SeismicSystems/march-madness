@@ -218,18 +218,44 @@ describe("scoreBracketPartial", () => {
     expect(result.maxPossible).toBe(192);
   });
 
-  test("decided game with dead path still counts toward current", () => {
+  test("coincidental bit match on dead path does NOT count toward current", () => {
     // Game 0 wrong, game 32 decided with matching bit (coincidental match).
-    // current uses simple per-game check: game 32 bracket=team1, winner=team1 → match.
-    // maxPossible: cascade kills undecided games 48, 56, 60 but game 32 is decided.
+    // The bracket predicted Team A (game 0 winner) would win game 32, but Team A
+    // lost in game 0. Team B (who beat Team A) also won game 32, so the bit
+    // coincidentally matches — but the bracket's team never reached game 32.
+    // current must NOT count this coincidental match.
     const status = allUpcoming();
-    setFinal(status, 0, false); // wrong
-    setFinal(status, 32, true); // coincidental match (bracket picks team1, team1 won)
+    setFinal(status, 0, false); // wrong — bracket's team eliminated
+    setFinal(status, 32, true); // coincidental match — different team won via same feeder
     const result = scoreBracketPartial(CHALKY, status);
-    expect(result.current).toBe(2); // game 32 matches by simple check
+    expect(result.current).toBe(0); // no credit — bracket's team can't reach game 32
     // Dead undecided: 48(4) + 56(8) + 60(16) = 28 pts
     // maxRemaining = (192 - 1 - 2) - 28 = 161
-    expect(result.maxPossible).toBe(2 + 161); // 163
+    expect(result.maxPossible).toBe(0 + 161); // 161
+  });
+
+  test("coincidental match across multiple rounds awards zero phantom points", () => {
+    // Reproduces the reported bug: bracket picks Team A through multiple rounds,
+    // Team A loses in R64, but the team that beat them keeps winning — every
+    // downstream game has a coincidental bit match that should NOT score.
+    //
+    // Game 0 (R64): bracket picks team1 (Team A), team2 (Team B) wins. WRONG.
+    // Game 32 (R32): bracket picks team1 (from game 0 = Team A), Team B wins. Coincidental match.
+    // Game 48 (S16): bracket picks team1 (from game 32 = Team A), Team B wins. Coincidental match.
+    // Game 56 (E8): bracket picks team1 (from game 48 = Team A), Team B wins. Coincidental match.
+    //
+    // Without the cascade check, current would be 2+4+8=14 phantom points.
+    // With the fix, current should be 0 — Team A never made it past R64.
+    const status = allUpcoming();
+    setFinal(status, 0, false); // R64: bracket wrong, Team A eliminated
+    setFinal(status, 32, true); // R32: Team B wins (coincidental bit match)
+    setFinal(status, 48, true); // S16: Team B wins (coincidental bit match)
+    setFinal(status, 56, true); // E8: Team B wins (coincidental bit match)
+    const result = scoreBracketPartial(CHALKY, status);
+    expect(result.current).toBe(0); // zero — all matches are phantom
+    // Dead undecided: 60(16) = 16 pts (game 60 still undecided but dead)
+    // maxRemaining = (192 - 1 - 2 - 4 - 8) - 16 = 161
+    expect(result.maxPossible).toBe(0 + 161); // 161
   });
 
   test("live games are treated as undecided (optimistic)", () => {
