@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix game win probabilities using actual teams instead of user's bracket picks. When a user's earlier-round pick was wrong, the probability lookup would hit the eliminated team's zero-probability entry, causing the opponent to show 100% win chance. Now uses the actualTeams map for correct team name lookups.
+
+
 Show actual advancing teams in bracket viewer when user's pick was eliminated in a prior round. The user's wrong pick is displayed as a small crossed-out annotation next to the real team, making it clear both what was picked and what actually happened. Also fixes eliminated/advanced team tracking to use actual tournament results instead of user picks.
 
 
