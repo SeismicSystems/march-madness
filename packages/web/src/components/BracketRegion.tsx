@@ -1,7 +1,7 @@
 import type { TournamentStatus } from "@march-madness/client";
 
 import type { GameSlot } from "../hooks/useBracket";
-import type { GameWinProbs } from "./BracketView";
+import type { ActualTeamMap, GameWinProbs } from "./BracketView";
 import { ROUND_NAMES } from "../lib/constants";
 import { BracketGame } from "./BracketGame";
 
@@ -19,6 +19,7 @@ interface BracketRegionProps {
   eliminatedTeams?: Set<string>;
   advancedTeams?: Map<string, number>;
   gameWinProbs?: GameWinProbs;
+  actualTeams?: ActualTeamMap | null;
 }
 
 export function BracketRegion({
@@ -32,6 +33,7 @@ export function BracketRegion({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  actualTeams,
 }: BracketRegionProps) {
   const orderedRounds = reversed ? [...rounds].reverse() : rounds;
 
@@ -56,24 +58,29 @@ export function BracketRegion({
                 {ROUND_NAMES[actualRoundIdx]}
               </div> */}
               <div className="flex flex-col flex-1 justify-around gap-4 min-w-0">
-                {roundGames.map((game) => (
-                  <BracketGame
-                    key={game.gameIndex}
-                    team1={game.team1}
-                    team2={game.team2}
-                    winner={game.winner}
-                    onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
-                    disabled={disabled}
-                    compact={actualRoundIdx === 0}
-                    mobile={compact}
-                    reversed={reversed}
-                    round={actualRoundIdx}
-                    gameStatus={tournamentStatus?.games[game.gameIndex]}
-                    eliminatedTeams={eliminatedTeams}
-                    advancedTeams={advancedTeams}
-                    team1WinProbability={gameWinProbs?.get(game.gameIndex)}
-                  />
-                ))}
+                {roundGames.map((game) => {
+                  const at = actualTeams?.get(game.gameIndex);
+                  return (
+                    <BracketGame
+                      key={game.gameIndex}
+                      team1={game.team1}
+                      team2={game.team2}
+                      winner={game.winner}
+                      onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                      disabled={disabled}
+                      compact={actualRoundIdx === 0}
+                      mobile={compact}
+                      reversed={reversed}
+                      round={actualRoundIdx}
+                      gameStatus={tournamentStatus?.games[game.gameIndex]}
+                      eliminatedTeams={eliminatedTeams}
+                      advancedTeams={advancedTeams}
+                      team1WinProbability={gameWinProbs?.get(game.gameIndex)}
+                      actualTeam1={at?.team1}
+                      actualTeam2={at?.team2}
+                    />
+                  );
+                })}
               </div>
             </div>
           );

@@ -6,7 +6,7 @@ import type { GameSlot } from "../hooks/useBracket";
 import type { TeamProbs } from "../hooks/useTeamProbs";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { ROUND_NAMES } from "../lib/constants";
-import { displayName, tournament } from "../lib/tournament";
+import { displayName, tournament, type Team } from "../lib/tournament";
 import { BracketGame, TeamLogo } from "./BracketGame";
 import { BracketRegion } from "./BracketRegion";
 import { FinalFour } from "./FinalFour";
@@ -16,6 +16,13 @@ import { FinalFour } from "./FinalFour";
  * Computed from per-team advance probabilities (Bradley-Terry approximation).
  */
 export type GameWinProbs = Map<number, number>;
+
+/**
+ * Per-game actual teams based on tournament results (not user picks).
+ * For later rounds, the user's bracket may show an eliminated team;
+ * this map provides the real teams that advanced.
+ */
+export type ActualTeamMap = Map<number, { team1: Team | null; team2: Team | null }>;
 
 interface BracketViewProps {
   games: GameSlot[];
@@ -68,20 +75,44 @@ export function BracketView({
   const f4Games = getGamesForRound(4);
   const champGame = getGamesForRound(5);
 
-  // Build set of eliminated and advancing team names from tournament results
-  const { eliminatedTeams, advancedTeams } = useMemo(() => {
+  // Build actual teams (from tournament results), eliminated set, and advancing set.
+  // For later rounds, the user's bracket shows their picks — actualTeams provides
+  // the real teams based on who actually won each feeder game.
+  const { eliminatedTeams, advancedTeams, actualTeams } = useMemo(() => {
     if (!tournamentStatus)
       return {
         eliminatedTeams: new Set<string>(),
         advancedTeams: new Map<string, number>(),
+        actualTeams: null as ActualTeamMap | null,
       };
+
+    const roundStart = [0, 32, 48, 56, 60, 62];
+    const actualWinners: (Team | null)[] = new Array(63).fill(null);
+    const atMap: ActualTeamMap = new Map();
     const eliminated = new Set<string>();
     const winCounts = new Map<string, number>();
+
     for (const game of games) {
+      // Resolve actual teams for this game
+      let at1: Team | null;
+      let at2: Team | null;
+      if (game.round === 0) {
+        at1 = game.team1;
+        at2 = game.team2;
+      } else {
+        const pos = game.gameIndex - roundStart[game.round];
+        const feederA = roundStart[game.round - 1] + 2 * pos;
+        at1 = actualWinners[feederA];
+        at2 = actualWinners[feederA + 1];
+      }
+      atMap.set(game.gameIndex, { team1: at1, team2: at2 });
+
+      // Record actual winner + eliminated/advanced using actual teams
       const gs = tournamentStatus.games[game.gameIndex];
       if (gs?.status === "final" && gs.winner !== undefined) {
-        const loser = gs.winner ? game.team2 : game.team1;
-        const winner = gs.winner ? game.team1 : game.team2;
+        const winner = gs.winner ? at1 : at2;
+        const loser = gs.winner ? at2 : at1;
+        actualWinners[game.gameIndex] = winner;
         if (loser) eliminated.add(displayName(loser));
         if (winner) {
           const name = displayName(winner);
@@ -89,12 +120,13 @@ export function BracketView({
         }
       }
     }
+
     // Advanced = team name → win count (only teams not yet eliminated)
     const advanced = new Map<string, number>();
     for (const [name, count] of winCounts) {
       if (!eliminated.has(name)) advanced.set(name, count);
     }
-    return { eliminatedTeams: eliminated, advancedTeams: advanced };
+    return { eliminatedTeams: eliminated, advancedTeams: advanced, actualTeams: atMap };
   }, [games, tournamentStatus]);
 
   // Compute per-game team1 win probabilities from team advance probs.
@@ -133,6 +165,7 @@ export function BracketView({
         eliminatedTeams={eliminatedTeams}
         advancedTeams={advancedTeams}
         gameWinProbs={gameWinProbs}
+        actualTeams={actualTeams}
       />
     );
   }
@@ -150,6 +183,7 @@ export function BracketView({
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
           gameWinProbs={gameWinProbs}
+          actualTeams={actualTeams}
         />
 
         <div className="row-span-2 flex items-center justify-center">
@@ -163,6 +197,7 @@ export function BracketView({
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
+            actualTeams={actualTeams}
           />
         </div>
 
@@ -176,6 +211,7 @@ export function BracketView({
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
           gameWinProbs={gameWinProbs}
+          actualTeams={actualTeams}
         />
 
         {/* Bottom half */}
@@ -188,6 +224,7 @@ export function BracketView({
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
           gameWinProbs={gameWinProbs}
+          actualTeams={actualTeams}
         />
         <BracketRegion
           regionName={displayedRegions[3].name}
@@ -199,6 +236,7 @@ export function BracketView({
           eliminatedTeams={eliminatedTeams}
           advancedTeams={advancedTeams}
           gameWinProbs={gameWinProbs}
+          actualTeams={actualTeams}
         />
       </div>
     </div>
@@ -218,6 +256,7 @@ function MobileBracket({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  actualTeams,
 }: {
   games: GameSlot[];
   regions: Array<{ name: string; rounds: GameSlot[][] }>;
@@ -229,6 +268,7 @@ function MobileBracket({
   eliminatedTeams: Set<string>;
   advancedTeams: Map<string, number>;
   gameWinProbs: GameWinProbs;
+  actualTeams: ActualTeamMap | null;
 }) {
   const liveGames = useMemo(() => {
     if (!tournamentStatus) return [];
@@ -339,6 +379,7 @@ function MobileBracket({
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
+            actualTeams={actualTeams}
           />
         ) : isRegionTab ? (
           <MobileRegionLanes
@@ -351,6 +392,7 @@ function MobileBracket({
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
             settledBeforeRound={settledBeforeRound}
+            actualTeams={actualTeams}
           />
         ) : isFinalFourTab ? (
           <MobileFinalFourLanes
@@ -363,6 +405,7 @@ function MobileBracket({
             eliminatedTeams={eliminatedTeams}
             advancedTeams={advancedTeams}
             gameWinProbs={gameWinProbs}
+            actualTeams={actualTeams}
           />
         ) : null}
       </div>
@@ -378,6 +421,7 @@ function MobileLiveGames({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  actualTeams,
 }: {
   liveGames: GameSlot[];
   onPick: (gameIndex: number, pickTeam1: boolean) => void;
@@ -386,6 +430,7 @@ function MobileLiveGames({
   eliminatedTeams: Set<string>;
   advancedTeams: Map<string, number>;
   gameWinProbs: GameWinProbs;
+  actualTeams: ActualTeamMap | null;
 }) {
   return (
     <div className="space-y-2">
@@ -402,23 +447,28 @@ function MobileLiveGames({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2">
-          {liveGames.map((game) => (
-            <BracketGame
-              key={game.gameIndex}
-              team1={game.team1}
-              team2={game.team2}
-              winner={game.winner}
-              onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
-              disabled={disabled}
-              mobile
-              fullWidth
-              round={game.round}
-              gameStatus={tournamentStatus?.games[game.gameIndex]}
-              eliminatedTeams={eliminatedTeams}
-              advancedTeams={advancedTeams}
-              team1WinProbability={gameWinProbs.get(game.gameIndex)}
-            />
-          ))}
+          {liveGames.map((game) => {
+            const at = actualTeams?.get(game.gameIndex);
+            return (
+              <BracketGame
+                key={game.gameIndex}
+                team1={game.team1}
+                team2={game.team2}
+                winner={game.winner}
+                onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                disabled={disabled}
+                mobile
+                fullWidth
+                round={game.round}
+                gameStatus={tournamentStatus?.games[game.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs.get(game.gameIndex)}
+                actualTeam1={at?.team1}
+                actualTeam2={at?.team2}
+              />
+            );
+          })}
         </div>
       </section>
     </div>
@@ -435,6 +485,7 @@ function MobileRegionLanes({
   advancedTeams,
   gameWinProbs,
   settledBeforeRound,
+  actualTeams,
 }: {
   regionName: string;
   rounds: GameSlot[][];
@@ -446,6 +497,7 @@ function MobileRegionLanes({
   gameWinProbs: GameWinProbs;
   /** Rounds with index < this value are settled and displayed at the bottom. */
   settledBeforeRound: number;
+  actualTeams: ActualTeamMap | null;
 }) {
   const reverseLaneColumns = (games: GameSlot[]) => {
     if (games.length < 2) return games;
@@ -501,24 +553,29 @@ function MobileRegionLanes({
               roundGames.length > 1 ? "grid-cols-2" : "grid-cols-1"
             }`}
           >
-            {displayGames.map((game) => (
-              <BracketGame
-                key={game.gameIndex}
-                team1={game.team1}
-                team2={game.team2}
-                winner={game.winner}
-                onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
-                disabled={disabled}
-                compact={roundIdx === 0}
-                mobile
-                fullWidth
-                round={roundIdx}
-                gameStatus={tournamentStatus?.games[game.gameIndex]}
-                eliminatedTeams={eliminatedTeams}
-                advancedTeams={advancedTeams}
-                team1WinProbability={gameWinProbs.get(game.gameIndex)}
-              />
-            ))}
+            {displayGames.map((game) => {
+              const at = actualTeams?.get(game.gameIndex);
+              return (
+                <BracketGame
+                  key={game.gameIndex}
+                  team1={game.team1}
+                  team2={game.team2}
+                  winner={game.winner}
+                  onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                  disabled={disabled}
+                  compact={roundIdx === 0}
+                  mobile
+                  fullWidth
+                  round={roundIdx}
+                  gameStatus={tournamentStatus?.games[game.gameIndex]}
+                  eliminatedTeams={eliminatedTeams}
+                  advancedTeams={advancedTeams}
+                  team1WinProbability={gameWinProbs.get(game.gameIndex)}
+                  actualTeam1={at?.team1}
+                  actualTeam2={at?.team2}
+                />
+              );
+            })}
           </div>
         </section>
         {!isLast && (
@@ -582,6 +639,7 @@ function MobileFinalFourLanes({
   eliminatedTeams,
   advancedTeams,
   gameWinProbs,
+  actualTeams,
 }: {
   semifinal1: GameSlot | null;
   semifinal2: GameSlot | null;
@@ -592,6 +650,7 @@ function MobileFinalFourLanes({
   eliminatedTeams: Set<string>;
   advancedTeams: Map<string, number>;
   gameWinProbs: GameWinProbs;
+  actualTeams: ActualTeamMap | null;
 }) {
   const semifinalGames = [semifinal1, semifinal2].filter(
     (g): g is GameSlot => g !== null
@@ -615,23 +674,28 @@ function MobileFinalFourLanes({
           <div className="text-[10px] text-text-muted">2 games</div>
         </div>
         <div className="grid grid-cols-2 gap-2 items-end">
-          {displaySemifinals.map((game) => (
-            <BracketGame
-              key={game.gameIndex}
-              team1={game.team1}
-              team2={game.team2}
-              winner={game.winner}
-              onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
-              disabled={disabled}
-              mobile
-              fullWidth
-              round={4}
-              gameStatus={tournamentStatus?.games[game.gameIndex]}
-              eliminatedTeams={eliminatedTeams}
-              advancedTeams={advancedTeams}
-              team1WinProbability={gameWinProbs.get(game.gameIndex)}
-            />
-          ))}
+          {displaySemifinals.map((game) => {
+            const at = actualTeams?.get(game.gameIndex);
+            return (
+              <BracketGame
+                key={game.gameIndex}
+                team1={game.team1}
+                team2={game.team2}
+                winner={game.winner}
+                onPick={(pickTeam1) => onPick(game.gameIndex, pickTeam1)}
+                disabled={disabled}
+                mobile
+                fullWidth
+                round={4}
+                gameStatus={tournamentStatus?.games[game.gameIndex]}
+                eliminatedTeams={eliminatedTeams}
+                advancedTeams={advancedTeams}
+                team1WinProbability={gameWinProbs.get(game.gameIndex)}
+                actualTeam1={at?.team1}
+                actualTeam2={at?.team2}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -647,22 +711,27 @@ function MobileFinalFourLanes({
         <div className="text-[10px] text-text-muted uppercase tracking-wide mb-2">
           {ROUND_NAMES[5]}
         </div>
-        {championship && (
-          <BracketGame
-            team1={championship.team1}
-            team2={championship.team2}
-            winner={championship.winner}
-            onPick={(pickTeam1) => onPick(championship.gameIndex, pickTeam1)}
-            disabled={disabled}
-            mobile
-            fullWidth
-            round={5}
-            gameStatus={tournamentStatus?.games[championship.gameIndex]}
-            eliminatedTeams={eliminatedTeams}
-            advancedTeams={advancedTeams}
-            team1WinProbability={gameWinProbs.get(championship.gameIndex)}
-          />
-        )}
+        {championship && (() => {
+          const at = actualTeams?.get(championship.gameIndex);
+          return (
+            <BracketGame
+              team1={championship.team1}
+              team2={championship.team2}
+              winner={championship.winner}
+              onPick={(pickTeam1) => onPick(championship.gameIndex, pickTeam1)}
+              disabled={disabled}
+              mobile
+              fullWidth
+              round={5}
+              gameStatus={tournamentStatus?.games[championship.gameIndex]}
+              eliminatedTeams={eliminatedTeams}
+              advancedTeams={advancedTeams}
+              team1WinProbability={gameWinProbs.get(championship.gameIndex)}
+              actualTeam1={at?.team1}
+              actualTeam2={at?.team2}
+            />
+          );
+        })()}
       </section>
 
       {championship?.winner && (
