@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Fix live scoring bug where coincidental bit matches on eliminated teams awarded phantom points. The `current` score in `scoreBracketPartial` now applies the same cascade-aware reachability check used for `maxPossible` — a correct bit match only counts if the bracket's predicted team could actually reach that game.
+
+
 feat(web): reorder settled rounds to bottom on mobile region views
 
 On mobile, when the tournament is in round N, all previous (settled) rounds are
