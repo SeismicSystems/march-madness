@@ -198,8 +198,8 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" && !replaced1 &&
-          !(team1 && eliminatedTeams?.has(displayName(team1)))
+          gameStatus?.status !== "final" &&
+          !(display1 && eliminatedTeams?.has(displayName(display1)))
             ? team1WinProbability
             : undefined
         }
@@ -220,9 +220,9 @@ export function BracketGame({
         isLive={gameStatus?.status === "live"}
         reversed={reversed}
         winProbability={
-          gameStatus?.status !== "final" && !replaced2 &&
+          gameStatus?.status !== "final" &&
           team1WinProbability !== undefined &&
-          !(team2 && eliminatedTeams?.has(displayName(team2)))
+          !(display2 && eliminatedTeams?.has(displayName(display2)))
             ? 1 - team1WinProbability
             : undefined
         }

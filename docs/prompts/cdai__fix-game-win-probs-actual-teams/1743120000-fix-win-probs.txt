@@ -1,0 +1,3 @@
+o ok ya... another issue... currently says illinois is 100% to win vs iowa (9 seed that beat florida) in last game.... clearly some kinda bug... no way its correct
+
+if you can curl the endpoint to show live p(advance) at this stage then lmk but i think somethitn abkut these probs are just wrong
