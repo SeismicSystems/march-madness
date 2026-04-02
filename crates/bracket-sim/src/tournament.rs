@@ -828,34 +828,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn golden_vectors_encoding() {
-        let vectors = load_vectors();
-        let brackets = vectors["brackets"].as_array().unwrap();
-
-        for v in brackets {
-            let name = v["name"].as_str().unwrap();
-            let expected_hex = v["hex"].as_str().unwrap();
-            let picks = v["picks"].as_array().unwrap();
-
-            // Encode picks to u64 using game_bit (same logic as TS client)
-            let mut bits: u64 = crate::SENTINEL_BIT;
-            for (i, pick) in picks.iter().enumerate() {
-                if pick.as_bool().unwrap() {
-                    bits |= crate::game_bit(i);
-                }
-            }
-
-            let actual_hex = crate::format_bb(bits);
-            assert_eq!(
-                actual_hex, expected_hex,
-                "Encoding mismatch for '{}': game_bit encoding differs from golden vector",
-                name
-            );
-
-            // Verify parse roundtrip
-            let parsed = crate::parse_bb(expected_hex);
-            assert_eq!(parsed, bits, "Parse roundtrip failed for '{}'", name);
-        }
-    }
+    // Encoding parity test (contract-correct ↔ legacy) lives in
+    // seismic-march-madness/src/scoring.rs::golden_vectors_encoding_parity.
 }

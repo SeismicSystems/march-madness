@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use eyre::{bail, eyre};
-use seismic_march_madness::score_bracket;
+use seismic_march_madness::{encode_picks, score_bracket};
 use tracing::debug;
 
 use crate::api::{Pick, Slot};
@@ -148,12 +148,7 @@ pub fn encode_bracket(
     }
 
     // Step 5: Encode to u64
-    let mut bits: u64 = 1u64 << 63; // sentinel
-    for (i, &pick) in pick_bools.iter().enumerate() {
-        if pick {
-            bits |= 1u64 << (62 - i);
-        }
-    }
+    let bits = encode_picks(&pick_bools);
 
     // Derive champion (last remaining team)
     let champion_pos = current_teams[0];

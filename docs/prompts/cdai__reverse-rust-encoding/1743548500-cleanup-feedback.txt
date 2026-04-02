@@ -1,0 +1,7 @@
+these are all worth the churn:
+
+
+  Skipped (not worth the churn):
+  - Test helper dedup (status_from_results_bits vs fully_final_status) — different crate test modules, shared test_util module would be over-engineering
+  - encode_picks utility extraction — only one production callsite
+  - Tightening reverse_game_bits / SENTINEL_BIT visibility — needed by migration tooling
