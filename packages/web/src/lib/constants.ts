@@ -18,6 +18,10 @@ type DeploymentEntry = {
   marchMadness: Address;
   bracketGroups: Address;
   bracketMirror: Address;
+  v2?: {
+    marchMadness: Address;
+    bracketGroups: Address;
+  };
 };
 const chainDeployment = (
   deployments as Record<string, Record<string, DeploymentEntry>>
@@ -26,6 +30,7 @@ const chainDeployment = (
 /** VITE_CONTRACT_ADDRESS overrides deployments.json (populate injects this for local dev) */
 export const CONTRACT_ADDRESS: Address =
   (import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined) ??
+  chainDeployment?.v2?.marchMadness ??
   chainDeployment?.marchMadness ??
   (() => {
     throw new Error(`No deployment found for year=${YEAR} chain=${CHAIN_ID}`);
@@ -33,6 +38,7 @@ export const CONTRACT_ADDRESS: Address =
 
 export const GROUPS_CONTRACT_ADDRESS: Address =
   (import.meta.env.VITE_GROUPS_CONTRACT_ADDRESS as Address | undefined) ??
+  chainDeployment?.v2?.bracketGroups ??
   chainDeployment?.bracketGroups ??
   (() => {
     throw new Error(`No deployment found for year=${YEAR} chain=${CHAIN_ID}`);
