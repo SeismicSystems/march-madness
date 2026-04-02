@@ -1,0 +1,1 @@
+we wrote a command to do a v2 deploy, run that, commit the results and make a PR for me to review
