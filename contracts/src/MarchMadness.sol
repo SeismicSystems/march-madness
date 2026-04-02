@@ -18,7 +18,7 @@ contract MarchMadness is IMarchMadness {
     uint256 public submissionDeadline; // unix timestamp
 
     // ── State ──────────────────────────────────────────────────────────────
-    mapping(address => sbytes8) private brackets; // SHIELDED bracket storage
+    mapping(address => sbytes8) internal brackets; // SHIELDED bracket storage
     mapping(address => bool) public hasEntry; // unshielded — publicly readable
     mapping(address => string) public tags; // optional display name
     mapping(address => uint8) public scores;
@@ -108,7 +108,7 @@ contract MarchMadness is IMarchMadness {
     /// @dev THIS IS THE MOST SECURITY-CRITICAL FUNCTION.
     /// @param account  The address whose bracket to read.
     /// @return The bracket as bytes8 (unshielded).
-    function getBracket(address account) public view returns (bytes8) {
+    function getBracket(address account) public view virtual returns (bytes8) {
         if (block.timestamp < submissionDeadline) {
             if (msg.sender != account) revert CannotReadBracketBeforeDeadline();
         }
