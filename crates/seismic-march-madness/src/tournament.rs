@@ -145,30 +145,7 @@ pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u
 mod tests {
     use super::*;
     use crate::scoring::score_bracket;
-    use crate::types::{GameState, GameStatus, TournamentStatus};
-
-    /// Build a fully-decided TournamentStatus from contract-correct results bits.
-    fn status_from_results_bits(results: u64) -> TournamentStatus {
-        let games = (0..63)
-            .map(|game_index| {
-                let winner = ((results >> game_index) & 1) == 1;
-                GameStatus {
-                    game_index: game_index as u8,
-                    status: GameState::Final,
-                    score: None,
-                    winner: Some(winner),
-                    team1_win_probability: None,
-                    seconds_remaining: None,
-                    period: None,
-                }
-            })
-            .collect();
-
-        TournamentStatus {
-            games,
-            updated_at: None,
-        }
-    }
+    use crate::test_util::fully_final_status;
 
     #[test]
     fn display_name_regular_team() {
@@ -265,7 +242,7 @@ mod tests {
         // results has all upsets. Contract scores this as 160.
         let results = 0x8000_0000_0000_0000u64;
         let bracket = 0xC000_0000_0000_0000u64;
-        let status = status_from_results_bits(results);
+        let status = fully_final_status(results);
 
         let contract_score = score_bracket(bracket, results);
         let current_score = compute_current_score(bracket, &status);
@@ -280,7 +257,7 @@ mod tests {
     fn contract_correct_perfect_bracket() {
         let bracket = 0xFFFF_FFFF_FFFF_FFFFu64;
         let results = 0xFFFF_FFFF_FFFF_FFFFu64;
-        let status = status_from_results_bits(results);
+        let status = fully_final_status(results);
 
         assert_eq!(score_bracket(bracket, results), 192);
         assert_eq!(compute_current_score(bracket, &status), 192);
