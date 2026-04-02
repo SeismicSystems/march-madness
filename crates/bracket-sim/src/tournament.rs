@@ -828,37 +828,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn golden_vectors_encoding_parity() {
-        use seismic_march_madness::reverse_game_bits;
-
-        let vectors = load_vectors();
-        let brackets = vectors["brackets"].as_array().unwrap();
-
-        for v in brackets {
-            let name = v["name"].as_str().unwrap();
-            let legacy_hex = v["hex"].as_str().unwrap();
-            let picks = v["picks"].as_array().unwrap();
-
-            // Encode picks using contract-correct game_bit (game 0 → bit 0)
-            let mut contract_bits: u64 = crate::SENTINEL_BIT;
-            for (i, pick) in picks.iter().enumerate() {
-                if pick.as_bool().unwrap() {
-                    contract_bits |= crate::game_bit(i);
-                }
-            }
-
-            // The JSON hex is legacy (game 0 → bit 62). Reversing the contract
-            // encoding should recover the legacy hex.
-            let legacy_bits = crate::parse_bb(legacy_hex);
-            assert_eq!(
-                reverse_game_bits(contract_bits),
-                legacy_bits,
-                "reverse(contract) != legacy for '{}': contract=0x{:016x}, legacy={}",
-                name,
-                contract_bits,
-                legacy_hex
-            );
-        }
-    }
+    // Encoding parity test (contract-correct ↔ legacy) lives in
+    // seismic-march-madness/src/scoring.rs::golden_vectors_encoding_parity.
 }

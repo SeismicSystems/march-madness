@@ -584,8 +584,7 @@ fn run_team_advance(
                                 game_winner[prev_start + 2 * offset + 1],
                             )
                         };
-                        let bit_pos = g;
-                        let team1_wins = (results >> bit_pos) & 1 == 1;
+                        let team1_wins = (results >> g) & 1 == 1;
                         let winner = if team1_wins { t1 } else { t2 };
                         game_winner[g] = winner;
                         advance[winner][round] += 1;

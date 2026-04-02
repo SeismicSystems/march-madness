@@ -139,14 +139,13 @@ impl SimCallback for BracketScoringCallback {
     }
 
     fn on_trial_end(&mut self, _game_winner: &[usize; 63]) {
-        let results = self.results;
-        let mask = get_scoring_mask(results);
+        let mask = get_scoring_mask(self.results);
         let mut best_score: u32 = 0;
 
         let scores: Vec<u32> = self
             .brackets
             .iter()
-            .map(|&b| score_bracket_with_mask(b, results, mask))
+            .map(|&b| score_bracket_with_mask(b, self.results, mask))
             .collect();
 
         for &s in &scores {
@@ -349,14 +348,13 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
     }
 
     fn on_trial_end(&mut self, _game_winner: &[usize; 63]) {
-        let results = self.results;
-        let mask = get_scoring_mask(results);
+        let mask = get_scoring_mask(self.results);
 
         // Score all unique brackets once.
         let scores: Vec<u32> = self
             .brackets
             .iter()
-            .map(|&b| score_bracket_with_mask(b, results, mask))
+            .map(|&b| score_bracket_with_mask(b, self.results, mask))
             .collect();
 
         // For each pool, find max score, increment winners, and accumulate score sums.
