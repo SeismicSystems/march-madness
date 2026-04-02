@@ -22,6 +22,8 @@
 - **Framework**: sforge (seismic foundry fork) for build, test, deploy
 - **Local node**: sanvil (seismic anvil fork)
 - **Key pattern**: `sbytes8` values are shielded on-chain; nodes won't reveal underlying values unless contract explicitly exposes them
+- **Optimizer**: `optimizer = true, optimizer_runs = 200` is enabled in `contracts/foundry.toml`. Required to keep BracketGroupsV2 under the EIP-170 24576-byte contract size limit.
+- **Running sforge without mise**: Scripts invoke sforge directly via `PATH="$HOME/.seismic/bin:$PATH"` with `FOUNDRY_SOLC=/usr/local/bin/ssolc`. Override via `SFORGE` and `SSOLC` env vars if needed.
 
 ### TypeScript / Frontend
 

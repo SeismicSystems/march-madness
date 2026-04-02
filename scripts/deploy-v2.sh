@@ -22,12 +22,15 @@ fi
 : "${DEPLOYER_PRIVATE_KEY:?Set DEPLOYER_PRIVATE_KEY in .env}"
 : "${VITE_RPC_URL:?Set VITE_RPC_URL in .env}"
 
+SFORGE="${SFORGE:-sforge}"
+SSOLC="${SSOLC:-$(command -v ssolc 2>/dev/null || echo "ssolc")}"
+
 echo "Deploying MarchMadnessV2 + BracketGroupsV2 to ${VITE_RPC_URL}..."
-OUTPUT=$(cd "$REPO_ROOT/contracts" && mise run sforge -- \
+OUTPUT=$(cd "$REPO_ROOT/contracts" && PATH="$HOME/.seismic/bin:$PATH" FOUNDRY_SOLC="$SSOLC" "$SFORGE" \
   script script/DeployV2.s.sol \
   --rpc-url "$VITE_RPC_URL" \
   --broadcast \
-  --private-key "$DEPLOYER_PRIVATE_KEY" 2>&1)
+  --private-key "$DEPLOYER_PRIVATE_KEY" < /dev/null 2>&1) || { echo "$OUTPUT"; exit 1; }
 
 echo "$OUTPUT"
 
