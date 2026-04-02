@@ -7,9 +7,9 @@ Add MarchMadnessV2 and BracketGroupsV2 contracts with owner-only import surface 
 
 **Contracts:**
 
-- `MarchMadnessV2` inherits V1, adds `importEntry`, `batchImportEntries`, `importTag`, `fund()`, `receive()`, and `previewScore` (non-mutating scoring preview against arbitrary candidate results)
-- `BracketGroupsV2` inherits V1, adds `owner`, `importGroup`, `importMember`, `batchImportMembers`, `fund()`, `receive()`
-- `MarchMadness.sol`: `brackets` mapping changed `private → internal` to enable V2 inheritance; `getBracket` marked `virtual`
+- `MarchMadnessV2` inherits V1, adds `importEntry` (payable, validates `msg.value == entryFee`), `batchImportEntries` (payable, validates `msg.value == accounts.length * entryFee`), and `importTag`; removes `fund()`/`receive()` (fees paid inline)
+- `BracketGroupsV2` inherits V1, adds `owner`, `importGroup`, `importMember` (payable, validates `msg.value == entryFee`), `batchImportMembers` (payable, validates `msg.value == addrs.length * entryFee`); removes `fund()`/`receive()` (fees paid inline)
+- `MarchMadness.sol`: `brackets` mapping changed `private → internal` to enable V2 inheritance; `getBracket` marked `virtual`; `previewScore` moved here (it has no relation to migration permissions)
 
 **Scripts:**
 
