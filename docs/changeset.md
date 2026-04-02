@@ -2,6 +2,49 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Deploy MarchMadnessV2 and BracketGroupsV2 to testnet (chain 5124). Enable Solidity optimizer (200 runs) in foundry.toml — required to keep BracketGroupsV2 under the EIP-170 24576-byte limit. Fix deploy-v2.sh to invoke sforge directly without mise.
+
+fix(client,web): correct TypeScript bracket encoding to match Solidity ByteBracket bit layout
+
+The TypeScript bracket encoding was reversed relative to what the Solidity ByteBracket scoring loop expects. `picks[i]` was mapped to bit `62 - i` but should be mapped to bit `i` (bit 0 = first R64 game, bit 62 = championship).
+
+Changes:
+- Fix `encodeBracket`/`decodeBracket` to use contract-correct bit layout (`picks[i]` → bit `i`)
+- Fix `scoreBracketPartial` pick extraction to match new encoding
+- Fix `useBracket` and `useReadOnlyBracket` hooks to decode bits correctly
+- Add `reverseGameBits` utility for one-time localStorage migration
+- Add localStorage migration (`mm-encoding-v` version flag) to convert legacy hex values
+- Update golden test vectors to contract-correct encoding
+- Add comprehensive encoding correctness tests (bit position, Solidity cross-validation, reverseGameBits)
+
+fix(contracts): add missing `{value: ENTRY_FEE}` to V2 test import calls and remove nonexistent fund/receive tests
+
+Add `march-madness-populate` Rust binary for migrating V1 contract data into MarchMadnessV2 and BracketGroupsV2 contracts.
+
+- Reads entries, tags, groups, and member names from V1 contracts (events for discovery, view functions for data)
+- Converts legacy-encoded brackets to contract-correct encoding via `reverse_game_bits()`
+- Batch-imports into V2 contracts using `batchImportEntries`, `importTag`, `importGroup`, `batchImportMembers`
+- Idempotent: Redis SET keys track migration progress, V2 batch functions skip already-imported items
+- Supports `--dry-run`, `--batch-size`, `--skip-entries`, `--skip-groups`
+- Uses actual V2 contract signatures from PR #279
+
+fix(rust): correct bracket encoding to match Solidity contract bit ordering
+
+Changed Rust bracket encoding from legacy (game 0 → bit 62) to contract-correct (game 0 → bit 0), matching how Solidity's ByteBracket.getBracketScore processes bits. Updated all Rust code that maps game indices to bit positions: bracket-sim encoding/decoding, seismic-march-madness scoring helpers and simulation callbacks, forecaster, and mirror-importer. Added comprehensive tests for contract-correct round values, encoding parity, and jimpo's Solidity test vectors.
+
+Add MarchMadnessV2 and BracketGroupsV2 contracts with owner-only import surface for the legacy encoding migration (steps 3 & 4 of #251).
+
+**Contracts:**
+
+- `MarchMadnessV2` inherits V1, adds `importEntry` (payable, validates `msg.value == entryFee`), `batchImportEntries` (payable, validates `msg.value == accounts.length * entryFee`), and `importTag`; removes `fund()`/`receive()` (fees paid inline)
+- `BracketGroupsV2` inherits V1, adds `owner`, `importGroup`, `importMember` (payable, validates `msg.value == entryFee`), `batchImportMembers` (payable, validates `msg.value == addrs.length * entryFee`); removes `fund()`/`receive()` (fees paid inline)
+- `MarchMadness.sol`: `brackets` mapping changed `private → internal` to enable V2 inheritance; `getBracket` marked `virtual`; `previewScore` moved here (it has no relation to migration permissions)
+
+**Scripts:**
+
+- `scripts/deploy-v2.sh` / `bun deploy:v2` — deploy both V2 contracts to testnet
+
+
 Fix game win probabilities using actual teams instead of user's bracket picks. When a user's earlier-round pick was wrong, the probability lookup would hit the eliminated team's zero-probability entry, causing the opponent to show 100% win chance. Now uses the actualTeams map for correct team name lookups.
 
 
