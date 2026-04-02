@@ -1,0 +1,132 @@
+Summary
+We need a one-time clean-slate migration from the current legacy UI/off-chain bracket encoding to the contract-correct ByteBracket encoding.
+
+This is now the operational path forward for the 2026 testnet contest.
+
+The key decision is:
+
+after cutover, contract-correct bytes8 becomes the only runtime bracket format everywhere
+legacy 63-bit reversal exists only in one-time migration tooling
+This intentionally avoids carrying legacy compatibility shims into next year's mainnet launch.
+
+Related: #251
+
+Constraints / decisions
+Submissions are already closed, so we do not need to preserve the normal submission flow during migration.
+The site can go down for a one-night cutover.
+Main contract entries were submitted through the UI, so existing on-chain brackets should be treated as legacy-encoded and must be migrated.
+Groups are critical and must be migrated.
+Mirrors are not critical, are owner-controlled, and do not handle funds; they do not block the main migration.
+This is testnet money, so redeploying contracts and re-funding them is acceptable.
+We want the post-cutover system to be battle-tested for next year's mainnet, not a temporary dual-encoding architecture.
+Contract changes should be minimized: prefer thin V2 contracts that inherit the current V1 logic and only add migration/admin capabilities.
+Target state
+After cutover:
+
+the UI/client encodes and decodes brackets in contract-correct order
+the main contract stores contract-correct brackets
+BracketGroups points at the new main contract
+Redis/indexer/server store contract-correct hex under the normal runtime keys
+Rust scoring/simulation consumes contract-correct hex natively
+the only legacy code is in one-time migration scripts
+High-level plan
+Add contract-correct canonical encoding across the app.
+Update TypeScript bracket encoding/decoding and partial scoring.
+Update Rust helpers so contract-correct ordering is canonical.
+Keep any legacy reversal helpers only in migration tooling/tests.
+Add contract-facing parity tests.
+Build independent, non-circular vectors that start from intended logical picks/results.
+Prove parity across:
+Solidity ByteBracket
+TypeScript full scoring
+Rust full scoring
+current client encode/decode path
+Add at least one end-to-end test using actual client-produced bracket bytes submitted to a contract.
+Deploy V2 contracts as thin extensions of V1.
+MarchMadnessV2 should inherit the current MarchMadness contract and add only the migration/admin surface we need.
+BracketGroupsV2 should inherit the current BracketGroups contract and add only the migration/admin surface we need.
+Avoid rewriting the existing payout/scoring logic if inheritance can preserve it.
+Add V2 migration/admin functionality.
+Owner-only bracket import for the main contract.
+Owner-only tag import for the main contract.
+Owner-only group creation/member import for groups.
+Owner-only ETH funding / top-up path(s) on both contracts so payout balances can be restored post-deploy.
+Provide non-mutating on-chain scoring preview capability, either:
+directly on the main contract, or
+as a companion extension/helper contract
+The preview API should support something like previewScore(address account, bytes8 rawResults) returns (uint8).
+It should compute the score for an arbitrary candidate results blob against a stored bracket without mutating state, so we can validate raw scoring bytes before calling submitResults() / scoreBracket().
+It should enforce the same sentinel / no-entry checks as real scoring and should not weaken pre-deadline privacy semantics.
+Migrate main entries.
+Snapshot old MarchMadness entries and tags.
+For each old bracket, compute:
+new_bracket = reverse_63_game_bits_preserve_sentinel(old_bracket)
+Import the corrected bracket + tag into the new contract.
+Migrate groups.
+Snapshot old group metadata and membership.
+Recreate groups in the new BracketGroups contract.
+Recreate members / display names.
+Seed new group contract balances as needed.
+Password migration is optional if joins are already closed, but group membership and payout state must be preserved.
+Migrate browser local storage.
+Migrate mm-picks-* values once on app startup.
+If value is partial:..., leave it unchanged.
+If value is complete bracket hex, reverse the 63 game bits and rewrite it.
+Write a version flag so the migration only runs once.
+Rebuild backend state from the new contracts.
+During rehearsal, use a scratch Redis DB or temporary key prefix.
+For final cutover, rebuild the normal runtime keys from the new contracts rather than carrying dual prefixes indefinitely.
+Cut over the site.
+Put the site into maintenance mode.
+Run the migration.
+Update deployed contract addresses.
+Reindex/reseed.
+Bring the site back up on the new canonical encoding.
+Suggested V2 surface
+Main contract V2 additions:
+
+owner-only importEntry(address account, bytes8 bracket) or batch equivalent
+owner-only importTag(address account, string tag) or batch equivalent
+owner-only ETH funding path (receive() and/or explicit fund())
+preview scoring view for arbitrary candidate results bytes
+Groups contract V2 additions:
+
+owner-only importGroup(...)
+owner-only importMember(...) / batch equivalent
+owner-only ETH funding path (receive() and/or explicit fundGroup() / fund())
+Deliverables
+Contract-correct TS bracket encode/decode/scoring
+Contract-correct Rust canonical encoding/scoring path
+MarchMadnessV2 inheriting V1 with import/funding/preview additions
+BracketGroupsV2 inheriting V1 with import/funding additions
+On-chain scoring preview capability for arbitrary candidate results bytes
+LocalStorage migration for mm-picks-*
+End-to-end parity and migration validation tests
+A migration manifest/script that records:
+address
+old bracket
+corrected bracket
+tag
+group membership data
+Cutover checklist
+Freeze the site.
+Snapshot old contracts and Redis.
+Deploy MarchMadnessV2 + BracketGroupsV2.
+Fund both new contracts.
+Import corrected entries and tags.
+Import groups and members.
+Update app/indexer/server addresses.
+Rebuild Redis from the new contracts.
+Enable localStorage migration.
+Bring the site back up.
+Manually verify a sample of users/groups before announcing completion.
+Acceptance criteria
+A bracket entered in the post-cutover UI means the same thing in:
+UI display
+TS scoring
+Rust scoring/forecaster
+on-chain contract scoring
+The V2 system has on-chain preview support for scoring a user against arbitrary candidate results bytes without mutating state.
+A sample of migrated users show the same intended champion / late-round picks before and after migration.
+Group membership and payout totals are preserved in the new contracts.
+No runtime code depends on the old legacy encoding after cutover. lets address this github issue, its important you have the context, but you should know we are only handling steps 3 and 4 of the High-level plan right now.
