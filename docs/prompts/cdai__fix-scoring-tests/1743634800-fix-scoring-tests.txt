@@ -1,0 +1,5 @@
+cargo test is failing, fix it:
+
+https://github.com/SeismicSystems/march-madness/actions/runs/23922281259/job/69771221053?pr=283
+
+separate pr targeting migration branch
