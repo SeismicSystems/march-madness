@@ -9,7 +9,7 @@ import {BracketGroupsV2} from "../src/BracketGroupsV2.sol";
 import {IMarchMadness} from "../src/IMarchMadness.sol";
 import {ByteBracket} from "../src/ByteBracket.sol";
 
-/// @title MarchMadnessV2 tests — migration import, funding, and preview scoring
+/// @title MarchMadnessV2 tests — migration import and preview scoring
 contract MarchMadnessV2Test is Test {
     MarchMadnessV2 mm;
 
@@ -44,26 +44,33 @@ contract MarchMadnessV2Test is Test {
         vm.expectEmit(true, false, false, false);
         emit IMarchMadness.BracketSubmitted(alice);
 
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
 
         assertTrue(mm.hasEntry(alice));
         assertEq(mm.numEntries(), 1);
+        assertEq(address(mm).balance, ENTRY_FEE);
     }
 
     function test_importEntry_rejectsDuplicate() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         vm.expectRevert(IMarchMadness.AlreadySubmitted.selector);
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
     }
 
     function test_importEntry_rejectsNoSentinel() public {
         vm.expectRevert(IMarchMadness.InvalidSentinelByte.selector);
-        mm.importEntry(alice, NO_SENTINEL);
+        mm.importEntry{value: ENTRY_FEE}(alice, NO_SENTINEL);
     }
 
     function test_importEntry_rejectsNonOwner() public {
+        vm.deal(nonOwner, 1 ether);
         vm.prank(nonOwner);
         vm.expectRevert(IMarchMadness.OnlyOwner.selector);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
+    }
+
+    function test_importEntry_rejectsWrongFee() public {
+        vm.expectRevert(abi.encodeWithSelector(IMarchMadness.IncorrectEntryFee.selector, ENTRY_FEE, 0));
         mm.importEntry(alice, ALL_CHALK);
     }
 
@@ -79,15 +86,16 @@ contract MarchMadnessV2Test is Test {
         brackets[0] = ALL_CHALK;
         brackets[1] = ALL_UPSETS;
 
-        mm.batchImportEntries(accts, brackets);
+        mm.batchImportEntries{value: 2 * ENTRY_FEE}(accts, brackets);
 
         assertTrue(mm.hasEntry(alice));
         assertTrue(mm.hasEntry(bob));
         assertEq(mm.numEntries(), 2);
+        assertEq(address(mm).balance, 2 * ENTRY_FEE);
     }
 
     function test_batchImportEntries_idempotent() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
 
         address[] memory accts = new address[](2);
         bytes8[] memory brackets = new bytes8[](2);
@@ -96,9 +104,10 @@ contract MarchMadnessV2Test is Test {
         brackets[0] = ALL_CHALK;
         brackets[1] = ALL_UPSETS;
 
-        mm.batchImportEntries(accts, brackets); // must not revert
+        mm.batchImportEntries{value: 2 * ENTRY_FEE}(accts, brackets); // must not revert
 
         assertEq(mm.numEntries(), 2); // alice counted once, bob added
+        assertEq(address(mm).balance, 3 * ENTRY_FEE); // 1 from importEntry + 2 from batch
     }
 
     function test_batchImportEntries_lengthMismatch_reverts() public {
@@ -108,7 +117,7 @@ contract MarchMadnessV2Test is Test {
         accts[1] = bob;
         brackets[0] = ALL_CHALK;
         vm.expectRevert();
-        mm.batchImportEntries(accts, brackets);
+        mm.batchImportEntries{value: 2 * ENTRY_FEE}(accts, brackets);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -116,7 +125,7 @@ contract MarchMadnessV2Test is Test {
     // ════════════════════════════════════════════════════════════════════
 
     function test_importTag_happy() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
 
         vm.expectEmit(true, false, false, true);
         emit IMarchMadness.TagSet(alice, "alice");
@@ -131,7 +140,7 @@ contract MarchMadnessV2Test is Test {
     }
 
     function test_importTag_rejectsNonOwner() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         vm.prank(nonOwner);
         vm.expectRevert(IMarchMadness.OnlyOwner.selector);
         mm.importTag(alice, "alice");
@@ -142,7 +151,7 @@ contract MarchMadnessV2Test is Test {
     // ════════════════════════════════════════════════════════════════════
 
     function test_getBracket_postDeadline_anyoneCan() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         vm.warp(DEADLINE + 1); // past deadline
 
         bytes8 b = mm.getBracket(alice);
@@ -150,7 +159,7 @@ contract MarchMadnessV2Test is Test {
     }
 
     function test_getBracket_preDeadline_ownerCanReadOwn() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         // Still before deadline (warp is at 1000, deadline is 2000)
 
         vm.prank(alice);
@@ -159,7 +168,7 @@ contract MarchMadnessV2Test is Test {
     }
 
     function test_getBracket_preDeadline_otherRevertsWithError() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         // Still before deadline
 
         vm.prank(bob);
@@ -172,7 +181,7 @@ contract MarchMadnessV2Test is Test {
     // ════════════════════════════════════════════════════════════════════
 
     function test_previewScore_selfScore192() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         vm.warp(DEADLINE + 1);
 
         uint8 score = mm.previewScore(alice, ALL_CHALK);
@@ -186,14 +195,14 @@ contract MarchMadnessV2Test is Test {
     }
 
     function test_previewScore_noSentinelOnResultsReverts() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         vm.warp(DEADLINE + 1);
         vm.expectRevert(IMarchMadness.InvalidSentinelByte.selector);
         mm.previewScore(alice, NO_SENTINEL);
     }
 
     function test_previewScore_preservesPrivacyPreDeadline() public {
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         // Before deadline — bob cannot preview alice's score
         vm.prank(bob);
         vm.expectRevert(IMarchMadness.CannotReadBracketBeforeDeadline.selector);
@@ -204,7 +213,7 @@ contract MarchMadnessV2Test is Test {
         // Import alice with ALL_CHALK and post real results.
         // previewScore with those results should match the actual scoreBracket result.
         vm.warp(DEADLINE + 1);
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         mm.submitResults(ALL_CHALK); // owner submits results
 
         uint8 preview = mm.previewScore(alice, ALL_CHALK);
@@ -224,7 +233,7 @@ contract MarchMadnessV2Test is Test {
     ///         which is the shielded slot written by importEntry.
     function test_scoreBracket_worksOnImportedEntry() public {
         vm.warp(DEADLINE + 1);
-        mm.importEntry(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
         mm.submitResults(ALL_CHALK);
 
         mm.scoreBracket(alice);
@@ -235,26 +244,11 @@ contract MarchMadnessV2Test is Test {
 
     function test_scoreBracket_zeroScoreForAllUpsets() public {
         vm.warp(DEADLINE + 1);
-        mm.importEntry(alice, ALL_UPSETS);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_UPSETS);
         mm.submitResults(ALL_CHALK); // chalk results, upset bracket = 0 score
 
         mm.scoreBracket(alice);
         assertEq(mm.scores(alice), 0);
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    //  fund / receive
-    // ════════════════════════════════════════════════════════════════════
-
-    function test_fund_acceptsEth() public {
-        mm.fund{value: 1 ether}();
-        assertEq(address(mm).balance, 1 ether);
-    }
-
-    function test_receive_acceptsEth() public {
-        (bool ok,) = address(mm).call{value: 0.5 ether}("");
-        assertTrue(ok);
-        assertEq(address(mm).balance, 0.5 ether);
     }
 }
 
@@ -276,14 +270,13 @@ contract BracketGroupsV2Test is Test {
 
     function setUp() public {
         vm.warp(600); // past deadline
+        vm.deal(address(this), 10 ether);
         mm = new MarchMadnessV2(2026, ENTRY_FEE, DEADLINE);
         bg = new BracketGroupsV2(address(mm));
 
         // Import brackets so members are valid in the main contract
-        mm.importEntry(alice, ALL_CHALK);
-        mm.importEntry(bob, bytes8(0x8000000000000000));
-
-        vm.deal(address(this), 10 ether);
+        mm.importEntry{value: ENTRY_FEE}(alice, ALL_CHALK);
+        mm.importEntry{value: ENTRY_FEE}(bob, bytes8(0x8000000000000000));
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -320,21 +313,22 @@ contract BracketGroupsV2Test is Test {
     // ════════════════════════════════════════════════════════════════════
 
     function test_importMember_happy() public {
-        uint32 gId = bg.importGroup("grp", "Grp", 0, groupCreator);
-        bg.importMember(gId, alice, "Alice");
+        uint32 gId = bg.importGroup("grp", "Grp", ENTRY_FEE, groupCreator);
+        bg.importMember{value: ENTRY_FEE}(gId, alice, "Alice");
 
         assertTrue(bg.isMemberOf(gId, alice));
         BracketGroups.Group memory g = bg.getGroup(gId);
         assertEq(g.entryCount, 1);
+        assertEq(address(bg).balance, ENTRY_FEE);
         BracketGroups.Member[] memory members = bg.getMembers(gId);
         assertEq(members[0].addr, alice);
         assertEq(members[0].name, "Alice");
     }
 
     function test_importMember_idempotent() public {
-        uint32 gId = bg.importGroup("grp", "Grp", 0, groupCreator);
-        bg.importMember(gId, alice, "Alice");
-        bg.importMember(gId, alice, "Alice"); // should not revert or double-count
+        uint32 gId = bg.importGroup("grp", "Grp", ENTRY_FEE, groupCreator);
+        bg.importMember{value: ENTRY_FEE}(gId, alice, "Alice");
+        bg.importMember{value: ENTRY_FEE}(gId, alice, "Alice"); // should not revert or double-count
         assertEq(bg.getGroup(gId).entryCount, 1);
     }
 
@@ -344,7 +338,7 @@ contract BracketGroupsV2Test is Test {
     }
 
     function test_batchImportMembers_happy() public {
-        uint32 gId = bg.importGroup("grp", "Grp", 0, groupCreator);
+        uint32 gId = bg.importGroup("grp", "Grp", ENTRY_FEE, groupCreator);
 
         address[] memory addrs = new address[](2);
         string[] memory names = new string[](2);
@@ -353,16 +347,17 @@ contract BracketGroupsV2Test is Test {
         names[0] = "Alice";
         names[1] = "Bob";
 
-        bg.batchImportMembers(gId, addrs, names);
+        bg.batchImportMembers{value: 2 * ENTRY_FEE}(gId, addrs, names);
 
         assertEq(bg.getGroup(gId).entryCount, 2);
         assertTrue(bg.isMemberOf(gId, alice));
         assertTrue(bg.isMemberOf(gId, bob));
+        assertEq(address(bg).balance, 2 * ENTRY_FEE);
     }
 
     function test_batchImportMembers_idempotent() public {
-        uint32 gId = bg.importGroup("grp", "Grp", 0, groupCreator);
-        bg.importMember(gId, alice, "Alice");
+        uint32 gId = bg.importGroup("grp", "Grp", ENTRY_FEE, groupCreator);
+        bg.importMember{value: ENTRY_FEE}(gId, alice, "Alice");
 
         address[] memory addrs = new address[](2);
         string[] memory names = new string[](2);
@@ -371,22 +366,8 @@ contract BracketGroupsV2Test is Test {
         names[0] = "Alice";
         names[1] = "Bob";
 
-        bg.batchImportMembers(gId, addrs, names);
+        bg.batchImportMembers{value: 2 * ENTRY_FEE}(gId, addrs, names);
         assertEq(bg.getGroup(gId).entryCount, 2);
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    //  ETH funding
-    // ════════════════════════════════════════════════════════════════════
-
-    function test_fund_acceptsEth() public {
-        bg.fund{value: 1 ether}();
-        assertEq(address(bg).balance, 1 ether);
-    }
-
-    function test_receive_acceptsEth() public {
-        (bool ok,) = address(bg).call{value: 0.5 ether}("");
-        assertTrue(ok);
-        assertEq(address(bg).balance, 0.5 ether);
+        assertEq(address(bg).balance, 3 * ENTRY_FEE); // 1 from importMember + 2 from batch
     }
 }

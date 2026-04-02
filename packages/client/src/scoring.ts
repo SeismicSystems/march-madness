@@ -1,6 +1,7 @@
 // ByteBracket scoring — TypeScript port of contracts/src/ByteBracket.sol.
 // Uses BigInt for bit manipulation, identical logic to Solidity.
 
+import { decodePicks } from "./bracket.ts";
 import type { GameStatus, PartialScore, TournamentStatus } from "./types.ts";
 
 /** Count the number of 1-bits in a 64-bit value. */
@@ -106,14 +107,8 @@ export function scoreBracketPartial(
   bracketHex: `0x${string}`,
   status: TournamentStatus,
 ): PartialScore {
-  const bits = BigInt(bracketHex);
-
-  // Extract picks: bit 62 = game 0, bit 0 = game 62.
   // pick[i] = true means bracket picks team1 (winner of feeder A) for game i.
-  const picks: boolean[] = [];
-  for (let i = 0; i < 63; i++) {
-    picks.push(((bits >> BigInt(62 - i)) & 1n) === 1n);
-  }
+  const picks = decodePicks(bracketHex);
 
   // Points per round: R64=1, R32=2, S16=4, E8=8, F4=16, Champ=32
   const roundPoints = [1, 2, 4, 8, 16, 32];

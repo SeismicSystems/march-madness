@@ -181,10 +181,9 @@ mod tests {
     }
 
     #[test]
-    fn golden_vectors_encoding_parity() {
-        // The JSON test vectors store hex in legacy encoding (game 0 → bit 62).
-        // Verify that contract-correct encoding (game 0 → bit 0) of the same picks
-        // produces the reverse of the legacy hex.
+    fn golden_vectors_encoding() {
+        // The JSON test vectors store hex in contract-correct encoding (game 0 → bit 0).
+        // Verify that encode_picks produces the same hex.
         let vectors = load_vectors();
         let brackets = vectors["brackets"].as_array().unwrap();
 
@@ -195,18 +194,11 @@ mod tests {
 
             let pick_bools: Vec<bool> = picks.iter().map(|p| p.as_bool().unwrap()).collect();
             let contract_bits = encode_picks(&pick_bools);
+            let expected_bits = parse_bracket_hex(expected_hex).unwrap();
 
-            let legacy_bits = parse_bracket_hex(legacy_hex).unwrap();
             assert_eq!(
-                reverse_game_bits(contract_bits),
-                legacy_bits,
-                "Encoding parity failed for '{}': reverse(contract) != legacy",
-                name
-            );
-            assert_eq!(
-                reverse_game_bits(legacy_bits),
-                contract_bits,
-                "Encoding parity failed for '{}': reverse(legacy) != contract",
+                contract_bits, expected_bits,
+                "Encoding mismatch for '{}': encode_picks differs from golden vector",
                 name
             );
         }
@@ -214,10 +206,7 @@ mod tests {
 
     #[test]
     fn golden_vectors_scoring() {
-        // The JSON expected scores are computed against legacy-encoded hex.
-        // The scoring function is encoding-dependent (getScoringMask assigns
-        // different round values based on bit position), so legacy and
-        // contract-correct scores differ for non-trivial cases.
+        // The JSON expected scores are computed against contract-correct hex.
         let vectors = load_vectors();
         let scoring_tests = vectors["scoringTests"].as_array().unwrap();
 
@@ -227,11 +216,10 @@ mod tests {
             let results_hex = st["results"].as_str().unwrap();
             let expected_score = st["expectedScore"].as_u64().unwrap() as u32;
 
-            let legacy_bracket = parse_bracket_hex(bracket_hex).unwrap();
-            let legacy_results = parse_bracket_hex(results_hex).unwrap();
+            let bracket = parse_bracket_hex(bracket_hex).unwrap();
+            let results = parse_bracket_hex(results_hex).unwrap();
 
-            // Legacy scoring should match JSON expected scores
-            let legacy_score = score_bracket(legacy_bracket, legacy_results);
+            let actual_score = score_bracket(bracket, results);
             assert_eq!(
                 legacy_score, expected_score,
                 "Legacy scoring mismatch for '{}': bracket={}, results={}",
@@ -260,22 +248,12 @@ mod tests {
         for v in brackets {
             let name = v["name"].as_str().unwrap();
             let hex = v["hex"].as_str().unwrap();
-            let legacy_bits = parse_bracket_hex(hex).unwrap();
+            let bits = parse_bracket_hex(hex).unwrap();
 
-            // Self-score in legacy encoding
             assert_eq!(
-                score_bracket(legacy_bits, legacy_bits),
+                score_bracket(bits, bits),
                 192,
-                "Legacy self-score should be 192 for '{}'",
-                name
-            );
-
-            // Self-score in contract-correct encoding
-            let contract_bits = reverse_game_bits(legacy_bits);
-            assert_eq!(
-                score_bracket(contract_bits, contract_bits),
-                192,
-                "Contract-correct self-score should be 192 for '{}'",
+                "Self-score should be 192 for '{}'",
                 name
             );
         }

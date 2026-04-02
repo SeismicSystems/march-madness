@@ -3,7 +3,11 @@
     "5124": {
       "marchMadness": "0x431188ca4dC5626551d813acdd2474B7f909D7CB",
       "bracketGroups": "0xaDddc1fB51b771276B77c059a053153B7255280B",
-      "bracketMirror": "0xdb9cc92Dcc367D34f55D2bc954C68A6e5B1f41e9"
+      "bracketMirror": "0xdb9cc92Dcc367D34f55D2bc954C68A6e5B1f41e9",
+      "v2": {
+        "marchMadness": "0x35EC3F10916d3225eE8b5a23144db0e31F1cDA42",
+        "bracketGroups": "0x868B30B14380E2F155d22d1C89E8b4F4B9c73753"
+      }
     }
   }
 }
