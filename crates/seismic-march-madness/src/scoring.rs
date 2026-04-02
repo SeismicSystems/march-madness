@@ -194,7 +194,7 @@ mod tests {
 
             let pick_bools: Vec<bool> = picks.iter().map(|p| p.as_bool().unwrap()).collect();
             let contract_bits = encode_picks(&pick_bools);
-            let expected_bits = parse_bracket_hex(expected_hex).unwrap();
+            let expected_bits = parse_bracket_hex(legacy_hex).unwrap();
 
             assert_eq!(
                 contract_bits, expected_bits,
@@ -221,17 +221,17 @@ mod tests {
 
             let actual_score = score_bracket(bracket, results);
             assert_eq!(
-                legacy_score, expected_score,
+                actual_score, expected_score,
                 "Legacy scoring mismatch for '{}': bracket={}, results={}",
                 description, bracket_hex, results_hex
             );
 
             // score_bracket_legacy reverses to contract-correct first.
             // Verify it produces a consistent score (same as direct contract-correct).
-            let contract_bracket = reverse_game_bits(legacy_bracket);
-            let contract_results = reverse_game_bits(legacy_results);
+            let contract_bracket = reverse_game_bits(bracket);
+            let contract_results = reverse_game_bits(results);
             let contract_score = score_bracket(contract_bracket, contract_results);
-            let legacy_api_score = score_bracket_legacy(legacy_bracket, legacy_results);
+            let legacy_api_score = score_bracket_legacy(bracket, results);
             assert_eq!(
                 legacy_api_score, contract_score,
                 "score_bracket_legacy should equal direct contract-correct scoring for '{}'",
