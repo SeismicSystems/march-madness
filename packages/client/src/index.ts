@@ -5,6 +5,8 @@
 export {
   encodeBracket,
   decodeBracket,
+  decodePicks,
+  reverseGameBits,
   validateBracket,
 } from "./bracket.ts";
 export type { BracketGame, DecodedBracket } from "./bracket.ts";
