@@ -108,11 +108,11 @@ export function scoreBracketPartial(
 ): PartialScore {
   const bits = BigInt(bracketHex);
 
-  // Extract picks: bit 62 = game 0, bit 0 = game 62.
+  // Extract picks: bit 0 = game 0, bit 62 = game 62 (matches Solidity ByteBracket layout).
   // pick[i] = true means bracket picks team1 (winner of feeder A) for game i.
   const picks: boolean[] = [];
   for (let i = 0; i < 63; i++) {
-    picks.push(((bits >> BigInt(62 - i)) & 1n) === 1n);
+    picks.push(((bits >> BigInt(i)) & 1n) === 1n);
   }
 
   // Points per round: R64=1, R32=2, S16=4, E8=8, F4=16, Champ=32

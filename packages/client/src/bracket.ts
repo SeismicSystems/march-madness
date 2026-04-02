@@ -19,6 +19,7 @@ export interface DecodedBracket {
 /**
  * Encode a list of 63 game winners into a bytes8 hex string.
  * Bit 63 (MSB) = sentinel (always 1), bits 62-0 = game outcomes.
+ * Bit layout matches Solidity ByteBracket: bit 0 = game 0 (R64), bit 62 = game 62 (championship).
  * @param picks - Array of 63 booleans (true = team1/higher seed wins)
  * @returns 0x-prefixed 16-char hex string
  */
@@ -31,10 +32,10 @@ export function encodeBracket(picks: boolean[]): `0x${string}` {
   // MSB sentinel
   bits |= BigInt(1) << BigInt(63);
 
-  // Game outcomes: bit 62 = first game, bit 0 = championship
+  // Game outcomes: bit 0 = first R64 game (game 0), bit 62 = championship (game 62)
   for (let i = 0; i < 63; i++) {
     if (picks[i]) {
-      bits |= BigInt(1) << BigInt(62 - i);
+      bits |= BigInt(1) << BigInt(i);
     }
   }
 
@@ -59,7 +60,7 @@ export function decodeBracket(
   const picks: boolean[] = [];
 
   for (let i = 0; i < 63; i++) {
-    picks.push(((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1));
+    picks.push(((bits >> BigInt(i)) & BigInt(1)) === BigInt(1));
   }
 
   // Simulate tournament
@@ -105,6 +106,26 @@ export function decodeBracket(
     roundOf32: roundOf32Games.map((g) => g.winner),
     games,
   };
+}
+
+/**
+ * Reverse the 63 game bits (0-62) while preserving the sentinel bit (63).
+ * Converts between legacy encoding (bit 62 = game 0) and contract-correct
+ * encoding (bit 0 = game 0). This is an involution: applying it twice
+ * returns the original value.
+ *
+ * Used for one-time migration of legacy bracket hex values.
+ */
+export function reverseGameBits(hex: `0x${string}`): `0x${string}` {
+  const bb = BigInt(hex);
+  const SENTINEL = 1n << 63n;
+  let out = bb & SENTINEL;
+  for (let i = 0; i < 63; i++) {
+    if ((bb >> BigInt(i)) & 1n) {
+      out |= 1n << BigInt(62 - i);
+    }
+  }
+  return `0x${out.toString(16).padStart(16, "0")}` as `0x${string}`;
 }
 
 /**

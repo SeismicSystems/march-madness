@@ -15,7 +15,7 @@ export function useReadOnlyBracket(hex: `0x${string}` | null): GameSlot[] {
     const bits = BigInt(hex);
     const picks: boolean[] = [];
     for (let i = 0; i < 63; i++) {
-      picks.push(((bits >> BigInt(62 - i)) & 1n) === 1n);
+      picks.push(((bits >> BigInt(i)) & 1n) === 1n);
     }
 
     const slots: GameSlot[] = [];

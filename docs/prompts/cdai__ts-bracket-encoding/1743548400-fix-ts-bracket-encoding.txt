@@ -1,0 +1,20 @@
+i've got two issues:
+
+https://github.com/SeismicSystems/march-madness/issues/253
+https://github.com/SeismicSystems/march-madness/issues/251
+
+read them both carefully; 253 is really the actionable TODO
+
+we're interested in correcting the rust encoding of brackets to match what the chain expects. to be clear i think our state is:
+- solidity is source of truth
+- bytebracket scoring in typescript and rust are correct
+- typescript and rust bracket encoding is flipped aside from the MSB (sentinel bit)
+
+
+our goal is to fix the encoding of brackets on the frontend, and do the one-time migration. essentially we want to ONLY change typescript code, and make ALL the required typescript changes
+
+UI should look the same; we should just encode and decode brackets correctly this time
+
+should also have a lot of typescript tests
+
+when you're done make a PR targeting the migration branch

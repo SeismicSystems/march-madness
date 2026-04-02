@@ -70,9 +70,9 @@ describe("scoreBracket (full)", () => {
 });
 
 describe("scoreBracketPartial", () => {
-  // Bracket: 0xfffffffffffffffe = sentinel(1) + bits 62-1 all 1 + bit 0 = 0.
+  // Bracket: 0xbfffffffffffffff = sentinel(1) + bit 62 = 0 + bits 61-0 all 1.
   // picks[0..61] = true (team1), picks[62] = false (team2 for championship).
-  const CHALKY = "0xfffffffffffffffe" as `0x${string}`;
+  const CHALKY = "0xbfffffffffffffff" as `0x${string}`;
 
   // Helper: create a tournament status with all upcoming games
   function allUpcoming(): TournamentStatus {
@@ -159,12 +159,12 @@ describe("scoreBracketPartial", () => {
   });
 
   test("wrong pick only cascades along the bracket's predicted path", () => {
-    // Flip game 32's pick to team2. Game 32 at bit position 30.
+    // Flip game 32's pick to team2. Game 32 at bit position 32.
     // Now game 32 picks team2, feeder = game 1 (NOT game 0).
     // So game 0 being wrong does NOT kill game 32 or its downstream.
-    const allChalk = 0xfffffffffffffffEn;
-    const bit30 = 1n << 30n;
-    const bracket = `0x${(allChalk ^ bit30).toString(16).padStart(16, "0")}` as `0x${string}`;
+    const allChalk = 0xbfffffffffffffffn;
+    const bit32 = 1n << 32n;
+    const bracket = `0x${(allChalk ^ bit32).toString(16).padStart(16, "0")}` as `0x${string}`;
 
     const status = allUpcoming();
     setFinal(status, 0, false); // game 0 wrong

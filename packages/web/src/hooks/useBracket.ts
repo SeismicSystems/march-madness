@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import { encodeBracket, validateBracket } from "@march-madness/client";
+import { encodeBracket, reverseGameBits, validateBracket } from "@march-madness/client";
 
 import { getAllTeamsInBracketOrder, type Team } from "../lib/tournament";
 
@@ -29,6 +29,49 @@ const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const STORAGE_PREFIX = "mm-picks-";
 const storageKey = (addr: string) => `${STORAGE_PREFIX}${addr.toLowerCase()}`;
 
+/** Version key for one-time encoding migration. */
+const ENCODING_VERSION_KEY = "mm-encoding-v";
+const CURRENT_ENCODING_VERSION = "2";
+
+/** Module-level guard so migration runs at most once per session. */
+let migrationRan = false;
+
+/**
+ * One-time migration of localStorage bracket hex values from legacy encoding
+ * (bit 62 = game 0) to contract-correct encoding (bit 0 = game 0).
+ *
+ * - Complete brackets (valid hex): apply reverseGameBits to fix bit order.
+ * - Partial brackets ("partial:..." strings): no change needed — the pick
+ *   string stores game-indexed picks, not bit positions.
+ */
+function migrateStorageEncoding(): void {
+  if (migrationRan) return;
+  migrationRan = true;
+
+  try {
+    if (localStorage.getItem(ENCODING_VERSION_KEY) === CURRENT_ENCODING_VERSION) return;
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+
+      const value = localStorage.getItem(key);
+      if (!value) continue;
+
+      // Only migrate complete bracket hex values
+      if (validateBracket(value)) {
+        const migrated = reverseGameBits(value as `0x${string}`);
+        localStorage.setItem(key, migrated);
+      }
+      // Partial brackets ("partial:...") store game-indexed picks directly — no migration needed
+    }
+
+    localStorage.setItem(ENCODING_VERSION_KEY, CURRENT_ENCODING_VERSION);
+  } catch {
+    // localStorage may be unavailable (private browsing, etc.)
+  }
+}
+
 /** Sentinel prefix for incomplete (partial) brackets in localStorage. */
 const PARTIAL_PREFIX = "partial:";
 const createEmptyPicks = (): (boolean | null)[] => new Array(63).fill(null);
@@ -48,7 +91,7 @@ function loadPicks(addr: string): (boolean | null)[] | null {
       const bits = BigInt(raw as `0x${string}`);
       const picks: (boolean | null)[] = [];
       for (let i = 0; i < 63; i++) {
-        picks.push(((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1));
+        picks.push(((bits >> BigInt(i)) & BigInt(1)) === BigInt(1));
       }
       return picks;
     }
@@ -101,6 +144,8 @@ export function useBracket(
   walletAddress?: string | null,
   storageEnabled = true,
 ) {
+  migrateStorageEncoding();
+
   const allTeams = useMemo(() => getAllTeamsInBracketOrder(), []);
   const effectiveAddr = walletAddress || ZERO_ADDR;
   const hydratedAddrRef = useRef<string | null>(null);
@@ -251,7 +296,7 @@ export function useBracket(
       const newPicks: (boolean | null)[] = [];
       for (let i = 0; i < 63; i++) {
         newPicks.push(
-          ((bits >> BigInt(62 - i)) & BigInt(1)) === BigInt(1),
+          ((bits >> BigInt(i)) & BigInt(1)) === BigInt(1),
         );
       }
       setPicks(newPicks);
