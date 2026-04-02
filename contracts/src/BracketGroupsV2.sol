@@ -40,12 +40,11 @@ contract BracketGroupsV2 is BracketGroups {
     /// @param entryFee     Group entry fee (wei) — for payout calculation only.
     /// @param creator      The original group creator's address.
     /// @return groupId     The newly assigned group ID.
-    function importGroup(
-        string calldata slug,
-        string calldata displayName,
-        uint256 entryFee,
-        address creator
-    ) external onlyOwner returns (uint32 groupId) {
+    function importGroup(string calldata slug, string calldata displayName, uint256 entryFee, address creator)
+        external
+        onlyOwner
+        returns (uint32 groupId)
+    {
         bytes memory slugBytes = bytes(slug);
         if (slugBytes.length == 0) revert SlugCannotBeEmpty();
         if (slugBytes.length > MAX_SLUG_LENGTH) revert SlugTooLong();
@@ -100,11 +99,11 @@ contract BracketGroupsV2 is BracketGroups {
     /// @param groupId  The target group ID.
     /// @param addrs    Array of member addresses.
     /// @param names    Array of display names, same length as `addrs`.
-    function batchImportMembers(
-        uint32 groupId,
-        address[] calldata addrs,
-        string[] calldata names
-    ) external payable onlyOwner {
+    function batchImportMembers(uint32 groupId, address[] calldata addrs, string[] calldata names)
+        external
+        payable
+        onlyOwner
+    {
         require(addrs.length == names.length, "length mismatch");
         if (_groups[groupId].creator == address(0)) revert GroupDoesNotExist();
         require(msg.value == addrs.length * _groups[groupId].entryFee, "incorrect payment");
