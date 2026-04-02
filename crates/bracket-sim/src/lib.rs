@@ -59,13 +59,18 @@ pub fn format_bb(bb: u64) -> String {
     format!("0x{:016x}", bb)
 }
 
-/// Convert a game index (0-62) to its bit position in ByteBracket format.
+/// Convert a game index (0-62) to its bit mask in ByteBracket format.
 ///
-/// Contract encoding (MSB-first): game 0 → bit 62, game 62 → bit 0.
-/// Bit 63 is the sentinel.
+/// Contract-correct encoding (matches Solidity ByteBracket.getBracketScore):
+///   game 0 → bit 0, game 62 → bit 62.
+///   Bit 63 is the sentinel.
+///
+/// The Solidity scorer processes bits 0-31 as R64 (1 pt), 32-47 as R32 (2 pts),
+/// 48-55 as S16 (4 pts), 56-59 as E8 (8 pts), 60-61 as F4 (16 pts),
+/// bit 62 as Championship (32 pts).
 #[inline]
 pub fn game_bit(game_index: usize) -> u64 {
-    1u64 << (62 - game_index)
+    1u64 << game_index
 }
 
 /// Parse a hex string (0x-prefixed or bare) into a ByteBracket u64.

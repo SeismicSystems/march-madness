@@ -68,10 +68,10 @@ pub fn reverse_game_bits(bb: u64) -> u64 {
 /// Exact Rust port of `ByteBracket.getBracketScore` from
 /// `contracts/src/ByteBracket.sol`.
 ///
-/// Important: most existing off-chain Rust callers do not store brackets in the
-/// bit order consumed by this exact full scorer. If your bracket bits come from
-/// the current app / importer / UI pipeline, translate them first with
-/// [`reverse_game_bits`] or call [`score_bracket_legacy`].
+/// Both `bracket` and `results` must be in contract-correct encoding
+/// (game 0 → bit 0, game 62 → bit 62). This is the canonical encoding
+/// used everywhere in the Rust codebase. For legacy-encoded brackets,
+/// use [`score_bracket_legacy`].
 pub fn score_bracket(bracket: u64, results: u64) -> u32 {
     let filter = get_scoring_mask(results);
     score_bracket_with_mask(bracket, results, filter)
@@ -124,15 +124,16 @@ mod tests {
 
     #[test]
     fn test_perfect_bracket() {
-        // Chalky bracket — all higher seeds win
-        let chalky = 0xFFFF_FFFF_FFFF_FFFEu64;
+        // All chalk (sentinel + all 63 game bits set)
+        let chalky = 0xFFFF_FFFF_FFFF_FFFFu64;
         assert_eq!(score_bracket(chalky, chalky), 192);
     }
 
     #[test]
     fn test_completely_wrong() {
-        let all_team1 = 0xFFFF_FFFF_FFFF_FFFEu64;
-        let all_team2 = 0x8000_0000_0000_0001u64;
+        // All team1 wins vs all team2 wins
+        let all_team1 = 0xFFFF_FFFF_FFFF_FFFFu64;
+        let all_team2 = 0x8000_0000_0000_0000u64;
         assert_eq!(score_bracket(all_team1, all_team2), 0);
     }
 
@@ -187,38 +188,48 @@ mod tests {
     }
 
     #[test]
-    fn golden_vectors_encoding_roundtrip() {
+    fn golden_vectors_encoding_parity() {
+        // The JSON test vectors store hex in legacy encoding (game 0 → bit 62).
+        // Verify that contract-correct encoding (game 0 → bit 0) of the same picks
+        // produces the reverse of the legacy hex.
         let vectors = load_vectors();
         let brackets = vectors["brackets"].as_array().unwrap();
 
         for v in brackets {
             let name = v["name"].as_str().unwrap();
-            let expected_hex = v["hex"].as_str().unwrap();
+            let legacy_hex = v["hex"].as_str().unwrap();
             let picks = v["picks"].as_array().unwrap();
 
-            // Encode picks to u64
-            let mut bits: u64 = 1u64 << 63; // sentinel
+            // Encode picks in contract-correct order (game 0 → bit 0)
+            let mut contract_bits: u64 = 1u64 << 63; // sentinel
             for (i, pick) in picks.iter().enumerate() {
                 if pick.as_bool().unwrap() {
-                    bits |= 1u64 << (62 - i);
+                    contract_bits |= 1u64 << i;
                 }
             }
 
-            let actual_hex = format!("0x{:016x}", bits);
+            let legacy_bits = parse_bracket_hex(legacy_hex).unwrap();
             assert_eq!(
-                actual_hex, expected_hex,
-                "Encoding mismatch for vector '{}'",
+                reverse_game_bits(contract_bits),
+                legacy_bits,
+                "Encoding parity failed for '{}': reverse(contract) != legacy",
                 name
             );
-
-            // Verify parse roundtrip
-            let parsed = parse_bracket_hex(expected_hex).unwrap();
-            assert_eq!(parsed, bits, "Parse roundtrip failed for vector '{}'", name);
+            assert_eq!(
+                reverse_game_bits(legacy_bits),
+                contract_bits,
+                "Encoding parity failed for '{}': reverse(legacy) != contract",
+                name
+            );
         }
     }
 
     #[test]
     fn golden_vectors_scoring() {
+        // The JSON expected scores are computed against legacy-encoded hex.
+        // The scoring function is encoding-dependent (getScoringMask assigns
+        // different round values based on bit position), so legacy and
+        // contract-correct scores differ for non-trivial cases.
         let vectors = load_vectors();
         let scoring_tests = vectors["scoringTests"].as_array().unwrap();
 
@@ -228,14 +239,27 @@ mod tests {
             let results_hex = st["results"].as_str().unwrap();
             let expected_score = st["expectedScore"].as_u64().unwrap() as u32;
 
-            let bracket = parse_bracket_hex(bracket_hex).unwrap();
-            let results = parse_bracket_hex(results_hex).unwrap();
-            let actual_score = score_bracket(bracket, results);
+            let legacy_bracket = parse_bracket_hex(bracket_hex).unwrap();
+            let legacy_results = parse_bracket_hex(results_hex).unwrap();
 
+            // Legacy scoring should match JSON expected scores
+            let legacy_score = score_bracket(legacy_bracket, legacy_results);
             assert_eq!(
-                actual_score, expected_score,
-                "Scoring mismatch for '{}': bracket={}, results={}",
+                legacy_score, expected_score,
+                "Legacy scoring mismatch for '{}': bracket={}, results={}",
                 description, bracket_hex, results_hex
+            );
+
+            // score_bracket_legacy reverses to contract-correct first.
+            // Verify it produces a consistent score (same as direct contract-correct).
+            let contract_bracket = reverse_game_bits(legacy_bracket);
+            let contract_results = reverse_game_bits(legacy_results);
+            let contract_score = score_bracket(contract_bracket, contract_results);
+            let legacy_api_score = score_bracket_legacy(legacy_bracket, legacy_results);
+            assert_eq!(
+                legacy_api_score, contract_score,
+                "score_bracket_legacy should equal direct contract-correct scoring for '{}'",
+                description
             );
         }
     }
@@ -248,12 +272,23 @@ mod tests {
         for v in brackets {
             let name = v["name"].as_str().unwrap();
             let hex = v["hex"].as_str().unwrap();
-            let bits = parse_bracket_hex(hex).unwrap();
-            let score = score_bracket(bits, bits);
+            let legacy_bits = parse_bracket_hex(hex).unwrap();
+
+            // Self-score in legacy encoding
             assert_eq!(
-                score, 192,
-                "Self-score should be 192 for vector '{}' (hex={})",
-                name, hex
+                score_bracket(legacy_bits, legacy_bits),
+                192,
+                "Legacy self-score should be 192 for '{}'",
+                name
+            );
+
+            // Self-score in contract-correct encoding
+            let contract_bits = reverse_game_bits(legacy_bits);
+            assert_eq!(
+                score_bracket(contract_bits, contract_bits),
+                192,
+                "Contract-correct self-score should be 192 for '{}'",
+                name
             );
         }
     }
@@ -269,7 +304,6 @@ mod tests {
             let reason = vt["reason"].as_str().unwrap();
 
             if let Some(bits) = parse_bracket_hex(hex) {
-                // Check sentinel: MSB must be set
                 let has_sentinel = (bits >> 63) & 1 == 1;
                 assert_eq!(
                     has_sentinel, expected_valid,
@@ -277,13 +311,96 @@ mod tests {
                     hex, reason, expected_valid
                 );
             } else {
-                // Parse failure = invalid
                 assert!(
                     !expected_valid,
                     "Parse failed for '{}' but expected valid",
                     hex
                 );
             }
+        }
+    }
+
+    // ── Contract-correct encoding tests ────────────────────────────────
+
+    #[test]
+    fn test_jimpo_contract_vectors() {
+        // These vectors come directly from jimpo's Solidity tests.
+        // They are in contract-correct encoding (the format the chain actually uses).
+        assert_eq!(
+            score_bracket(0xFFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF),
+            192
+        );
+        assert_eq!(
+            score_bracket(0xC000_0000_0000_0000, 0x8000_0000_0000_0000),
+            160
+        );
+        assert_eq!(
+            score_bracket(0x8000_0000_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF),
+            32
+        );
+        assert_eq!(
+            score_bracket(0xFFFF_5555_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF),
+            176
+        );
+        assert_eq!(
+            score_bracket(0xFFFF_AAAA_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF),
+            48
+        );
+    }
+
+    #[test]
+    fn test_contract_correct_round_values() {
+        // All chalk bracket and results
+        let perfect = 0xFFFF_FFFF_FFFF_FFFFu64;
+
+        // Flip bit 0 (game 0, R64) — should lose exactly 1 point (R64 = 1pt)
+        // plus cascade damage for downstream games depending on game 0's winner
+        let flipped_r64 = perfect ^ (1u64 << 0);
+        let score = score_bracket(flipped_r64, perfect);
+        // Game 0 wrong = -1pt. Cascade: game 0 feeds game 32, which feeds game 48, etc.
+        // Lost points: 1 + 2 + 4 + 8 + 16 + 32 = 63
+        assert_eq!(
+            score,
+            192 - 63,
+            "Flipping R64 game 0 should cascade through all rounds"
+        );
+
+        // Flip bit 62 (game 62, Championship) — should lose exactly 32 points, no cascade
+        let flipped_champ = perfect ^ (1u64 << 62);
+        let score = score_bracket(flipped_champ, perfect);
+        assert_eq!(
+            score,
+            192 - 32,
+            "Flipping championship should lose only 32 points"
+        );
+
+        // Flip bit 32 (game 32, first R32 game) — loses 2 + cascade (4+8+16+32 = 60) = 62
+        let flipped_r32 = perfect ^ (1u64 << 32);
+        let score = score_bracket(flipped_r32, perfect);
+        assert_eq!(
+            score,
+            192 - 62,
+            "Flipping R32 game 32 should cascade through later rounds"
+        );
+    }
+
+    #[test]
+    fn test_reverse_game_bits_involution() {
+        // reverse_game_bits applied twice should be identity
+        let values = [
+            0xFFFF_FFFF_FFFF_FFFFu64,
+            0x8000_0000_0000_0000u64,
+            0xBFFF_FFFF_BFFF_BFBAu64,
+            0xD555_5555_5555_5555u64,
+            0xC000_0000_0000_0000u64,
+        ];
+        for &v in &values {
+            assert_eq!(
+                reverse_game_bits(reverse_game_bits(v)),
+                v,
+                "reverse_game_bits is not an involution for 0x{:016x}",
+                v
+            );
         }
     }
 }

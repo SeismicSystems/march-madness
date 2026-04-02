@@ -151,7 +151,7 @@ pub fn encode_bracket(
     let mut bits: u64 = 1u64 << 63; // sentinel
     for (i, &pick) in pick_bools.iter().enumerate() {
         if pick {
-            bits |= 1u64 << (62 - i);
+            bits |= 1u64 << i;
         }
     }
 
