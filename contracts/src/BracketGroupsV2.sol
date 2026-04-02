@@ -7,12 +7,11 @@ import {BracketGroups} from "./BracketGroups.sol";
 /// @notice Inherits all V1 group logic unchanged. Adds:
 ///   - `owner` address with import-only privileges
 ///   - Owner-only group and member import for post-cutover migration
-///   - ETH funding paths to restore group prize pool balances
 ///
 /// @dev Migration workflow:
 ///   1. Deploy pointing at MarchMadnessV2 address.
-///   2. For each old group: call `importGroup`, then `batchImportMembers`.
-///   3. Fund with `fund()` to match the V1 total group balance.
+///   2. For each old group: call `importGroup`, then `batchImportMembers`,
+///      sending msg.value == addrs.length * group.entryFee to restore prize pool balances.
 ///
 /// Storage layout: inherits all BracketGroups V1 slots in order, then appends `owner`.
 contract BracketGroupsV2 is BracketGroups {
@@ -76,11 +75,13 @@ contract BracketGroupsV2 is BracketGroups {
     /// @dev    Does not validate that `addr` has a bracket in the main contract —
     ///         migration assumes the entry list is authoritative.
     ///         Silently skips if the address is already a member (idempotent).
+    ///         msg.value must equal the group's entryFee.
     /// @param groupId  The group to add the member to.
     /// @param addr     The member's wallet address.
     /// @param name     The member's display name within the group.
-    function importMember(uint32 groupId, address addr, string calldata name) external onlyOwner {
+    function importMember(uint32 groupId, address addr, string calldata name) external payable onlyOwner {
         if (_groups[groupId].creator == address(0)) revert GroupDoesNotExist();
+        require(msg.value == _groups[groupId].entryFee, "incorrect payment");
         if (isMemberOf[groupId][addr]) return; // idempotent
 
         uint32 idx = _groups[groupId].entryCount;
@@ -93,7 +94,8 @@ contract BracketGroupsV2 is BracketGroups {
     }
 
     /// @notice Batch-import group members. Owner only.
-    /// @dev    Idempotent: already-present addresses are silently skipped.
+    /// @dev    msg.value must equal addrs.length * group.entryFee to correctly restore
+    ///         the group prize pool. Idempotent: already-present addresses are silently skipped.
     ///         Recommended chunk size: 50 members per tx.
     /// @param groupId  The target group ID.
     /// @param addrs    Array of member addresses.
@@ -102,9 +104,10 @@ contract BracketGroupsV2 is BracketGroups {
         uint32 groupId,
         address[] calldata addrs,
         string[] calldata names
-    ) external onlyOwner {
+    ) external payable onlyOwner {
         require(addrs.length == names.length, "length mismatch");
         if (_groups[groupId].creator == address(0)) revert GroupDoesNotExist();
+        require(msg.value == addrs.length * _groups[groupId].entryFee, "incorrect payment");
 
         for (uint256 i = 0; i < addrs.length; i++) {
             if (isMemberOf[groupId][addrs[i]]) continue;
@@ -116,12 +119,4 @@ contract BracketGroupsV2 is BracketGroups {
             emit MemberJoined(groupId, addrs[i]);
         }
     }
-
-    // ── ETH Funding ────────────────────────────────────────────────────────
-
-    /// @notice Fund the contract to restore group prize pool balances.
-    function fund() external payable {}
-
-    /// @notice Accept ETH transfers directly.
-    receive() external payable {}
 }
