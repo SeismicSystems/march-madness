@@ -1,29 +1,31 @@
 /**
- * Migration script: snapshot V1 MarchMadness entries, reverse bracket bit ordering,
- * and import corrected brackets into MarchMadnessV2.
+ * Migration script: V1 MarchMadness + BracketGroups → V2.
  *
  * Steps 3 & 4 of the encoding migration plan (#251).
  *
+ * - Enumerates entries from on-chain BracketSubmitted events (no server API needed)
+ * - Derives V1/V2 MarchMadness addresses from the BracketGroups contracts
+ * - Reverses legacy bracket bit encoding before import
+ * - Migrates groups and members via BracketGroupsV2
+ *
  * Usage:
  *   bun run src/migrate-entries.ts \
- *     --old-mm  0x...   # V1 MarchMadness address
- *     --new-mm  0x...   # V2 MarchMadnessV2 address
- *     --api-url http://localhost:3000   # server API base URL (for entry list)
- *     --rpc     http://localhost:8545   # RPC endpoint
- *     --private-key 0x...              # owner private key
- *     --dry-run                        # print manifest, skip on-chain writes
- *     --batch-size 50                  # entries per tx (default 50)
- *     --out scripts/migration/manifest-<ts>.json
- *
- * Output:
- *   - Prints a manifest table to stdout
- *   - Writes manifest JSON to --out (or scripts/migration/manifest-<ts>.json by default)
+ *     --old-bg      0x...          # V1 BracketGroups address
+ *     --new-bg      0x...          # V2 BracketGroupsV2 address
+ *     --rpc         http://...     # RPC endpoint (default: http://localhost:8545)
+ *     --private-key 0x...          # owner private key (not needed with --dry-run)
+ *     --from-block  0              # start block for event scanning (default: 0)
+ *     --batch-size  50             # entries/members per tx (default: 50)
+ *     --skip-entries               # skip entry migration, only migrate groups
+ *     --skip-groups                # skip group migration, only migrate entries
+ *     --dry-run                    # print manifest, skip on-chain writes
+ *     --out         path/to/manifest.json
  *
  * Notes:
- *   - Idempotent: already-imported accounts are skipped by the V2 contract.
- *   - Only reverses brackets whose sentinel bit is set. Zero/invalid brackets are skipped
- *     with a warning.
+ *   - Idempotent: V2 contracts silently skip already-imported accounts.
+ *   - Only reverses brackets with the sentinel bit set. Zero/invalid brackets are skipped.
  *   - Tags are imported individually after all brackets are imported.
+ *   - Group IDs in V2 may differ from V1; the manifest records the mapping.
  */
 
 import { writeFileSync, mkdirSync } from "fs";
@@ -32,94 +34,75 @@ import {
   http,
   createPublicClient,
   createWalletClient,
+  parseEventLogs,
   type Address,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sanvil } from "seismic-viem";
-import type { EntryIndex } from "@march-madness/client";
 
 // ── CLI Arg Parsing ───────────────────────────────────────────────────
 
 interface CliArgs {
-  oldMm: Address;
-  newMm: Address;
-  apiUrl: string;
+  oldBg: Address;
+  newBg: Address;
   rpcUrl: string;
   privateKey: Hex;
-  dryRun: boolean;
+  fromBlock: bigint;
   batchSize: number;
+  skipEntries: boolean;
+  skipGroups: boolean;
+  dryRun: boolean;
   outPath: string;
 }
 
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
-  let oldMm: string | undefined;
-  let newMm: string | undefined;
-  let apiUrl = "http://localhost:3000";
+  let oldBg: string | undefined;
+  let newBg: string | undefined;
   let rpcUrl = "http://localhost:8545";
   let privateKey: string | undefined;
-  let dryRun = false;
+  let fromBlock = 0n;
   let batchSize = 50;
+  let skipEntries = false;
+  let skipGroups = false;
+  let dryRun = false;
   let outPath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--old-mm":
-        oldMm = args[++i];
-        break;
-      case "--new-mm":
-        newMm = args[++i];
-        break;
-      case "--api-url":
-        apiUrl = args[++i];
-        break;
-      case "--rpc":
-        rpcUrl = args[++i];
-        break;
-      case "--private-key":
-        privateKey = args[++i];
-        break;
-      case "--dry-run":
-        dryRun = true;
-        break;
-      case "--batch-size":
-        batchSize = parseInt(args[++i], 10);
-        break;
-      case "--out":
-        outPath = args[++i];
-        break;
+      case "--old-bg":       oldBg = args[++i]; break;
+      case "--new-bg":       newBg = args[++i]; break;
+      case "--rpc":          rpcUrl = args[++i]; break;
+      case "--private-key":  privateKey = args[++i]; break;
+      case "--from-block":   fromBlock = BigInt(args[++i]); break;
+      case "--batch-size":   batchSize = parseInt(args[++i], 10); break;
+      case "--skip-entries": skipEntries = true; break;
+      case "--skip-groups":  skipGroups = true; break;
+      case "--dry-run":      dryRun = true; break;
+      case "--out":          outPath = args[++i]; break;
     }
   }
 
-  if (!oldMm) {
-    console.error("Error: --old-mm is required");
-    process.exit(1);
-  }
-  if (!newMm) {
-    console.error("Error: --new-mm is required");
-    process.exit(1);
-  }
+  if (!oldBg) { console.error("Error: --old-bg is required"); process.exit(1); }
+  if (!newBg) { console.error("Error: --new-bg is required"); process.exit(1); }
   if (!dryRun && !privateKey) {
     console.error("Error: --private-key is required unless --dry-run");
     process.exit(1);
   }
 
   const tsNow = Math.floor(Date.now() / 1000);
-  const defaultOut = resolve(
-    import.meta.dir,
-    `../../../scripts/migration/manifest-${tsNow}.json`
-  );
-
   return {
-    oldMm: oldMm as Address,
-    newMm: newMm as Address,
-    apiUrl,
+    oldBg: oldBg as Address,
+    newBg: newBg as Address,
     rpcUrl,
     privateKey: (privateKey ?? "0x0") as Hex,
-    dryRun,
+    fromBlock,
     batchSize,
-    outPath: outPath ?? defaultOut,
+    skipEntries,
+    skipGroups,
+    dryRun,
+    outPath: outPath ?? resolve(import.meta.dir, `../../../scripts/migration/manifest-${tsNow}.json`),
   };
 }
 
@@ -141,17 +124,124 @@ function reverseLegacyBracket(hex: `0x${string}`): `0x${string}` {
   for (let i = 0; i < 63; i++) {
     reversed |= ((gameBits >> BigInt(i)) & 1n) << BigInt(62 - i);
   }
-  const result = sentinel | reversed;
-  return `0x${result.toString(16).padStart(16, "0")}` as `0x${string}`;
+  return `0x${(sentinel | reversed).toString(16).padStart(16, "0")}` as `0x${string}`;
 }
 
-// ── MarchMadnessV2 ABI (migration surface only) ───────────────────────
+// ── ABIs ──────────────────────────────────────────────────────────────
 
-const MarchMadnessV2Abi = [
+const BracketGroupsReadAbi = [
+  {
+    name: "marchMadness",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
+  },
+  {
+    name: "getGroup",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "groupId", type: "uint32" }],
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "slug", type: "string" },
+        { name: "displayName", type: "string" },
+        { name: "creator", type: "address" },
+        { name: "entryCount", type: "uint32" },
+        { name: "entryFee", type: "uint256" },
+        { name: "hasPassword", type: "bool" },
+      ],
+    }],
+  },
+  {
+    name: "getMembers",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "groupId", type: "uint32" }],
+    outputs: [{
+      type: "tuple[]",
+      components: [
+        { name: "addr", type: "address" },
+        { name: "name", type: "string" },
+        { name: "score", type: "uint256" },
+        { name: "isScored", type: "bool" },
+      ],
+    }],
+  },
+  {
+    name: "GroupCreated",
+    type: "event",
+    inputs: [
+      { name: "groupId", type: "uint32", indexed: true },
+      { name: "slug", type: "string", indexed: false },
+      { name: "displayName", type: "string", indexed: false },
+      { name: "creator", type: "address", indexed: false },
+      { name: "hasPassword", type: "bool", indexed: false },
+    ],
+  },
+] as const;
+
+const BracketGroupsV2WriteAbi = [
+  {
+    name: "importGroup",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "slug", type: "string" },
+      { name: "displayName", type: "string" },
+      { name: "entryFee", type: "uint256" },
+      { name: "creator", type: "address" },
+    ],
+    outputs: [{ name: "groupId", type: "uint32" }],
+  },
+  {
+    name: "batchImportMembers",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "groupId", type: "uint32" },
+      { name: "addrs", type: "address[]" },
+      { name: "names", type: "string[]" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const MarchMadnessReadAbi = [
+  {
+    name: "entryFee",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "getBracket",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "bytes8" }],
+  },
+  {
+    name: "getTag",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "string" }],
+  },
+  {
+    name: "BracketSubmitted",
+    type: "event",
+    inputs: [{ name: "account", type: "address", indexed: true }],
+  },
+] as const;
+
+const MarchMadnessV2WriteAbi = [
   {
     name: "batchImportEntries",
     type: "function",
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
     inputs: [
       { name: "accounts", type: "address[]" },
       { name: "bracketList", type: "bytes8[]" },
@@ -168,39 +258,6 @@ const MarchMadnessV2Abi = [
     ],
     outputs: [],
   },
-  {
-    name: "hasEntry",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    name: "getBracket",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "bytes8" }],
-  },
-] as const;
-
-// ── V1 MarchMadness read ABI (getBracket + getTag) ────────────────────
-
-const MarchMadnessV1ReadAbi = [
-  {
-    name: "getBracket",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "bytes8" }],
-  },
-  {
-    name: "getTag",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "string" }],
-  },
 ] as const;
 
 // ── Manifest Types ────────────────────────────────────────────────────
@@ -210,19 +267,29 @@ interface ManifestEntry {
   old_bracket: string;
   new_bracket: string;
   tag: string | null;
-  skipped?: string; // reason if skipped
+  skipped?: string;
+}
+
+interface ManifestGroup {
+  v1_group_id: number;
+  v2_group_id: number | null;
+  slug: string;
+  display_name: string;
+  creator: string;
+  entry_fee: string;
+  member_count: number;
+  skipped?: string;
 }
 
 interface Manifest {
   timestamp: string;
-  old_contract: string;
-  new_contract: string;
-  api_url: string;
+  old_mm: string;
+  new_mm: string;
+  old_bg: string;
+  new_bg: string;
   dry_run: boolean;
-  total_entries: number;
-  imported: number;
-  skipped: number;
-  entries: ManifestEntry[];
+  entries: { total: number; imported: number; skipped: number; records: ManifestEntry[] };
+  groups: { total: number; imported: number; skipped: number; records: ManifestGroup[] };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -230,188 +297,240 @@ interface Manifest {
 async function main() {
   const args = parseArgs();
 
-  console.log("=== March Madness V1 → V2 Entry Migration ===");
-  console.log(`  V1 contract: ${args.oldMm}`);
-  console.log(`  V2 contract: ${args.newMm}`);
-  console.log(`  API:         ${args.apiUrl}`);
-  console.log(`  RPC:         ${args.rpcUrl}`);
-  console.log(`  Batch size:  ${args.batchSize}`);
-  console.log(`  Dry run:     ${args.dryRun}`);
-  console.log(`  Output:      ${args.outPath}`);
-  console.log("");
-
-  // ── Fetch entry list from server API ──────────────────────────────
-  console.log("Fetching entry index from server...");
-  const res = await fetch(`${args.apiUrl}/entries`);
-  if (!res.ok) {
-    throw new Error(
-      `GET /entries failed: ${res.status} ${res.statusText}. Is the server running?`
-    );
-  }
-  const entryIndex: EntryIndex = await res.json();
-  const addresses = Object.keys(entryIndex) as Address[];
-  console.log(`  Found ${addresses.length} addresses in index.`);
-
-  // ── Set up viem clients ────────────────────────────────────────────
   const transport = http(args.rpcUrl);
   const publicClient = createPublicClient({ transport, chain: sanvil });
-
   const walletClient = args.dryRun
     ? null
-    : createWalletClient({
-        transport,
-        chain: sanvil,
-        account: privateKeyToAccount(args.privateKey),
-      });
+    : createWalletClient({ transport, chain: sanvil, account: privateKeyToAccount(args.privateKey) });
 
-  // ── Build migration manifest ───────────────────────────────────────
-  console.log("Reading on-chain brackets from V1 contract...");
-  const manifestEntries: ManifestEntry[] = [];
-  let skipCount = 0;
+  // ── Derive MM addresses from BG contracts ─────────────────────────
+  const [oldMm, newMm] = await Promise.all([
+    publicClient.readContract({ address: args.oldBg, abi: BracketGroupsReadAbi, functionName: "marchMadness" }),
+    publicClient.readContract({ address: args.newBg, abi: BracketGroupsReadAbi, functionName: "marchMadness" }),
+  ]);
 
-  for (const addr of addresses) {
-    // Read old bracket from V1 (after deadline, public read)
-    let oldBracket: `0x${string}`;
-    try {
-      oldBracket = (await publicClient.readContract({
-        address: args.oldMm,
-        abi: MarchMadnessV1ReadAbi,
-        functionName: "getBracket",
-        args: [addr],
-      })) as `0x${string}`;
-    } catch (err) {
-      const entry: ManifestEntry = {
-        address: addr,
-        old_bracket: "error",
-        new_bracket: "error",
-        tag: null,
-        skipped: `getBracket failed: ${String(err)}`,
-      };
-      manifestEntries.push(entry);
-      skipCount++;
-      continue;
-    }
-
-    // Validate sentinel — skip zero/invalid brackets
-    const oldBig = BigInt(oldBracket);
-    if ((oldBig & 0x8000_0000_0000_0000n) === 0n) {
-      const entry: ManifestEntry = {
-        address: addr,
-        old_bracket: oldBracket,
-        new_bracket: oldBracket,
-        tag: null,
-        skipped: "no sentinel bit — bracket not submitted or invalid",
-      };
-      manifestEntries.push(entry);
-      skipCount++;
-      continue;
-    }
-
-    // Reverse the 63 game bits
-    const newBracket = reverseLegacyBracket(oldBracket);
-
-    // Read tag
-    let tag: string | null = null;
-    try {
-      const rawTag = (await publicClient.readContract({
-        address: args.oldMm,
-        abi: MarchMadnessV1ReadAbi,
-        functionName: "getTag",
-        args: [addr],
-      })) as string;
-      tag = rawTag.length > 0 ? rawTag : null;
-    } catch {
-      // tags are optional; ignore errors
-    }
-
-    // Also use tag from index if on-chain tag is missing
-    if (!tag && entryIndex[addr]?.name) {
-      tag = entryIndex[addr].name ?? null;
-    }
-
-    manifestEntries.push({
-      address: addr,
-      old_bracket: oldBracket,
-      new_bracket: newBracket,
-      tag,
-    });
-  }
-
-  const toImport = manifestEntries.filter((e) => !e.skipped);
-  console.log(`  ${toImport.length} entries to import, ${skipCount} skipped.`);
-
-  // ── Print manifest table ───────────────────────────────────────────
-  console.log("\nManifest:");
-  console.log(
-    "  Address                                     | Old bracket        | New bracket        | Tag"
-  );
-  console.log("  " + "-".repeat(100));
-  for (const e of manifestEntries) {
-    const tag = e.tag ?? "(none)";
-    const status = e.skipped ? `SKIP: ${e.skipped}` : tag;
-    console.log(
-      `  ${e.address.padEnd(43)} | ${e.old_bracket.padEnd(
-        18
-      )} | ${e.new_bracket.padEnd(18)} | ${status}`
-    );
-  }
+  console.log("=== March Madness V1 → V2 Migration ===");
+  console.log(`  V1 MM:        ${oldMm}`);
+  console.log(`  V2 MM:        ${newMm}`);
+  console.log(`  V1 BG:        ${args.oldBg}`);
+  console.log(`  V2 BG:        ${args.newBg}`);
+  console.log(`  RPC:          ${args.rpcUrl}`);
+  console.log(`  From block:   ${args.fromBlock}`);
+  console.log(`  Batch size:   ${args.batchSize}`);
+  console.log(`  Skip entries: ${args.skipEntries}`);
+  console.log(`  Skip groups:  ${args.skipGroups}`);
+  console.log(`  Dry run:      ${args.dryRun}`);
+  console.log(`  Output:       ${args.outPath}`);
   console.log("");
 
-  if (args.dryRun) {
-    console.log("Dry run complete — no on-chain writes performed.");
-  } else {
-    // ── Batch-import entries ─────────────────────────────────────────
-    const batches: ManifestEntry[][] = [];
-    for (let i = 0; i < toImport.length; i += args.batchSize) {
-      batches.push(toImport.slice(i, i + args.batchSize));
+  const entryFee = await publicClient.readContract({
+    address: newMm,
+    abi: MarchMadnessReadAbi,
+    functionName: "entryFee",
+  });
+
+  // ── Entry migration ───────────────────────────────────────────────
+  const entryRecords: ManifestEntry[] = [];
+  let entrySkipCount = 0;
+
+  if (!args.skipEntries) {
+    console.log("Scanning BracketSubmitted events...");
+    const submitLogs = await publicClient.getLogs({
+      address: oldMm,
+      event: MarchMadnessReadAbi[3],
+      fromBlock: args.fromBlock,
+      toBlock: "latest",
+    });
+    // Deduplicate: keep latest submission per address (re-submissions overwrite)
+    const addressSet = new Set<Address>();
+    for (const log of submitLogs) {
+      if (log.args.account) addressSet.add(log.args.account);
+    }
+    const addresses = [...addressSet];
+    console.log(`  Found ${addresses.length} unique submitters.\n`);
+
+    console.log("Reading on-chain brackets from V1...");
+    for (const addr of addresses) {
+      let oldBracket: `0x${string}`;
+      try {
+        oldBracket = (await publicClient.readContract({
+          address: oldMm,
+          abi: MarchMadnessReadAbi,
+          functionName: "getBracket",
+          args: [addr],
+        })) as `0x${string}`;
+      } catch (err) {
+        entryRecords.push({ address: addr, old_bracket: "error", new_bracket: "error", tag: null, skipped: `getBracket failed: ${String(err)}` });
+        entrySkipCount++;
+        continue;
+      }
+
+      if ((BigInt(oldBracket) & 0x8000_0000_0000_0000n) === 0n) {
+        entryRecords.push({ address: addr, old_bracket: oldBracket, new_bracket: oldBracket, tag: null, skipped: "no sentinel bit" });
+        entrySkipCount++;
+        continue;
+      }
+
+      const newBracket = reverseLegacyBracket(oldBracket);
+
+      let tag: string | null = null;
+      try {
+        const rawTag = (await publicClient.readContract({
+          address: oldMm,
+          abi: MarchMadnessReadAbi,
+          functionName: "getTag",
+          args: [addr],
+        })) as string;
+        tag = rawTag.length > 0 ? rawTag : null;
+      } catch { /* tags are optional */ }
+
+      entryRecords.push({ address: addr, old_bracket: oldBracket, new_bracket: newBracket, tag });
     }
 
-    console.log(
-      `Importing ${toImport.length} entries in ${batches.length} batch(es)...`
-    );
-    for (let b = 0; b < batches.length; b++) {
-      const batch = batches[b];
-      const accounts = batch.map((e) => e.address as Address);
-      const brackets = batch.map((e) => e.new_bracket as `0x${string}`);
+    const toImport = entryRecords.filter((e) => !e.skipped);
+    console.log(`  ${toImport.length} to import, ${entrySkipCount} skipped.\n`);
 
-      const hash = await walletClient!.writeContract({
-        address: args.newMm,
-        abi: MarchMadnessV2Abi,
-        functionName: "batchImportEntries",
-        args: [accounts, brackets],
-      });
-      await publicClient.waitForTransactionReceipt({ hash });
-      console.log(`  Batch ${b + 1}/${batches.length} confirmed: ${hash}`);
+    if (!args.dryRun && toImport.length > 0) {
+      const batches: ManifestEntry[][] = [];
+      for (let i = 0; i < toImport.length; i += args.batchSize) {
+        batches.push(toImport.slice(i, i + args.batchSize));
+      }
+      console.log(`Importing ${toImport.length} entries in ${batches.length} batch(es)...`);
+      for (let b = 0; b < batches.length; b++) {
+        const batch = batches[b];
+        const accounts = batch.map((e) => e.address as Address);
+        const brackets = batch.map((e) => e.new_bracket as `0x${string}`);
+        const value = BigInt(batch.length) * entryFee;
+        const { request } = await publicClient.simulateContract({
+          address: newMm,
+          abi: MarchMadnessV2WriteAbi,
+          functionName: "batchImportEntries",
+          args: [accounts, brackets],
+          value,
+          account: walletClient!.account,
+        });
+        const hash = await walletClient!.writeContract(request);
+        await publicClient.waitForTransactionReceipt({ hash });
+        console.log(`  Batch ${b + 1}/${batches.length} confirmed: ${hash}`);
+      }
+
+      const withTags = toImport.filter((e) => e.tag);
+      if (withTags.length > 0) {
+        console.log(`\nImporting ${withTags.length} tag(s)...`);
+        for (const e of withTags) {
+          const { request } = await publicClient.simulateContract({
+            address: newMm,
+            abi: MarchMadnessV2WriteAbi,
+            functionName: "importTag",
+            args: [e.address as Address, e.tag!],
+            account: walletClient!.account,
+          });
+          const hash = await walletClient!.writeContract(request);
+          await publicClient.waitForTransactionReceipt({ hash });
+          console.log(`  ${e.address}: "${e.tag}" — ${hash}`);
+        }
+      }
     }
-
-    // ── Import tags ──────────────────────────────────────────────────
-    const withTags = toImport.filter((e) => e.tag);
-    console.log(`\nImporting ${withTags.length} tag(s)...`);
-    for (const e of withTags) {
-      const hash = await walletClient!.writeContract({
-        address: args.newMm,
-        abi: MarchMadnessV2Abi,
-        functionName: "importTag",
-        args: [e.address as Address, e.tag!],
-      });
-      await publicClient.waitForTransactionReceipt({ hash });
-      console.log(`  Tag for ${e.address}: "${e.tag}" — ${hash}`);
-    }
-
-    console.log("\nImport complete.");
   }
 
-  // ── Write manifest JSON ────────────────────────────────────────────
+  // ── Group migration ───────────────────────────────────────────────
+  const groupRecords: ManifestGroup[] = [];
+  let groupSkipCount = 0;
+
+  if (!args.skipGroups) {
+    console.log("Scanning GroupCreated events...");
+    const groupLogs = await publicClient.getLogs({
+      address: args.oldBg,
+      event: BracketGroupsReadAbi[3],
+      fromBlock: args.fromBlock,
+      toBlock: "latest",
+    });
+    const groupIds = groupLogs
+      .map((log) => log.args.groupId)
+      .filter((id): id is number => id !== undefined);
+    console.log(`  Found ${groupIds.length} groups.\n`);
+
+    for (const v1GroupId of groupIds) {
+      let group: { slug: string; displayName: string; creator: Address; entryCount: number; entryFee: bigint; hasPassword: boolean };
+      try {
+        group = (await publicClient.readContract({
+          address: args.oldBg,
+          abi: BracketGroupsReadAbi,
+          functionName: "getGroup",
+          args: [v1GroupId],
+        })) as typeof group;
+      } catch (err) {
+        groupRecords.push({ v1_group_id: v1GroupId, v2_group_id: null, slug: "?", display_name: "?", creator: "?", entry_fee: "?", member_count: 0, skipped: `getGroup failed: ${String(err)}` });
+        groupSkipCount++;
+        continue;
+      }
+
+      const members = (await publicClient.readContract({
+        address: args.oldBg,
+        abi: BracketGroupsReadAbi,
+        functionName: "getMembers",
+        args: [v1GroupId],
+      })) as Array<{ addr: Address; name: string; score: bigint; isScored: boolean }>;
+
+      if (args.dryRun) {
+        groupRecords.push({ v1_group_id: v1GroupId, v2_group_id: null, slug: group.slug, display_name: group.displayName, creator: group.creator, entry_fee: group.entryFee.toString(), member_count: members.length });
+        continue;
+      }
+
+      // Import the group
+      const { request: importGroupReq, result: v2GroupId } = await publicClient.simulateContract({
+        address: args.newBg,
+        abi: BracketGroupsV2WriteAbi,
+        functionName: "importGroup",
+        args: [group.slug, group.displayName, group.entryFee, group.creator],
+        account: walletClient!.account,
+      });
+      const importGroupHash = await walletClient!.writeContract(importGroupReq);
+      await publicClient.waitForTransactionReceipt({ hash: importGroupHash });
+      console.log(`  Group "${group.slug}" (V1 id=${v1GroupId} → V2 id=${v2GroupId}): ${importGroupHash}`);
+
+      // Batch-import members
+      if (members.length > 0) {
+        const addrs = members.map((m) => m.addr);
+        const names = members.map((m) => m.name);
+        for (let i = 0; i < members.length; i += args.batchSize) {
+          const batchAddrs = addrs.slice(i, i + args.batchSize);
+          const batchNames = names.slice(i, i + args.batchSize);
+          const value = BigInt(batchAddrs.length) * group.entryFee;
+          const { request: membersReq } = await publicClient.simulateContract({
+            address: args.newBg,
+            abi: BracketGroupsV2WriteAbi,
+            functionName: "batchImportMembers",
+            args: [v2GroupId, batchAddrs, batchNames],
+            value,
+            account: walletClient!.account,
+          });
+          const hash = await walletClient!.writeContract(membersReq);
+          await publicClient.waitForTransactionReceipt({ hash });
+          console.log(`    Members ${i + 1}–${i + batchAddrs.length}: ${hash}`);
+        }
+      }
+
+      groupRecords.push({ v1_group_id: v1GroupId, v2_group_id: v2GroupId, slug: group.slug, display_name: group.displayName, creator: group.creator, entry_fee: group.entryFee.toString(), member_count: members.length });
+    }
+
+    console.log(`\n  ${groupRecords.filter((g) => !g.skipped).length} groups imported, ${groupSkipCount} skipped.`);
+  }
+
+  if (args.dryRun) console.log("\nDry run complete — no on-chain writes performed.");
+
+  // ── Write manifest ────────────────────────────────────────────────
+  const toImportEntries = entryRecords.filter((e) => !e.skipped);
+  const toImportGroups = groupRecords.filter((g) => !g.skipped);
   const manifest: Manifest = {
     timestamp: new Date().toISOString(),
-    old_contract: args.oldMm,
-    new_contract: args.newMm,
-    api_url: args.apiUrl,
+    old_mm: oldMm,
+    new_mm: newMm,
+    old_bg: args.oldBg,
+    new_bg: args.newBg,
     dry_run: args.dryRun,
-    total_entries: addresses.length,
-    imported: toImport.length,
-    skipped: skipCount,
-    entries: manifestEntries,
+    entries: { total: entryRecords.length, imported: toImportEntries.length, skipped: entrySkipCount, records: entryRecords },
+    groups: { total: groupRecords.length, imported: toImportGroups.length, skipped: groupSkipCount, records: groupRecords },
   };
 
   mkdirSync(resolve(args.outPath, ".."), { recursive: true });
