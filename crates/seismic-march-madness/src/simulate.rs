@@ -6,7 +6,7 @@
 //!    using KenPom team metrics (remaining possessions for live, full game for upcoming)
 //! 3. Build complete 64-bit results, score all brackets, find winner(s)
 
-use crate::scoring::{get_scoring_mask, score_bracket_with_mask};
+use crate::scoring::{SENTINEL_BIT, get_scoring_mask, score_bracket_with_mask};
 use crate::types::{GameState, TournamentStatus};
 use rand::RngCore;
 use rayon::prelude::*;
@@ -126,7 +126,7 @@ impl BracketScoringCallback {
             brackets: brackets.to_vec(),
             wins: vec![0u32; n],
             expected_scores: vec![0.0f64; n],
-            results: 0x8000_0000_0000_0000,
+            results: SENTINEL_BIT,
         }
     }
 }
@@ -162,7 +162,7 @@ impl SimCallback for BracketScoringCallback {
         }
 
         // Reset for next trial
-        self.results = 0x8000_0000_0000_0000;
+        self.results = SENTINEL_BIT;
     }
 }
 
@@ -306,7 +306,7 @@ impl<'a> MultiPoolScoringCallback<'a> {
             pools,
             pool_wins,
             score_sums,
-            results: 0x8000_0000_0000_0000,
+            results: SENTINEL_BIT,
         }
     }
 }
@@ -368,7 +368,7 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
             );
         }
 
-        self.results = 0x8000_0000_0000_0000;
+        self.results = SENTINEL_BIT;
     }
 }
 
@@ -444,47 +444,10 @@ pub fn run_multi_pool_simulations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scoring::{reverse_game_bits, score_bracket};
-    use crate::types::{GameScore, GameState, GameStatus, TournamentStatus};
+    use crate::migration::reverse_game_bits;
+    use crate::scoring::score_bracket;
+    use crate::test_util::{fully_final_status, make_status};
     use rand::Rng;
-
-    fn make_status(decided: &[(u8, bool)], live: &[(u8, f64)]) -> TournamentStatus {
-        let mut games: Vec<GameStatus> = (0..63).map(GameStatus::upcoming).collect();
-
-        for &(idx, winner) in decided {
-            games[idx as usize].status = GameState::Final;
-            games[idx as usize].winner = Some(winner);
-            games[idx as usize].score = Some(GameScore {
-                team1: 70,
-                team2: 60,
-            });
-        }
-
-        for &(idx, prob) in live {
-            games[idx as usize].status = GameState::Live;
-            games[idx as usize].team1_win_probability = Some(prob);
-            games[idx as usize].score = Some(GameScore {
-                team1: 40,
-                team2: 38,
-            });
-        }
-
-        TournamentStatus {
-            games,
-            updated_at: None,
-        }
-    }
-
-    /// Build a fully-decided TournamentStatus from contract-correct results bits.
-    fn fully_final_status(results: u64) -> TournamentStatus {
-        let decided: Vec<(u8, bool)> = (0..63)
-            .map(|game_index| {
-                let winner = ((results >> game_index) & 1) == 1;
-                (game_index as u8, winner)
-            })
-            .collect();
-        make_status(&decided, &[])
-    }
 
     /// A resolver that uses the team1_win_probability from game status as a coin flip.
     /// Used in tests that don't need full KenPom simulation.

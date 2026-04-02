@@ -1,7 +1,23 @@
 //! ByteBracket scoring — Rust port of contracts/src/ByteBracket.sol.
 //! Uses u64 for bit manipulation, identical logic to Solidity.
 
-const SENTINEL_BIT: u64 = 1u64 << 63;
+/// Sentinel bit (MSB, bit 63) that must be set on every valid ByteBracket u64.
+pub const SENTINEL_BIT: u64 = 1u64 << 63;
+
+/// Encode 63 boolean picks into a contract-correct ByteBracket u64.
+///
+/// `picks[i] = true` means team1 wins game `i`. Contract-correct encoding:
+/// game 0 → bit 0, game 62 → bit 62, sentinel at bit 63.
+pub fn encode_picks(picks: &[bool]) -> u64 {
+    assert_eq!(picks.len(), 63, "expected 63 picks, got {}", picks.len());
+    let mut bits: u64 = SENTINEL_BIT;
+    for (i, &pick) in picks.iter().enumerate() {
+        if pick {
+            bits |= 1u64 << i;
+        }
+    }
+    bits
+}
 
 /// Count the number of 1-bits in a 64-bit value.
 pub fn popcount(mut bits: u64) -> u8 {
@@ -46,22 +62,6 @@ pub fn get_scoring_mask(results: u64) -> u64 {
     mask
 }
 
-/// Reverse the 63 non-sentinel game bits while preserving the sentinel bit.
-///
-/// Converts between legacy encoding (`game 0 → bit 62`) and contract-correct
-/// encoding (`game 0 → bit 0`). Used by migration tooling and
-/// `score_bracket_legacy`. The TypeScript client still uses legacy encoding
-/// until its own migration is complete.
-pub fn reverse_game_bits(bb: u64) -> u64 {
-    let mut out = bb & SENTINEL_BIT;
-    for i in 0..63u32 {
-        if (bb >> i) & 1 == 1 {
-            out |= 1u64 << (62 - i);
-        }
-    }
-    out
-}
-
 /// Score a bracket against results (full tournament). Max 192.
 ///
 /// Exact Rust port of `ByteBracket.getBracketScore` from
@@ -69,17 +69,10 @@ pub fn reverse_game_bits(bb: u64) -> u64 {
 ///
 /// Both `bracket` and `results` must be in contract-correct encoding
 /// (game 0 → bit 0, game 62 → bit 62). This is the canonical encoding
-/// used everywhere in the Rust codebase. For legacy-encoded brackets,
-/// use [`score_bracket_legacy`].
+/// used everywhere in the Rust codebase.
 pub fn score_bracket(bracket: u64, results: u64) -> u32 {
     let filter = get_scoring_mask(results);
     score_bracket_with_mask(bracket, results, filter)
-}
-
-/// Score a legacy off-chain bracket/results pair by first converting the 63
-/// game bits into the exact Solidity ByteBracket ordering.
-pub fn score_bracket_legacy(bracket: u64, results: u64) -> u32 {
-    score_bracket(reverse_game_bits(bracket), reverse_game_bits(results))
 }
 
 /// Score with a precomputed mask (for batch scoring).
@@ -112,6 +105,7 @@ pub fn parse_bracket_hex(hex: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::migration::{reverse_game_bits, score_bracket_legacy};
 
     #[test]
     fn test_popcount() {
@@ -199,13 +193,8 @@ mod tests {
             let legacy_hex = v["hex"].as_str().unwrap();
             let picks = v["picks"].as_array().unwrap();
 
-            // Encode picks in contract-correct order (game 0 → bit 0)
-            let mut contract_bits: u64 = 1u64 << 63; // sentinel
-            for (i, pick) in picks.iter().enumerate() {
-                if pick.as_bool().unwrap() {
-                    contract_bits |= 1u64 << i;
-                }
-            }
+            let pick_bools: Vec<bool> = picks.iter().map(|p| p.as_bool().unwrap()).collect();
+            let contract_bits = encode_picks(&pick_bools);
 
             let legacy_bits = parse_bracket_hex(legacy_hex).unwrap();
             assert_eq!(
