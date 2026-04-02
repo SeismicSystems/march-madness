@@ -1,0 +1,17 @@
+next PR, giong to be stacked on top of cdai__reverse-rust-encoding
+
+recall this issue: https://github.com/SeismicSystems/march-madness/issues/253
+
+we want to write a rust binary "populate" -- expect an address input --target
+
+the idea here is we're going to go through all of our data in redis and populate the new permissioned v2 contract with our redis data. we need to be robust to starting this multiple times. eg. read ids see where we are in the migration etc
+
+assume the signature on the contract is what the issue 253 expects in terms of V2 permissioned functionality
+
+use the sol! macro with what we expect the v2 interface
+
+---
+
+look at the actual v2 surface implemented here: cdai__v2-contracts-entry-migration (pr #279)
+
+look at the signatures and update your stuff... also do a review on this PR to make sure you'll be able to do what you need to do

@@ -472,6 +472,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-signer-local"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e7d555ee5f27be29af4ae312be014b57c6cff9acb23fe2cf008500be6ca7e33"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-signer",
+ "async-trait",
+ "k256",
+ "rand 0.8.5",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "alloy-sol-macro"
 version = "1.4.1"
 source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=fa63d477d6aa01e7203b677632c31cb3eba00640#fa63d477d6aa01e7203b677632c31cb3eba00640"
@@ -3263,6 +3279,33 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "march-madness-populate"
+version = "0.1.0"
+dependencies = [
+ "alloy-contract",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "alloy-transport-http",
+ "clap",
+ "dotenvy",
+ "eyre",
+ "hex",
+ "redis",
+ "seismic-alloy-network",
+ "seismic-alloy-provider",
+ "seismic-alloy-rpc-types",
+ "seismic-march-madness",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

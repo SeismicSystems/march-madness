@@ -100,6 +100,7 @@ crates/
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
   mirror-importer/  — Import brackets from external platforms (Yahoo Fantasy) for BracketMirror
+  populate/         — Migration binary: Redis → MarchMadnessV2 + BracketGroupsV2
 data/               — Tournament data, seed configs
 docs/               — Technical docs, changeset log (auto-generated), prompt archive
 .changeset/         — Pending changeset entries (merged on PR merge)
