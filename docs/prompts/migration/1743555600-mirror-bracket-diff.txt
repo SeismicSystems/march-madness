@@ -1,0 +1,1 @@
+ideally we would just run the same script as yahoo-mirror -- ideally we dont have to add any new code except maybe making the way yahoo-mirror encodes brackets to make it correct

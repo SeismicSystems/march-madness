@@ -345,8 +345,24 @@ async function main() {
       const entrySlug = slugMap.get(entry.team_id)!;
 
       if (existingIds.has(entry.team_id)) {
-        // Already on-chain — check if slug changed
+        // Already on-chain — check if bracket or slug changed
         const existing = onChain.members[entry.team_id];
+        const onChainEntry = await mirror.getEntry(mirrorId, BigInt(existing.mirrorEntryId));
+        const expectedBracket = entry.bracket.toLowerCase();
+        const actualBracket = onChainEntry.bracket.toLowerCase();
+
+        if (actualBracket !== expectedBracket) {
+          console.log(
+            `  updating bracket for ${entry.name}: ${actualBracket} → ${expectedBracket}`,
+          );
+          const tx = await mirror.updateBracket(
+            mirrorId,
+            BigInt(existing.mirrorEntryId),
+            entry.bracket as `0x${string}`,
+          );
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+        }
+
         if (existing.slug !== entrySlug) {
           console.log(
             `  updating slug for ${entry.name}: "${existing.slug}" → "${entrySlug}"`,
