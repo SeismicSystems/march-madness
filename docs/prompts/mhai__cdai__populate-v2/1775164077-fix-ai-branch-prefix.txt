@@ -1,0 +1,1 @@
+figure out where i am overriding AI_BRANCH_PREFIX -- in my ~/.zshenv its supposed to be set to "mhai", but im seeing "cdai"
