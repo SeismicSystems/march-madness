@@ -155,7 +155,8 @@ Single deploy script deploys all 3 contracts. BracketGroups receives the MarchMa
 ## Bracket Encoding
 
 - 64 bits (bytes8): bit 63 = MSB (sentinel, must be 1), bits 62-0 = 63 game outcomes
-- This is identical to jimpo's original bytes8 encoding — no changes needed to his ByteBracket scoring library
+- Bit layout matches Solidity ByteBracket: bit 0 = game 0 (first R64), bit 62 = game 62 (championship)
+- The scoring loop in `ByteBracket.sol` reads bits LSB-first: bits 0-31 = R64, 32-47 = R32, 48-55 = S16, 56-59 = E8, 60-61 = F4, bit 62 = Championship
 - Scoring: jimpo's ByteBracket library (bit-level scoring, max score 192)
 - Teams ordered by region, seeded [1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15] per region
 

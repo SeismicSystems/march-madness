@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { decodePicks } from "@march-madness/client";
 import type { GameSlot } from "./useBracket";
 import { getAllTeamsInBracketOrder } from "../lib/tournament";
 
@@ -12,11 +13,7 @@ export function useReadOnlyBracket(hex: `0x${string}` | null): GameSlot[] {
   return useMemo((): GameSlot[] => {
     if (!hex) return [];
 
-    const bits = BigInt(hex);
-    const picks: boolean[] = [];
-    for (let i = 0; i < 63; i++) {
-      picks.push(((bits >> BigInt(62 - i)) & 1n) === 1n);
-    }
+    const picks = decodePicks(hex);
 
     const slots: GameSlot[] = [];
     let gameIndex = 0;
