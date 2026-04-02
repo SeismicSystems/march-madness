@@ -178,14 +178,18 @@ fn resolve_addresses(cli: &Cli) -> Result<ContractAddresses> {
         serde_json::Value::Null
     };
 
+    // Prefer v2 addresses when present (2026 migration).
+    let v2 = &chain["v2"];
     let mm = cli
         .contract
         .clone()
+        .or_else(|| v2["marchMadness"].as_str().map(String::from))
         .or_else(|| chain["marchMadness"].as_str().map(String::from))
         .ok_or_else(|| eyre::eyre!("marchMadness address not found (CLI or deployments.json)"))?;
     let groups = cli
         .groups_contract
         .clone()
+        .or_else(|| v2["bracketGroups"].as_str().map(String::from))
         .or_else(|| chain["bracketGroups"].as_str().map(String::from))
         .ok_or_else(|| eyre::eyre!("bracketGroups address not found (CLI or deployments.json)"))?;
     let mirror = cli

@@ -1,0 +1,3 @@
+hey i just deployed new v2 contract to chain and then ran migration in rust. seems like it all worked. we need to make sure all of our processes will use the v2 address in 2026... it should be an edgecase in get contract/group address, if year = 2026 and v2 is present, use the v2 address key
+
+otherwise use the normal key
