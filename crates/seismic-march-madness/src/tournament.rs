@@ -81,6 +81,8 @@ pub fn get_teams_in_bracket_order(data: &TournamentData) -> Vec<String> {
 }
 
 /// Compute current score from decided games only.
+///
+/// Expects `bracket` in contract-correct encoding (game 0 → bit 0).
 pub fn compute_current_score(bracket: u64, status: &crate::TournamentStatus) -> u32 {
     use crate::types::GameState;
     let round_points: [u32; 6] = [1, 2, 4, 8, 16, 32];
@@ -94,8 +96,7 @@ pub fn compute_current_score(bracket: u64, status: &crate::TournamentStatus) -> 
                 && game.status == GameState::Final
                 && let Some(winner) = game.winner
             {
-                let bit_pos = 62 - game_idx as u32;
-                let bracket_picked_team1 = (bracket >> bit_pos) & 1 == 1;
+                let bracket_picked_team1 = (bracket >> game_idx as u32) & 1 == 1;
                 if bracket_picked_team1 == winner {
                     score += round_points[round as usize];
                 }
@@ -109,6 +110,8 @@ pub fn compute_current_score(bracket: u64, status: &crate::TournamentStatus) -> 
 }
 
 /// Compute maximum possible score (optimistic — ignores elimination cascades).
+///
+/// Expects `bracket` in contract-correct encoding (game 0 → bit 0).
 pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u32 {
     use crate::types::GameState;
     let round_points: [u32; 6] = [1, 2, 4, 8, 16, 32];
@@ -121,8 +124,7 @@ pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u
             if let Some(game) = status.games.get(game_idx as usize) {
                 if game.status == GameState::Final {
                     if let Some(winner) = game.winner {
-                        let bit_pos = 62 - game_idx as u32;
-                        let bracket_picked_team1 = (bracket >> bit_pos) & 1 == 1;
+                        let bracket_picked_team1 = (bracket >> game_idx as u32) & 1 == 1;
                         if bracket_picked_team1 == winner {
                             score += round_points[round as usize];
                         }
@@ -143,29 +145,7 @@ pub fn compute_max_possible(bracket: u64, status: &crate::TournamentStatus) -> u
 mod tests {
     use super::*;
     use crate::scoring::score_bracket;
-    use crate::types::{GameState, GameStatus, TournamentStatus};
-
-    fn status_from_results_bits_msb_mapping(results: u64) -> TournamentStatus {
-        let games = (0..63)
-            .map(|game_index| {
-                let winner = ((results >> (62 - game_index)) & 1) == 1;
-                GameStatus {
-                    game_index: game_index as u8,
-                    status: GameState::Final,
-                    score: None,
-                    winner: Some(winner),
-                    team1_win_probability: None,
-                    seconds_remaining: None,
-                    period: None,
-                }
-            })
-            .collect();
-
-        TournamentStatus {
-            games,
-            updated_at: None,
-        }
-    }
+    use crate::test_util::fully_final_status;
 
     #[test]
     fn display_name_regular_team() {
@@ -257,12 +237,30 @@ mod tests {
     }
 
     #[test]
-    fn msb_mapping_disagrees_with_bytebracket_contract_score() {
+    fn contract_correct_score_matches_bytebracket() {
+        // Jimpo contract test vector: bracket has bit 62 set (championship team1 wins),
+        // results has all upsets. Contract scores this as 160.
         let results = 0x8000_0000_0000_0000u64;
         let bracket = 0xC000_0000_0000_0000u64;
-        let status = status_from_results_bits_msb_mapping(results);
+        let status = fully_final_status(results);
 
-        assert_eq!(score_bracket(bracket, results), 160);
-        assert_eq!(compute_current_score(bracket, &status), 191);
+        let contract_score = score_bracket(bracket, results);
+        let current_score = compute_current_score(bracket, &status);
+        assert_eq!(contract_score, 160);
+        assert_eq!(
+            current_score, contract_score,
+            "compute_current_score must agree with ByteBracket scorer"
+        );
+    }
+
+    #[test]
+    fn contract_correct_perfect_bracket() {
+        let bracket = 0xFFFF_FFFF_FFFF_FFFFu64;
+        let results = 0xFFFF_FFFF_FFFF_FFFFu64;
+        let status = fully_final_status(results);
+
+        assert_eq!(score_bracket(bracket, results), 192);
+        assert_eq!(compute_current_score(bracket, &status), 192);
+        assert_eq!(compute_max_possible(bracket, &status), 192);
     }
 }

@@ -5,9 +5,12 @@
 //! and external 3rd-party data providers.
 
 pub mod data;
+pub mod migration;
 pub mod redis_keys;
 pub mod scoring;
 pub mod simulate;
+#[cfg(test)]
+pub mod test_util;
 pub mod tournament;
 pub mod types;
 

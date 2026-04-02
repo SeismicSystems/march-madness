@@ -6,7 +6,7 @@
 //!    using KenPom team metrics (remaining possessions for live, full game for upcoming)
 //! 3. Build complete 64-bit results, score all brackets, find winner(s)
 
-use crate::scoring::{get_scoring_mask, reverse_game_bits, score_bracket_with_mask};
+use crate::scoring::{SENTINEL_BIT, get_scoring_mask, score_bracket_with_mask};
 use crate::types::{GameState, TournamentStatus};
 use rand::RngCore;
 use rayon::prelude::*;
@@ -123,10 +123,10 @@ impl BracketScoringCallback {
     fn new(brackets: &[u64]) -> Self {
         let n = brackets.len();
         Self {
-            brackets: brackets.iter().copied().map(reverse_game_bits).collect(),
+            brackets: brackets.to_vec(),
             wins: vec![0u32; n],
             expected_scores: vec![0.0f64; n],
-            results: 0x8000_0000_0000_0000,
+            results: SENTINEL_BIT,
         }
     }
 }
@@ -134,20 +134,18 @@ impl BracketScoringCallback {
 impl SimCallback for BracketScoringCallback {
     fn on_game(&mut self, game_index: usize, _round: usize, team1_wins: bool, _winner: usize) {
         if team1_wins {
-            let bit_pos = 62 - game_index as u32;
-            self.results |= 1u64 << bit_pos;
+            self.results |= 1u64 << game_index as u32;
         }
     }
 
     fn on_trial_end(&mut self, _game_winner: &[usize; 63]) {
-        let results = reverse_game_bits(self.results);
-        let mask = get_scoring_mask(results);
+        let mask = get_scoring_mask(self.results);
         let mut best_score: u32 = 0;
 
         let scores: Vec<u32> = self
             .brackets
             .iter()
-            .map(|&b| score_bracket_with_mask(b, results, mask))
+            .map(|&b| score_bracket_with_mask(b, self.results, mask))
             .collect();
 
         for &s in &scores {
@@ -164,7 +162,7 @@ impl SimCallback for BracketScoringCallback {
         }
 
         // Reset for next trial
-        self.results = 0x8000_0000_0000_0000;
+        self.results = SENTINEL_BIT;
     }
 }
 
@@ -304,11 +302,11 @@ impl<'a> MultiPoolScoringCallback<'a> {
             .map(|pool| vec![0u64; pool.members.len()])
             .collect();
         Self {
-            brackets: brackets.iter().copied().map(reverse_game_bits).collect(),
+            brackets: brackets.to_vec(),
             pools,
             pool_wins,
             score_sums,
-            results: 0x8000_0000_0000_0000,
+            results: SENTINEL_BIT,
         }
     }
 }
@@ -345,20 +343,18 @@ fn accumulate_pool_results(
 impl SimCallback for MultiPoolScoringCallback<'_> {
     fn on_game(&mut self, game_index: usize, _round: usize, team1_wins: bool, _winner: usize) {
         if team1_wins {
-            let bit_pos = 62 - game_index as u32;
-            self.results |= 1u64 << bit_pos;
+            self.results |= 1u64 << game_index as u32;
         }
     }
 
     fn on_trial_end(&mut self, _game_winner: &[usize; 63]) {
-        let results = reverse_game_bits(self.results);
-        let mask = get_scoring_mask(results);
+        let mask = get_scoring_mask(self.results);
 
         // Score all unique brackets once.
         let scores: Vec<u32> = self
             .brackets
             .iter()
-            .map(|&b| score_bracket_with_mask(b, results, mask))
+            .map(|&b| score_bracket_with_mask(b, self.results, mask))
             .collect();
 
         // For each pool, find max score, increment winners, and accumulate score sums.
@@ -372,7 +368,7 @@ impl SimCallback for MultiPoolScoringCallback<'_> {
             );
         }
 
-        self.results = 0x8000_0000_0000_0000;
+        self.results = SENTINEL_BIT;
     }
 }
 
@@ -448,46 +444,10 @@ pub fn run_multi_pool_simulations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scoring::score_bracket_legacy;
-    use crate::types::{GameScore, GameState, GameStatus, TournamentStatus};
+    use crate::migration::reverse_game_bits;
+    use crate::scoring::score_bracket;
+    use crate::test_util::{fully_final_status, make_status};
     use rand::Rng;
-
-    fn make_status(decided: &[(u8, bool)], live: &[(u8, f64)]) -> TournamentStatus {
-        let mut games: Vec<GameStatus> = (0..63).map(GameStatus::upcoming).collect();
-
-        for &(idx, winner) in decided {
-            games[idx as usize].status = GameState::Final;
-            games[idx as usize].winner = Some(winner);
-            games[idx as usize].score = Some(GameScore {
-                team1: 70,
-                team2: 60,
-            });
-        }
-
-        for &(idx, prob) in live {
-            games[idx as usize].status = GameState::Live;
-            games[idx as usize].team1_win_probability = Some(prob);
-            games[idx as usize].score = Some(GameScore {
-                team1: 40,
-                team2: 38,
-            });
-        }
-
-        TournamentStatus {
-            games,
-            updated_at: None,
-        }
-    }
-
-    fn fully_final_status_from_legacy_results(results: u64) -> TournamentStatus {
-        let decided: Vec<(u8, bool)> = (0..63)
-            .map(|game_index| {
-                let winner = ((results >> (62 - game_index)) & 1) == 1;
-                (game_index as u8, winner)
-            })
-            .collect();
-        make_status(&decided, &[])
-    }
 
     /// A resolver that uses the team1_win_probability from game status as a coin flip.
     /// Used in tests that don't need full KenPom simulation.
@@ -510,11 +470,14 @@ mod tests {
 
     #[test]
     fn test_all_decided_deterministic() {
+        // All 63 games decided as team1 wins
         let decided: Vec<(u8, bool)> = (0..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[]);
 
-        let chalky = 0xFFFF_FFFF_FFFF_FFFEu64;
-        let wrong = 0x8000_0000_0000_0001u64;
+        // Contract-correct: all team1 wins = all 63 game bits + sentinel
+        let chalky = 0xFFFF_FFFF_FFFF_FFFFu64;
+        // All team2 wins = only sentinel
+        let wrong = 0x8000_0000_0000_0000u64;
         let brackets = vec![chalky, wrong];
 
         let results = run_simulations(&brackets, &status, 100, &ProbabilityResolver);
@@ -523,27 +486,33 @@ mod tests {
     }
 
     #[test]
-    fn test_all_decided_matches_legacy_bytebracket_score() {
-        let results_bits = 0xBFFF_FFFF_BFFF_BFBAu64;
-        let bracket_bits = 0xD555_5555_5555_5555u64;
-        let status = fully_final_status_from_legacy_results(results_bits);
+    fn test_all_decided_matches_bytebracket_score() {
+        // Use golden vector values, converting from legacy to contract-correct
+        let legacy_results = 0xBFFF_FFFF_BFFF_BFBAu64; // cinderella_run
+        let legacy_bracket = 0xD555_5555_5555_5555u64; // alternating_picks
+        let results_bits = reverse_game_bits(legacy_results);
+        let bracket_bits = reverse_game_bits(legacy_bracket);
+        let status = fully_final_status(results_bits);
 
         let sim_results = run_simulations(&[bracket_bits], &status, 1, &ProbabilityResolver);
 
         assert_eq!(
             sim_results.expected_scores[0],
-            score_bracket_legacy(bracket_bits, results_bits) as f64
+            score_bracket(bracket_bits, results_bits) as f64
         );
         assert_eq!(sim_results.wins[0], 1);
     }
 
     #[test]
     fn test_live_game_uses_resolver() {
+        // Games 1-62 decided as team1 wins; game 0 is live with p=0.9
         let decided: Vec<(u8, bool)> = (1..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[(0, 0.9)]);
 
-        let team1_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
-        let team2_bracket = 0xBFFF_FFFF_FFFF_FFFEu64;
+        // Contract-correct: team1_bracket picks team1 for all 63 games
+        let team1_bracket = 0xFFFF_FFFF_FFFF_FFFFu64;
+        // team2_bracket picks team2 for game 0, team1 for all others (bit 0 = 0)
+        let team2_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
         let brackets = vec![team1_bracket, team2_bracket];
 
         let results = run_simulations(&brackets, &status, 10000, &ProbabilityResolver);
@@ -556,6 +525,7 @@ mod tests {
 
     #[test]
     fn test_resolver_overrides_live_game() {
+        // Games 1-62 decided as team1 wins; game 0 is live with low p
         let decided: Vec<(u8, bool)> = (1..63).map(|i| (i, true)).collect();
         let status = make_status(&decided, &[(0, 0.1)]);
 
@@ -573,7 +543,8 @@ mod tests {
             }
         }
 
-        let team1_bracket = 0xFFFF_FFFF_FFFF_FFFEu64;
+        // Picks team1 for all games — resolver forces team1 for game 0
+        let team1_bracket = 0xFFFF_FFFF_FFFF_FFFFu64;
         let brackets = vec![team1_bracket];
 
         let results = run_simulations(&brackets, &status, 100, &AlwaysTeam1);

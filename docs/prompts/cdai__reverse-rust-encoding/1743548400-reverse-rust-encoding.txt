@@ -1,0 +1,17 @@
+i've got two issues:
+
+https://github.com/SeismicSystems/march-madness/issues/253
+https://github.com/SeismicSystems/march-madness/issues/251
+
+read them both carefully; 253 is really the actionable TODO
+
+we're interested in correcting the rust encoding of brackets to match what the chain expects. to be clear i think our state is:
+- solidity is source of truth
+- bytebracket scoring in typescript and rust are correct
+- typescript and rust bracket encoding is flipped aside from the MSB (sentinel bit)
+
+and our goal is to properly encode/decode brackets on the rust side
+
+should also have a lot of tests here
+
+we're going to *only* change rust code here

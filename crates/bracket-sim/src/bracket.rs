@@ -14,9 +14,9 @@ impl Bracket {
 
     /// Encode this bracket as a ByteBracket u64 with sentinel.
     ///
-    /// Contract encoding (MSB-first, matching ByteBracket.sol):
+    /// Contract-correct encoding (matching Solidity ByteBracket.getBracketScore):
     ///   Bit 63 = sentinel (always 1)
-    ///   Bit 62 = game 0 (first R64 game), ..., bit 0 = game 62 (championship)
+    ///   Bit 0 = game 0 (first R64 game), ..., bit 62 = game 62 (championship)
     ///
     /// 1 = team1 (top/higher seed) wins, 0 = team2 (bottom/lower seed) wins.
     pub fn to_byte_bracket_bb(&self, first_round_games: &[Game]) -> u64 {
@@ -76,7 +76,7 @@ impl Bracket {
             let mut next_round_winners = Vec::new();
 
             for (t1, t2) in &current_teams {
-                let winner = if bits & (1u64 << (62 - game_idx)) != 0 {
+                let winner = if bits & (1u64 << game_idx) != 0 {
                     t1.clone()
                 } else {
                     t2.clone()
@@ -145,11 +145,11 @@ mod tests {
             Game::new(make_team("C"), make_team("D")),
         ];
         // All top seeds win: A, C, A — games 0,1,2 all team1 wins
-        // MSB-first: sentinel(bit63) | game0(bit62) | game1(bit61) | game2(bit60)
-        // = 0xF000000000000000
+        // Contract-correct: sentinel(bit63) | game0(bit0) | game1(bit1) | game2(bit2)
+        // = 0x8000000000000007
         let bracket = Bracket::new(vec!["A".into(), "C".into(), "A".into()]);
         let hex = bracket.to_byte_bracket(&games);
-        assert_eq!(hex, "0xf000000000000000");
+        assert_eq!(hex, "0x8000000000000007");
         let decoded = Bracket::from_byte_bracket(&hex, &games);
         assert_eq!(bracket.picks, decoded.picks);
     }
@@ -161,11 +161,11 @@ mod tests {
             Game::new(make_team("C"), make_team("D")),
         ];
         // All bottom seeds win R1: B, D. Championship: B vs D, B is team1 -> game2=1
-        // MSB-first: sentinel(bit63) | game0=0 | game1=0 | game2=1(bit60)
-        // = 0x9000000000000000
+        // Contract-correct: sentinel(bit63) | game0=0 | game1=0 | game2=1(bit2)
+        // = 0x8000000000000004
         let bracket = Bracket::new(vec!["B".into(), "D".into(), "B".into()]);
         let hex = bracket.to_byte_bracket(&games);
-        assert_eq!(hex, "0x9000000000000000");
+        assert_eq!(hex, "0x8000000000000004");
         let decoded = Bracket::from_byte_bracket(&hex, &games);
         assert_eq!(bracket.picks, decoded.picks);
     }
