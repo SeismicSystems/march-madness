@@ -43,6 +43,19 @@ export function encodeBracket(picks: boolean[]): `0x${string}` {
 }
 
 /**
+ * Extract the 63 game-outcome booleans from a bytes8 bracket hex value.
+ * Bit layout matches Solidity ByteBracket: bit i = game i.
+ */
+export function decodePicks(hex: `0x${string}`): boolean[] {
+  const bits = BigInt(hex);
+  const picks: boolean[] = [];
+  for (let i = 0; i < 63; i++) {
+    picks.push(((bits >> BigInt(i)) & 1n) === 1n);
+  }
+  return picks;
+}
+
+/**
  * Decode a bytes8 hex string into structured bracket data.
  * @param hex - 0x-prefixed 16-char hex string
  * @param teams - Array of 64 team names in bracket order
@@ -56,12 +69,7 @@ export function decodeBracket(
     throw new Error(`Expected 64 teams, got ${teams.length}`);
   }
 
-  const bits = BigInt(hex);
-  const picks: boolean[] = [];
-
-  for (let i = 0; i < 63; i++) {
-    picks.push(((bits >> BigInt(i)) & BigInt(1)) === BigInt(1));
-  }
+  const picks = decodePicks(hex);
 
   // Simulate tournament
   let currentTeams = [...teams];

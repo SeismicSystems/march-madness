@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import { encodeBracket, reverseGameBits, validateBracket } from "@march-madness/client";
+import { decodePicks, encodeBracket, reverseGameBits, validateBracket } from "@march-madness/client";
 
 import { getAllTeamsInBracketOrder, type Team } from "../lib/tournament";
 
@@ -72,6 +72,9 @@ function migrateStorageEncoding(): void {
   }
 }
 
+// Run one-time encoding migration at module load (before any loadPicks calls).
+migrateStorageEncoding();
+
 /** Sentinel prefix for incomplete (partial) brackets in localStorage. */
 const PARTIAL_PREFIX = "partial:";
 const createEmptyPicks = (): (boolean | null)[] => new Array(63).fill(null);
@@ -88,12 +91,7 @@ function loadPicks(addr: string): (boolean | null)[] | null {
 
     // Complete bracket: canonical bytes8 hex
     if (validateBracket(raw)) {
-      const bits = BigInt(raw as `0x${string}`);
-      const picks: (boolean | null)[] = [];
-      for (let i = 0; i < 63; i++) {
-        picks.push(((bits >> BigInt(i)) & BigInt(1)) === BigInt(1));
-      }
-      return picks;
+      return decodePicks(raw as `0x${string}`) as (boolean | null)[];
     }
 
     // Partial bracket: "partial:" + 63-char pick string
@@ -144,8 +142,6 @@ export function useBracket(
   walletAddress?: string | null,
   storageEnabled = true,
 ) {
-  migrateStorageEncoding();
-
   const allTeams = useMemo(() => getAllTeamsInBracketOrder(), []);
   const effectiveAddr = walletAddress || ZERO_ADDR;
   const hydratedAddrRef = useRef<string | null>(null);
@@ -292,13 +288,7 @@ export function useBracket(
   /** Load picks from an existing bracket hex */
   const loadFromHex = useCallback(
     (hex: `0x${string}`) => {
-      const bits = BigInt(hex);
-      const newPicks: (boolean | null)[] = [];
-      for (let i = 0; i < 63; i++) {
-        newPicks.push(
-          ((bits >> BigInt(i)) & BigInt(1)) === BigInt(1),
-        );
-      }
+      const newPicks: (boolean | null)[] = decodePicks(hex);
       setPicks(newPicks);
       savePicks(effectiveAddr, newPicks);
     },

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { encodeBracket, decodeBracket, reverseGameBits, validateBracket } from "./bracket";
+import { encodeBracket, decodeBracket, decodePicks, reverseGameBits, validateBracket } from "./bracket";
 import { scoreBracket } from "./scoring";
 
 // Load golden test vectors (source of truth shared with Rust + Solidity)
@@ -136,6 +136,26 @@ describe("golden vectors: roundtrip", () => {
       expect(reEncoded).toBe(v.hex);
     });
   }
+});
+
+// ── decodePicks tests ─────────────────────────────────────────────────
+
+describe("decodePicks", () => {
+  test("roundtrips with encodeBracket", () => {
+    const picks = Array.from({ length: 63 }, (_, i) => i % 3 === 0);
+    const hex = encodeBracket(picks);
+    expect(decodePicks(hex)).toEqual(picks);
+  });
+
+  test("all-true roundtrip", () => {
+    const picks = new Array(63).fill(true);
+    expect(decodePicks(encodeBracket(picks))).toEqual(picks);
+  });
+
+  test("all-false roundtrip", () => {
+    const picks = new Array(63).fill(false);
+    expect(decodePicks(encodeBracket(picks))).toEqual(picks);
+  });
 });
 
 // ── Bit position tests (Solidity ByteBracket layout) ──────────────────
