@@ -1,11 +1,11 @@
 //! `march-madness-populate` — migrate V1 contract data into V2 contracts.
 //!
-//! Reads entries, tags, groups, and members directly from V1 contracts
-//! (MarchMadness + BracketGroups), converts legacy-encoded brackets to
-//! contract-correct encoding, and batch-imports into V2 contracts.
+//! Takes V1 and V2 BracketGroups addresses as `--source` and `--target`.
+//! Derives the MarchMadness addresses on-chain via `marchMadness()`.
+//! Reads entries, tags, groups, and members from V1, converts legacy
+//! brackets to contract-correct encoding, and batch-imports into V2.
 //!
-//! Uses Redis only for tracking migration progress (new keys scoped to
-//! the migration). The V1 contract is the source of truth.
+//! Uses Redis only for tracking migration progress (`mm:migrate:*` keys).
 
 mod contract;
 mod migrate;
@@ -15,6 +15,7 @@ use alloy_primitives::Address;
 use clap::Parser;
 use eyre::{Result, WrapErr};
 use seismic_march_madness::redis_keys::DEFAULT_REDIS_URL;
+use tracing::info;
 
 use crate::provider::{ReadProvider, SignedProvider};
 
@@ -22,21 +23,15 @@ use crate::provider::{ReadProvider, SignedProvider};
 #[command(name = "march-madness-populate")]
 #[command(about = "Migrate V1 contract data into V2 contracts")]
 struct Cli {
-    /// V1 MarchMadness contract address (source).
+    /// V1 BracketGroups contract address (source).
+    /// MarchMadness V1 address is derived on-chain via marchMadness().
     #[arg(long)]
     source: Address,
 
-    /// V2 MarchMadnessV2 contract address (target).
+    /// V2 BracketGroupsV2 contract address (target).
+    /// MarchMadnessV2 address is derived on-chain via marchMadness().
     #[arg(long)]
     target: Address,
-
-    /// V1 BracketGroups contract address (source, required for group migration).
-    #[arg(long)]
-    groups_source: Option<Address>,
-
-    /// V2 BracketGroupsV2 contract address (target, required for group migration).
-    #[arg(long)]
-    groups_target: Option<Address>,
 
     /// Block number at which the V1 contract was deployed (for event scanning).
     #[arg(long, default_value = "0")]
@@ -93,7 +88,6 @@ async fn main() -> Result<()> {
 
     let reader = create_reader(&cli.network, &cli.rpc_url)?;
 
-    // dry_run ↔ writer=None: no PRIVATE_KEY needed, no transactions sent
     let writer = if cli.dry_run {
         None
     } else {
@@ -101,6 +95,17 @@ async fn main() -> Result<()> {
             .map_err(|_| eyre::eyre!("PRIVATE_KEY env var is required for non-dry-run mode"))?;
         Some(create_writer(&cli.network, &cli.rpc_url, &pk).await?)
     };
+
+    // Derive MarchMadness addresses from BracketGroups
+    let mm_source = migrate::read_march_madness_addr(&reader, cli.source).await?;
+    let mm_target = migrate::read_march_madness_addr_v2(&reader, cli.target).await?;
+    info!(
+        mm_source = %mm_source,
+        mm_target = %mm_target,
+        bg_source = %cli.source,
+        bg_target = %cli.target,
+        "resolved contract addresses"
+    );
 
     let mut cfg = migrate::MigrateConfig {
         reader: &reader,
@@ -111,25 +116,11 @@ async fn main() -> Result<()> {
     };
 
     if !cli.skip_entries {
-        migrate::run_entries(&mut cfg, cli.source, cli.target).await?;
+        migrate::run_entries(&mut cfg, mm_source, mm_target).await?;
     }
 
     if !cli.skip_groups {
-        let groups_source = match cli.groups_source {
-            Some(addr) => addr,
-            None => {
-                tracing::info!("no --groups-source specified, skipping group migration");
-                return Ok(());
-            }
-        };
-        let groups_target = match cli.groups_target {
-            Some(addr) => addr,
-            None => {
-                tracing::info!("no --groups-target specified, skipping group migration");
-                return Ok(());
-            }
-        };
-        migrate::run_groups(&mut cfg, groups_source, groups_target).await?;
+        migrate::run_groups(&mut cfg, cli.source, cli.target).await?;
     }
 
     Ok(())

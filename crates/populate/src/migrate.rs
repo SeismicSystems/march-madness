@@ -30,6 +30,32 @@ const LOG_BATCH_SIZE: u64 = 10_000;
 /// Concurrent RPC reads for snapshot_entries.
 const SNAPSHOT_CONCURRENCY: usize = 20;
 
+// ── Provider dispatch macros (must be before first use) ─────────────
+
+macro_rules! dispatch_read {
+    ($reader:expr, |$p:ident| $body:expr) => {
+        match $reader {
+            ReadProvider::Reth($p) => $body,
+            ReadProvider::Foundry($p) => $body,
+        }
+    };
+}
+
+macro_rules! dispatch_write {
+    ($writer:expr, $target:expr, $Contract:ident, |$contract:ident| $body:expr) => {
+        match $writer {
+            SignedProvider::Reth(p) => {
+                let $contract = $Contract::new($target, p);
+                $body
+            }
+            SignedProvider::Foundry(p) => {
+                let $contract = $Contract::new($target, p);
+                $body
+            }
+        }
+    };
+}
+
 // ── Entry types ─────────────────────────────────────────────────────
 
 struct SnapshotEntry {
@@ -62,6 +88,35 @@ fn addr_key(addr: Address) -> String {
     format!("{:#x}", addr)
 }
 
+// ── Address derivation ──────────────────────────────────────────────
+
+/// Read the MarchMadness address from a V1 BracketGroups contract.
+pub async fn read_march_madness_addr(reader: &ReadProvider, bg: Address) -> Result<Address> {
+    dispatch_read!(reader, |p| {
+        let contract = BracketGroups::new(bg, p);
+        let addr = contract.marchMadness().call().await?;
+        Ok(addr)
+    })
+}
+
+/// Read the MarchMadness address from a V2 BracketGroupsV2 contract.
+pub async fn read_march_madness_addr_v2(reader: &ReadProvider, bg: Address) -> Result<Address> {
+    dispatch_read!(reader, |p| {
+        let contract = BracketGroupsV2::new(bg, p);
+        let addr = contract.marchMadness().call().await?;
+        Ok(addr)
+    })
+}
+
+/// Read the entry fee from a MarchMadness(V2) contract.
+async fn read_entry_fee(reader: &ReadProvider, mm: Address) -> Result<U256> {
+    dispatch_read!(reader, |p| {
+        let contract = MarchMadnessV2::new(mm, p);
+        let fee = contract.entryFee().call().await?;
+        Ok(fee)
+    })
+}
+
 // ── Entry migration ─────────────────────────────────────────────────
 
 pub async fn run_entries(
@@ -79,6 +134,9 @@ pub async fn run_entries(
         info!("no entries found in V1 contract");
         return Ok(());
     }
+
+    let entry_fee = read_entry_fee(cfg.reader, target).await?;
+    info!(entry_fee = %entry_fee, "V2 entry fee");
 
     let already_done = load_done_set(&mut cfg.redis, KEY_MIGRATE_ENTRIES_DONE)?;
     let already_tagged = load_done_set(&mut cfg.redis, KEY_MIGRATE_TAGS_DONE)?;
@@ -122,7 +180,15 @@ pub async fn run_entries(
     };
 
     if !entries.is_empty() {
-        import_entries_batched(writer, target, &entries, cfg.batch_size, &mut cfg.redis).await?;
+        import_entries_batched(
+            writer,
+            target,
+            &entries,
+            entry_fee,
+            cfg.batch_size,
+            &mut cfg.redis,
+        )
+        .await?;
     }
 
     // Tags imported one at a time — V2 contract has no batch variant
@@ -197,8 +263,15 @@ pub async fn run_groups(
         }
 
         if !group.members.is_empty() {
-            import_members_batched(writer, target, group.id, &group.members, cfg.batch_size)
-                .await?;
+            import_members_batched(
+                writer,
+                target,
+                group.id,
+                &group.members,
+                group.entry_fee,
+                cfg.batch_size,
+            )
+            .await?;
         }
 
         mark_done(
@@ -400,6 +473,7 @@ async fn import_entries_batched(
     writer: &SignedProvider,
     target: Address,
     entries: &[SnapshotEntry],
+    entry_fee: U256,
     batch_size: usize,
     redis: &mut redis::Connection,
 ) -> Result<()> {
@@ -408,15 +482,17 @@ async fn import_entries_batched(
     for (batch_idx, chunk) in entries.chunks(batch_size).enumerate() {
         let addresses: Vec<Address> = chunk.iter().map(|e| e.address).collect();
         let brackets: Vec<FixedBytes<8>> = chunk.iter().map(|e| e.bracket).collect();
+        let payment = entry_fee * U256::from(chunk.len());
 
         info!(
             batch = batch_idx + 1,
             total = total_batches,
             size = chunk.len(),
+            payment = %payment,
             "importing entries batch"
         );
 
-        match send_batch_import_entries(writer, target, addresses, brackets).await {
+        match send_batch_import_entries(writer, target, addresses, brackets, payment).await {
             Ok(()) => {
                 for e in chunk {
                     mark_done(redis, KEY_MIGRATE_ENTRIES_DONE, &addr_key(e.address))?;
@@ -474,6 +550,7 @@ async fn import_members_batched(
     target: Address,
     group_id: u32,
     members: &[(Address, String)],
+    group_entry_fee: U256,
     batch_size: usize,
 ) -> Result<()> {
     let total_batches = members.len().div_ceil(batch_size);
@@ -481,16 +558,18 @@ async fn import_members_batched(
     for (batch_idx, chunk) in members.chunks(batch_size).enumerate() {
         let addrs: Vec<Address> = chunk.iter().map(|(a, _)| *a).collect();
         let names: Vec<String> = chunk.iter().map(|(_, n)| n.clone()).collect();
+        let payment = group_entry_fee * U256::from(chunk.len());
 
         info!(
             group = group_id,
             batch = batch_idx + 1,
             total = total_batches,
             size = chunk.len(),
+            payment = %payment,
             "importing members batch"
         );
 
-        match send_batch_import_members(writer, target, group_id, addrs, names).await {
+        match send_batch_import_members(writer, target, group_id, addrs, names, payment).await {
             Ok(()) => info!(batch = batch_idx + 1, "member batch imported"),
             Err(e) => {
                 warn!(
@@ -516,32 +595,6 @@ fn load_done_set(conn: &mut redis::Connection, key: &str) -> Result<HashSet<Stri
 fn mark_done(conn: &mut redis::Connection, key: &str, value: &str) -> Result<()> {
     let _: () = redis::Commands::sadd(conn, key, value).wrap_err("failed to mark done in Redis")?;
     Ok(())
-}
-
-// ── Provider dispatch macros ────────────────────────────────────────
-
-macro_rules! dispatch_read {
-    ($reader:expr, |$p:ident| $body:expr) => {
-        match $reader {
-            ReadProvider::Reth($p) => $body,
-            ReadProvider::Foundry($p) => $body,
-        }
-    };
-}
-
-macro_rules! dispatch_write {
-    ($writer:expr, $target:expr, $Contract:ident, |$contract:ident| $body:expr) => {
-        match $writer {
-            SignedProvider::Reth(p) => {
-                let $contract = $Contract::new($target, p);
-                $body
-            }
-            SignedProvider::Foundry(p) => {
-                let $contract = $Contract::new($target, p);
-                $body
-            }
-        }
-    };
 }
 
 // ── V1 contract read helpers ────────────────────────────────────────
@@ -605,10 +658,12 @@ async fn send_batch_import_entries(
     target: Address,
     accounts: Vec<Address>,
     brackets: Vec<FixedBytes<8>>,
+    payment: U256,
 ) -> Result<()> {
     dispatch_write!(writer, target, MarchMadnessV2, |contract| {
         let receipt = contract
             .batchImportEntries(accounts, brackets)
+            .value(payment)
             .send()
             .await
             .wrap_err("batchImportEntries send failed")?
@@ -679,10 +734,12 @@ async fn send_batch_import_members(
     group_id: u32,
     addrs: Vec<Address>,
     names: Vec<String>,
+    payment: U256,
 ) -> Result<()> {
     dispatch_write!(writer, target, BracketGroupsV2, |contract| {
         let receipt = contract
             .batchImportMembers(group_id, addrs, names)
+            .value(payment)
             .send()
             .await
             .wrap_err("batchImportMembers send failed")?
