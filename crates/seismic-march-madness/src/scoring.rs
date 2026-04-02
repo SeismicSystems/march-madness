@@ -48,11 +48,10 @@ pub fn get_scoring_mask(results: u64) -> u64 {
 
 /// Reverse the 63 non-sentinel game bits while preserving the sentinel bit.
 ///
-/// Rust and TypeScript currently store brackets in a legacy logical game order
-/// where `game 0 -> bit 62` and `game 62 -> bit 0`. The exact Solidity
-/// `ByteBracket` full scorer consumes the same raw `bytes8` value but scores it
-/// in the opposite 63-bit game order. This helper is the compatibility shim
-/// between those two interpretations.
+/// Converts between legacy encoding (`game 0 → bit 62`) and contract-correct
+/// encoding (`game 0 → bit 0`). Used by migration tooling and
+/// `score_bracket_legacy`. The TypeScript client still uses legacy encoding
+/// until its own migration is complete.
 pub fn reverse_game_bits(bb: u64) -> u64 {
     let mut out = bb & SENTINEL_BIT;
     for i in 0..63u32 {
