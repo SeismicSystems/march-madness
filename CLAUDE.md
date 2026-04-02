@@ -38,7 +38,7 @@
 - **server**: Serves indexed data from Redis via HTTP (entries, groups, mirrors, tournament status, forecasts)
 - **ncaa-api**: NCAA basketball API client (scoreboard + schedule + bracket, rate-limited)
 - **ncaa-feed**: Polls NCAA API, maps games to bracket indices, writes tournament status to Redis (`mm:games` key). Also contains `fetch-bracket` binary for populating `tournament.json` from the NCAA bracket API.
-- **populate**: Migration binary that reads entries/tags/groups from Redis, converts legacy-encoded brackets to contract-correct encoding, and batch-imports into MarchMadnessV2 and BracketGroupsV2 contracts. Idempotent and safe to restart.
+- **populate**: Migration binary that reads entries/tags/groups from V1 contracts (via events + view functions), converts legacy-encoded brackets to contract-correct encoding, and batch-imports into MarchMadnessV2 and BracketGroupsV2. Uses Redis only for progress tracking. Idempotent and safe to restart.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ crates/
   ncaa-api/         — NCAA basketball API client (scoreboard + schedule + bracket)
   ncaa-feed/        — NCAA live score feed + bracket fetcher (fetch-bracket binary)
   mirror-importer/  — Import brackets from external platforms (Yahoo Fantasy) for BracketMirror
-  populate/         — Migration binary: Redis → MarchMadnessV2 + BracketGroupsV2
+  populate/         — Migration binary: V1 contracts → V2 contracts
 data/               — data/{year}/men/ and women/ (tournament.json, kenpom.csv, mappings/)
 data/test-vectors/  — Golden test vectors (bracket-vectors.json) shared by TS, Rust, and Solidity tests
 data/mappings.toml  — Centralized name mappings: kenpom/kalshi/yahoo → NCAA canonical names

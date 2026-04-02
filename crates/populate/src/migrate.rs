@@ -11,6 +11,7 @@ use alloy_provider::Provider;
 use alloy_rpc_types_eth::Filter;
 use alloy_sol_types::SolEvent;
 use eyre::{Result, WrapErr, bail};
+use futures::stream::{self, StreamExt};
 use tracing::{info, warn};
 
 use seismic_march_madness::migration::reverse_game_bits;
@@ -25,6 +26,9 @@ const KEY_MIGRATE_GROUPS_DONE: &str = "mm:migrate:groups_done";
 
 /// Maximum block range per eth_getLogs request.
 const LOG_BATCH_SIZE: u64 = 10_000;
+
+/// Concurrent RPC reads for snapshot_entries.
+const SNAPSHOT_CONCURRENCY: usize = 20;
 
 // ── Entry types ─────────────────────────────────────────────────────
 
@@ -48,16 +52,23 @@ struct SnapshotGroup {
 pub struct MigrateConfig<'a> {
     pub reader: &'a ReadProvider,
     pub writer: Option<&'a SignedProvider>,
-    pub redis_url: &'a str,
+    pub redis: redis::Connection,
     pub from_block: u64,
     pub batch_size: usize,
-    pub dry_run: bool,
+}
+
+/// Canonical address string for Redis keys.
+fn addr_key(addr: Address) -> String {
+    format!("{:#x}", addr)
 }
 
 // ── Entry migration ─────────────────────────────────────────────────
 
-pub async fn run_entries(cfg: &MigrateConfig<'_>, source: Address, target: Address) -> Result<()> {
-    // 1. Discover entry addresses via BracketSubmitted events
+pub async fn run_entries(
+    cfg: &mut MigrateConfig<'_>,
+    source: Address,
+    target: Address,
+) -> Result<()> {
     let addresses = discover_entries(cfg.reader, source, cfg.from_block).await?;
     info!(
         count = addresses.len(),
@@ -69,15 +80,13 @@ pub async fn run_entries(cfg: &MigrateConfig<'_>, source: Address, target: Addre
         return Ok(());
     }
 
-    // 2. Load migration progress from Redis
-    let already_done = load_done_set(cfg.redis_url, KEY_MIGRATE_ENTRIES_DONE)?;
-    let already_tagged = load_done_set(cfg.redis_url, KEY_MIGRATE_TAGS_DONE)?;
+    let already_done = load_done_set(&mut cfg.redis, KEY_MIGRATE_ENTRIES_DONE)?;
+    let already_tagged = load_done_set(&mut cfg.redis, KEY_MIGRATE_TAGS_DONE)?;
 
-    // 3. Snapshot entries from V1 contract (skipping already-done)
     let entries = snapshot_entries(cfg.reader, source, &addresses, &already_done).await?;
     let tags_to_import: Vec<&SnapshotEntry> = entries
         .iter()
-        .filter(|e| e.tag.is_some() && !already_tagged.contains(&format!("{:#x}", e.address)))
+        .filter(|e| e.tag.is_some() && !already_tagged.contains(&addr_key(e.address)))
         .collect();
 
     info!(
@@ -92,35 +101,33 @@ pub async fn run_entries(cfg: &MigrateConfig<'_>, source: Address, target: Addre
         return Ok(());
     }
 
-    if cfg.dry_run {
-        info!(
-            "dry run — would import {} entries and {} tags",
-            entries.len(),
-            tags_to_import.len(),
-        );
-        for e in &entries {
+    let writer = match cfg.writer {
+        Some(w) => w,
+        None => {
             info!(
-                address = %e.address,
-                bracket = %e.bracket,
-                tag = e.tag.as_deref().unwrap_or("<none>"),
-                "would import entry"
+                "dry run — would import {} entries and {} tags",
+                entries.len(),
+                tags_to_import.len(),
             );
+            for e in &entries {
+                info!(
+                    address = %e.address,
+                    bracket = %e.bracket,
+                    tag = e.tag.as_deref().unwrap_or("<none>"),
+                    "would import entry"
+                );
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
+    };
 
-    let writer = cfg
-        .writer
-        .ok_or_else(|| eyre::eyre!("writer required for non-dry-run"))?;
-
-    // 4. Batch import entries
     if !entries.is_empty() {
-        import_entries_batched(writer, target, &entries, cfg.batch_size, cfg.redis_url).await?;
+        import_entries_batched(writer, target, &entries, cfg.batch_size, &mut cfg.redis).await?;
     }
 
-    // 5. Import tags (one at a time — no batch function on contract)
+    // Tags imported one at a time — V2 contract has no batch variant
     if !tags_to_import.is_empty() {
-        import_tags(writer, target, &tags_to_import, cfg.redis_url).await?;
+        import_tags(writer, target, &tags_to_import, &mut cfg.redis).await?;
     }
 
     info!("entry migration complete");
@@ -129,8 +136,11 @@ pub async fn run_entries(cfg: &MigrateConfig<'_>, source: Address, target: Addre
 
 // ── Group migration ─────────────────────────────────────────────────
 
-pub async fn run_groups(cfg: &MigrateConfig<'_>, source: Address, target: Address) -> Result<()> {
-    // 1. Discover group IDs via GroupCreated events
+pub async fn run_groups(
+    cfg: &mut MigrateConfig<'_>,
+    source: Address,
+    target: Address,
+) -> Result<()> {
     let group_ids = discover_groups(cfg.reader, source, cfg.from_block).await?;
     info!(count = group_ids.len(), "discovered groups from V1 events");
 
@@ -139,10 +149,8 @@ pub async fn run_groups(cfg: &MigrateConfig<'_>, source: Address, target: Addres
         return Ok(());
     }
 
-    // 2. Load migration progress from Redis
-    let already_done = load_done_set(cfg.redis_url, KEY_MIGRATE_GROUPS_DONE)?;
+    let already_done = load_done_set(&mut cfg.redis, KEY_MIGRATE_GROUPS_DONE)?;
 
-    // 3. Snapshot groups from V1 contract (skipping already-done)
     let groups = snapshot_groups(cfg.reader, source, &group_ids, &already_done).await?;
     info!(
         groups = groups.len(),
@@ -155,21 +163,20 @@ pub async fn run_groups(cfg: &MigrateConfig<'_>, source: Address, target: Addres
         return Ok(());
     }
 
-    if cfg.dry_run {
-        for g in &groups {
-            info!(
-                id = g.id,
-                slug = g.slug,
-                members = g.members.len(),
-                "would import group"
-            );
+    let writer = match cfg.writer {
+        Some(w) => w,
+        None => {
+            for g in &groups {
+                info!(
+                    id = g.id,
+                    slug = g.slug,
+                    members = g.members.len(),
+                    "would import group"
+                );
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
-
-    let writer = cfg
-        .writer
-        .ok_or_else(|| eyre::eyre!("writer required for non-dry-run"))?;
+    };
 
     for group in &groups {
         info!(
@@ -194,9 +201,8 @@ pub async fn run_groups(cfg: &MigrateConfig<'_>, source: Address, target: Addres
                 .await?;
         }
 
-        // Mark group as done
         mark_done(
-            cfg.redis_url,
+            &mut cfg.redis,
             KEY_MIGRATE_GROUPS_DONE,
             &group.id.to_string(),
         )?;
@@ -208,7 +214,6 @@ pub async fn run_groups(cfg: &MigrateConfig<'_>, source: Address, target: Addres
 
 // ── Event discovery ─────────────────────────────────────────────────
 
-/// Scan BracketSubmitted events to discover all entry addresses.
 async fn discover_entries(
     reader: &ReadProvider,
     source: Address,
@@ -241,7 +246,6 @@ async fn discover_entries(
     Ok(sorted)
 }
 
-/// Scan GroupCreated events to discover all group IDs.
 async fn discover_groups(
     reader: &ReadProvider,
     source: Address,
@@ -276,31 +280,35 @@ async fn discover_groups(
 
 // ── V1 contract reads ───────────────────────────────────────────────
 
-/// Read brackets and tags from V1 for each address, converting to contract-correct encoding.
+/// Read brackets and tags from V1 concurrently, converting to contract-correct encoding.
 async fn snapshot_entries(
     reader: &ReadProvider,
     source: Address,
     addresses: &[Address],
     already_done: &HashSet<String>,
 ) -> Result<Vec<SnapshotEntry>> {
-    let mut entries = Vec::new();
-    let total = addresses.len();
+    let to_read: Vec<Address> = addresses
+        .iter()
+        .copied()
+        .filter(|addr| !already_done.contains(&addr_key(*addr)))
+        .collect();
 
-    for (i, &addr) in addresses.iter().enumerate() {
-        let addr_hex = format!("{:#x}", addr);
-        if already_done.contains(&addr_hex) {
-            continue;
-        }
+    let total = to_read.len();
+    info!(total, "reading V1 entries");
 
-        if (i + 1) % 50 == 0 || i + 1 == total {
-            info!(
-                progress = format!("{}/{}", i + 1, total),
-                "reading V1 entries"
-            );
-        }
+    let results: Vec<_> = stream::iter(to_read)
+        .map(|addr| async move {
+            let bracket = read_bracket(reader, source, addr).await;
+            let tag = read_tag(reader, source, addr).await;
+            (addr, bracket, tag)
+        })
+        .buffer_unordered(SNAPSHOT_CONCURRENCY)
+        .collect()
+        .await;
 
-        // Read bracket from V1 contract
-        let bracket_bytes = match read_bracket(reader, source, addr).await {
+    let mut entries = Vec::with_capacity(results.len());
+    for (addr, bracket_result, tag_result) in results {
+        let bracket_bytes = match bracket_result {
             Ok(b) => b,
             Err(e) => {
                 warn!(address = %addr, error = %e, "failed to read bracket, skipping");
@@ -308,7 +316,6 @@ async fn snapshot_entries(
             }
         };
 
-        // Convert legacy bytes8 → u64, reverse game bits, back to bytes8
         let legacy_bits = u64::from_be_bytes(bracket_bytes.0);
         if legacy_bits == 0 {
             warn!(address = %addr, "bracket is zero, skipping");
@@ -317,8 +324,7 @@ async fn snapshot_entries(
         let contract_bits = reverse_game_bits(legacy_bits);
         let corrected = FixedBytes::<8>::from(contract_bits.to_be_bytes());
 
-        // Read tag
-        let tag = match read_tag(reader, source, addr).await {
+        let tag = match tag_result {
             Ok(t) if !t.is_empty() => Some(t),
             Ok(_) => None,
             Err(e) => {
@@ -334,6 +340,11 @@ async fn snapshot_entries(
         });
     }
 
+    info!(
+        read = entries.len(),
+        skipped = total - entries.len(),
+        "V1 snapshot done"
+    );
     Ok(entries)
 }
 
@@ -351,7 +362,6 @@ async fn snapshot_groups(
             continue;
         }
 
-        // Read group metadata
         let group = match read_group(reader, source, id).await {
             Ok(g) => g,
             Err(e) => {
@@ -360,7 +370,6 @@ async fn snapshot_groups(
             }
         };
 
-        // Read members with names
         let members = match read_members(reader, source, id).await {
             Ok(m) => m,
             Err(e) => {
@@ -369,15 +378,12 @@ async fn snapshot_groups(
             }
         };
 
-        let creator: Address = group.creator;
-        let entry_fee: U256 = group.entryFee;
-
         groups.push(SnapshotGroup {
             id,
             slug: group.slug.clone(),
             display_name: group.displayName.clone(),
-            creator,
-            entry_fee,
+            creator: group.creator,
+            entry_fee: group.entryFee,
             members: members
                 .into_iter()
                 .map(|m| (m.addr, m.name.clone()))
@@ -395,7 +401,7 @@ async fn import_entries_batched(
     target: Address,
     entries: &[SnapshotEntry],
     batch_size: usize,
-    redis_url: &str,
+    redis: &mut redis::Connection,
 ) -> Result<()> {
     let total_batches = entries.len().div_ceil(batch_size);
 
@@ -412,13 +418,8 @@ async fn import_entries_batched(
 
         match send_batch_import_entries(writer, target, addresses, brackets).await {
             Ok(()) => {
-                // Mark each entry as done
                 for e in chunk {
-                    mark_done(
-                        redis_url,
-                        KEY_MIGRATE_ENTRIES_DONE,
-                        &format!("{:#x}", e.address),
-                    )?;
+                    mark_done(redis, KEY_MIGRATE_ENTRIES_DONE, &addr_key(e.address))?;
                 }
                 info!(batch = batch_idx + 1, "batch imported successfully");
             }
@@ -439,7 +440,7 @@ async fn import_tags(
     writer: &SignedProvider,
     target: Address,
     entries: &[&SnapshotEntry],
-    redis_url: &str,
+    redis: &mut redis::Connection,
 ) -> Result<()> {
     let total = entries.len();
     let mut imported = 0;
@@ -454,11 +455,7 @@ async fn import_tags(
 
         match send_import_tag(writer, target, entry.address, tag.to_string()).await {
             Ok(()) => {
-                mark_done(
-                    redis_url,
-                    KEY_MIGRATE_TAGS_DONE,
-                    &format!("{:#x}", entry.address),
-                )?;
+                mark_done(redis, KEY_MIGRATE_TAGS_DONE, &addr_key(entry.address))?;
                 imported += 1;
             }
             Err(e) => {
@@ -511,22 +508,13 @@ async fn import_members_batched(
 
 // ── Redis progress tracking ─────────────────────────────────────────
 
-fn load_done_set(redis_url: &str, key: &str) -> Result<HashSet<String>> {
-    let client = redis::Client::open(redis_url).wrap_err("failed to open Redis client")?;
-    let mut conn = client
-        .get_connection()
-        .wrap_err("failed to connect to Redis")?;
-    let members: HashSet<String> = redis::Commands::smembers(&mut conn, key).unwrap_or_default();
+fn load_done_set(conn: &mut redis::Connection, key: &str) -> Result<HashSet<String>> {
+    let members: HashSet<String> = redis::Commands::smembers(conn, key).unwrap_or_default();
     Ok(members)
 }
 
-fn mark_done(redis_url: &str, key: &str, value: &str) -> Result<()> {
-    let client = redis::Client::open(redis_url).wrap_err("failed to open Redis client")?;
-    let mut conn = client
-        .get_connection()
-        .wrap_err("failed to connect to Redis")?;
-    let _: () =
-        redis::Commands::sadd(&mut conn, key, value).wrap_err("failed to mark done in Redis")?;
+fn mark_done(conn: &mut redis::Connection, key: &str, value: &str) -> Result<()> {
+    let _: () = redis::Commands::sadd(conn, key, value).wrap_err("failed to mark done in Redis")?;
     Ok(())
 }
 

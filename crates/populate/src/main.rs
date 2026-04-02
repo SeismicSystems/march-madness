@@ -13,7 +13,7 @@ mod provider;
 
 use alloy_primitives::Address;
 use clap::Parser;
-use eyre::Result;
+use eyre::{Result, WrapErr};
 use seismic_march_madness::redis_keys::DEFAULT_REDIS_URL;
 
 use crate::provider::{ReadProvider, SignedProvider};
@@ -86,11 +86,14 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
+    let redis_client = redis::Client::open(redis_url.as_str()).wrap_err("invalid REDIS_URL")?;
+    let redis_conn = redis_client
+        .get_connection()
+        .wrap_err("failed to connect to Redis")?;
 
-    // Read provider for V1 source (unsigned — only needs eth_call + eth_getLogs)
     let reader = create_reader(&cli.network, &cli.rpc_url)?;
 
-    // Signed provider for V2 target (needs to send transactions)
+    // dry_run ↔ writer=None: no PRIVATE_KEY needed, no transactions sent
     let writer = if cli.dry_run {
         None
     } else {
@@ -99,17 +102,16 @@ async fn main() -> Result<()> {
         Some(create_writer(&cli.network, &cli.rpc_url, &pk).await?)
     };
 
-    let cfg = migrate::MigrateConfig {
+    let mut cfg = migrate::MigrateConfig {
         reader: &reader,
         writer: writer.as_ref(),
-        redis_url: &redis_url,
+        redis: redis_conn,
         from_block: cli.from_block,
         batch_size: cli.batch_size,
-        dry_run: cli.dry_run,
     };
 
     if !cli.skip_entries {
-        migrate::run_entries(&cfg, cli.source, cli.target).await?;
+        migrate::run_entries(&mut cfg, cli.source, cli.target).await?;
     }
 
     if !cli.skip_groups {
@@ -127,7 +129,7 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
         };
-        migrate::run_groups(&cfg, groups_source, groups_target).await?;
+        migrate::run_groups(&mut cfg, groups_source, groups_target).await?;
     }
 
     Ok(())

@@ -10,13 +10,10 @@ use alloy_sol_types::sol;
 sol! {
     #[sol(rpc)]
     contract MarchMadness {
-        function hasEntry(address account) external view returns (bool);
-        function getEntryCount() external view returns (uint32);
         function getBracket(address account) external view returns (bytes8);
         function getTag(address account) external view returns (string);
 
         event BracketSubmitted(address indexed account);
-        event TagSet(address indexed account, string tag);
     }
 }
 
@@ -53,13 +50,8 @@ sol! {
 sol! {
     #[sol(rpc)]
     contract MarchMadnessV2 {
-        function hasEntry(address account) external view returns (bool);
-        function getEntryCount() external view returns (uint32);
-
         function batchImportEntries(address[] calldata accounts, bytes8[] calldata bracketList) external;
         function importTag(address account, string calldata tag) external;
-
-        function fund() external payable;
     }
 }
 
@@ -80,7 +72,5 @@ sol! {
             address[] calldata addrs,
             string[] calldata names
         ) external;
-
-        function fund() external payable;
     }
 }

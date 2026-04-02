@@ -3296,6 +3296,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "eyre",
+ "futures",
  "redis",
  "seismic-alloy-network",
  "seismic-alloy-provider",
