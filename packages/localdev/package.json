@@ -6,8 +6,7 @@
   "scripts": {
     "populate": "bun run src/populate.ts",
     "yahoo-mirror": "bun run src/yahoo-mirror.ts",
-    "migrate-entries": "bun run src/migrate-entries.ts",
-    "test": "bun test",
+"test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint:check": "echo 'lint:check not yet configured'",
     "build": "echo 'build not yet configured'"
