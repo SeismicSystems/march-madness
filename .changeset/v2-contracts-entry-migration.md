@@ -1,6 +1,5 @@
 ---
 "@march-madness/client": patch
-"@march-madness/localdev": patch
 ---
 
 Add MarchMadnessV2 and BracketGroupsV2 contracts with owner-only import surface for the legacy encoding migration (steps 3 & 4 of #251).
@@ -14,4 +13,3 @@ Add MarchMadnessV2 and BracketGroupsV2 contracts with owner-only import surface 
 **Scripts:**
 
 - `scripts/deploy-v2.sh` / `bun deploy:v2` — deploy both V2 contracts to testnet
-- `packages/localdev/src/migrate-entries.ts` / `bun migrate:entries` — snapshot V1 brackets, apply 63-bit reversal, batch-import into V2, write manifest JSON
