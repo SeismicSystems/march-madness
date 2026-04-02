@@ -1,0 +1,1 @@
+nah keep the deploy script in here... i just want to get the migration in its own pr

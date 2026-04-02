@@ -18,7 +18,7 @@ contract MarchMadness is IMarchMadness {
     uint256 public submissionDeadline; // unix timestamp
 
     // ── State ──────────────────────────────────────────────────────────────
-    mapping(address => sbytes8) private brackets; // SHIELDED bracket storage
+    mapping(address => sbytes8) internal brackets; // SHIELDED bracket storage
     mapping(address => bool) public hasEntry; // unshielded — publicly readable
     mapping(address => string) public tags; // optional display name
     mapping(address => uint8) public scores;
@@ -108,7 +108,7 @@ contract MarchMadness is IMarchMadness {
     /// @dev THIS IS THE MOST SECURITY-CRITICAL FUNCTION.
     /// @param account  The address whose bracket to read.
     /// @return The bracket as bytes8 (unshielded).
-    function getBracket(address account) public view returns (bytes8) {
+    function getBracket(address account) public view virtual returns (bytes8) {
         if (block.timestamp < submissionDeadline) {
             if (msg.sender != account) revert CannotReadBracketBeforeDeadline();
         }
@@ -211,5 +211,27 @@ contract MarchMadness is IMarchMadness {
 
     function getTag(address account) external view returns (string memory) {
         return tags[account];
+    }
+
+    // ── Scoring Preview ────────────────────────────────────────────────────
+
+    /// @notice Compute the score an account would receive against candidate results,
+    ///         without mutating any state. Use this to validate raw results bytes
+    ///         before calling `submitResults` / `scoreBracket`.
+    ///
+    /// @dev    Pre-deadline privacy is preserved: `getBracket` enforces the
+    ///         msg.sender == account check before the deadline. The sentinel on
+    ///         `rawResults` is validated here to catch encoding mistakes early.
+    ///
+    /// @param account     The entrant to preview.
+    /// @param rawResults  Candidate results bytes8 (must have sentinel bit set).
+    /// @return            The score (0–192) the account would receive.
+    function previewScore(address account, bytes8 rawResults) external view returns (uint8) {
+        if (!hasEntry[account]) revert NoBracketSubmitted();
+        if (rawResults[0] & 0x80 == 0) revert InvalidSentinelByte();
+        bytes8 bracket = getBracket(account);
+        if (bracket[0] & 0x80 == 0) revert NoBracketSubmitted();
+        uint64 mask = ByteBracket.getScoringMask(rawResults);
+        return ByteBracket.getBracketScore(bracket, rawResults, mask);
     }
 }
