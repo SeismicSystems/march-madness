@@ -1,11 +1,11 @@
-//! `march-madness-populate` — migrate Redis data into V2 contracts.
+//! `march-madness-populate` — migrate V1 contract data into V2 contracts.
 //!
-//! Reads bracket entries, tags, and groups from Redis, converts legacy-encoded
-//! brackets to contract-correct encoding via `reverse_game_bits()`, and
-//! batch-imports them into MarchMadnessV2 and BracketGroupsV2.
+//! Reads entries, tags, groups, and members directly from V1 contracts
+//! (MarchMadness + BracketGroups), converts legacy-encoded brackets to
+//! contract-correct encoding, and batch-imports into V2 contracts.
 //!
-//! Idempotent: checks `hasEntry()` on-chain before importing entries, and
-//! `batchImportEntries`/`batchImportMembers` skip already-present items.
+//! Uses Redis only for tracking migration progress (new keys scoped to
+//! the migration). The V1 contract is the source of truth.
 
 mod contract;
 mod migrate;
@@ -16,19 +16,31 @@ use clap::Parser;
 use eyre::Result;
 use seismic_march_madness::redis_keys::DEFAULT_REDIS_URL;
 
-use crate::provider::SignedProvider;
+use crate::provider::{ReadProvider, SignedProvider};
 
 #[derive(Parser)]
 #[command(name = "march-madness-populate")]
-#[command(about = "Migrate Redis bracket data into MarchMadnessV2 and BracketGroupsV2 contracts")]
+#[command(about = "Migrate V1 contract data into V2 contracts")]
 struct Cli {
-    /// MarchMadnessV2 contract address.
+    /// V1 MarchMadness contract address (source).
+    #[arg(long)]
+    source: Address,
+
+    /// V2 MarchMadnessV2 contract address (target).
     #[arg(long)]
     target: Address,
 
-    /// BracketGroupsV2 contract address (required for group migration).
+    /// V1 BracketGroups contract address (source, required for group migration).
+    #[arg(long)]
+    groups_source: Option<Address>,
+
+    /// V2 BracketGroupsV2 contract address (target, required for group migration).
     #[arg(long)]
     groups_target: Option<Address>,
+
+    /// Block number at which the V1 contract was deployed (for event scanning).
+    #[arg(long, default_value = "0")]
+    from_block: u64,
 
     /// RPC URL for the Seismic node.
     #[arg(long, env = "RPC_URL", default_value = "http://localhost:8545")]
@@ -75,34 +87,39 @@ async fn main() -> Result<()> {
 
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
 
-    let provider = if cli.dry_run {
-        match std::env::var("PRIVATE_KEY") {
-            Ok(pk) => Some(create_provider(&cli.network, &cli.rpc_url, &pk).await?),
-            Err(_) => {
-                tracing::warn!(
-                    "PRIVATE_KEY not set; dry-run will show all Redis entries without on-chain filtering"
-                );
-                None
-            }
-        }
+    // Read provider for V1 source (unsigned — only needs eth_call + eth_getLogs)
+    let reader = create_reader(&cli.network, &cli.rpc_url)?;
+
+    // Signed provider for V2 target (needs to send transactions)
+    let writer = if cli.dry_run {
+        None
     } else {
         let pk = std::env::var("PRIVATE_KEY")
             .map_err(|_| eyre::eyre!("PRIVATE_KEY env var is required for non-dry-run mode"))?;
-        Some(create_provider(&cli.network, &cli.rpc_url, &pk).await?)
+        Some(create_writer(&cli.network, &cli.rpc_url, &pk).await?)
+    };
+
+    let cfg = migrate::MigrateConfig {
+        reader: &reader,
+        writer: writer.as_ref(),
+        redis_url: &redis_url,
+        from_block: cli.from_block,
+        batch_size: cli.batch_size,
+        dry_run: cli.dry_run,
     };
 
     if !cli.skip_entries {
-        migrate::run_entries(
-            provider.as_ref(),
-            cli.target,
-            &redis_url,
-            cli.batch_size,
-            cli.dry_run,
-        )
-        .await?;
+        migrate::run_entries(&cfg, cli.source, cli.target).await?;
     }
 
     if !cli.skip_groups {
+        let groups_source = match cli.groups_source {
+            Some(addr) => addr,
+            None => {
+                tracing::info!("no --groups-source specified, skipping group migration");
+                return Ok(());
+            }
+        };
         let groups_target = match cli.groups_target {
             Some(addr) => addr,
             None => {
@@ -110,20 +127,20 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
         };
-        migrate::run_groups(
-            provider.as_ref(),
-            groups_target,
-            &redis_url,
-            cli.batch_size,
-            cli.dry_run,
-        )
-        .await?;
+        migrate::run_groups(&cfg, groups_source, groups_target).await?;
     }
 
     Ok(())
 }
 
-async fn create_provider(
+fn create_reader(network: &NetworkBackend, rpc_url: &str) -> Result<ReadProvider> {
+    match network {
+        NetworkBackend::Reth => ReadProvider::new_reth(rpc_url),
+        NetworkBackend::Foundry => ReadProvider::new_foundry(rpc_url),
+    }
+}
+
+async fn create_writer(
     network: &NetworkBackend,
     rpc_url: &str,
     private_key: &str,

@@ -1,22 +1,43 @@
-//! Signed Seismic provider for the populate binary.
+//! Seismic provider helpers for the populate binary.
 //!
-//! Wraps either SeismicReth (production/testnet) or SeismicFoundry (sanvil)
-//! as a signed provider capable of sending transactions.
+//! `ReadProvider` — unsigned, for reading V1 source contracts.
+//! `SignedProvider` — signed, for writing to V2 target contracts.
 
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest;
 use eyre::{Result, WrapErr};
 use seismic_alloy_network::{SeismicReth, foundry::SeismicFoundry, wallet::SeismicWallet};
-use seismic_alloy_provider::{SeismicProviderBuilder, SeismicSignedProvider};
+use seismic_alloy_provider::{
+    SeismicProviderBuilder, SeismicSignedProvider, SeismicUnsignedProvider,
+};
 
-/// Network-agnostic signed provider.
+/// Unsigned provider for reading source contracts.
+pub enum ReadProvider {
+    Reth(SeismicUnsignedProvider<SeismicReth>),
+    Foundry(SeismicUnsignedProvider<SeismicFoundry>),
+}
+
+impl ReadProvider {
+    pub fn new_reth(rpc_url: &str) -> Result<Self> {
+        let url: reqwest::Url = rpc_url.parse().wrap_err("invalid RPC URL")?;
+        Ok(Self::Reth(SeismicProviderBuilder::new().connect_http(url)))
+    }
+
+    pub fn new_foundry(rpc_url: &str) -> Result<Self> {
+        let url: reqwest::Url = rpc_url.parse().wrap_err("invalid RPC URL")?;
+        Ok(Self::Foundry(
+            SeismicProviderBuilder::new().foundry().connect_http(url),
+        ))
+    }
+}
+
+/// Signed provider for writing to target contracts.
 pub enum SignedProvider {
     Reth(SeismicSignedProvider<SeismicReth>),
     Foundry(SeismicSignedProvider<SeismicFoundry>),
 }
 
 impl SignedProvider {
-    /// Create a signed provider for SeismicReth (production / testnet).
     pub async fn new_reth(rpc_url: &str, private_key: &str) -> Result<Self> {
         let url: reqwest::Url = rpc_url.parse().wrap_err("invalid RPC URL")?;
         let signer: PrivateKeySigner = private_key.parse().wrap_err("invalid private key")?;
@@ -29,7 +50,6 @@ impl SignedProvider {
         Ok(Self::Reth(provider))
     }
 
-    /// Create a signed provider for SeismicFoundry / sanvil (local development).
     pub async fn new_foundry(rpc_url: &str, private_key: &str) -> Result<Self> {
         let url: reqwest::Url = rpc_url.parse().wrap_err("invalid RPC URL")?;
         let signer: PrivateKeySigner = private_key.parse().wrap_err("invalid private key")?;
