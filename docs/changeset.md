@@ -2,6 +2,14 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+feat: Add tournament results submission tooling
+
+- **compute-results** binary (`crates/ncaa-feed`): Fetches completed bracket from the NCAA API, determines all 63 game outcomes, and encodes results as bytes8 hex for `submitResults(bytes8)`.
+- **submit-results** script (`packages/localdev`): TypeScript script using seismic-viem and the client library to preview scores via on-chain `previewScore()`, cross-check with off-chain scoring, display a ranked leaderboard, and submit results with confirmation. Supports `--score-all` to score every bracket after submission.
+- **previewScore** added to `MarchMadnessPublicClient` in the client library.
+- **ABI regenerated** — now includes `previewScore`, `collectEntryFee`, `RESULTS_DEADLINE`, `hasCollectedEntryFee`.
+
+
 Deploy MarchMadnessV2 and BracketGroupsV2 to testnet (chain 5124). Enable Solidity optimizer (200 runs) in foundry.toml — required to keep BracketGroupsV2 under the EIP-170 24576-byte limit. Fix deploy-v2.sh to invoke sforge directly without mise.
 
 fix(client,web): correct TypeScript bracket encoding to match Solidity ByteBracket bit layout
