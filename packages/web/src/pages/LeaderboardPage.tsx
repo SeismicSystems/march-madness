@@ -11,11 +11,14 @@ import {
   LeaderboardTable,
   type LeaderboardRow,
 } from "../components/LeaderboardTable";
+import { WinningsBanner } from "../components/WinningsBanner";
 import { useEntries } from "../hooks/useEntries";
 import { useForecasts } from "../hooks/useForecasts";
 import { useGroupForecasts } from "../hooks/useGroupForecasts";
 import { useGroupMembers } from "../hooks/useGroupMembers";
+import { useGroupWinningsState } from "../hooks/useGroupWinningsState";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
+import { useWinningsState } from "../hooks/useWinningsState";
 import {
   displayName,
   getAllTeamsInBracketOrder,
@@ -35,6 +38,8 @@ function getChampionName(hex: `0x${string}`): string {
 export function LeaderboardPage() {
   const { slug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
+  const winningsState = useWinningsState();
+  const groupWinningsState = useGroupWinningsState(slug);
   const { entries, loading: entriesLoading } = useEntries();
   const { status, loading: statusLoading } = useTournamentStatus();
   const { forecasts: globalForecasts } = useForecasts();
@@ -48,8 +53,7 @@ export function LeaderboardPage() {
     notFound: groupNotFound,
   } = useGroupMembers(slug);
 
-  const hasForecasts =
-    forecasts !== null && Object.keys(forecasts).length > 0;
+  const hasForecasts = forecasts !== null && Object.keys(forecasts).length > 0;
 
   const rows = useMemo((): LeaderboardRow[] => {
     if (!entries) return [];
@@ -113,13 +117,20 @@ export function LeaderboardPage() {
   }
 
   return (
-    <LeaderboardTable
-      rows={rows}
-      title={slug ? `${groupName ?? slug} Leaderboard` : "Leaderboard"}
-      backLink={slug ? { to: "/leaderboard", label: "All" } : undefined}
-      status={status}
-      hasForecasts={hasForecasts}
-      onRowClick={(row) => navigate(`/bracket/${row.id}`)}
-    />
+    <>
+      {slug ? (
+        <WinningsBanner type="group" state={groupWinningsState} />
+      ) : (
+        <WinningsBanner type="main" state={winningsState} />
+      )}
+      <LeaderboardTable
+        rows={rows}
+        title={slug ? `${groupName ?? slug} Leaderboard` : "Leaderboard"}
+        backLink={slug ? { to: "/leaderboard", label: "All" } : undefined}
+        status={status}
+        hasForecasts={hasForecasts}
+        onRowClick={(row) => navigate(`/bracket/${row.id}`)}
+      />
+    </>
   );
 }
