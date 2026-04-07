@@ -108,6 +108,16 @@ export const MarchMadnessAbi = [
   },
   {
     "inputs": [],
+    "name": "ResultsSubmissionWindowClosed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ResultsWindowStillOpen",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ScoringWindowClosed",
     "type": "error"
   },
@@ -216,6 +226,19 @@ export const MarchMadnessAbi = [
   },
   {
     "inputs": [],
+    "name": "RESULTS_DEADLINE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "SCORING_DURATION",
     "outputs": [
       {
@@ -225,6 +248,13 @@ export const MarchMadnessAbi = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "collectEntryFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -344,6 +374,25 @@ export const MarchMadnessAbi = [
         "type": "address"
       }
     ],
+    "name": "hasCollectedEntryFee",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "name": "hasCollectedWinnings",
     "outputs": [
       {
@@ -440,6 +489,30 @@ export const MarchMadnessAbi = [
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes8",
+        "name": "rawResults",
+        "type": "bytes8"
+      }
+    ],
+    "name": "previewScore",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",

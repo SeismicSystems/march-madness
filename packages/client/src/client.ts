@@ -147,6 +147,15 @@ export class MarchMadnessPublicClient {
   async getResultsPostedAt(opts: ReadOptions = {}): Promise<bigint> {
     return this.contract.read.resultsPostedAt(opts);
   }
+
+  /** Preview what score an account would receive against candidate results. */
+  async previewScore(
+    account: Address,
+    rawResults: `0x${string}`,
+    opts: ReadOptions = {},
+  ): Promise<number> {
+    return this.contract.read.previewScore([account, rawResults], opts);
+  }
 }
 
 // ── UserClient ─────────────────────────────────────────────────────

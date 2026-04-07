@@ -6,6 +6,7 @@
   "scripts": {
     "populate": "bun run src/populate.ts",
     "yahoo-mirror": "bun run src/yahoo-mirror.ts",
+    "submit-results": "bun run src/submit-results.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint:check": "echo 'lint:check not yet configured'",
