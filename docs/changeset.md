@@ -2,6 +2,9 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+Add `score-brackets` script for on-chain bracket scoring after results submission. Scores main pool entries and group entries, with `--dry-run`, `--main-only`, and `--groups-only` flags.
+
+
 feat: Add tournament results submission tooling
 
 - **compute-results** binary (`crates/ncaa-feed`): Fetches completed bracket from the NCAA API, determines all 63 game outcomes, and encodes results as bytes8 hex for `submitResults(bytes8)`.
