@@ -3,9 +3,9 @@
  *
  * Workflow:
  *   1. Accept results bytes8 via --results flag (compute-results binary provides this)
- *   2. Fetch all entries from the server API
- *   3. Preview each bracket's score on-chain via previewScore(address, results)
- *   4. Display sorted leaderboard with predicted scores
+ *   2. Fetch all entries + groups from the server API
+ *   3. Score every bracket off-chain, then verify a sample on-chain via previewScore
+ *   4. Display main pool leaderboard + per-group leaderboards with winners
  *   5. Submit results on-chain (unless --preview-only)
  *
  * Usage:
@@ -78,12 +78,75 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-// ── Entry fetching ───────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────
+
+type ScoreEntry = {
+  address: Address;
+  name: string;
+  bracket: string;
+  score: number;
+};
+
+type GroupResponse = {
+  id: string;
+  slug: string;
+  display_name: string;
+  creator: string;
+  has_password: boolean;
+  member_count: number;
+  entry_fee: string;
+};
+
+// ── Server API fetching ─────────────────────────────────────────────
 
 async function fetchEntries(apiBase: string): Promise<EntryIndex> {
   const res = await fetch(`${apiBase}/entries`);
   if (!res.ok) throw new Error(`Failed to fetch entries: ${res.status} ${res.statusText}`);
   return (await res.json()) as EntryIndex;
+}
+
+async function fetchGroups(apiBase: string): Promise<GroupResponse[]> {
+  const res = await fetch(`${apiBase}/groups`);
+  if (!res.ok) throw new Error(`Failed to fetch groups: ${res.status} ${res.statusText}`);
+  return (await res.json()) as GroupResponse[];
+}
+
+async function fetchGroupMembers(apiBase: string, slug: string): Promise<string[]> {
+  const res = await fetch(`${apiBase}/groups/${slug}/members`);
+  if (!res.ok) throw new Error(`Failed to fetch members for group ${slug}: ${res.status}`);
+  return (await res.json()) as string[];
+}
+
+// ── Display helpers ──────────────────────────────────────────────────
+
+function printLeaderboard(entries: ScoreEntry[], opts?: { compact?: boolean }) {
+  const compact = opts?.compact ?? false;
+  const rankWidth = 4;
+  const nameWidth = compact ? 20 : 25;
+  const addrWidth = 12;
+
+  console.log(
+    `${"Rank".padEnd(rankWidth)}  ${"Name".padEnd(nameWidth)}  ${"Address".padEnd(addrWidth)}  ${"Score".padStart(5)}`,
+  );
+  console.log(
+    `${"─".repeat(rankWidth)}  ${"─".repeat(nameWidth)}  ${"─".repeat(addrWidth)}  ${"─".repeat(5)}`,
+  );
+
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const rank = String(i + 1).padEnd(rankWidth);
+    const name = (e.name || "—").slice(0, nameWidth).padEnd(nameWidth);
+    const addr = `${e.address.slice(0, 6)}…${e.address.slice(-4)}`.padEnd(addrWidth);
+    const score = String(e.score).padStart(5);
+    console.log(`${rank}  ${name}  ${addr}  ${score}`);
+  }
+}
+
+function getWinnerInfo(entries: ScoreEntry[]): { winningScore: number; numWinners: number; winners: ScoreEntry[] } {
+  if (entries.length === 0) return { winningScore: 0, numWinners: 0, winners: [] };
+  const winningScore = entries[0].score;
+  const winners = entries.filter((e) => e.score === winningScore);
+  return { winningScore, numWinners: winners.length, winners };
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -188,95 +251,122 @@ async function main() {
   ) as Address[];
   console.log(`Found ${addresses.length} entries with brackets\n`);
 
-  // ── Preview scores on-chain ──────────────────────────────────────
-  console.log("=== Previewing scores via previewScore(address, bytes8) ===\n");
+  // ── Score all brackets off-chain ─────────────────────────────────
+  console.log("=== Scoring all brackets (off-chain) ===\n");
 
-  type ScoreEntry = {
-    address: Address;
-    name: string;
-    bracket: string;
-    onChainScore: number;
-    offChainScore: number;
-    match: boolean;
-  };
-
-  const scoreEntries: ScoreEntry[] = [];
+  const scoreByAddress = new Map<string, ScoreEntry>();
 
   for (const addr of addresses) {
     const entry = entries[addr];
     const bracket = entry.bracket!;
     const name = entry.name || "";
-
-    // On-chain preview via contract
-    let onChainScore: number;
-    try {
-      onChainScore = await mmPublic.previewScore(addr, resultsHex);
-    } catch (e: any) {
-      console.error(`  previewScore failed for ${addr}: ${e.message}`);
-      onChainScore = -1;
-    }
-
-    // Off-chain scoring for cross-check
-    const offChainScore = scoreBracket(bracket as `0x${string}`, resultsHex);
-
-    const match = onChainScore === offChainScore;
-    if (!match) {
-      console.error(
-        `  MISMATCH: ${addr} on-chain=${onChainScore} off-chain=${offChainScore}`,
-      );
-    }
-
-    scoreEntries.push({ address: addr, name, bracket, onChainScore, offChainScore, match });
+    const score = scoreBracket(bracket as `0x${string}`, resultsHex);
+    const se: ScoreEntry = { address: addr, name, bracket, score };
+    scoreByAddress.set(addr.toLowerCase(), se);
   }
 
-  // Sort by score descending
-  scoreEntries.sort((a, b) => b.onChainScore - a.onChainScore);
+  // Build sorted main pool leaderboard
+  const mainPool = [...scoreByAddress.values()].sort((a, b) => b.score - a.score);
 
-  // Display leaderboard
-  const rankWidth = 4;
-  const nameWidth = 25;
-  const addrWidth = 12;
-
-  console.log(
-    `${"Rank".padEnd(rankWidth)}  ${"Name".padEnd(nameWidth)}  ${"Address".padEnd(addrWidth)}  ${"Score".padStart(5)}  ${"Off-chain".padStart(9)}  Match`,
-  );
-  console.log(
-    `${"─".repeat(rankWidth)}  ${"─".repeat(nameWidth)}  ${"─".repeat(addrWidth)}  ${"─".repeat(5)}  ${"─".repeat(9)}  ${"─".repeat(5)}`,
-  );
-
-  let winningScore = 0;
-  let numWinners = 0;
-
-  for (let i = 0; i < scoreEntries.length; i++) {
-    const e = scoreEntries[i];
-    const rank = String(i + 1).padEnd(rankWidth);
-    const name = (e.name || "—").slice(0, nameWidth).padEnd(nameWidth);
-    const addr = `${e.address.slice(0, 6)}…${e.address.slice(-4)}`.padEnd(addrWidth);
-    const score = String(e.onChainScore).padStart(5);
-    const offChain = String(e.offChainScore).padStart(9);
-    const matchStr = e.match ? "  ✓" : "  ✗ MISMATCH";
-
-    console.log(`${rank}  ${name}  ${addr}  ${score}  ${offChain}  ${matchStr}`);
-
-    if (i === 0) {
-      winningScore = e.onChainScore;
-      numWinners = 1;
-    } else if (e.onChainScore === winningScore) {
-      numWinners++;
+  // ── On-chain verification (sample) ───────────────────────────────
+  // Verify a few brackets on-chain to confirm contract agrees with our scoring.
+  const VERIFY_COUNT = Math.min(5, mainPool.length);
+  if (VERIFY_COUNT > 0) {
+    console.log(`Verifying ${VERIFY_COUNT} brackets on-chain via previewScore...`);
+    let allMatch = true;
+    for (let i = 0; i < VERIFY_COUNT; i++) {
+      const e = mainPool[i];
+      try {
+        const onChainScore = await mmPublic.previewScore(e.address, resultsHex);
+        const match = onChainScore === e.score;
+        const label = e.name || `${e.address.slice(0, 10)}...`;
+        console.log(
+          `  ${label}: off-chain=${e.score} on-chain=${onChainScore} ${match ? "✓" : "✗ MISMATCH"}`,
+        );
+        if (!match) allMatch = false;
+      } catch (err: any) {
+        console.error(`  previewScore failed for ${e.address}: ${err.message}`);
+        allMatch = false;
+      }
+    }
+    if (!allMatch) {
+      console.error("\nWARNING: On-chain/off-chain score mismatch detected!");
+      console.error("Do NOT submit until mismatches are resolved.\n");
+    } else {
+      console.log("  All verified ✓\n");
     }
   }
 
-  const mismatches = scoreEntries.filter((e) => !e.match);
+  // ── Main pool leaderboard ────────────────────────────────────────
+  console.log("=== MAIN POOL ===\n");
+  printLeaderboard(mainPool);
+
+  const mainWinners = getWinnerInfo(mainPool);
   console.log("");
-  console.log(`Winning score: ${winningScore}/192 (${numWinners} winner(s))`);
-  if (numWinners > 0) {
-    const payout = (entryFee * BigInt(entryCount)) / BigInt(numWinners);
+  console.log(`Winning score: ${mainWinners.winningScore}/192 (${mainWinners.numWinners} winner(s))`);
+  if (mainWinners.numWinners > 0) {
+    const payout = (entryFee * BigInt(entryCount)) / BigInt(mainWinners.numWinners);
     console.log(`Payout per winner: ${formatEther(payout)} ETH`);
+    for (const w of mainWinners.winners) {
+      console.log(`  ${w.name || w.address} — ${w.score} pts`);
+    }
   }
 
-  if (mismatches.length > 0) {
-    console.error(`\nWARNING: ${mismatches.length} on-chain/off-chain score mismatch(es)!`);
-    console.error("Do NOT submit until mismatches are resolved.");
+  // ── Group leaderboards ───────────────────────────────────────────
+  let groups: GroupResponse[] = [];
+  try {
+    groups = await fetchGroups(apiBase);
+  } catch (e) {
+    console.error(`\nFailed to fetch groups: ${e}`);
+  }
+
+  if (groups.length > 0) {
+    console.log(`\n${"═".repeat(60)}`);
+    console.log(`=== GROUPS (${groups.length}) ===`);
+    console.log(`${"═".repeat(60)}`);
+
+    for (const group of groups) {
+      let members: string[];
+      try {
+        members = await fetchGroupMembers(apiBase, group.slug);
+      } catch {
+        console.error(`\n  Could not fetch members for group "${group.display_name}"`);
+        continue;
+      }
+
+      // Build group leaderboard from scored entries
+      const groupEntries: ScoreEntry[] = [];
+      for (const memberAddr of members) {
+        const se = scoreByAddress.get(memberAddr.toLowerCase());
+        if (se) {
+          groupEntries.push(se);
+        }
+      }
+
+      groupEntries.sort((a, b) => b.score - a.score);
+
+      const groupFee = BigInt(group.entry_fee);
+      const groupPrizePool = groupFee * BigInt(members.length);
+
+      console.log(`\n--- ${group.display_name} (${group.slug}) ---`);
+      console.log(`  Members: ${members.length}  |  Entry fee: ${formatEther(groupFee)} ETH  |  Prize pool: ${formatEther(groupPrizePool)} ETH`);
+
+      if (groupEntries.length === 0) {
+        console.log("  No scored entries (members may not have submitted brackets)");
+        continue;
+      }
+
+      console.log("");
+      printLeaderboard(groupEntries, { compact: true });
+
+      const gw = getWinnerInfo(groupEntries);
+      if (gw.numWinners > 0 && groupPrizePool > 0n) {
+        const payout = groupPrizePool / BigInt(gw.numWinners);
+        console.log(`  Winner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts (${formatEther(payout)} ETH each)`);
+      } else {
+        console.log(`  Winner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts`);
+      }
+    }
   }
 
   // ── Submit results ───────────────────────────────────────────────
@@ -291,10 +381,11 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\n=== Ready to submit results ===");
+  console.log(`\n${"═".repeat(60)}`);
+  console.log("=== Ready to submit results ===");
   console.log(`  Contract: ${contractAddress}`);
   console.log(`  Results:  ${resultsHex}`);
-  console.log(`  Winners:  ${numWinners} at score ${winningScore}`);
+  console.log(`  Winners:  ${mainWinners.numWinners} at score ${mainWinners.winningScore}`);
   console.log("");
 
   const answer = await prompt("Submit results on-chain? [y/N] ");
@@ -322,15 +413,15 @@ async function main() {
   // ── Score all brackets ───────────────────────────────────────────
   if (values["score-all"]) {
     console.log("\n=== Scoring all brackets ===");
-    for (let i = 0; i < scoreEntries.length; i++) {
-      const e = scoreEntries[i];
+    for (let i = 0; i < mainPool.length; i++) {
+      const e = mainPool[i];
       const label = e.name || `${e.address.slice(0, 10)}...`;
       try {
         const hash = await mmOwner.scoreBracket(e.address);
         await publicClient.waitForTransactionReceipt({ hash });
-        console.log(`  [${i + 1}/${scoreEntries.length}] ${label}: scored ${e.onChainScore}`);
+        console.log(`  [${i + 1}/${mainPool.length}] ${label}: scored ${e.score}`);
       } catch (err: any) {
-        console.error(`  [${i + 1}/${scoreEntries.length}] ${label}: FAILED — ${err.message}`);
+        console.error(`  [${i + 1}/${mainPool.length}] ${label}: FAILED — ${err.message}`);
       }
     }
     console.log("\nAll brackets scored.");
@@ -339,7 +430,7 @@ async function main() {
   console.log("\nDone! Next steps:");
   if (!values["score-all"]) {
     console.log("  1. Score brackets (anyone can call within 7-day window):");
-    console.log(`     bun run src/submit-results.ts --results ${resultsHex} --score-all`);
+    console.log(`     bun run submit-results -- --results ${resultsHex} --score-all`);
   }
   console.log("  2. After scoring window closes, winners call collectWinnings().");
 }
