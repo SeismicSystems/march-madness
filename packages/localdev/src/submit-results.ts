@@ -1,17 +1,14 @@
 /**
- * Submit tournament results to the MarchMadness V2 contract.
+ * Preview and submit tournament results to the MarchMadness V2 contract.
  *
- * Workflow:
- *   1. Accept results bytes8 via --results flag (compute-results binary provides this)
- *   2. Fetch all entries + groups from the server API
- *   3. Score every bracket off-chain, then verify a sample on-chain via previewScore
- *   4. Display main pool leaderboard + per-group leaderboards with winners
- *   5. Submit results on-chain (unless --preview-only)
+ * Default behavior is preview-only (read-only, safe to run anytime).
+ * Submission requires explicit --submit flag and interactive confirmation.
  *
  * Usage:
- *   bun run src/submit-results.ts --results 0x...               # preview + submit
- *   bun run src/submit-results.ts --results 0x... --preview-only # preview only
- *   bun run src/submit-results.ts --results 0x... --score-all    # submit results + score every bracket
+ *   bun run submit-results -- --results 0x...                # preview: scores + groups (default)
+ *   bun run submit-results -- --results 0x... --leaderboard  # just print everyone sorted by score
+ *   bun run submit-results -- --results 0x... --submit       # preview + prompt to submit results
+ *   bun run submit-results -- --results 0x... --score-all    # preview + prompt to submit + score all
  */
 
 import { readFileSync } from "fs";
@@ -149,10 +146,7 @@ function getWinnerInfo(entries: ScoreEntry[]): { winningScore: number; numWinner
   return { winningScore, numWinners: winners.length, winners };
 }
 
-// ── Main ─────────────────────────────────────────────────────────────
-
-async function main() {
-  // Load .env from repo root
+function loadEnv() {
   const dotenvPath = resolve(PROJECT_ROOT, ".env");
   try {
     const envContent = readFileSync(dotenvPath, "utf-8");
@@ -166,36 +160,111 @@ async function main() {
       if (!process.env[key]) process.env[key] = val;
     }
   } catch { /* no .env, that's fine */ }
+}
 
-  // Simple arg parsing (Bun-compatible, no parseArgs dependency)
+type ParsedArgs = {
+  results?: string;
+  submit?: boolean;
+  "score-all"?: boolean;
+  leaderboard?: boolean;
+};
+
+function parseArgv(): ParsedArgs {
   const args = process.argv.slice(2);
-  const values: { results?: string; "preview-only"?: boolean; "score-all"?: boolean } = {};
+  const values: ParsedArgs = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--results" && i + 1 < args.length) {
       values.results = args[++i];
-    } else if (args[i] === "--preview-only") {
-      values["preview-only"] = true;
+    } else if (args[i] === "--submit") {
+      values.submit = true;
     } else if (args[i] === "--score-all") {
       values["score-all"] = true;
+      values.submit = true; // score-all implies submit
+    } else if (args[i] === "--leaderboard") {
+      values.leaderboard = true;
     }
   }
+  return values;
+}
 
-  const resultsHex = values.results as `0x${string}` | undefined;
-  if (!resultsHex) {
-    console.error("Usage: bun run src/submit-results.ts --results 0x...");
-    console.error("");
-    console.error("Compute results first:");
-    console.error("  cargo run --release --bin compute-results -- --verbose");
-    process.exit(1);
+// ── Score all entries from the server API ────────────────────────────
+
+async function scoreAllEntries(
+  apiBase: string,
+  resultsHex: `0x${string}`,
+): Promise<{ mainPool: ScoreEntry[]; scoreByAddress: Map<string, ScoreEntry> }> {
+  const entries = await fetchEntries(apiBase);
+  const addresses = Object.keys(entries).filter(
+    (addr) => entries[addr].bracket,
+  ) as Address[];
+
+  const scoreByAddress = new Map<string, ScoreEntry>();
+  for (const addr of addresses) {
+    const entry = entries[addr];
+    const bracket = entry.bracket!;
+    const name = entry.name || "";
+    const score = scoreBracket(bracket as `0x${string}`, resultsHex);
+    scoreByAddress.set(addr.toLowerCase(), { address: addr, name, bracket, score });
   }
 
-  // Validate sentinel bit
-  const resultsBigInt = BigInt(resultsHex);
-  if ((resultsBigInt >> 63n) !== 1n) {
-    console.error("ERROR: Results hex does not have sentinel bit set (bit 63 must be 1)");
-    process.exit(1);
+  const mainPool = [...scoreByAddress.values()].sort((a, b) => b.score - a.score);
+  return { mainPool, scoreByAddress };
+}
+
+// ── Leaderboard-only mode ───────────────────────────────────────────
+
+async function leaderboardMode(resultsHex: `0x${string}`) {
+  const apiBase = getApiBase();
+  console.log(`Results: ${resultsHex}`);
+  console.log(`API:     ${apiBase}\n`);
+
+  const { mainPool, scoreByAddress } = await scoreAllEntries(apiBase, resultsHex);
+
+  console.log(`=== MAIN POOL (${mainPool.length} entries) ===\n`);
+  printLeaderboard(mainPool);
+  const mw = getWinnerInfo(mainPool);
+  console.log(`\nWinning score: ${mw.winningScore}/192 (${mw.numWinners} winner(s))`);
+  for (const w of mw.winners) {
+    console.log(`  ${w.name || w.address} — ${w.score} pts`);
   }
 
+  // Groups
+  let groups: GroupResponse[] = [];
+  try {
+    groups = await fetchGroups(apiBase);
+  } catch (e) {
+    console.error(`\nFailed to fetch groups: ${e}`);
+  }
+
+  for (const group of groups) {
+    let members: string[];
+    try {
+      members = await fetchGroupMembers(apiBase, group.slug);
+    } catch {
+      continue;
+    }
+
+    const groupEntries: ScoreEntry[] = [];
+    for (const memberAddr of members) {
+      const se = scoreByAddress.get(memberAddr.toLowerCase());
+      if (se) groupEntries.push(se);
+    }
+    groupEntries.sort((a, b) => b.score - a.score);
+
+    console.log(`\n=== ${group.display_name} (${group.slug}, ${members.length} members) ===\n`);
+    if (groupEntries.length === 0) {
+      console.log("  No scored entries");
+      continue;
+    }
+    printLeaderboard(groupEntries, { compact: true });
+    const gw = getWinnerInfo(groupEntries);
+    console.log(`\nWinner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts`);
+  }
+}
+
+// ── Full mode (preview + optional submit) ───────────────────────────
+
+async function fullMode(resultsHex: `0x${string}`, values: ParsedArgs) {
   const contractAddress = getContractAddress();
   const chain = getChain();
   const transport = getTransport();
@@ -205,14 +274,10 @@ async function main() {
   console.log(`Chain:     ${chain.name} (${chain.id})`);
   console.log(`RPC:       ${process.env.VITE_RPC_URL || "http://localhost:8545"}`);
   console.log(`API:       ${apiBase}`);
-  console.log(`Results:   ${resultsHex}`);
-  console.log("");
+  console.log(`Results:   ${resultsHex}\n`);
 
   // Create public client for reads
-  const publicClient = createShieldedPublicClient({
-    chain,
-    transport,
-  });
+  const publicClient = createShieldedPublicClient({ chain, transport });
   const mmPublic = new MarchMadnessPublicClient(publicClient, contractAddress);
 
   // Verify contract state
@@ -228,51 +293,30 @@ async function main() {
 
   if (existingResults !== "0x0000000000000000") {
     console.log(`\nResults already posted: ${existingResults}`);
-    console.log("Cannot submit again.");
-    if (!values["preview-only"]) {
-      process.exit(1);
+    if (values.submit) {
+      console.log("Cannot submit again.");
+      return;
     }
   }
   console.log("");
 
-  // ── Fetch entries ────────────────────────────────────────────────
+  // ── Fetch + score entries ──────────────────────────────────────────
   console.log("=== Fetching entries from server API ===");
-  let entries: EntryIndex;
+  let mainPool: ScoreEntry[];
+  let scoreByAddress: Map<string, ScoreEntry>;
   try {
-    entries = await fetchEntries(apiBase);
+    ({ mainPool, scoreByAddress } = await scoreAllEntries(apiBase, resultsHex));
   } catch (e) {
     console.error(`Failed to fetch entries from ${apiBase}: ${e}`);
     console.error("Is the server running?");
-    process.exit(1);
+    return;
   }
-
-  const addresses = Object.keys(entries).filter(
-    (addr) => entries[addr].bracket,
-  ) as Address[];
-  console.log(`Found ${addresses.length} entries with brackets\n`);
-
-  // ── Score all brackets off-chain ─────────────────────────────────
-  console.log("=== Scoring all brackets (off-chain) ===\n");
-
-  const scoreByAddress = new Map<string, ScoreEntry>();
-
-  for (const addr of addresses) {
-    const entry = entries[addr];
-    const bracket = entry.bracket!;
-    const name = entry.name || "";
-    const score = scoreBracket(bracket as `0x${string}`, resultsHex);
-    const se: ScoreEntry = { address: addr, name, bracket, score };
-    scoreByAddress.set(addr.toLowerCase(), se);
-  }
-
-  // Build sorted main pool leaderboard
-  const mainPool = [...scoreByAddress.values()].sort((a, b) => b.score - a.score);
+  console.log(`Scored ${mainPool.length} entries (off-chain)\n`);
 
   // ── On-chain verification (sample) ───────────────────────────────
-  // Verify a few brackets on-chain to confirm contract agrees with our scoring.
   const VERIFY_COUNT = Math.min(5, mainPool.length);
   if (VERIFY_COUNT > 0) {
-    console.log(`Verifying ${VERIFY_COUNT} brackets on-chain via previewScore...`);
+    console.log(`Verifying top ${VERIFY_COUNT} on-chain via previewScore...`);
     let allMatch = true;
     for (let i = 0; i < VERIFY_COUNT; i++) {
       const e = mainPool[i];
@@ -298,7 +342,7 @@ async function main() {
   }
 
   // ── Main pool leaderboard ────────────────────────────────────────
-  console.log("=== MAIN POOL ===\n");
+  console.log(`=== MAIN POOL (${mainPool.length} entries) ===\n`);
   printLeaderboard(mainPool);
 
   const mainWinners = getWinnerInfo(mainPool);
@@ -334,15 +378,11 @@ async function main() {
         continue;
       }
 
-      // Build group leaderboard from scored entries
       const groupEntries: ScoreEntry[] = [];
       for (const memberAddr of members) {
         const se = scoreByAddress.get(memberAddr.toLowerCase());
-        if (se) {
-          groupEntries.push(se);
-        }
+        if (se) groupEntries.push(se);
       }
-
       groupEntries.sort((a, b) => b.score - a.score);
 
       const groupFee = BigInt(group.entry_fee);
@@ -370,28 +410,30 @@ async function main() {
   }
 
   // ── Submit results ───────────────────────────────────────────────
-  if (values["preview-only"]) {
-    console.log("\nPreview only — not submitting. Run without --preview-only to submit.");
-    process.exit(0);
+  if (!values.submit) {
+    console.log("\nTo submit results on-chain, re-run with --submit.");
+    return;
   }
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
   if (!privateKey) {
     console.error("\nSet DEPLOYER_PRIVATE_KEY in .env to submit results.");
-    process.exit(1);
+    return;
   }
 
   console.log(`\n${"═".repeat(60)}`);
-  console.log("=== Ready to submit results ===");
+  console.log("=== SUBMIT RESULTS ===");
   console.log(`  Contract: ${contractAddress}`);
   console.log(`  Results:  ${resultsHex}`);
   console.log(`  Winners:  ${mainWinners.numWinners} at score ${mainWinners.winningScore}`);
   console.log("");
+  console.log("This is irreversible. Type 'yes' to confirm.");
+  console.log("");
 
-  const answer = await prompt("Submit results on-chain? [y/N] ");
-  if (answer.toLowerCase() !== "y") {
+  const answer = await prompt("> ");
+  if (answer !== "yes") {
     console.log("Aborted.");
-    process.exit(0);
+    return;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -429,13 +471,47 @@ async function main() {
 
   console.log("\nDone! Next steps:");
   if (!values["score-all"]) {
-    console.log("  1. Score brackets (anyone can call within 7-day window):");
+    console.log("  1. Score all brackets on-chain:");
     console.log(`     bun run submit-results -- --results ${resultsHex} --score-all`);
   }
-  console.log("  2. After scoring window closes, winners call collectWinnings().");
+  console.log("  2. After 7-day scoring window closes, winners call collectWinnings().");
+}
+
+// ── Entry point ─────────────────────────────────────────────────────
+
+async function main() {
+  loadEnv();
+
+  const values = parseArgv();
+
+  const resultsHex = values.results as `0x${string}` | undefined;
+  if (!resultsHex) {
+    console.error("Usage: bun run submit-results -- --results 0x... [--leaderboard | --submit | --score-all]");
+    console.error("");
+    console.error("Options:");
+    console.error("  (default)        Preview scores + groups (read-only, safe)");
+    console.error("  --leaderboard    Just print everyone sorted by score (server API only, no RPC)");
+    console.error("  --submit         Preview + prompt to submit results on-chain");
+    console.error("  --score-all      Preview + prompt to submit + score every bracket");
+    console.error("");
+    console.error("Compute results first:");
+    console.error("  cargo run --release --bin compute-results -- --verbose");
+    throw new Error("missing --results");
+  }
+
+  // Validate sentinel bit
+  if ((BigInt(resultsHex) >> 63n) !== 1n) {
+    throw new Error("Results hex does not have sentinel bit set (bit 63 must be 1)");
+  }
+
+  if (values.leaderboard) {
+    await leaderboardMode(resultsHex);
+  } else {
+    await fullMode(resultsHex, values);
+  }
 }
 
 main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+  console.error(e.message || e);
+  process.exitCode = 1;
 });
