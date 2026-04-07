@@ -116,11 +116,19 @@ async function fetchGroupMembers(apiBase: string, slug: string): Promise<string[
 
 // ── Display helpers ──────────────────────────────────────────────────
 
+// Set by --short flag; when false, addresses are printed in full.
+let shortAddresses = false;
+
+function formatAddr(addr: string): string {
+  if (shortAddresses) return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  return addr;
+}
+
 function printLeaderboard(entries: ScoreEntry[], opts?: { compact?: boolean }) {
   const compact = opts?.compact ?? false;
   const rankWidth = 4;
   const nameWidth = compact ? 20 : 25;
-  const addrWidth = 12;
+  const addrWidth = shortAddresses ? 12 : 42;
 
   console.log(
     `${"Rank".padEnd(rankWidth)}  ${"Name".padEnd(nameWidth)}  ${"Address".padEnd(addrWidth)}  ${"Score".padStart(5)}`,
@@ -133,7 +141,7 @@ function printLeaderboard(entries: ScoreEntry[], opts?: { compact?: boolean }) {
     const e = entries[i];
     const rank = String(i + 1).padEnd(rankWidth);
     const name = (e.name || "—").slice(0, nameWidth).padEnd(nameWidth);
-    const addr = `${e.address.slice(0, 6)}…${e.address.slice(-4)}`.padEnd(addrWidth);
+    const addr = formatAddr(e.address).padEnd(addrWidth);
     const score = String(e.score).padStart(5);
     console.log(`${rank}  ${name}  ${addr}  ${score}`);
   }
@@ -167,6 +175,7 @@ type ParsedArgs = {
   submit?: boolean;
   "score-all"?: boolean;
   leaderboard?: boolean;
+  short?: boolean;
 };
 
 function parseArgv(): ParsedArgs {
@@ -182,6 +191,8 @@ function parseArgv(): ParsedArgs {
       values.submit = true; // score-all implies submit
     } else if (args[i] === "--leaderboard") {
       values.leaderboard = true;
+    } else if (args[i] === "--short") {
+      values.short = true;
     }
   }
   return values;
@@ -258,7 +269,7 @@ async function leaderboardMode(resultsHex: `0x${string}`) {
     }
     printLeaderboard(groupEntries, { compact: true });
     const gw = getWinnerInfo(groupEntries);
-    console.log(`\nWinner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts`);
+    console.log(`\nWinner: ${gw.winners.map((w) => w.name || formatAddr(w.address)).join(", ")} — ${gw.winningScore} pts`);
   }
 }
 
@@ -323,7 +334,7 @@ async function fullMode(resultsHex: `0x${string}`, values: ParsedArgs) {
       try {
         const onChainScore = await mmPublic.previewScore(e.address, resultsHex);
         const match = onChainScore === e.score;
-        const label = e.name || `${e.address.slice(0, 10)}...`;
+        const label = e.name || formatAddr(e.address);
         console.log(
           `  ${label}: off-chain=${e.score} on-chain=${onChainScore} ${match ? "✓" : "✗ MISMATCH"}`,
         );
@@ -402,9 +413,9 @@ async function fullMode(resultsHex: `0x${string}`, values: ParsedArgs) {
       const gw = getWinnerInfo(groupEntries);
       if (gw.numWinners > 0 && groupPrizePool > 0n) {
         const payout = groupPrizePool / BigInt(gw.numWinners);
-        console.log(`  Winner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts (${formatEther(payout)} ETH each)`);
+        console.log(`  Winner: ${gw.winners.map((w) => w.name || formatAddr(w.address)).join(", ")} — ${gw.winningScore} pts (${formatEther(payout)} ETH each)`);
       } else {
-        console.log(`  Winner: ${gw.winners.map((w) => w.name || w.address.slice(0, 10)).join(", ")} — ${gw.winningScore} pts`);
+        console.log(`  Winner: ${gw.winners.map((w) => w.name || formatAddr(w.address)).join(", ")} — ${gw.winningScore} pts`);
       }
     }
   }
@@ -457,7 +468,7 @@ async function fullMode(resultsHex: `0x${string}`, values: ParsedArgs) {
     console.log("\n=== Scoring all brackets ===");
     for (let i = 0; i < mainPool.length; i++) {
       const e = mainPool[i];
-      const label = e.name || `${e.address.slice(0, 10)}...`;
+      const label = e.name || formatAddr(e.address);
       try {
         const hash = await mmOwner.scoreBracket(e.address);
         await publicClient.waitForTransactionReceipt({ hash });
@@ -483,6 +494,7 @@ async function main() {
   loadEnv();
 
   const values = parseArgv();
+  shortAddresses = values.short ?? false;
 
   const resultsHex = values.results as `0x${string}` | undefined;
   if (!resultsHex) {
@@ -493,6 +505,7 @@ async function main() {
     console.error("  --leaderboard    Just print everyone sorted by score (server API only, no RPC)");
     console.error("  --submit         Preview + prompt to submit results on-chain");
     console.error("  --score-all      Preview + prompt to submit + score every bracket");
+    console.error("  --short          Abbreviate addresses (default: full addresses)");
     console.error("");
     console.error("Compute results first:");
     console.error("  cargo run --release --bin compute-results -- --verbose");
