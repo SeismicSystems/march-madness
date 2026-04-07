@@ -16,6 +16,8 @@
     "build:web": "bun run --filter @march-madness/web build",
     "gen:abis": "bun run scripts/generate-abis.ts",
     "yahoo-mirror": "bun run --filter @march-madness/localdev yahoo-mirror",
+    "score-preview": "bun run --filter @march-madness/localdev score-preview --",
+    "submit-results": "bun run --filter @march-madness/localdev submit-results --",
     "changeset": "changeset"
   },
   "devDependencies": {
