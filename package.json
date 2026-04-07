@@ -17,6 +17,7 @@
     "gen:abis": "bun run scripts/generate-abis.ts",
     "yahoo-mirror": "bun run --filter @march-madness/localdev yahoo-mirror",
     "score-preview": "bun run --cwd packages/localdev src/score-preview.ts",
+    "score-brackets": "bun run --cwd packages/localdev src/score-brackets.ts",
     "submit-results": "bun run --cwd packages/localdev src/submit-results.ts",
     "changeset": "changeset"
   },
