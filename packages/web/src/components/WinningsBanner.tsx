@@ -8,15 +8,6 @@ type WinningsBannerProps =
   | { type: "main"; state: WinningsState }
   | { type: "group"; state: GroupWinningsState };
 
-function formatDate(ts: bigint): string {
-  return new Date(Number(ts) * 1000).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function truncateHash(hash: `0x${string}`): string {
   return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
 }
@@ -26,9 +17,6 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
 
   const {
     resultsPostedAt,
-    isWindowOpen,
-    isWindowClosed,
-    scoringWindowClosesAt,
     isWinner,
     hasCollected,
     canClaim,
@@ -148,8 +136,8 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
     }
   }
 
-  // ── Scoring window open ──────────────────────────────────────────
-  if (isWindowOpen && scoringWindowClosesAt !== null) {
+  // ── Score my bracket (main pool only) ───────────────────────────
+  if (canScore) {
     const handleScore = async () => {
       if (!scoreBracket) return;
       try {
@@ -159,34 +147,32 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
         // error already set in hook state
       }
     };
-
+    const mainState = state as WinningsState;
     return (
       <div className="bg-bg-secondary border border-border rounded-xl p-4 sm:p-5 mb-4 sm:mb-6">
         <div className="text-sm font-semibold text-text-primary mb-1">
-          Scoring in progress
+          Results posted — score your bracket
         </div>
-        <p className="text-xs sm:text-sm text-text-muted">
-          Scoring window closes {formatDate(scoringWindowClosesAt)}. Winners can
-          claim their prize after scoring completes.
+        <p className="text-xs sm:text-sm text-text-muted mb-3">
+          Submit your final score on-chain. Winners can claim their prize after
+          the scoring window closes.
         </p>
-        {canScore && (
-          <div className="mt-3">
-            {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-            {txHash ? (
-              <p className="text-xs text-success font-mono">
-                Transaction sent: {truncateHash(txHash)}
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleScore}
-                disabled={isScoring}
-                className="px-4 py-1.5 rounded-lg bg-accent text-bg-primary font-semibold text-xs sm:text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isScoring ? "Scoring..." : "Score My Bracket"}
-              </button>
-            )}
-          </div>
+        {mainState.error && (
+          <p className="text-xs text-red-400 mb-2">{mainState.error}</p>
+        )}
+        {txHash ? (
+          <p className="text-xs text-success font-mono">
+            Transaction sent: {truncateHash(txHash)}
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleScore}
+            disabled={isScoring}
+            className="px-4 py-1.5 rounded-lg bg-accent text-bg-primary font-semibold text-xs sm:text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isScoring ? "Scoring..." : "Score My Bracket"}
+          </button>
         )}
       </div>
     );
@@ -195,11 +181,7 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
   // ── Group only: score all members ────────────────────────────────
   if (type === "group") {
     const groupState = state as GroupWinningsState;
-    if (
-      !groupState.allScored &&
-      isWindowClosed &&
-      groupState.payouts?.numWinners === 0
-    ) {
+    if (!groupState.allScored && groupState.payouts?.numWinners === 0) {
       return (
         <div className="bg-bg-secondary border border-border rounded-xl p-4 sm:p-5 mb-4 sm:mb-6">
           <div className="text-sm font-semibold text-text-primary mb-1">

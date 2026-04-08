@@ -8,7 +8,7 @@ import {
 
 import { CONTRACT_ADDRESS } from "../lib/constants";
 
-// Contract constants — both are unchanging
+// Contract constants — unchanging
 const SCORING_DURATION = 7n * 24n * 3600n; // 7 days in seconds
 const RESULTS_DEADLINE = 90n * 24n * 3600n; // 90 days in seconds
 
@@ -18,9 +18,6 @@ function nowSeconds(): bigint {
 
 export interface WinningsState {
   resultsPostedAt: bigint | null;
-  isWindowOpen: boolean;
-  isWindowClosed: boolean;
-  scoringWindowClosesAt: bigint | null;
   winningScore: number | null;
   numWinners: bigint | null;
   payoutAmount: bigint | null;
@@ -148,10 +145,6 @@ export function useWinningsState(): WinningsState {
       : null;
 
   const now = nowSeconds();
-  const isWindowOpen =
-    resultsPostedAt !== null &&
-    resultsPostedAt > 0n &&
-    now < (scoringWindowClosesAt ?? 0n);
   const isWindowClosed =
     resultsPostedAt !== null &&
     resultsPostedAt > 0n &&
@@ -178,7 +171,11 @@ export function useWinningsState(): WinningsState {
 
   const canClaim = isWinner && isWindowClosed && !hasCollected;
   const canScore =
-    isWindowOpen && !walletIsScored && hasEntry && mmUser !== null;
+    resultsPostedAt !== null &&
+    resultsPostedAt > 0n &&
+    !walletIsScored &&
+    hasEntry &&
+    mmUser !== null;
 
   const noContestAt =
     submissionDeadline !== null ? submissionDeadline + RESULTS_DEADLINE : null;
@@ -267,9 +264,6 @@ export function useWinningsState(): WinningsState {
 
   return {
     resultsPostedAt,
-    isWindowOpen,
-    isWindowClosed,
-    scoringWindowClosesAt,
     winningScore,
     numWinners,
     payoutAmount,
