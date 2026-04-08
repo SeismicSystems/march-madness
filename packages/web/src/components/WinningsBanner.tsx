@@ -32,6 +32,10 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
     type === "main" ? (state as WinningsState).scoreBracket : null;
   const isScoring =
     type === "main" ? (state as WinningsState).isScoring : false;
+  const walletIsScored =
+    type === "main" ? (state as WinningsState).walletIsScored : false;
+  const walletScore =
+    type === "main" ? (state as WinningsState).walletScore : null;
 
   // Nothing to show until results are posted
   if (!resultsPostedAt || resultsPostedAt === 0n) return null;
@@ -135,6 +139,21 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
         </div>
       );
     }
+  }
+
+  // ── Already scored (persistent state from chain) ────────────────
+  if (type === "main" && walletIsScored && !canClaim && !hasCollected) {
+    return (
+      <div className="bg-success/10 border border-success/30 rounded-xl p-4 sm:p-5 mb-4 sm:mb-6">
+        <div className="text-sm font-semibold text-success">
+          Bracket scored
+          {walletScore !== null ? ` — ${walletScore} pts` : ""}
+        </div>
+        <p className="text-xs text-text-muted mt-1">
+          Winners can claim their prize after the scoring window closes.
+        </p>
+      </div>
+    );
   }
 
   // ── Score submitted confirmation ─────────────────────────────────
