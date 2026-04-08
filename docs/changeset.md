@@ -2,6 +2,13 @@
 
 All notable changes to this project. Every PR must add an entry here.
 
+feat(web): add Claim Winnings UI to leaderboard
+
+After the scoring window closes, winners can now claim their prize directly from the leaderboard. A WinningsBanner appears above the table with a "Claim Winnings" button showing the payout amount. Per-group leaderboards support the same flow via `collectWinnings(groupId)`, plus a "Score All Members" button for unscored groups. The no-contest escape hatch (`collectEntryFee`) is also surfaced when the owner never posts results within 90 days.
+
+Add Score Bracket UI — "Score My Bracket" button on the leaderboard scoring banner and "Score Bracket" button on the bracket viewer page. Both call `scoreBracket(address)` on-chain during the 7-day scoring window.
+
+
 Add `score-brackets` script for on-chain bracket scoring after results submission. Scores main pool entries and group entries, with `--dry-run`, `--main-only`, and `--groups-only` flags.
 
 
