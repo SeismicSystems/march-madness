@@ -5,7 +5,8 @@
     "packages/*"
   ],
   "overrides": {
-    "lucide-react": "0.469.0"
+    "lucide-react": "0.469.0",
+    "axios": "1.13.6"
   },
   "scripts": {
     "p:pre": "bun run --filter @march-madness/localdev populate",
