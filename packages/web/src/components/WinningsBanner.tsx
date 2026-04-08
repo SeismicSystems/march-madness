@@ -14,6 +14,7 @@ function truncateHash(hash: `0x${string}`): string {
 
 export function WinningsBanner({ type, state }: WinningsBannerProps) {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [scoreTxHash, setScoreTxHash] = useState<`0x${string}` | null>(null);
 
   const {
     resultsPostedAt,
@@ -136,13 +137,27 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
     }
   }
 
+  // ── Score submitted confirmation ─────────────────────────────────
+  if (scoreTxHash && !canScore) {
+    return (
+      <div className="bg-success/10 border border-success/30 rounded-xl p-4 sm:p-5 mb-4 sm:mb-6">
+        <div className="text-sm font-semibold text-success">
+          Score submitted
+        </div>
+        <p className="text-xs text-text-muted mt-1 font-mono">
+          tx: {truncateHash(scoreTxHash)}
+        </p>
+      </div>
+    );
+  }
+
   // ── Score my bracket (main pool only) ───────────────────────────
   if (canScore) {
     const handleScore = async () => {
       if (!scoreBracket) return;
       try {
         const hash = await scoreBracket();
-        setTxHash(hash);
+        setScoreTxHash(hash);
       } catch {
         // error already set in hook state
       }
@@ -160,20 +175,14 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
         {mainState.error && (
           <p className="text-xs text-red-400 mb-2">{mainState.error}</p>
         )}
-        {txHash ? (
-          <p className="text-xs text-success font-mono">
-            Transaction sent: {truncateHash(txHash)}
-          </p>
-        ) : (
-          <button
-            type="button"
-            onClick={handleScore}
-            disabled={isScoring}
-            className="px-4 py-1.5 rounded-lg bg-accent text-bg-primary font-semibold text-xs sm:text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isScoring ? "Scoring..." : "Score My Bracket"}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleScore}
+          disabled={isScoring}
+          className="px-4 py-1.5 rounded-lg bg-accent text-bg-primary font-semibold text-xs sm:text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isScoring ? "Scoring..." : "Score My Bracket"}
+        </button>
       </div>
     );
   }
