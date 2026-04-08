@@ -1,10 +1,11 @@
 import { useParams, Link } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { validateBracket, scoreBracketPartial } from "@march-madness/client";
 
 import { BracketView } from "../components/BracketView";
 import { useEntries } from "../hooks/useEntries";
+import { useBracketScoringState } from "../hooks/useBracketScoringState";
 import { useReadOnlyBracket } from "../hooks/useReadOnlyBracket";
 import { useTeamProbs } from "../hooks/useTeamProbs";
 import { useTournamentStatus } from "../hooks/useTournamentStatus";
@@ -15,10 +16,17 @@ export function BracketViewerPage() {
   const { entries, loading: entriesLoading } = useEntries();
   const { status: tournamentStatus } = useTournamentStatus();
   const { teamProbs } = useTeamProbs();
+  const {
+    canScore,
+    scoreBracket,
+    isScoring,
+    error: scoringError,
+  } = useBracketScoringState(address);
+  const [scoreTxHash, setScoreTxHash] = useState<`0x${string}` | null>(null);
 
   const entry =
     address && entries
-      ? (entries[address.toLowerCase()] ?? entries[address])
+      ? entries[address.toLowerCase()] ?? entries[address]
       : null;
   const bracketHex =
     entry?.bracket && validateBracket(entry.bracket)
@@ -35,6 +43,15 @@ export function BracketViewerPage() {
   const getGamesForRound = useMemo(() => {
     return (round: number) => games.filter((g) => g.round === round);
   }, [games]);
+
+  const handleScore = async () => {
+    try {
+      const hash = await scoreBracket();
+      setScoreTxHash(hash);
+    } catch {
+      // error surfaced via scoringError
+    }
+  };
 
   if (entriesLoading) {
     return (
@@ -84,16 +101,40 @@ export function BracketViewerPage() {
             </p>
           )}
         </div>
-        {score && (
-          <div className="text-right">
-            <div className="text-2xl font-bold text-text-primary">
-              {score.current}
+        <div className="flex flex-col items-end gap-2">
+          {score && (
+            <div className="text-right">
+              <div className="text-2xl font-bold text-text-primary">
+                {score.current}
+              </div>
+              <div className="text-xs text-text-muted">
+                max {score.maxPossible}
+              </div>
             </div>
-            <div className="text-xs text-text-muted">
-              max {score.maxPossible}
+          )}
+          {canScore && (
+            <div className="text-right">
+              {scoringError && (
+                <p className="text-xs text-red-400 mb-1">{scoringError}</p>
+              )}
+              {scoreTxHash ? (
+                <p className="text-xs text-success font-mono">
+                  Scored:{" "}
+                  {`${scoreTxHash.slice(0, 10)}…${scoreTxHash.slice(-6)}`}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleScore}
+                  disabled={isScoring}
+                  className="px-3 py-1 rounded-lg bg-accent text-bg-primary font-semibold text-xs hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isScoring ? "Scoring..." : "Score Bracket"}
+                </button>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <BracketView

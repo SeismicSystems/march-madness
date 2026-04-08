@@ -30,9 +30,12 @@ export interface WinningsState {
   isWinner: boolean;
   canClaim: boolean;
   canClaimEntryFee: boolean;
+  canScore: boolean;
   collectWinnings: () => Promise<`0x${string}`>;
   collectEntryFee: () => Promise<`0x${string}`>;
+  scoreBracket: () => Promise<`0x${string}`>;
   isCollecting: boolean;
+  isScoring: boolean;
   error: string | null;
   isLoading: boolean;
 }
@@ -61,6 +64,7 @@ export function useWinningsState(): WinningsState {
   } | null>(null);
 
   const [isCollecting, setIsCollecting] = useState(false);
+  const [isScoring, setIsScoring] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,6 +177,8 @@ export function useWinningsState(): WinningsState {
     numWinners > 0n;
 
   const canClaim = isWinner && isWindowClosed && !hasCollected;
+  const canScore =
+    isWindowOpen && !walletIsScored && hasEntry && mmUser !== null;
 
   const noContestAt =
     submissionDeadline !== null ? submissionDeadline + RESULTS_DEADLINE : null;
@@ -237,6 +243,28 @@ export function useWinningsState(): WinningsState {
     }
   }, [mmUser, walletKey, walletData]);
 
+  const scoreBracket = useCallback(async (): Promise<`0x${string}`> => {
+    if (!mmUser) throw new Error("Wallet not connected");
+    if (!walletAddress) throw new Error("No wallet address");
+    setIsScoring(true);
+    setError(null);
+    try {
+      const hash = await mmUser.scoreBracket(walletAddress);
+      // Optimistically mark as scored
+      if (walletKey && walletData && walletData.owner === walletKey) {
+        setWalletData({ ...walletData, isScored: true });
+      }
+      return hash;
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to score bracket";
+      setError(msg);
+      throw err;
+    } finally {
+      setIsScoring(false);
+    }
+  }, [mmUser, walletAddress, walletKey, walletData]);
+
   return {
     resultsPostedAt,
     isWindowOpen,
@@ -251,9 +279,12 @@ export function useWinningsState(): WinningsState {
     isWinner,
     canClaim,
     canClaimEntryFee,
+    canScore,
     collectWinnings,
     collectEntryFee,
+    scoreBracket,
     isCollecting,
+    isScoring,
     error,
     isLoading,
   };
