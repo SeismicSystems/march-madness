@@ -12,9 +12,11 @@ import type {
   MemberData,
 } from "@march-madness/client";
 
-import { CONTRACT_ADDRESS, GROUPS_CONTRACT_ADDRESS } from "../lib/constants";
-
-const SCORING_DURATION = 7n * 24n * 3600n; // 7 days in seconds
+import {
+  CONTRACT_ADDRESS,
+  GROUPS_CONTRACT_ADDRESS,
+  SCORING_DURATION,
+} from "../lib/constants";
 
 function nowSeconds(): bigint {
   return BigInt(Math.floor(Date.now() / 1000));

@@ -156,6 +156,15 @@ export class MarchMadnessPublicClient {
     return this.contract.read.hasCollectedWinnings([account], opts);
   }
 
+  /** Preview what score an account would receive against candidate results. */
+  async previewScore(
+    account: Address,
+    rawResults: `0x${string}`,
+    opts: ReadOptions = {},
+  ): Promise<number> {
+    return this.contract.read.previewScore([account, rawResults], opts);
+  }
+
   /** Whether an address has already collected their entry fee refund (no-contest). */
   async getHasCollectedEntryFee(
     account: Address,
