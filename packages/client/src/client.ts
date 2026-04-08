@@ -102,7 +102,7 @@ export class MarchMadnessPublicClient {
   /** Check if an address has submitted a bracket (public, no signed read needed). */
   async getHasEntry(
     account: Address,
-    opts: ReadOptions = {},
+    opts: ReadOptions = {}
   ): Promise<boolean> {
     return this.contract.read.hasEntry([account], opts);
   }
@@ -110,7 +110,7 @@ export class MarchMadnessPublicClient {
   /** Read a bracket (after deadline — transparent read). */
   async getBracket(
     account: Address,
-    opts: ReadOptions = {},
+    opts: ReadOptions = {}
   ): Promise<`0x${string}`> {
     return this.contract.read.getBracket([account], opts);
   }
@@ -123,7 +123,7 @@ export class MarchMadnessPublicClient {
   /** Check if a bracket has been scored. */
   async getIsScored(
     account: Address,
-    opts: ReadOptions = {},
+    opts: ReadOptions = {}
   ): Promise<boolean> {
     return this.contract.read.getIsScored([account], opts);
   }
@@ -148,6 +148,14 @@ export class MarchMadnessPublicClient {
     return this.contract.read.resultsPostedAt(opts);
   }
 
+  /** Whether an address has already collected winnings. */
+  async getHasCollectedWinnings(
+    account: Address,
+    opts: ReadOptions = {}
+  ): Promise<boolean> {
+    return this.contract.read.hasCollectedWinnings([account], opts);
+  }
+
   /** Preview what score an account would receive against candidate results. */
   async previewScore(
     account: Address,
@@ -155,6 +163,14 @@ export class MarchMadnessPublicClient {
     opts: ReadOptions = {},
   ): Promise<number> {
     return this.contract.read.previewScore([account, rawResults], opts);
+  }
+
+  /** Whether an address has already collected their entry fee refund (no-contest). */
+  async getHasCollectedEntryFee(
+    account: Address,
+    opts: ReadOptions = {}
+  ): Promise<boolean> {
+    return this.contract.read.hasCollectedEntryFee([account], opts);
   }
 }
 
@@ -177,7 +193,7 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
   constructor(
     publicClient: ViemPublicClient,
     walletClient: ShieldedWalletClient<Transport, Chain, Account>,
-    contractAddress: Address,
+    contractAddress: Address
   ) {
     super(publicClient, contractAddress);
     this.walletClient = walletClient;
@@ -201,7 +217,7 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
    */
   async submitBracket(
     bracket: `0x${string}`,
-    opts: WriteOptions = {},
+    opts: WriteOptions = {}
   ): Promise<Hash> {
     const entryFee = await this.getEntryFee();
     return this.shieldedContract.write.submitBracket([bracket], {
@@ -216,7 +232,7 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
    */
   async updateBracket(
     bracket: `0x${string}`,
-    opts: WriteOptions = {},
+    opts: WriteOptions = {}
   ): Promise<Hash> {
     return this.shieldedContract.write.updateBracket([bracket], opts);
   }
@@ -250,10 +266,7 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
    * Score anyone's bracket against posted results.
    * Uses transparent write since scoring is public.
    */
-  async scoreBracket(
-    account: Address,
-    opts: WriteOptions = {},
-  ): Promise<Hash> {
+  async scoreBracket(account: Address, opts: WriteOptions = {}): Promise<Hash> {
     return this.shieldedContract.twrite.scoreBracket([account], opts);
   }
 
@@ -263,6 +276,14 @@ export class MarchMadnessUserClient extends MarchMadnessPublicClient {
    */
   async collectWinnings(opts: WriteOptions = {}): Promise<Hash> {
     return this.shieldedContract.twrite.collectWinnings(opts);
+  }
+
+  /**
+   * Collect entry fee refund when owner never posted results (no-contest escape hatch).
+   * Uses transparent write since refund is public.
+   */
+  async collectEntryFee(opts: WriteOptions = {}): Promise<Hash> {
+    return this.shieldedContract.twrite.collectEntryFee(opts);
   }
 }
 
@@ -279,7 +300,7 @@ export class MarchMadnessOwnerClient extends MarchMadnessUserClient {
    */
   async submitResults(
     results: `0x${string}`,
-    opts: WriteOptions = {},
+    opts: WriteOptions = {}
   ): Promise<Hash> {
     return this.shieldedContract.twrite.submitResults([results], opts);
   }

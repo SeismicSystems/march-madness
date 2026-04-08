@@ -1,0 +1,53 @@
+we have a new feature req , examine and lets plan
+
+## Summary
+
+After tournament results are submitted and brackets are scored, winners need a way to claim their winnings directly from the UI. This applies to both:
+
+1. **Main leaderboard** — winners of the overall pool call `collectWinnings()` on `MarchMadnessV2`
+2. **Per-group leaderboards** — group winners call `collectWinnings(groupId)` on `BracketGroupsV2`
+
+## Requirements
+
+### Main Pool (`/leaderboard`)
+- After the scoring window closes (`resultsPostedAt + SCORING_DURATION`), show a "Claim Winnings" button for the connected wallet if:
+  - `isScored[address]` is true
+  - `scores[address] == winningScore`
+  - `hasCollectedWinnings[address]` is false
+- Display the payout amount: `(numEntries * entryFee) / numWinners`
+- After successful claim, update button to "Winnings Collected" (disabled)
+- Show a banner or callout on the leaderboard indicating the scoring window status (open/closed) and the claim period
+
+### Per-Group (`/groups/:slug/leaderboard`)
+- Same flow but against `BracketGroupsV2.collectWinnings(groupId)`
+- Check `BracketGroupsV2` state: group's winning score, whether the user won, payout amount
+- The group's `scoreEntry(groupId, memberIndex)` must be called first for all members — consider adding a "Score All" admin action or auto-scoring
+
+### Shared Considerations
+- Use `walletClient.writeContract()` (transparent write) for `collectWinnings` — no shielded tx needed
+- Handle the case where the scoring window is still open (show countdown, disable claim)
+- Handle the no-contest escape hatch: if `resultsPostedAt == 0` and we're past the 90-day deadline, show `collectEntryFee()` instead
+- Toast / notification on successful claim with tx hash link
+
+### Contract Functions
+```solidity
+// MarchMadnessV2
+function collectWinnings() external;
+function winningScore() external view returns (uint8);
+function numWinners() external view returns (uint256);
+function hasCollectedWinnings(address) external view returns (bool);
+function resultsPostedAt() external view returns (uint256);
+function SCORING_DURATION() external view returns (uint256);
+
+// BracketGroupsV2
+function collectWinnings(uint32 groupId) external;
+function scoreEntry(uint32 groupId, uint256 memberIndex) external;
+```
+
+## Test Plan
+- [ ] Verify claim button appears only for winners after scoring window closes
+- [ ] Verify payout amount matches `(entries * fee) / winners`
+- [ ] Verify `collectEntryFee()` fallback shows when results were never posted
+- [ ] Test per-group claim flow end-to-end
+- [ ] Verify button disables after successful claim
+- [ ] Test with non-winner wallet (button should not appear)
