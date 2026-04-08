@@ -264,6 +264,25 @@ impl IndexerProvider {
         Ok(bracket)
     }
 
+    /// Call `getGroup(groupId)` on the BracketGroups contract and return the on-chain member count.
+    pub async fn get_group_member_count(&self, contract: Address, group_id: u32) -> Result<u32> {
+        let calldata = getGroupCall { groupId: group_id }.abi_encode();
+        let response = match self {
+            Self::Reth(p) => {
+                let tx = build_reth_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+            Self::Foundry(p) => {
+                let tx = build_foundry_call_tx(contract, calldata);
+                p.call(tx).await
+            }
+        }
+        .wrap_err("getGroup call failed")?;
+        let decoded = getGroupCall::abi_decode_returns(&response)
+            .wrap_err("failed to decode getGroup result")?;
+        Ok(decoded.entryCount)
+    }
+
     /// Call `getGroup(groupId)` on the BracketGroups contract and return the entry fee as a
     /// decimal string (wei).
     pub async fn get_group_entry_fee(&self, contract: Address, group_id: u32) -> Result<String> {

@@ -1,0 +1,7 @@
+the march madness tournament has concluded. first, compute the final results of the tournament in the encoded bytes format, so i can submit to the chain. use the ncaa api tools for this.
+
+then write me a command i can use on the prod machine to submit the brackets (we might already have one) --- it should preview the correct scores
+
+we also added a function to the marchmadness contract that lets us preview the winner -- we want to work that into our preview script. i want to be able to manually verify that each bracket will be scored correctly on chain.
+
+also create an issue that will allow users to claim their winnings in the UI after scores have been revealed. we caer about this for the overall leaderboard, and per group as well.

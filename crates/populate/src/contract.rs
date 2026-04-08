@@ -80,5 +80,16 @@ sol! {
             address[] calldata addrs,
             string[] calldata names
         ) external payable;
+
+        struct Group {
+            string slug;
+            string displayName;
+            address creator;
+            uint32 entryCount;
+            uint256 entryFee;
+            bool hasPassword;
+        }
+
+        function getGroupBySlug(string calldata slug) external view returns (uint32, Group memory);
     }
 }

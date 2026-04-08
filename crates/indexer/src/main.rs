@@ -269,7 +269,8 @@ async fn main() -> Result<()> {
         }
         Command::SanityCheck { .. } => {
             let mm = format!("{:#x}", addrs.march_madness);
-            commands::check::run(&provider, &mut redis_conn, &mm).await?;
+            let bg = format!("{:#x}", addrs.bracket_groups);
+            commands::check::run(&provider, &mut redis_conn, &mm, &bg).await?;
         }
         Command::CheckRedis { .. } | Command::Seed { .. } => unreachable!(),
     }

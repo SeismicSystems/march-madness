@@ -12,6 +12,10 @@ path = "src/main.rs"
 name = "fetch-bracket"
 path = "src/bin/fetch_bracket.rs"
 
+[[bin]]
+name = "compute-results"
+path = "src/bin/compute_results.rs"
+
 [dependencies]
 ncaa-api.workspace = true
 seismic-march-madness.workspace = true

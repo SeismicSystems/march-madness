@@ -108,6 +108,29 @@ pub async fn read_march_madness_addr_v2(reader: &ReadProvider, bg: Address) -> R
     })
 }
 
+/// Look up a group on V2 by slug. Returns (groupId, entryCount) or None if not found.
+async fn read_v2_group_by_slug(
+    reader: &ReadProvider,
+    target: Address,
+    slug: &str,
+) -> Result<Option<(u32, u32)>> {
+    let result = dispatch_read!(reader, |p| {
+        let contract = BracketGroupsV2::new(target, p);
+        contract.getGroupBySlug(slug.to_string()).call().await
+    });
+    match result {
+        Ok(ret) => {
+            // If creator is zero address, group doesn't exist.
+            if ret._1.creator == Address::ZERO {
+                Ok(None)
+            } else {
+                Ok(Some((ret._0, ret._1.entryCount)))
+            }
+        }
+        Err(_) => Ok(None),
+    }
+}
+
 /// Read the entry fee from a MarchMadness(V2) contract.
 async fn read_entry_fee(reader: &ReadProvider, mm: Address) -> Result<U256> {
     dispatch_read!(reader, |p| {
@@ -252,13 +275,46 @@ pub async fn run_groups(
             "importing group"
         );
 
+        // Try to create the group on V2. If it already exists (e.g. from a
+        // previous partial run), look up its V2 group ID and proceed to
+        // import members — batchImportMembers is idempotent.
+        let v2_group_id: u32;
+
         match send_import_group(writer, target, group).await {
             Ok(()) => {
-                info!(slug = group.slug, "group created");
+                // Newly created — V2 ID assigned. Look it up by slug.
+                match read_v2_group_by_slug(cfg.reader, target, &group.slug).await? {
+                    Some((id, _)) => {
+                        v2_group_id = id;
+                        info!(slug = group.slug, v2_id = v2_group_id, "group created");
+                    }
+                    None => {
+                        warn!(
+                            slug = group.slug,
+                            "group created but slug lookup failed, skipping members"
+                        );
+                        continue;
+                    }
+                }
             }
             Err(e) => {
-                warn!(slug = group.slug, error = %e, "group creation failed, skipping");
-                continue;
+                // Creation failed — likely SlugAlreadyTaken. Check if it exists on V2.
+                match read_v2_group_by_slug(cfg.reader, target, &group.slug).await? {
+                    Some((id, existing_count)) => {
+                        v2_group_id = id;
+                        info!(
+                            slug = group.slug,
+                            v2_id = v2_group_id,
+                            existing_members = existing_count,
+                            v1_members = group.members.len(),
+                            "group already exists on V2, will import missing members"
+                        );
+                    }
+                    None => {
+                        warn!(slug = group.slug, error = %e, "group creation failed and not found on V2, skipping");
+                        continue;
+                    }
+                }
             }
         }
 
@@ -266,7 +322,7 @@ pub async fn run_groups(
             import_members_batched(
                 writer,
                 target,
-                group.id,
+                v2_group_id,
                 &group.members,
                 group.entry_fee,
                 cfg.batch_size,
