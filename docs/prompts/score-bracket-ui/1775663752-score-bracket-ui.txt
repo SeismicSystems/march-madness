@@ -1,0 +1,5 @@
+we need to create a scoreBracket() funcitonality in the contract so a user can see how their bracket did
+
+we should put a button on the Bracket page and the Leaderboard page,
+
+we currently calculate this off chain, and need a user interface for the user to score this

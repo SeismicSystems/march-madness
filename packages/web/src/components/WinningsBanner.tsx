@@ -38,6 +38,12 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
     error,
   } = state;
 
+  const canScore = type === "main" ? (state as WinningsState).canScore : false;
+  const scoreBracket =
+    type === "main" ? (state as WinningsState).scoreBracket : null;
+  const isScoring =
+    type === "main" ? (state as WinningsState).isScoring : false;
+
   // Nothing to show until results are posted
   if (!resultsPostedAt || resultsPostedAt === 0n) return null;
 
@@ -144,6 +150,16 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
 
   // ── Scoring window open ──────────────────────────────────────────
   if (isWindowOpen && scoringWindowClosesAt !== null) {
+    const handleScore = async () => {
+      if (!scoreBracket) return;
+      try {
+        const hash = await scoreBracket();
+        setTxHash(hash);
+      } catch {
+        // error already set in hook state
+      }
+    };
+
     return (
       <div className="bg-bg-secondary border border-border rounded-xl p-4 sm:p-5 mb-4 sm:mb-6">
         <div className="text-sm font-semibold text-text-primary mb-1">
@@ -153,6 +169,25 @@ export function WinningsBanner({ type, state }: WinningsBannerProps) {
           Scoring window closes {formatDate(scoringWindowClosesAt)}. Winners can
           claim their prize after scoring completes.
         </p>
+        {canScore && (
+          <div className="mt-3">
+            {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+            {txHash ? (
+              <p className="text-xs text-success font-mono">
+                Transaction sent: {truncateHash(txHash)}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleScore}
+                disabled={isScoring}
+                className="px-4 py-1.5 rounded-lg bg-accent text-bg-primary font-semibold text-xs sm:text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isScoring ? "Scoring..." : "Score My Bracket"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
