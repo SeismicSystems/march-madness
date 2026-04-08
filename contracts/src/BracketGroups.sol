@@ -244,7 +244,9 @@ contract BracketGroups {
         if (memberIndex >= g.entryCount) revert IndexOutOfBounds();
 
         uint256 resultsPostedAt = marchMadness.resultsPostedAt();
+        uint256 scoringDuration = marchMadness.SCORING_DURATION();
         if (resultsPostedAt == 0) revert ResultsNotPosted();
+        if (block.timestamp >= resultsPostedAt + scoringDuration) revert ScoringWindowClosed();
 
         Member storage member = _members[groupId][memberIndex];
         if (member.isScored) revert AlreadyScored();

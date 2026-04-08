@@ -140,6 +140,7 @@ contract MarchMadness is IMarchMadness {
     function scoreBracket(address account) external {
         if (results == bytes8(0)) revert ResultsNotPosted();
         if (isScored[account]) revert AlreadyScored();
+        if (block.timestamp >= resultsPostedAt + SCORING_DURATION) revert ScoringWindowClosed();
 
         bytes8 b = bytes8(brackets[account]);
         if (b[0] & 0x80 == 0) revert NoBracketSubmitted();
