@@ -6,11 +6,11 @@ import {
   MarchMadnessUserClient,
 } from "@march-madness/client";
 
-import { CONTRACT_ADDRESS } from "../lib/constants";
-
-// Contract constants — unchanging
-const SCORING_DURATION = 7n * 24n * 3600n; // 7 days in seconds
-const RESULTS_DEADLINE = 90n * 24n * 3600n; // 90 days in seconds
+import {
+  CONTRACT_ADDRESS,
+  SCORING_DURATION,
+  RESULTS_DEADLINE,
+} from "../lib/constants";
 
 function nowSeconds(): bigint {
   return BigInt(Math.floor(Date.now() / 1000));
@@ -170,9 +170,13 @@ export function useWinningsState(): WinningsState {
     numWinners > 0n;
 
   const canClaim = isWinner && isWindowClosed && !hasCollected;
-  const canScore =
+  const isWindowOpen =
     resultsPostedAt !== null &&
     resultsPostedAt > 0n &&
+    !isWindowClosed;
+
+  const canScore =
+    isWindowOpen &&
     !walletIsScored &&
     hasEntry &&
     mmUser !== null;

@@ -59,6 +59,12 @@ export const SEED_ORDER = [
   1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15,
 ];
 
+/** Scoring window duration — must match MarchMadness.SCORING_DURATION */
+export const SCORING_DURATION = 7n * 24n * 3600n; // 7 days in seconds
+
+/** Results deadline — must match MarchMadness.RESULTS_DEADLINE */
+export const RESULTS_DEADLINE = 90n * 24n * 3600n; // 90 days in seconds
+
 /** Round names */
 export const ROUND_NAMES = [
   "Round of 64",
