@@ -14,7 +14,6 @@ import type {
 
 import { CONTRACT_ADDRESS, GROUPS_CONTRACT_ADDRESS } from "../lib/constants";
 
-// Contract constants — both are unchanging
 const SCORING_DURATION = 7n * 24n * 3600n; // 7 days in seconds
 
 function nowSeconds(): bigint {
@@ -29,9 +28,6 @@ export interface GroupWinningsState {
   allScored: boolean;
   payoutAmount: bigint | null;
   resultsPostedAt: bigint | null;
-  isWindowOpen: boolean;
-  isWindowClosed: boolean;
-  scoringWindowClosesAt: bigint | null;
   memberIndex: number | null;
   isWinner: boolean;
   hasCollected: boolean;
@@ -137,10 +133,6 @@ export function useGroupWinningsState(
       : null;
 
   const now = nowSeconds();
-  const isWindowOpen =
-    resultsPostedAt !== null &&
-    resultsPostedAt > 0n &&
-    now < (scoringWindowClosesAt ?? 0n);
   const isWindowClosed =
     resultsPostedAt !== null &&
     resultsPostedAt > 0n &&
@@ -230,9 +222,6 @@ export function useGroupWinningsState(
     allScored,
     payoutAmount,
     resultsPostedAt,
-    isWindowOpen,
-    isWindowClosed,
-    scoringWindowClosesAt,
     memberIndex,
     isWinner,
     hasCollected,

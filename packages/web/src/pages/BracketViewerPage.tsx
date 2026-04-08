@@ -17,6 +17,7 @@ export function BracketViewerPage() {
   const { status: tournamentStatus } = useTournamentStatus();
   const { teamProbs } = useTeamProbs();
   const {
+    isScored,
     canScore,
     scoreBracket,
     isScoring,
@@ -112,15 +113,17 @@ export function BracketViewerPage() {
               </div>
             </div>
           )}
-          {canScore && (
+          {isScored && !canScore && (
+            <div className="text-xs text-success font-semibold">Scored ✓</div>
+          )}
+          {(canScore || scoreTxHash) && (
             <div className="text-right">
               {scoringError && (
                 <p className="text-xs text-red-400 mb-1">{scoringError}</p>
               )}
               {scoreTxHash ? (
                 <p className="text-xs text-success font-mono">
-                  Scored:{" "}
-                  {`${scoreTxHash.slice(0, 10)}…${scoreTxHash.slice(-6)}`}
+                  Score submitted
                 </p>
               ) : (
                 <button

@@ -1,0 +1,4 @@
+we need to allow scoring now, no 7 day deadline, the marchmadness tournament is already over
+
+[follow-up clarification]
+i should be able to score the account but NOT claim winnings until the deadline
